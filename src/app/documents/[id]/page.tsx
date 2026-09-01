@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { DocumentPreview } from '@/components/DocumentPreview'
@@ -35,12 +36,22 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        <a
-          href={`/api/documents/${doc.id}/download?type=source`}
-          className="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition-colors hover:bg-slate-50"
-        >
-          הורדת מסמך
-        </a>
+        <div className="flex shrink-0 gap-2">
+          <a
+            href={`/api/documents/${doc.id}/download?type=source`}
+            className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition-colors hover:bg-slate-50"
+          >
+            הורדת מסמך
+          </a>
+          {doc.status === 'draft' && doc.hasRendered ? (
+            <Link
+              href={`/documents/${doc.id}/edit`}
+              className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)]"
+            >
+              הוספת שדות
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_18rem]">

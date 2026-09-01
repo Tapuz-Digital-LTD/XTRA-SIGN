@@ -15,6 +15,13 @@
       "when": 1788268914484,
       "tag": "0001_conscious_ikaris",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788271898315,
+      "tag": "0002_flippant_screwball",
+      "breakpoints": true
     }
   ]
 }

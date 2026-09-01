@@ -18,10 +18,20 @@ export type ConversionInput = {
   kind: 'pdf' | 'doc' | 'docx'
 }
 
+export type PageGeometry = {
+  page: number
+  imageWidth: number
+  imageHeight: number
+  /** The page's own size in PDF points, measured — never assumed. */
+  widthPt: number
+  heightPt: number
+}
+
 export type ConversionResult = {
   pdf: Buffer
   pages: Buffer[]
   pageCount: number
+  geometry: PageGeometry[]
 }
 
 const IMAGE_NAME = process.env.CONVERTER_IMAGE ?? 'xtra-sign-converter'
@@ -61,7 +71,19 @@ export async function convertDocument(input: ConversionInput): Promise<Conversio
 
     const raw = await runContainer(workDir, job)
 
-    let parsed: { ok: boolean; failure?: string; pages?: number; images?: string[] }
+    let parsed: {
+      ok: boolean
+      failure?: string
+      pages?: number
+      images?: string[]
+      pageInfo?: {
+        page: number
+        imageWidth: number | null
+        imageHeight: number | null
+        widthPt: number | null
+        heightPt: number | null
+      }[]
+    }
     try {
       parsed = JSON.parse(raw)
     } catch {
@@ -92,7 +114,24 @@ export async function convertDocument(input: ConversionInput): Promise<Conversio
       pages.push(page)
     }
 
-    return { pdf, pages, pageCount: parsed.pages ?? pages.length }
+    // A page whose geometry could not be measured is refused rather than
+    // defaulted: a guessed page size puts every field on it in the wrong place.
+    const geometry: PageGeometry[] = []
+    for (const info of parsed.pageInfo ?? []) {
+      if (!info.imageWidth || !info.imageHeight || !info.widthPt || !info.heightPt) {
+        throw new ProcessingError('unreadable')
+      }
+      geometry.push({
+        page: info.page,
+        imageWidth: info.imageWidth,
+        imageHeight: info.imageHeight,
+        widthPt: info.widthPt,
+        heightPt: info.heightPt,
+      })
+    }
+    if (geometry.length !== pages.length) throw new ProcessingError('unreadable')
+
+    return { pdf, pages, pageCount: parsed.pages ?? pages.length, geometry }
   } finally {
     // Runs on success, on a thrown ProcessingError, and on an unexpected throw.
     // A leaked temp directory per bad upload fills the disk, and then every

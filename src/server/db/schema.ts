@@ -1,5 +1,6 @@
 import {
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -162,6 +163,35 @@ export const agreementVersions = pgTable(
   (t) => [uniqueIndex('versions_agreement_number_unique').on(t.agreementId, t.versionNumber)],
 )
 
+/**
+ * The real geometry of one rendered page.
+ *
+ * Pages in one document are not all the same size and are not necessarily A4:
+ * an appendix can be Letter, a plan can be landscape. Field positions are
+ * fractions of THIS page, so these numbers are what turn a fraction back into
+ * a point on the page when the signed PDF is produced.
+ *
+ * Both units are kept: pixels are what the browser lays the editor out in,
+ * points are what the PDF is drawn in.
+ */
+export const documentPages = pgTable(
+  'document_pages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    agreementVersionId: uuid('agreement_version_id')
+      .notNull()
+      .references(() => agreementVersions.id),
+    pageNumber: integer('page_number').notNull(),
+    /** Rendered image size, in pixels. */
+    imageWidth: integer('image_width').notNull(),
+    imageHeight: integer('image_height').notNull(),
+    /** The page's own size in PDF points — never assumed, always measured. */
+    widthPt: doublePrecision('width_pt').notNull(),
+    heightPt: doublePrecision('height_pt').notNull(),
+  },
+  (t) => [uniqueIndex('document_pages_version_number_unique').on(t.agreementVersionId, t.pageNumber)],
+)
+
 export const recipients = pgTable(
   'recipients',
   {
@@ -269,11 +299,19 @@ export const fields = pgTable(
     ownedBy: fieldOwner('owned_by').notNull(),
     required: boolean('required').default(true).notNull(),
     page: integer('page').default(1).notNull(),
-    /** Fractions of page width/height — resolution-independent placement. */
-    x: text('x').notNull(),
-    y: text('y').notNull(),
-    width: text('width').notNull(),
-    height: text('height').notNull(),
+    /**
+     * Position and size as FRACTIONS of the page, 0..1, with the origin at the
+     * page's top-left.
+     *
+     * Never pixels and never points: a pixel value is tied to the width the
+     * editor happened to render at, so the same field would land somewhere else
+     * on a phone, on a landscape page, or on Letter. A fraction multiplied by
+     * this page's own measured size is the same physical spot everywhere.
+     */
+    x: doublePrecision('x').notNull(),
+    y: doublePrecision('y').notNull(),
+    width: doublePrecision('width').notNull(),
+    height: doublePrecision('height').notNull(),
     options: jsonb('options'),
     value: text('value'),
     filledAt: timestamp('filled_at', { withTimezone: true }),

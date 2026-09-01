@@ -44,7 +44,7 @@ export async function processDocumentVersion(input: {
 
   try {
     const source = await storage.get(version.sourceFileKey)
-    const { pdf, pages, pageCount } = await convertDocument({ buffer: source, kind })
+    const { pdf, pages, pageCount, geometry } = await convertDocument({ buffer: source, kind })
 
     // The rendered PDF is what fields are placed against and what gets signed,
     // so it carries its own hash — the source hash says nothing about it.
@@ -65,6 +65,23 @@ export async function processDocumentVersion(input: {
     for (const [index, page] of pages.entries()) {
       await storage.put(pageImageKey(input, index + 1), page, 'image/png')
     }
+
+    // Replace rather than append: reprocessing a version must not leave two
+    // geometries for the same page.
+    await db
+      .delete(schema.documentPages)
+      .where(eq(schema.documentPages.agreementVersionId, input.versionId))
+
+    await db.insert(schema.documentPages).values(
+      geometry.map((page) => ({
+        agreementVersionId: input.versionId,
+        pageNumber: page.page,
+        imageWidth: page.imageWidth,
+        imageHeight: page.imageHeight,
+        widthPt: page.widthPt,
+        heightPt: page.heightPt,
+      })),
+    )
 
     await db
       .update(schema.agreementVersions)
