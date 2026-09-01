@@ -1,43 +1,9 @@
 import type { NextConfig } from 'next'
+import { buildCsp } from './src/lib/content-security-policy'
 
 const isProd = process.env.NODE_ENV === 'production'
 
-/**
- * Content Security Policy.
- *
- * `'unsafe-inline'` on styles is Tailwind's inlined critical CSS and Next's
- * style injection; removing it needs a nonce plumbed through every render, and
- * an injected stylesheet is a far smaller problem than an injected script.
- *
- * Scripts get no `'unsafe-eval'` in production. Development needs it for React
- * Refresh, which is exactly the sort of gap that should not exist in the build
- * that faces the internet.
- *
- * `img-src 'self' data: blob:` — page previews come from our own routes, and
- * the signature pad produces a data/blob URL before it is uploaded.
- *
- * `connect-src 'self'` — the browser never talks to InforU or to storage
- * directly; every outbound call goes through the server, which is what keeps
- * credentials and signed URLs off the client.
- */
-const csp = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"}`,
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self' data:",
-  "connect-src 'self'",
-  // pdf.js runs its parser in a Web Worker, which Next serves from a blob: URL.
-  // Without this the preview silently fails to render.
-  "worker-src 'self' blob:",
-  // Storage is private and signed URLs are followed by a redirect the browser
-  // makes itself, so no third-party origin needs to be reachable from a page.
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-  "base-uri 'none'",
-  "object-src 'none'",
-  ...(isProd ? ['upgrade-insecure-requests'] : []),
-].join('; ')
+const csp = buildCsp({ isProd })
 
 const nextConfig: NextConfig = {
   // Pin the workspace root: a package-lock.json in the parent directory

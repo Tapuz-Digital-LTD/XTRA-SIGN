@@ -1,4 +1,5 @@
 import { del, get, head, issueSignedToken, presignUrl, put } from '@vercel/blob'
+import { isConnectableUploadUrl } from '@/lib/content-security-policy'
 import type { DocumentStorage, StoredObject } from './types'
 
 /**
@@ -134,6 +135,17 @@ export async function presignUpload(input: {
     addRandomSuffix: false,
     allowOverwrite: false,
   })
+
+  // The browser can only PUT to a host `connect-src` permits. If Blob ever
+  // changes the shape of its presigned URLs, that failure belongs here — named,
+  // on the server, at the moment the URL is minted — rather than as a fetch
+  // that rejects in the browser with nothing to look at.
+  if (!isConnectableUploadUrl(presignedUrl)) {
+    throw new Error(
+      `Presigned upload URL is not reachable under the app's Content-Security-Policy: ${new URL(presignedUrl).origin}`,
+    )
+  }
+
   return presignedUrl
 }
 

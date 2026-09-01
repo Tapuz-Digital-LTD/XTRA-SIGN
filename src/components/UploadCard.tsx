@@ -52,7 +52,11 @@ export function UploadCard() {
       }
 
       router.push(`/documents/${data.agreementId}`)
-    } catch {
+    } catch (cause) {
+      // A rejected fetch carries no status and no body — a blocked request and
+      // a dead network look identical to the user. Log the cause so the next
+      // one is diagnosable from the console rather than guessed at.
+      console.error('upload failed', cause)
       setError('ההעלאה נכשלה. בדקו את החיבור לאינטרנט.')
     } finally {
       setBusy(false)
