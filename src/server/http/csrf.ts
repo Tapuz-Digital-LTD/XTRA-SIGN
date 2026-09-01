@@ -23,6 +23,8 @@
  * rejection, not a pass.
  */
 
+import { log } from '@/server/log'
+
 export class CsrfError extends Error {
   readonly status = 403
   constructor(readonly reason: string) {
@@ -59,29 +61,50 @@ export function allowedOrigins(): string[] {
  */
 export function assertSameOrigin(request: Request): void {
   const permitted = allowedOrigins()
+  const origin = request.headers.get('origin')
+  const referer = request.headers.get('referer')
+
+  const reject = (reason: string): never => {
+    // The client sees a bare 403. Everything needed to explain it is here:
+    // what the browser sent, and what the deployment was told to expect. None
+    // of it is secret — an origin is a public name — and without it a
+    // misconfigured SIGN_PUBLIC_URL looks exactly like an attack.
+    log.warn('csrf_check_failed', {
+      reason,
+      origin,
+      referer: referer ? safeOrigin(referer) : null,
+      allowedOrigins: permitted,
+      path: new URL(request.url).pathname,
+    })
+    throw new CsrfError(reason)
+  }
+
   if (permitted.length === 0) {
     // Failing closed: an unconfigured deployment must not silently accept
     // cross-site mutations.
-    throw new CsrfError('no_allowed_origins_configured')
+    reject('no_allowed_origins_configured')
   }
 
-  const origin = request.headers.get('origin')
   if (origin) {
-    if (!permitted.includes(origin)) throw new CsrfError('origin_mismatch')
+    if (!permitted.includes(origin)) reject('origin_mismatch')
     return
   }
 
-  const referer = request.headers.get('referer')
   if (referer) {
-    let refererOrigin: string
-    try {
-      refererOrigin = new URL(referer).origin
-    } catch {
-      throw new CsrfError('referer_unparseable')
-    }
-    if (!permitted.includes(refererOrigin)) throw new CsrfError('referer_mismatch')
+    const refererOrigin = safeOrigin(referer)
+    if (!refererOrigin) reject('referer_unparseable')
+    else if (!permitted.includes(refererOrigin)) reject('referer_mismatch')
     return
   }
 
-  throw new CsrfError('origin_and_referer_absent')
+  reject('origin_and_referer_absent')
+}
+
+/** The origin of a URL, or null when it does not parse. Never the path. */
+function safeOrigin(value: string): string | null {
+  try {
+    return new URL(value).origin
+  } catch {
+    return null
+  }
 }

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CsrfError, allowedOrigins, assertSameOrigin } from '../csrf'
 
 const APP = 'https://sign.xtra.co.il'
@@ -77,5 +77,44 @@ describe('assertSameOrigin', () => {
   it('fails closed when nothing is configured', () => {
     delete process.env.SIGN_PUBLIC_URL
     expect(() => assertSameOrigin(req({ origin: APP }))).toThrow(CsrfError)
+  })
+
+  it('logs every rejection with what was sent and what was expected', () => {
+    // The browser sees a bare 403. A wrong SIGN_PUBLIC_URL and a real
+    // cross-site request produce the same one, and only the log tells them
+    // apart — so the log must carry both sides of the comparison.
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      expect(() =>
+        assertSameOrigin(req({ origin: 'https://xtra-sign-preview.vercel.app' })),
+      ).toThrow(CsrfError)
+
+      const line = JSON.parse(String(stderr.mock.calls.at(-1)?.[0]))
+      expect(line).toMatchObject({
+        level: 'warn',
+        msg: 'csrf_check_failed',
+        reason: 'origin_mismatch',
+        origin: 'https://xtra-sign-preview.vercel.app',
+        allowedOrigins: [APP],
+        path: '/api/documents/upload',
+      })
+    } finally {
+      stderr.mockRestore()
+    }
+  })
+
+  it('logs the Referer as an origin only, never the full URL', () => {
+    // A referer carries the page path, which for a signer is the signing link.
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      expect(() =>
+        assertSameOrigin(req({ referer: 'https://evil.example/sign/secret-token' })),
+      ).toThrow(CsrfError)
+      const line = JSON.parse(String(stderr.mock.calls.at(-1)?.[0]))
+      expect(line.referer).toBe('https://evil.example')
+      expect(JSON.stringify(line)).not.toContain('secret-token')
+    } finally {
+      stderr.mockRestore()
+    }
   })
 })

@@ -60,8 +60,16 @@ It runs only what it has credentials for, and says loudly when it skips:
 1. New Vercel project from this repo.
 2. Add **Neon** and a **Blob store** from the Marketplace — `DATABASE_URL` and
    `BLOB_READ_WRITE_TOKEN` are injected automatically.
-3. Set the rest of the environment variables from `.env.example`. In particular
-   `SIGN_LOG_NOTIFICATIONS=false`, or nothing is actually sent.
+3. Set the rest of the environment variables from `.env.example`. In particular:
+   - `SIGN_PUBLIC_URL` — the exact origin people open the app at, scheme and
+     host (`https://xtra-sign.vercel.app`). Every login, upload and send is
+     refused with "הבקשה נדחתה." unless the browser's Origin matches it.
+     `/api/ready` reports a bad value as `origin: false`. A custom domain goes
+     in `SIGN_EXTRA_ORIGINS`.
+   - `SIGN_LOG_NOTIFICATIONS=false`, or nothing is actually sent.
+
+   Environment changes only reach a deployment on its next build, so redeploy
+   after editing them.
 4. Point `DATABASE_URL` at the new database locally and run `npm run db:migrate`
    once. Migrations are deliberately **not** part of the build: a build runs on
    every push and every preview, and a branch opened for an experiment must not
