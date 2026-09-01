@@ -1,37 +1,32 @@
+'use client'
+
+import { PdfPage } from '@/components/PdfPage'
+
 /**
- * The document, as page images.
+ * The document, rendered by pdf.js in the browser.
  *
- * Not an embedded PDF: the field editor needs fixed pixel geometry to place
- * fields, and an image cannot execute whatever a hostile document was carrying.
- * Each page is fetched from an authorized route, so no storage URL is exposed.
+ * Not an <embed> of the PDF: pdf.js parses the file into canvas draw calls with
+ * our own sandboxed code and never executes JavaScript embedded in the
+ * document, so a hostile file never reaches the browser's native viewer.
+ * Pages paint lazily as they come into view.
  */
 export function DocumentPreview({
   documentId,
-  pageCount,
+  pages,
 }: {
   documentId: string
-  pageCount: number
+  pages: { pageNumber: number; widthPt: number; heightPt: number }[]
 }) {
-  const pages = Array.from({ length: pageCount }, (_, i) => i + 1)
-
   return (
     <div className="flex flex-col gap-4">
       {pages.map((page) => (
-        // Deliberately a plain <img>, not next/image: the optimizer fetches the
-        // source itself and this route requires the viewer's session cookie, so
-        // optimization would either fail or need the page made reachable
-        // without authorization. Neither is acceptable for a private document.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          key={page}
-          src={`/api/documents/${documentId}/pages/${page}`}
-          alt={`עמוד ${page} מתוך ${pageCount}`}
-          // Intrinsic size reserves the space before the image lands, so the
-          // page does not jump as each one loads.
-          width={1240}
-          height={1754}
-          loading={page === 1 ? 'eager' : 'lazy'}
-          className="h-auto w-full rounded-[var(--radius-card)] border border-line bg-white shadow-[var(--shadow)]"
+        <PdfPage
+          key={page.pageNumber}
+          url={`/api/documents/${documentId}/file`}
+          pageNumber={page.pageNumber}
+          widthPt={page.widthPt}
+          heightPt={page.heightPt}
+          className="relative w-full overflow-hidden rounded-[var(--radius-card)] border border-line bg-white shadow-[var(--shadow)]"
         />
       ))}
     </div>

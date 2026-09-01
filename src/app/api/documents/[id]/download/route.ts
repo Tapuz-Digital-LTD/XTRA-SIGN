@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { ForbiddenError, requireSession, UnauthorizedError } from '@/server/auth/session'
 import { authorizeVersionFileAccess } from '@/server/documents/authorization'
-import { getStorage } from '@/server/storage/s3'
+import { getStorage } from '@/server/storage/blob'
 
 const PURPOSES = ['source', 'rendered', 'signed'] as const
 type Purpose = (typeof PURPOSES)[number]

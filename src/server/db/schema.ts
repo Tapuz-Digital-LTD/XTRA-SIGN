@@ -1,5 +1,6 @@
 import {
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -46,6 +47,9 @@ export const fieldType = pgEnum('field_type', [
   'file',
 ])
 
+/** Two levels, as agreed. Anything finer is a permission system nobody asked for. */
+export const userRole = pgEnum('user_role', ['admin', 'user'])
+
 export const deliveryChannel = pgEnum('delivery_channel', ['email', 'sms'])
 
 export const deliveryStatus = pgEnum('delivery_status', ['queued', 'sent', 'failed'])
@@ -65,11 +69,108 @@ export const users = pgTable(
       .references(() => organizations.id),
     email: text('email').notNull(),
     name: text('name').notNull(),
-    passwordHash: text('password_hash').notNull(),
+    /**
+     * Null until the invitation is accepted. There is no public signup and no
+     * password is ever emailed — an invited user sets their own, so an account
+     * exists with no way to log into it until they do.
+     */
+    passwordHash: text('password_hash'),
+    role: userRole('role').default('user').notNull(),
     isAdmin: boolean('is_admin').default(false).notNull(),
+    /** Set to lock an account out. Never delete a user: audit rows reference them. */
+    disabledAt: timestamp('disabled_at', { withTimezone: true }),
+    lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex('users_email_unique').on(t.email)],
+)
+
+/**
+ * A pending invitation. Only the hash is stored, so a database dump is not a
+ * set of working invitations.
+ */
+export const invitations = pgTable(
+  'invitations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    email: text('email').notNull(),
+    name: text('name').notNull(),
+    role: userRole('role').default('user').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    invitedBy: uuid('invited_by')
+      .notNull()
+      .references(() => users.id),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('invitations_token_unique').on(t.tokenHash)],
+)
+
+/** Same shape as an invitation, and single-use for the same reason. */
+export const passwordResets = pgTable(
+  'password_resets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('password_resets_token_unique').on(t.tokenHash)],
+)
+
+/**
+ * Rate limit counters.
+ *
+ * In the database rather than in process memory because production runs several
+ * tasks: an in-memory counter multiplies every limit by the task count and
+ * resets on deploy, which is when someone is most likely to be hammering the
+ * login form.
+ */
+export const rateLimits = pgTable(
+  'rate_limits',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bucket: text('bucket').notNull(),
+    windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+    count: integer('count').default(0).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    uniqueIndex('rate_limits_bucket_window_unique').on(t.bucket, t.windowStart),
+    index('rate_limits_expiry_idx').on(t.expiresAt),
+  ],
+)
+
+/**
+ * Admin actions worth being able to answer questions about later: who invited
+ * whom, who disabled an account, who changed a role.
+ *
+ * Separate from auditEvents, which is scoped to one agreement.
+ */
+export const adminAuditEvents = pgTable(
+  'admin_audit_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    type: text('type').notNull(),
+    actorEmail: text('actor_email').notNull(),
+    targetEmail: text('target_email'),
+    ip: text('ip'),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('admin_audit_org_idx').on(t.organizationId, t.createdAt)],
 )
 
 /**
@@ -160,6 +261,36 @@ export const agreementVersions = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex('versions_agreement_number_unique').on(t.agreementId, t.versionNumber)],
+)
+
+/**
+ * The real geometry of one page.
+ *
+ * Pages in one document are not all the same size and are not necessarily A4:
+ * an appendix can be Letter, a plan can be landscape. Field positions are
+ * fractions of THIS page, so these numbers are what turn a fraction back into
+ * a point on the page when the signed PDF is produced.
+ */
+export const documentPages = pgTable(
+  'document_pages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    agreementVersionId: uuid('agreement_version_id')
+      .notNull()
+      .references(() => agreementVersions.id),
+    pageNumber: integer('page_number').notNull(),
+    /**
+     * The page's own size in PDF points — never assumed, always measured.
+     *
+     * This is the whole record now. There used to be a rendered image size in
+     * pixels alongside it, from when pages were rasterised server-side; the
+     * browser draws the PDF itself, so the aspect ratio it needs comes from
+     * these two numbers and nothing has to agree with a stored image.
+     */
+    widthPt: doublePrecision('width_pt').notNull(),
+    heightPt: doublePrecision('height_pt').notNull(),
+  },
+  (t) => [uniqueIndex('document_pages_version_number_unique').on(t.agreementVersionId, t.pageNumber)],
 )
 
 export const recipients = pgTable(
@@ -269,11 +400,19 @@ export const fields = pgTable(
     ownedBy: fieldOwner('owned_by').notNull(),
     required: boolean('required').default(true).notNull(),
     page: integer('page').default(1).notNull(),
-    /** Fractions of page width/height — resolution-independent placement. */
-    x: text('x').notNull(),
-    y: text('y').notNull(),
-    width: text('width').notNull(),
-    height: text('height').notNull(),
+    /**
+     * Position and size as FRACTIONS of the page, 0..1, with the origin at the
+     * page's top-left.
+     *
+     * Never pixels and never points: a pixel value is tied to the width the
+     * editor happened to render at, so the same field would land somewhere else
+     * on a phone, on a landscape page, or on Letter. A fraction multiplied by
+     * this page's own measured size is the same physical spot everywhere.
+     */
+    x: doublePrecision('x').notNull(),
+    y: doublePrecision('y').notNull(),
+    width: doublePrecision('width').notNull(),
+    height: doublePrecision('height').notNull(),
     options: jsonb('options'),
     value: text('value'),
     filledAt: timestamp('filled_at', { withTimezone: true }),

@@ -116,6 +116,8 @@ export type DocumentDetail = {
   sentAt: Date | null
   completedAt: Date | null
   pageCount: number | null
+  /** Per-page geometry, for the pdf.js preview to reserve the right boxes. */
+  pages: { pageNumber: number; widthPt: number; heightPt: number }[]
   renderedHash: string | null
   hasRendered: boolean
   /** True when the rendered PDF came from a Word file rather than being one. */
@@ -157,6 +159,18 @@ export async function getDocumentDetail(agreementId: string): Promise<DocumentDe
     .where(eq(schema.recipients.agreementId, agreementId))
     .limit(1)
 
+  const pages = versions[0]
+    ? await db
+        .select({
+          pageNumber: schema.documentPages.pageNumber,
+          widthPt: schema.documentPages.widthPt,
+          heightPt: schema.documentPages.heightPt,
+        })
+        .from(schema.documentPages)
+        .where(eq(schema.documentPages.agreementVersionId, versions[0].id))
+        .orderBy(schema.documentPages.pageNumber)
+    : []
+
   const timeline = await db
     .select({ type: schema.auditEvents.type, createdAt: schema.auditEvents.createdAt })
     .from(schema.auditEvents)
@@ -173,6 +187,7 @@ export async function getDocumentDetail(agreementId: string): Promise<DocumentDe
     sentAt: agreement.sentAt,
     completedAt: agreement.completedAt,
     pageCount: version?.pageCount ?? null,
+    pages,
     renderedHash: version?.renderedHash ?? null,
     hasRendered: Boolean(version?.renderedFileKey),
     // A converted document is one where the rendered file is a different object

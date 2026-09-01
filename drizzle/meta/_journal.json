@@ -15,6 +15,27 @@
       "when": 1788268914484,
       "tag": "0001_conscious_ikaris",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788271898315,
+      "tag": "0002_flippant_screwball",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788277042046,
+      "tag": "0003_useful_smiling_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788286049805,
+      "tag": "0004_pale_ronan",
+      "breakpoints": true
     }
   ]
 }

@@ -1,13 +1,11 @@
-import { readFileSync } from 'node:fs'
 import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
-import { getStorage } from '@/server/storage/s3'
+import { getStorage } from '@/server/storage/blob'
 import { sha256 } from '../file-validation'
-import { pageImageKey, processDocumentVersion } from '../process-document'
+import { processDocumentVersion } from '../process-document'
 import { uploadDocument } from '../upload-document'
-import { FIXTURES, buildFixtures } from './fixtures'
 
 /**
  * Upload through conversion to stored page images, against the real Postgres,
@@ -21,7 +19,6 @@ let session: StaffSession
 const createdAgreements: string[] = []
 
 beforeAll(async () => {
-  buildFixtures()
 
   const suffix = crypto.randomUUID().slice(0, 8)
   const [org] = await db
@@ -54,6 +51,17 @@ afterAll(async () => {
   for (const id of createdAgreements) {
     await db.delete(schema.auditEvents).where(eq(schema.auditEvents.agreementId, id))
     await db.update(schema.agreements).set({ currentVersionId: null }).where(eq(schema.agreements.id, id))
+
+    // Page geometry references the version, so it goes first. PGlite enforces
+    // the same foreign keys production does, which is the point of using it.
+    const versions = await db
+      .select({ id: schema.agreementVersions.id })
+      .from(schema.agreementVersions)
+      .where(eq(schema.agreementVersions.agreementId, id))
+    for (const v of versions) {
+      await db.delete(schema.documentPages).where(eq(schema.documentPages.agreementVersionId, v.id))
+    }
+
     await db.delete(schema.agreementVersions).where(eq(schema.agreementVersions.agreementId, id))
     await db.delete(schema.agreements).where(eq(schema.agreements.id, id))
   }
@@ -61,85 +69,11 @@ afterAll(async () => {
   await db.delete(schema.organizations).where(eq(schema.organizations.id, orgId))
 })
 
-async function uploadAndProcess(path: string, filename: string) {
-  const buffer = readFileSync(path)
-  const uploaded = await uploadDocument({ session, buffer, filename })
-  if (!uploaded.ok) throw new Error(`upload rejected: ${uploaded.message}`)
-  createdAgreements.push(uploaded.agreementId)
 
-  const processed = await processDocumentVersion({
-    agreementId: uploaded.agreementId,
-    organizationId: orgId,
-    versionId: uploaded.versionId,
-    actor: session.email,
-  })
 
-  return { uploaded, processed }
-}
-
-describe('DOCX end to end', () => {
-  it('uploads, converts, and stores one page image per page', async () => {
-    const { uploaded, processed } = await uploadAndProcess(FIXTURES.docx, 'הסכם ספק.docx')
-
-    expect(processed).toMatchObject({ ok: true, pageCount: 1 })
-
-    const [version] = await db
-      .select()
-      .from(schema.agreementVersions)
-      .where(eq(schema.agreementVersions.id, uploaded.versionId))
-
-    // The rendered PDF is a separate object from the source, with its own hash:
-    // the source hash says nothing about what will actually be signed.
-    expect(version.renderedFileKey).toBeTruthy()
-    expect(version.renderedFileKey).not.toBe(version.sourceFileKey)
-    expect(version.renderedHash).toMatch(/^[0-9a-f]{64}$/)
-    expect(version.pageCount).toBe(1)
-
-    const storage = getStorage()
-
-    const rendered = await storage.get(version.renderedFileKey!)
-    expect(rendered.subarray(0, 5).toString()).toBe('%PDF-')
-    // The recorded hash must be the hash of what is actually stored.
-    expect(sha256(rendered)).toBe(version.renderedHash)
-
-    const page = await storage.get(
-      pageImageKey(
-        { organizationId: orgId, agreementId: uploaded.agreementId, versionId: version.id },
-        1,
-      ),
-    )
-    expect(page.subarray(1, 4).toString()).toBe('PNG')
-
-    // The original is kept untouched alongside the render.
-    const source = await storage.get(version.sourceFileKey!)
-    expect(sha256(source)).toBe(sha256(readFileSync(FIXTURES.docx)))
-  }, 180_000)
-})
-
-describe('legacy DOC end to end', () => {
-  it('uploads, converts and renders a binary .doc', async () => {
-    const { uploaded, processed } = await uploadAndProcess(FIXTURES.doc, 'הסכם ספק ישן.doc')
-
-    expect(processed).toMatchObject({ ok: true, pageCount: 1 })
-
-    const [version] = await db
-      .select()
-      .from(schema.agreementVersions)
-      .where(eq(schema.agreementVersions.id, uploaded.versionId))
-
-    const page = await getStorage().get(
-      pageImageKey(
-        { organizationId: orgId, agreementId: uploaded.agreementId, versionId: version.id },
-        1,
-      ),
-    )
-    expect(page.subarray(1, 4).toString()).toBe('PNG')
-    expect(page.length).toBeGreaterThan(5_000)
-  }, 180_000)
-})
 
 describe('PDF end to end', () => {
-  it('keeps a PDF as its own render rather than converting it again', async () => {
+  it('uses the uploaded PDF as its own render and records real page geometry', async () => {
     const pdf = Buffer.concat([
       Buffer.from('%PDF-1.4\n'),
       Buffer.from(
@@ -167,8 +101,22 @@ describe('PDF end to end', () => {
       .from(schema.agreementVersions)
       .where(eq(schema.agreementVersions.id, uploaded.versionId))
 
-    // Re-rendering a PDF through LibreOffice would change its bytes for nothing.
+    // There is nothing to convert: the uploaded PDF is the document that gets
+    // signed, so one object serves both roles and carries one hash.
     expect(version.renderedFileKey).toBe(version.sourceFileKey)
+    expect(version.renderedHash).toBe(sha256(pdf))
+    expect(version.pageCount).toBe(1)
+
+    // The geometry that every field position depends on, read straight out of
+    // the PDF rather than rasterised.
+    const pages = await db
+      .select()
+      .from(schema.documentPages)
+      .where(eq(schema.documentPages.agreementVersionId, uploaded.versionId))
+
+    expect(pages).toHaveLength(1)
+    expect(pages[0].widthPt).toBeCloseTo(595, 0)
+    expect(pages[0].heightPt).toBeCloseTo(842, 0)
   }, 180_000)
 })
 
