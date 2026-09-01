@@ -8,13 +8,12 @@ import { log } from '@/server/log'
  * belongs to the organization, not to any one document.
  */
 export const AUDIT_EVENTS = {
-  USER_INVITED: 'user_invited',
-  INVITATION_ACCEPTED: 'invitation_accepted',
+  USER_CREATED: 'user_created',
+  USER_UPDATED: 'user_updated',
   USER_DISABLED: 'user_disabled',
   USER_ENABLED: 'user_enabled',
   USER_ROLE_CHANGED: 'user_role_changed',
-  PASSWORD_RESET_REQUESTED: 'password_reset_requested',
-  PASSWORD_RESET_COMPLETED: 'password_reset_completed',
+  LOGIN_CODE_SENT: 'login_code_sent',
   LOGIN_SUCCEEDED: 'login_succeeded',
   LOGIN_FAILED: 'login_failed',
 } as const
@@ -47,13 +46,12 @@ export async function recordAdminAction(input: {
 
 /** Hebrew labels. Internal names never reach a screen. */
 export const ADMIN_AUDIT_LABELS: Record<string, string> = {
-  user_invited: 'הוזמן משתמש',
-  invitation_accepted: 'הזמנה אושרה',
+  user_created: 'נוצר משתמש',
+  user_updated: 'פרטי משתמש עודכנו',
   user_disabled: 'משתמש הושבת',
   user_enabled: 'משתמש הופעל',
   user_role_changed: 'הרשאה שונתה',
-  password_reset_requested: 'התבקש איפוס סיסמה',
-  password_reset_completed: 'סיסמה אופסה',
+  login_code_sent: 'נשלח קוד כניסה',
   login_succeeded: 'כניסה למערכת',
   login_failed: 'ניסיון כניסה נכשל',
 }

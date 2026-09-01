@@ -36,6 +36,20 @@
       "when": 1788286049805,
       "tag": "0004_pale_ronan",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788290302649,
+      "tag": "0005_greedy_pride",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788290308573,
+      "tag": "0006_loose_forge",
+      "breakpoints": true
     }
   ]
 }

@@ -38,7 +38,7 @@ async function makeUser(
 ): Promise<StaffSession> {
   const [row] = await db
     .insert(schema.users)
-    .values({ organizationId, email, name: email, passwordHash: 'x', isAdmin })
+    .values({ organizationId, email, name: email, phone: `05${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`, isAdmin })
     .returning({ id: schema.users.id })
   return { userId: row.id, organizationId, email, name: email, isAdmin }
 }

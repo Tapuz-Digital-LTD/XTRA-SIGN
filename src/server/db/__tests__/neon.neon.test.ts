@@ -79,7 +79,7 @@ suite('interactive transactions over the pooled driver', () => {
     await db.transaction(async (tx) => {
       const [user] = await tx
         .insert(schema.users)
-        .values({ organizationId: orgId, email, name: 'commit', passwordHash: 'x' })
+        .values({ organizationId: orgId, email, name: 'commit', phone: `05${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}` })
         .returning({ id: schema.users.id })
 
       await tx
@@ -103,7 +103,7 @@ suite('interactive transactions over the pooled driver', () => {
       db.transaction(async (tx) => {
         await tx
           .insert(schema.users)
-          .values({ organizationId: orgId, email, name: 'rolled back', passwordHash: 'x' })
+          .values({ organizationId: orgId, email, name: 'rolled back', phone: `05${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}` })
 
         // Violates the foreign key — the same class of failure a real
         // completion would hit if a referenced row vanished.
@@ -126,7 +126,7 @@ suite('interactive transactions over the pooled driver', () => {
       db.transaction(async (tx) => {
         await tx
           .insert(schema.users)
-          .values({ organizationId: orgId, email, name: 'thrown', passwordHash: 'x' })
+          .values({ organizationId: orgId, email, name: 'thrown', phone: `05${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}` })
         throw new Error('application decided to abort')
       }),
     ).rejects.toThrow('application decided to abort')
@@ -148,7 +148,7 @@ suite('concurrency', () => {
       db.transaction(async (tx) => {
         await tx
           .insert(schema.users)
-          .values({ organizationId: orgId, email, name: 'race', passwordHash: 'x' })
+          .values({ organizationId: orgId, email, name: 'race', phone: `05${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}` })
       })
 
     const results = await Promise.allSettled([attempt(), attempt()])

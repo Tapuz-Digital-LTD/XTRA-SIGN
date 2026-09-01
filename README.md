@@ -21,7 +21,7 @@ Point `DATABASE_URL` at any Postgres (a Neon branch is the easiest), then:
 
 ```bash
 npm run db:migrate
-npx tsx --env-file=.env.local scripts/seed-user.ts you@xtra.co.il "a-good-password" "Your Name"
+npx tsx --env-file=.env.local scripts/bootstrap-admin.ts you@xtra.co.il 05X-XXX-XXXX "Your Name"
 ```
 
 Copy `.env.example` to `.env.local` and fill in what you need. Everything is

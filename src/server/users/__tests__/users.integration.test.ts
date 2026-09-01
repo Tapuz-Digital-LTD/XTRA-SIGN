@@ -1,19 +1,16 @@
 import { eq, sql } from 'drizzle-orm'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { normalizeIsraeliPhone } from '@/lib/phone'
 import type { StaffSession } from '@/server/auth/session'
+import { hashToken } from '@/server/auth/tokens'
 import { getDb, schema } from '@/server/db'
-import { hashToken, verifyPassword } from '@/server/auth/tokens'
 import {
   NotAdminError,
-  acceptInvitation,
-  completePasswordReset,
-  inviteUser,
+  createUser,
   listUsers,
-  requestPasswordReset,
-  resolveInvitation,
   setUserDisabled,
   setUserRole,
-  validatePassword,
+  updateUser,
 } from '../users'
 
 /** Against the real Postgres. */
@@ -25,12 +22,16 @@ let otherOrgId: string
 let admin: StaffSession
 let plain: StaffSession
 let suffix: string
+let phoneCounter = 0
 
-/**
- * The invitation email carries the only copy of the token; the database keeps
- * a hash. Capturing what the provider was handed is how a test can then use
- * the link, exactly as a recipient would.
- */
+/** Unique across every test in the run: the phone column is globally unique. */
+function freshPhone(): string {
+  phoneCounter += 1
+  return `05${String(phoneCounter).padStart(2, '0')}${suffix.replace(/\D/g, '9').slice(0, 2)}${String(
+    Math.floor(Math.random() * 10_000),
+  ).padStart(4, '0')}`
+}
+
 const sentEmails: { to: string; text: string }[] = []
 
 vi.mock('@/server/notifications/inforu', async (importOriginal) => {
@@ -50,14 +51,6 @@ vi.mock('@/server/notifications/inforu', async (importOriginal) => {
   }
 })
 
-function tokenFromLastEmail(): string {
-  const last = sentEmails.at(-1)
-  if (!last) throw new Error('no email was sent')
-  const match = /\/(?:invite|reset-password)\/([A-Za-z0-9_-]+)/.exec(last.text)
-  if (!match) throw new Error(`no token in: ${last.text}`)
-  return match[1]
-}
-
 beforeAll(async () => {
   suffix = crypto.randomUUID().slice(0, 8)
   process.env.SIGN_PUBLIC_URL = 'https://sign.test'
@@ -71,8 +64,8 @@ beforeAll(async () => {
     const [u] = await db
       .insert(schema.users)
       .values({
-        organizationId, email, name: email,
-        passwordHash: 'scrypt$00$00', role: isAdmin ? 'admin' : 'user', isAdmin,
+        organizationId, email, name: email, phone: normalizeIsraeliPhone(freshPhone())!,
+        role: isAdmin ? 'admin' : 'user', isAdmin,
       })
       .returning({ id: schema.users.id })
     return { userId: u.id, organizationId, email, name: email, isAdmin }
@@ -90,22 +83,24 @@ afterAll(async () => {
   for (const id of [orgId, otherOrgId]) {
     const users = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.organizationId, id))
     for (const u of users) {
-      await db.delete(schema.passwordResets).where(eq(schema.passwordResets.userId, u.id))
+      await db.delete(schema.loginChallenges).where(eq(schema.loginChallenges.userId, u.id))
       await db.delete(schema.userSessions).where(eq(schema.userSessions.userId, u.id))
     }
-    await db.delete(schema.invitations).where(eq(schema.invitations.organizationId, id))
     await db.delete(schema.adminAuditEvents).where(eq(schema.adminAuditEvents.organizationId, id))
     await db.delete(schema.users).where(eq(schema.users.organizationId, id))
     await db.delete(schema.organizations).where(eq(schema.organizations.id, id))
   }
-  await db.delete(schema.rateLimits).where(sql`${schema.rateLimits.bucket} like 'invite%' or ${schema.rateLimits.bucket} like 'forgot%' or ${schema.rateLimits.bucket} like 'login%'`)
+  await db.delete(schema.rateLimits).where(sql`${schema.rateLimits.bucket} like 'userCreate%' or ${schema.rateLimits.bucket} like 'login%'`)
 })
 
 describe('permissions', () => {
   it('REFUSES a non-admin every admin action', async () => {
     await expect(listUsers(plain)).rejects.toBeInstanceOf(NotAdminError)
     await expect(
-      inviteUser({ session: plain, email: 'x@y.com', name: 'x', role: 'user' }),
+      createUser({ session: plain, email: 'x@y.com', name: 'x', phone: '0521112233', role: 'user' }),
+    ).rejects.toBeInstanceOf(NotAdminError)
+    await expect(
+      updateUser({ session: plain, userId: admin.userId, email: 'x@y.com', name: 'x', phone: '0521112233' }),
     ).rejects.toBeInstanceOf(NotAdminError)
     await expect(
       setUserDisabled({ session: plain, userId: admin.userId, disabled: true }),
@@ -118,12 +113,18 @@ describe('permissions', () => {
   it('scopes an admin to their own organization', async () => {
     const outsider = await db
       .insert(schema.users)
-      .values({ organizationId: otherOrgId, email: `out-${suffix}@x.test`, name: 'out', passwordHash: 'x' })
+      .values({ organizationId: otherOrgId, email: `out-${suffix}@x.test`, name: 'out', phone: normalizeIsraeliPhone(freshPhone())! })
       .returning({ id: schema.users.id })
 
     // An admin is an admin of their tenant, never globally.
-    const result = await setUserDisabled({ session: admin, userId: outsider[0].id, disabled: true })
-    expect(result).toMatchObject({ ok: false })
+    const disable = await setUserDisabled({ session: admin, userId: outsider[0].id, disabled: true })
+    expect(disable).toMatchObject({ ok: false })
+
+    const edit = await updateUser({
+      session: admin, userId: outsider[0].id,
+      email: `out-${suffix}@x.test`, name: 'renamed', phone: freshPhone(),
+    })
+    expect(edit).toMatchObject({ ok: false })
 
     const listed = await listUsers(admin)
     expect(listed.map((u) => u.email)).not.toContain(`out-${suffix}@x.test`)
@@ -135,176 +136,97 @@ describe('permissions', () => {
   })
 })
 
-describe('invitations', () => {
-  it('creates a user with NO password and emails a link, never a password', async () => {
-    const email = `invited-${suffix}@xtra.test`
-    const result = await inviteUser({ session: admin, email, name: 'מוזמן', role: 'user' })
-    expect(result).toMatchObject({ ok: true })
+describe('creating users', () => {
+  it('creates an account that is usable immediately — nothing to accept, nothing to set', async () => {
+    const email = `created-${suffix}@xtra.test`
+    const phone = freshPhone()
 
-    const body = sentEmails.at(-1)!.text
-    expect(body).toContain('/invite/')
-
-    // The real property, rather than grepping the wording: at this point no
-    // password exists anywhere to have been emailed. One is only created when
-    // the invited person chooses it.
-    const rows = await db.select().from(schema.users).where(eq(schema.users.email, email))
-    expect(rows.every((row) => row.passwordHash === null)).toBe(true)
-
-    const listed = await listUsers(admin)
-    // The account does not appear in the list until the invitation is accepted.
-    expect(listed.map((u) => u.email)).not.toContain(email)
-  })
-
-  it('stores only the hash of the invitation token', async () => {
-    await inviteUser({ session: admin, email: `hash-${suffix}@xtra.test`, name: 'ח', role: 'user' })
-    const token = tokenFromLastEmail()
-
-    const [row] = await db
-      .select()
-      .from(schema.invitations)
-      .where(eq(schema.invitations.email, `hash-${suffix}@xtra.test`))
-
-    expect(row.tokenHash).not.toBe(token)
-    expect(row.tokenHash).toBe(hashToken(token))
-  })
-
-  it('accepts an invitation and sets the password the person chose', async () => {
-    const email = `accept-${suffix}@xtra.test`
-    await inviteUser({ session: admin, email, name: 'מקבל', role: 'user' })
-    const token = tokenFromLastEmail()
-
-    expect(await resolveInvitation(token)).toMatchObject({ email, role: 'user' })
-
-    const result = await acceptInvitation({ token, password: 'a-good-passphrase-9' })
+    const result = await createUser({ session: admin, email, name: 'חדש', phone, role: 'user' })
     expect(result).toMatchObject({ ok: true })
 
     const [user] = await db.select().from(schema.users).where(eq(schema.users.email, email))
-    expect(user.passwordHash).toBeTruthy()
-    expect(await verifyPassword('a-good-passphrase-9', user.passwordHash!)).toBe(true)
+    // Stored in the one canonical E.164 form, whatever way it was typed.
+    expect(user.phone).toBe(normalizeIsraeliPhone(phone))
+    expect(user.disabledAt).toBeNull()
+
+    // The welcome email tells them how to get in. It must never contain a
+    // password, a code, or any other secret — the phone is the way in.
+    expect(sentEmails).toHaveLength(1)
+    expect(sentEmails[0].to).toBe(email)
+    expect(sentEmails[0].text).not.toMatch(/סיסמה|password/i)
   })
 
-  it('is single-use — a replayed link creates nothing', async () => {
-    const email = `once-${suffix}@xtra.test`
-    await inviteUser({ session: admin, email, name: 'פעם', role: 'user' })
-    const token = tokenFromLastEmail()
+  it('normalizes the phone before storing it', async () => {
+    const email = `intl-${suffix}@xtra.test`
+    const raw = freshPhone()
+    const international = `+972${raw.slice(1)}`
 
-    expect(await acceptInvitation({ token, password: 'first-password-123' })).toMatchObject({ ok: true })
-    expect(await acceptInvitation({ token, password: 'second-password-123' })).toMatchObject({ ok: false })
-    expect(await resolveInvitation(token)).toBeNull()
+    expect(await createUser({ session: admin, email, name: 'בינלאומי', phone: international, role: 'user' })).toMatchObject({ ok: true })
+
+    const [user] = await db.select().from(schema.users).where(eq(schema.users.email, email))
+    // One canonical form, so the same SIM cannot become two accounts.
+    expect(user.phone).toBe(normalizeIsraeliPhone(raw))
   })
 
-  it('does not resolve an expired or unknown token', async () => {
-    for (const bad of ['', 'short', 'x'.repeat(43)]) {
-      expect(await resolveInvitation(bad)).toBeNull()
-    }
+  it('REFUSES a duplicate email and a duplicate phone, each with its own sentence', async () => {
+    const email = `dup-${suffix}@xtra.test`
+    const phone = freshPhone()
+    await createUser({ session: admin, email, name: 'ראשון', phone, role: 'user' })
 
-    await inviteUser({ session: admin, email: `exp-${suffix}@xtra.test`, name: 'פג', role: 'user' })
-    const token = tokenFromLastEmail()
-    await db
-      .update(schema.invitations)
-      .set({ expiresAt: new Date(Date.now() - 1000) })
-      .where(eq(schema.invitations.tokenHash, hashToken(token)))
+    const sameEmail = await createUser({ session: admin, email, name: 'שני', phone: freshPhone(), role: 'user' })
+    expect(sameEmail).toMatchObject({ ok: false, message: expect.stringContaining('אימייל') })
 
-    expect(await resolveInvitation(token)).toBeNull()
+    const samePhone = await createUser({ session: admin, email: `dup2-${suffix}@xtra.test`, name: 'שלישי', phone, role: 'user' })
+    expect(samePhone).toMatchObject({ ok: false, message: expect.stringContaining('טלפון') })
   })
 
-  it('revokes an earlier invitation when a second is sent', async () => {
-    const email = `resend-${suffix}@xtra.test`
-    await inviteUser({ session: admin, email, name: 'שוב', role: 'user' })
-    const first = tokenFromLastEmail()
-
-    await inviteUser({ session: admin, email, name: 'שוב', role: 'user' })
-    const second = tokenFromLastEmail()
-
-    // The newest link is the one that works, which is what a recipient assumes.
-    expect(await resolveInvitation(first)).toBeNull()
-    expect(await resolveInvitation(second)).not.toBeNull()
-  })
-
-  it('records who invited whom', async () => {
-    await inviteUser({ session: admin, email: `audit-${suffix}@xtra.test`, name: 'א', role: 'admin' })
-    const events = await db
-      .select()
-      .from(schema.adminAuditEvents)
-      .where(eq(schema.adminAuditEvents.organizationId, orgId))
-    const invite = events.find((e) => e.targetEmail === `audit-${suffix}@xtra.test`)
-    expect(invite?.type).toBe('user_invited')
-    expect(invite?.actorEmail).toBe(admin.email)
+  it('REFUSES a number that could never receive the login SMS', async () => {
+    const result = await createUser({
+      session: admin, email: `landline-${suffix}@xtra.test`, name: 'קווי',
+      phone: '03-5551234', role: 'user',
+    })
+    expect(result).toMatchObject({ ok: false })
   })
 })
 
-describe('passwords', () => {
-  it('refuses short and obvious passwords', () => {
-    expect(validatePassword('short')).toBeTruthy()
-    expect(validatePassword('password123')).toBeTruthy()
-    expect(validatePassword('a-perfectly-fine-one')).toBeNull()
-  })
-
-  it('reveals nothing about whether an address exists', async () => {
-    // Both return void and send nothing the caller can distinguish.
-    await expect(requestPasswordReset({ email: `nobody-${suffix}@nowhere.test` })).resolves.toBeUndefined()
-    expect(sentEmails).toHaveLength(0)
-  })
-
-  it('resets a password and kills every existing session', async () => {
-    const email = `reset-${suffix}@xtra.test`
-    await inviteUser({ session: admin, email, name: 'איפוס', role: 'user' })
-    await acceptInvitation({ token: tokenFromLastEmail(), password: 'original-password-1' })
-
+describe('editing users', () => {
+  it('changes name, email and phone', async () => {
+    const email = `edit-${suffix}@xtra.test`
+    await createUser({ session: admin, email, name: 'לפני', phone: freshPhone(), role: 'user' })
     const [user] = await db.select().from(schema.users).where(eq(schema.users.email, email))
-    await db.insert(schema.userSessions).values({
-      userId: user.id,
-      sessionHash: hashToken(`live-session-${suffix}`),
-      expiresAt: new Date(Date.now() + 3_600_000),
+
+    const newPhone = freshPhone()
+    const result = await updateUser({
+      session: admin, userId: user.id,
+      email: `edited-${suffix}@xtra.test`, name: 'אחרי', phone: newPhone,
     })
-
-    sentEmails.length = 0
-    await requestPasswordReset({ email })
-    const token = tokenFromLastEmail()
-
-    expect(await completePasswordReset({ token, password: 'a-brand-new-password' })).toMatchObject({ ok: true })
+    expect(result).toMatchObject({ ok: true })
 
     const [updated] = await db.select().from(schema.users).where(eq(schema.users.id, user.id))
-    expect(await verifyPassword('a-brand-new-password', updated.passwordHash!)).toBe(true)
-
-    // If the reset happened because someone else had the account, leaving
-    // their session alive defeats the point.
-    const sessions = await db.select().from(schema.userSessions).where(eq(schema.userSessions.userId, user.id))
-    expect(sessions).toHaveLength(0)
+    expect(updated).toMatchObject({
+      email: `edited-${suffix}@xtra.test`,
+      name: 'אחרי',
+      phone: normalizeIsraeliPhone(newPhone),
+    })
   })
 
-  it('makes a reset token single-use', async () => {
-    const email = `once-reset-${suffix}@xtra.test`
-    await inviteUser({ session: admin, email, name: 'פעם', role: 'user' })
-    await acceptInvitation({ token: tokenFromLastEmail(), password: 'first-password-999' })
+  it('REFUSES moving a user onto a phone number someone else logs in with', async () => {
+    const first = `steal-a-${suffix}@xtra.test`
+    const second = `steal-b-${suffix}@xtra.test`
+    const firstPhone = freshPhone()
+    await createUser({ session: admin, email: first, name: 'א', phone: firstPhone, role: 'user' })
+    await createUser({ session: admin, email: second, name: 'ב', phone: freshPhone(), role: 'user' })
 
-    sentEmails.length = 0
-    await requestPasswordReset({ email })
-    const token = tokenFromLastEmail()
-
-    expect(await completePasswordReset({ token, password: 'second-password-999' })).toMatchObject({ ok: true })
-    expect(await completePasswordReset({ token, password: 'third-password-999' })).toMatchObject({ ok: false })
-  })
-
-  it('sends nothing to a disabled account', async () => {
-    const email = `disabled-${suffix}@xtra.test`
-    await inviteUser({ session: admin, email, name: 'מושבת', role: 'user' })
-    await acceptInvitation({ token: tokenFromLastEmail(), password: 'a-valid-password-1' })
-
-    const [user] = await db.select().from(schema.users).where(eq(schema.users.email, email))
-    await setUserDisabled({ session: admin, userId: user.id, disabled: true })
-
-    sentEmails.length = 0
-    await requestPasswordReset({ email })
-    expect(sentEmails).toHaveLength(0)
+    const [victim] = await db.select().from(schema.users).where(eq(schema.users.email, second))
+    const result = await updateUser({ session: admin, userId: victim.id, email: second, name: 'ב', phone: firstPhone })
+    expect(result).toMatchObject({ ok: false, message: expect.stringContaining('טלפון') })
   })
 })
 
 describe('disabling', () => {
   it('revokes every live session immediately', async () => {
     const email = `kill-${suffix}@xtra.test`
-    await inviteUser({ session: admin, email, name: 'ניתוק', role: 'user' })
-    await acceptInvitation({ token: tokenFromLastEmail(), password: 'a-valid-password-2' })
+    await createUser({ session: admin, email, name: 'ניתוק', phone: freshPhone(), role: 'user' })
 
     const [user] = await db.select().from(schema.users).where(eq(schema.users.email, email))
     await db.insert(schema.userSessions).values({
@@ -323,8 +245,7 @@ describe('disabling', () => {
 
   it('can be undone', async () => {
     const email = `undo-${suffix}@xtra.test`
-    await inviteUser({ session: admin, email, name: 'החזרה', role: 'user' })
-    await acceptInvitation({ token: tokenFromLastEmail(), password: 'a-valid-password-3' })
+    await createUser({ session: admin, email, name: 'החזרה', phone: freshPhone(), role: 'user' })
 
     const [user] = await db.select().from(schema.users).where(eq(schema.users.email, email))
     await setUserDisabled({ session: admin, userId: user.id, disabled: true })

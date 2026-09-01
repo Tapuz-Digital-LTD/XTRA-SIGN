@@ -25,15 +25,14 @@ export type LimitRule = {
 /**
  * The limits, in one place.
  *
- * Login and password-reset are the two that matter: they are unauthenticated,
- * they accept a guessable secret, and an attacker gets unlimited attempts
- * without them.
+ * Login is the one that matters most: it is unauthenticated and it accepts a
+ * six-digit code, which is guessable in a million tries — and a million tries
+ * is nothing without a limit in front of them.
  */
 export const LIMITS = {
+  // Covers both halves of the login: asking for a code and presenting one.
   login: { limit: 5, windowMs: 15 * 60_000 },
-  forgotPassword: { limit: 3, windowMs: 60 * 60_000 },
-  inviteAccept: { limit: 10, windowMs: 60 * 60_000 },
-  inviteCreate: { limit: 20, windowMs: 60 * 60_000 },
+  userCreate: { limit: 20, windowMs: 60 * 60_000 },
   otpSend: { limit: 5, windowMs: 30 * 60_000 },
   otpVerify: { limit: 10, windowMs: 15 * 60_000 },
   upload: { limit: 60, windowMs: 60 * 60_000 },

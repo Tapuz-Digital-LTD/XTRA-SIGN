@@ -70,11 +70,14 @@ export const users = pgTable(
     email: text('email').notNull(),
     name: text('name').notNull(),
     /**
-     * Null until the invitation is accepted. There is no public signup and no
-     * password is ever emailed — an invited user sets their own, so an account
-     * exists with no way to log into it until they do.
+     * The login identity. There are no passwords: a person proves who they are
+     * by holding the SIM, so the phone number is the credential and must be
+     * unique across the whole system, not merely within an organization.
+     *
+     * Stored in the E.164 form `normalizeIsraeliPhone` produces, so that
+     * `05X-XXX-XXXX`, `+9725X...` and `9725X...` cannot become three accounts.
      */
-    passwordHash: text('password_hash'),
+    phone: text('phone').notNull(),
     role: userRole('role').default('user').notNull(),
     isAdmin: boolean('is_admin').default(false).notNull(),
     /** Set to lock an account out. Never delete a user: audit rows reference them. */
@@ -82,51 +85,13 @@ export const users = pgTable(
     lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [uniqueIndex('users_email_unique').on(t.email)],
+  (t) => [uniqueIndex('users_email_unique').on(t.email), uniqueIndex('users_phone_unique').on(t.phone)],
 )
 
 /**
  * A pending invitation. Only the hash is stored, so a database dump is not a
  * set of working invitations.
  */
-export const invitations = pgTable(
-  'invitations',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    organizationId: uuid('organization_id')
-      .notNull()
-      .references(() => organizations.id),
-    email: text('email').notNull(),
-    name: text('name').notNull(),
-    role: userRole('role').default('user').notNull(),
-    tokenHash: text('token_hash').notNull(),
-    invitedBy: uuid('invited_by')
-      .notNull()
-      .references(() => users.id),
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
-    revokedAt: timestamp('revoked_at', { withTimezone: true }),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [uniqueIndex('invitations_token_unique').on(t.tokenHash)],
-)
-
-/** Same shape as an invitation, and single-use for the same reason. */
-export const passwordResets = pgTable(
-  'password_resets',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id),
-    tokenHash: text('token_hash').notNull(),
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-    consumedAt: timestamp('consumed_at', { withTimezone: true }),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [uniqueIndex('password_resets_token_unique').on(t.tokenHash)],
-)
-
 /**
  * Rate limit counters.
  *
@@ -189,6 +154,33 @@ export const userSessions = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex('user_sessions_hash_unique').on(t.sessionHash)],
+)
+
+/**
+ * A pending SMS login code.
+ *
+ * Deliberately its own table rather than a column on `users` or a reuse of
+ * `otp_challenges`. `otp_challenges` belongs to a signer and is referenced by
+ * the signing audit trail, which carries legal weight; entangling staff logins
+ * with it would put two unrelated state machines in one row and make the
+ * signer's evidence harder to reason about.
+ */
+export const loginChallenges = pgTable(
+  'login_challenges',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    codeHash: text('code_hash').notNull(),
+    attempts: integer('attempts').default(0).notNull(),
+    resendCount: integer('resend_count').default(0).notNull(),
+    lastSentAt: timestamp('last_sent_at', { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('login_challenges_user_idx').on(t.userId)],
 )
 
 export const templates = pgTable(

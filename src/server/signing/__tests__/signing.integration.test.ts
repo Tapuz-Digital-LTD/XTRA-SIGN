@@ -62,7 +62,7 @@ beforeAll(async () => {
       organizationId: orgId,
       email: `signer-test-${suffix}@xtra.test`,
       name: 'Owner',
-      passwordHash: 'x',
+      phone: `05${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`,
       isAdmin: true,
     })
     .returning({ id: schema.users.id })

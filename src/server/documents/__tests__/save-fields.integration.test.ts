@@ -40,7 +40,7 @@ beforeAll(async () => {
   const mkUser = async (organizationId: string, email: string) => {
     const [u] = await db
       .insert(schema.users)
-      .values({ organizationId, email, name: email, passwordHash: 'x', isAdmin: true })
+      .values({ organizationId, email, name: email, phone: `05${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`, isAdmin: true })
       .returning({ id: schema.users.id })
     return { userId: u.id, organizationId, email, name: email, isAdmin: true } as StaffSession
   }

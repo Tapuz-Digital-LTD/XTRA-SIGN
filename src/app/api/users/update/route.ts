@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireSession, UnauthorizedError } from '@/server/auth/session'
 import { CsrfError, assertSameOrigin } from '@/server/http/csrf'
 import { clientIp } from '@/server/log'
-import { NotAdminError, inviteUser } from '@/server/users/users'
+import { NotAdminError, updateUser } from '@/server/users/users'
 
 export async function POST(request: Request) {
   try {
@@ -13,11 +13,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: { message: 'נתונים לא תקינים.' } }, { status: 400 })
     }
 
-    const result = await inviteUser({
+    const result = await updateUser({
       session,
-      name: String(body.name ?? ""),
-      email: String(body.email ?? ""),
-      role: body.role === "admin" ? "admin" : "user",
+      userId: String(body.userId ?? ''),
+      name: String(body.name ?? ''),
+      email: String(body.email ?? ''),
+      phone: String(body.phone ?? ''),
       ip: clientIp(request),
     })
 

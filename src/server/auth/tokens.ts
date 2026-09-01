@@ -1,13 +1,4 @@
-import {
-  createHash,
-  randomBytes,
-  randomInt,
-  scrypt as scryptCb,
-  timingSafeEqual,
-} from 'node:crypto'
-import { promisify } from 'node:util'
-
-const scrypt = promisify(scryptCb)
+import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
 
 /**
  * Secret-handling primitives shared by staff sessions, signing tokens and OTPs.
@@ -45,31 +36,6 @@ export function safeEqualHex(a: string, b: string): boolean {
   } catch {
     return false
   }
-}
-
-/**
- * Password hashing with scrypt from the Node standard library.
- *
- * Deliberately not bcrypt/argon2: those are native addons to install, build and
- * keep patched, and scrypt is memory-hard, in the stdlib, and sufficient for a
- * handful of staff accounts.
- */
-export async function hashPassword(password: string): Promise<string> {
-  const salt = randomBytes(16)
-  const derived = (await scrypt(password.normalize('NFKC'), salt, 64)) as Buffer
-  return `scrypt$${salt.toString('hex')}$${derived.toString('hex')}`
-}
-
-export async function verifyPassword(password: string, stored: string): Promise<boolean> {
-  const [scheme, saltHex, hashHex] = stored.split('$')
-  if (scheme !== 'scrypt' || !saltHex || !hashHex) return false
-
-  const derived = (await scrypt(
-    password.normalize('NFKC'),
-    Buffer.from(saltHex, 'hex'),
-    64,
-  )) as Buffer
-  return safeEqualHex(derived.toString('hex'), hashHex)
 }
 
 /** Six digits from the CSPRNG. `Math.random()` is predictable and never used here. */
