@@ -1,0 +1,64 @@
+# CodeBuild spec for XTRA Sign.
+#
+# Deliberately the same shape as XtraGiftCard-NestApp's buildspec.app.deploy.yml:
+# same account, same region, same ECR-per-app-per-env convention, same
+# Secrets Manager pattern, same `ecs update-service --force-new-deployment`
+# rollout. Reusing the pattern means the person who maintains that pipeline
+# already knows how this one works.
+#
+# $ENVIRONMENT is set by the CodeBuild project: `staging` or `prod`.
+version: 0.2
+
+env:
+  variables:
+    AWS_REGION: il-central-1
+    AWS_ACCOUNT: '092896356027'
+  secrets-manager:
+    # One secret per environment holding the whole .env, as the gift-card app
+    # does. Never written to the image — only to a file the build consumes.
+    ENVIRONMENT_FILE: xtrasign-$ENVIRONMENT-environment
+
+phases:
+  pre_build:
+    commands:
+      - echo "Building XTRA Sign for $ENVIRONMENT"
+      - ECR=$AWS_ACCOUNT.dkr.ecr.$AWS_REGION.amazonaws.com
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR
+      - printf '%s' "$ENVIRONMENT_FILE" > .env
+
+  build:
+    commands:
+      # Two images, built and pushed independently so either service can be
+      # rolled back on its own.
+      - docker build -t $ECR/xtrasign-$ENVIRONMENT/web:$CODEBUILD_RESOLVED_SOURCE_VERSION -t $ECR/xtrasign-$ENVIRONMENT/web:latest .
+      - docker build -t $ECR/xtrasign-$ENVIRONMENT/converter:$CODEBUILD_RESOLVED_SOURCE_VERSION -t $ECR/xtrasign-$ENVIRONMENT/converter:latest ./docker/converter
+      - docker push --all-tags $ECR/xtrasign-$ENVIRONMENT/web
+      - docker push --all-tags $ECR/xtrasign-$ENVIRONMENT/converter
+
+  post_build:
+    commands:
+      # Migrations run as a one-off task BEFORE the new code is rolled out, so
+      # the schema is never behind the app that expects it. A failure here stops
+      # the deploy rather than leaving half a rollout.
+      - |
+        TASK=$(aws ecs run-task \
+          --cluster xtragiftcard-$ENVIRONMENT-main-cluster \
+          --task-definition xtrasign-$ENVIRONMENT-migrate \
+          --launch-type FARGATE \
+          --network-configuration "$MIGRATION_NETWORK_CONFIG" \
+          --query 'tasks[0].taskArn' --output text)
+        aws ecs wait tasks-stopped --cluster xtragiftcard-$ENVIRONMENT-main-cluster --tasks $TASK
+        CODE=$(aws ecs describe-tasks --cluster xtragiftcard-$ENVIRONMENT-main-cluster --tasks $TASK \
+          --query 'tasks[0].containers[0].exitCode' --output text)
+        test "$CODE" = "0" || (echo "migration failed with exit $CODE" && exit 1)
+
+      # Converter first: the web service depends on it, not the other way round.
+      - aws ecs update-service --force-new-deployment --cluster xtragiftcard-$ENVIRONMENT-main-cluster --service xtrasign-$ENVIRONMENT-converter-service
+      - aws ecs wait services-stable --cluster xtragiftcard-$ENVIRONMENT-main-cluster --services xtrasign-$ENVIRONMENT-converter-service
+      - aws ecs update-service --force-new-deployment --cluster xtragiftcard-$ENVIRONMENT-main-cluster --service xtrasign-$ENVIRONMENT-web-service
+      - aws ecs wait services-stable --cluster xtragiftcard-$ENVIRONMENT-main-cluster --services xtrasign-$ENVIRONMENT-web-service
+      - echo "Deploy complete"
+
+artifacts:
+  files:
+    - buildspec.yml

@@ -25,6 +25,7 @@ async function main() {
     email: email.toLowerCase(),
     name: name ?? email,
     passwordHash: await hashPassword(password),
+    role: 'admin',
     isAdmin: true,
   })
 

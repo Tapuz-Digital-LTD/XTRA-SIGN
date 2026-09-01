@@ -1,9 +1,16 @@
-import { and, eq, gt } from 'drizzle-orm'
+import { and, eq, gt, isNull } from 'drizzle-orm'
 import { cookies } from 'next/headers'
 import { getDb, schema } from '@/server/db'
 import { generateToken, hashToken } from './tokens'
 
-export const SESSION_COOKIE = 'xtra_sign_session'
+/**
+ * The `__Host-` prefix is enforced by the browser: the cookie must be Secure,
+ * have no Domain, and Path=/. That makes it impossible for a sibling subdomain
+ * to write a session cookie our app would then read — the gap SameSite leaves
+ * open. It requires HTTPS, so development keeps the plain name.
+ */
+export const SESSION_COOKIE =
+  process.env.NODE_ENV === 'production' ? '__Host-xtra_sign_session' : 'xtra_sign_session'
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000
 
 export type StaffSession = {
@@ -69,6 +76,10 @@ export async function getSession(): Promise<StaffSession | null> {
       and(
         eq(schema.userSessions.sessionHash, hashToken(token)),
         gt(schema.userSessions.expiresAt, new Date()),
+        // A disabled account stops working on the next request, not when its
+        // session happens to expire. Disabling deletes existing sessions too;
+        // this is the belt to that pair of braces.
+        isNull(schema.users.disabledAt),
       ),
     )
     .limit(1)

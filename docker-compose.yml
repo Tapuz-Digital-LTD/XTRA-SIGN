@@ -29,8 +29,15 @@ services:
 
   # Document conversion. Untrusted bytes meet a large third-party binary here,
   # so this is the most heavily constrained service in the stack.
+  #
+  # Runs locally exactly as it will in ECS — same image, same HTTP contract, same
+  # limits. A dev-only shortcut would be the one path never exercised until it
+  # matters.
   converter:
     build: ./docker/converter
+    # Published locally so the dev server can reach it. In ECS there is no
+    # published port: only the web service's security group may connect.
+    ports: ['8090:8080']
     environment:
       TZ: UTC
       CONVERSION_TIMEOUT_MS: '60000'
@@ -39,12 +46,14 @@ services:
       RENDER_WIDTH_PX: '1240'
       SCRATCH_DIR: /scratch
       HOME: /scratch
+      MAX_CONCURRENT_CONVERSIONS: '2'
+      MAX_UPLOAD_BYTES: '26214400'
 
-    # No network at all. LibreOffice has no legitimate reason to make a
-    # connection, and a document that tries to fetch a remote entity or template
-    # simply cannot. This also means a compromise here cannot reach Postgres,
-    # MinIO, the metadata service, or the internet.
-    network_mode: none
+    # An internal network only. The service must be reachable by the web app and
+    # by nothing else — it has no reason to make an outbound connection, and a
+    # document that tries to fetch a remote entity or template cannot. In ECS
+    # this is a security group that allows exactly one inbound source.
+    networks: [converter]
 
     # Nothing may write to the image. All scratch space is an explicit tmpfs
     # that vanishes with the container, so a failed run cannot leave residue on
@@ -71,9 +80,17 @@ services:
           # A fork bomb in a malformed document cannot exhaust host PIDs.
           pids: 128
 
-    # No restart loop: a wedged converter should surface, not silently churn.
-    restart: 'no'
-    profiles: ['converter']
+    restart: unless-stopped
+
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:8080/health']
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+networks:
+  converter:
 
 volumes:
   pgdata:

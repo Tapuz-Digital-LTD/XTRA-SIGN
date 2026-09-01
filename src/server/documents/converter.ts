@@ -1,22 +1,18 @@
-import { spawn } from 'node:child_process'
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import { LIMITS, ProcessingError, type ProcessingFailure } from './limits'
 
 /**
- * Runs a conversion inside the isolated converter container.
+ * Client for the conversion service.
  *
- * The app process never invokes LibreOffice itself. Untrusted bytes only ever
- * meet that binary inside a container with no network, a read-only rootfs, all
- * capabilities dropped, and memory/cpu/pid ceilings — so a hostile document has
- * nothing to reach even if it wins.
+ * The app never runs LibreOffice itself and never shells out to Docker. It
+ * posts bytes to a service that lives in its own container with no network
+ * route anywhere else, no credentials and no AWS access — so a document that
+ * exploits LibreOffice lands somewhere with nothing worth reaching, and a
+ * document that wedges it takes down one replaceable task rather than the app.
+ *
+ * One code path for local and production: docker-compose runs the same image
+ * ECS will run. A dev-only shortcut here would be the one path never exercised
+ * before it matters.
  */
-
-export type ConversionInput = {
-  buffer: Buffer
-  kind: 'pdf' | 'doc' | 'docx'
-}
 
 export type PageGeometry = {
   page: number
@@ -34,20 +30,19 @@ export type ConversionResult = {
   geometry: PageGeometry[]
 }
 
-const IMAGE_NAME = process.env.CONVERTER_IMAGE ?? 'xtra-sign-converter'
+export type ConversionInput = {
+  buffer: Buffer
+  kind: 'pdf' | 'doc' | 'docx'
+}
 
 /**
- * Total wall-clock ceiling for one job, above the per-step timeouts inside the
- * container.
- *
- * The inner timeouts assume the process is alive enough to enforce them. This
- * one does not: if the container wedges before Python runs, or the daemon
- * stalls, the caller is still released. A worker that waits forever on one bad
- * document stops serving every later one.
+ * Wall-clock ceiling for one request, above the per-step timeouts inside the
+ * service. Those assume the process is alive enough to enforce them; this one
+ * does not, so a wedged container still releases the caller.
  */
-const HARD_TIMEOUT_MS = LIMITS.CONVERSION_TIMEOUT_MS + LIMITS.RENDER_TIMEOUT_MS + 15_000
+const REQUEST_TIMEOUT_MS = LIMITS.CONVERSION_TIMEOUT_MS + LIMITS.RENDER_TIMEOUT_MS + 15_000
 
-const FAILURES = new Set<string>([
+const FAILURES = new Set<ProcessingFailure>([
   'timeout',
   'too_many_pages',
   'output_too_large',
@@ -55,167 +50,98 @@ const FAILURES = new Set<string>([
   'unreadable',
 ])
 
-export async function convertDocument(input: ConversionInput): Promise<ConversionResult> {
-  // Host-side scratch, removed in the finally below whatever happens.
-  const workDir = await mkdtemp(join(tmpdir(), 'xtra-sign-'))
+type ConverterResponse = {
+  ok: boolean
+  failure?: string
+  pages?: number
+  pdf?: string
+  images?: string[]
+  pageInfo?: {
+    page: number
+    imageWidth: number | null
+    imageHeight: number | null
+    widthPt: number | null
+    heightPt: number | null
+  }[]
+}
 
+export function converterUrl(): string {
+  return (process.env.CONVERTER_URL ?? 'http://localhost:8090').replace(/\/+$/, '')
+}
+
+/** Liveness of the conversion service, for the readiness endpoint. */
+export async function converterIsReachable(): Promise<boolean> {
   try {
-    const sourceName = `source.${input.kind}`
-    await writeFile(join(workDir, sourceName), input.buffer)
-
-    const job = JSON.stringify({
-      sourcePath: `/work/${sourceName}`,
-      kind: input.kind,
-      outputDir: '/work/out',
+    const response = await fetch(`${converterUrl()}/health`, {
+      signal: AbortSignal.timeout(3000),
     })
-
-    const raw = await runContainer(workDir, job)
-
-    let parsed: {
-      ok: boolean
-      failure?: string
-      pages?: number
-      images?: string[]
-      pageInfo?: {
-        page: number
-        imageWidth: number | null
-        imageHeight: number | null
-        widthPt: number | null
-        heightPt: number | null
-      }[]
-    }
-    try {
-      parsed = JSON.parse(raw)
-    } catch {
-      // The container produced something that is not a result. Treat as a
-      // failed conversion rather than crashing the request.
-      throw new ProcessingError('conversion_failed')
-    }
-
-    if (!parsed.ok) {
-      const failure = FAILURES.has(parsed.failure ?? '')
-        ? (parsed.failure as ProcessingFailure)
-        : 'conversion_failed'
-      throw new ProcessingError(failure)
-    }
-
-    const outDir = join(workDir, 'out')
-    const pdf = await readFile(join(outDir, 'document.pdf'))
-
-    if (pdf.length > LIMITS.MAX_RENDERED_BYTES) throw new ProcessingError('output_too_large')
-
-    const imageNames = (await readdir(outDir)).filter((f) => f.endsWith('.png')).sort(byPageNumber)
-    if (imageNames.length === 0) throw new ProcessingError('unreadable')
-
-    const pages: Buffer[] = []
-    for (const name of imageNames) {
-      const page = await readFile(join(outDir, name))
-      if (page.length > LIMITS.MAX_PAGE_IMAGE_BYTES) throw new ProcessingError('output_too_large')
-      pages.push(page)
-    }
-
-    // A page whose geometry could not be measured is refused rather than
-    // defaulted: a guessed page size puts every field on it in the wrong place.
-    const geometry: PageGeometry[] = []
-    for (const info of parsed.pageInfo ?? []) {
-      if (!info.imageWidth || !info.imageHeight || !info.widthPt || !info.heightPt) {
-        throw new ProcessingError('unreadable')
-      }
-      geometry.push({
-        page: info.page,
-        imageWidth: info.imageWidth,
-        imageHeight: info.imageHeight,
-        widthPt: info.widthPt,
-        heightPt: info.heightPt,
-      })
-    }
-    if (geometry.length !== pages.length) throw new ProcessingError('unreadable')
-
-    return { pdf, pages, pageCount: parsed.pages ?? pages.length, geometry }
-  } finally {
-    // Runs on success, on a thrown ProcessingError, and on an unexpected throw.
-    // A leaked temp directory per bad upload fills the disk, and then every
-    // later conversion fails for an unrelated reason.
-    await rm(workDir, { recursive: true, force: true }).catch(() => {})
+    return response.ok
+  } catch {
+    return false
   }
 }
 
-/**
- * `docker run` with every isolation flag set explicitly rather than relying on
- * the compose file — this is the path that actually executes, so the guarantees
- * have to be stated here.
- */
-function runContainer(workDir: string, job: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(
-      'docker',
-      [
-        'run',
-        '--rm',
-        '-i',
-        '--network', 'none',
-        '--read-only',
-        '--tmpfs', '/scratch:rw,noexec,nosuid,size=512m',
-        '--tmpfs', '/tmp:rw,noexec,nosuid,size=64m',
-        '--security-opt', 'no-new-privileges:true',
-        '--cap-drop', 'ALL',
-        '--memory', '1g',
-        '--memory-swap', '1g',
-        '--cpus', '1.0',
-        '--pids-limit', '128',
-        '-e', 'SCRATCH_DIR=/scratch',
-        '-e', 'HOME=/scratch',
-        '-e', `CONVERSION_TIMEOUT_MS=${LIMITS.CONVERSION_TIMEOUT_MS}`,
-        '-e', `RENDER_TIMEOUT_MS=${LIMITS.RENDER_TIMEOUT_MS}`,
-        '-e', `MAX_PAGES=${LIMITS.MAX_PAGES}`,
-        '-e', `RENDER_WIDTH_PX=${LIMITS.RENDER_WIDTH_PX}`,
-        '-v', `${workDir}:/work`,
-        IMAGE_NAME,
-      ],
-      { stdio: ['pipe', 'pipe', 'pipe'] },
-    )
-
-    let stdout = ''
-    let settled = false
-
-    const timer = setTimeout(() => {
-      if (settled) return
-      settled = true
-      // SIGKILL, not SIGTERM: the point of the outer timeout is that the thing
-      // being killed may be unresponsive.
-      child.kill('SIGKILL')
-      reject(new ProcessingError('timeout'))
-    }, HARD_TIMEOUT_MS)
-
-    child.stdout.on('data', (chunk) => {
-      stdout += chunk
-      // Bound what a runaway container can push into this process's heap.
-      if (stdout.length > 1_000_000) {
-        child.kill('SIGKILL')
-      }
+export async function convertDocument(input: ConversionInput): Promise<ConversionResult> {
+  let response: Response
+  try {
+    response = await fetch(`${converterUrl()}/convert`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'X-Document-Kind': input.kind,
+      },
+      body: new Uint8Array(input.buffer),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
+  } catch (error) {
+    // A timeout here is the outer ceiling firing, which is a timeout as far as
+    // the user is concerned. Anything else means the service is unreachable.
+    const timedOut = error instanceof Error && error.name === 'TimeoutError'
+    throw new ProcessingError(timedOut ? 'timeout' : 'conversion_failed')
+  }
 
-    child.on('error', () => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      reject(new ProcessingError('conversion_failed'))
+  if (response.status === 413) throw new ProcessingError('output_too_large')
+
+  let parsed: ConverterResponse
+  try {
+    parsed = (await response.json()) as ConverterResponse
+  } catch {
+    throw new ProcessingError('conversion_failed')
+  }
+
+  if (!parsed.ok) {
+    const failure = FAILURES.has(parsed.failure as ProcessingFailure)
+      ? (parsed.failure as ProcessingFailure)
+      : 'conversion_failed'
+    throw new ProcessingError(failure)
+  }
+
+  if (!parsed.pdf || !parsed.images?.length) throw new ProcessingError('unreadable')
+
+  const pdf = Buffer.from(parsed.pdf, 'base64')
+  if (pdf.length > LIMITS.MAX_RENDERED_BYTES) throw new ProcessingError('output_too_large')
+
+  const pages = parsed.images.map((image) => Buffer.from(image, 'base64'))
+  for (const page of pages) {
+    if (page.length > LIMITS.MAX_PAGE_IMAGE_BYTES) throw new ProcessingError('output_too_large')
+  }
+
+  // A page whose geometry could not be measured is refused rather than
+  // defaulted: a guessed page size puts every field on it in the wrong place.
+  const geometry: PageGeometry[] = []
+  for (const info of parsed.pageInfo ?? []) {
+    if (!info.imageWidth || !info.imageHeight || !info.widthPt || !info.heightPt) {
+      throw new ProcessingError('unreadable')
+    }
+    geometry.push({
+      page: info.page,
+      imageWidth: info.imageWidth,
+      imageHeight: info.imageHeight,
+      widthPt: info.widthPt,
+      heightPt: info.heightPt,
     })
+  }
+  if (geometry.length !== pages.length) throw new ProcessingError('unreadable')
 
-    child.on('close', () => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      resolve(stdout)
-    })
-
-    child.stdin.write(job)
-    child.stdin.end()
-  })
-}
-
-/** page-2.png must sort after page-10.png by number, not by string. */
-function byPageNumber(a: string, b: string): number {
-  const n = (s: string) => Number(s.match(/(\d+)/)?.[1] ?? 0)
-  return n(a) - n(b)
+  return { pdf, pages, pageCount: parsed.pages ?? pages.length, geometry }
 }

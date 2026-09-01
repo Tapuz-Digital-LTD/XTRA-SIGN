@@ -47,6 +47,9 @@ export const fieldType = pgEnum('field_type', [
   'file',
 ])
 
+/** Two levels, as agreed. Anything finer is a permission system nobody asked for. */
+export const userRole = pgEnum('user_role', ['admin', 'user'])
+
 export const deliveryChannel = pgEnum('delivery_channel', ['email', 'sms'])
 
 export const deliveryStatus = pgEnum('delivery_status', ['queued', 'sent', 'failed'])
@@ -66,11 +69,108 @@ export const users = pgTable(
       .references(() => organizations.id),
     email: text('email').notNull(),
     name: text('name').notNull(),
-    passwordHash: text('password_hash').notNull(),
+    /**
+     * Null until the invitation is accepted. There is no public signup and no
+     * password is ever emailed — an invited user sets their own, so an account
+     * exists with no way to log into it until they do.
+     */
+    passwordHash: text('password_hash'),
+    role: userRole('role').default('user').notNull(),
     isAdmin: boolean('is_admin').default(false).notNull(),
+    /** Set to lock an account out. Never delete a user: audit rows reference them. */
+    disabledAt: timestamp('disabled_at', { withTimezone: true }),
+    lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex('users_email_unique').on(t.email)],
+)
+
+/**
+ * A pending invitation. Only the hash is stored, so a database dump is not a
+ * set of working invitations.
+ */
+export const invitations = pgTable(
+  'invitations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    email: text('email').notNull(),
+    name: text('name').notNull(),
+    role: userRole('role').default('user').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    invitedBy: uuid('invited_by')
+      .notNull()
+      .references(() => users.id),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('invitations_token_unique').on(t.tokenHash)],
+)
+
+/** Same shape as an invitation, and single-use for the same reason. */
+export const passwordResets = pgTable(
+  'password_resets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('password_resets_token_unique').on(t.tokenHash)],
+)
+
+/**
+ * Rate limit counters.
+ *
+ * In the database rather than in process memory because production runs several
+ * tasks: an in-memory counter multiplies every limit by the task count and
+ * resets on deploy, which is when someone is most likely to be hammering the
+ * login form.
+ */
+export const rateLimits = pgTable(
+  'rate_limits',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bucket: text('bucket').notNull(),
+    windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+    count: integer('count').default(0).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    uniqueIndex('rate_limits_bucket_window_unique').on(t.bucket, t.windowStart),
+    index('rate_limits_expiry_idx').on(t.expiresAt),
+  ],
+)
+
+/**
+ * Admin actions worth being able to answer questions about later: who invited
+ * whom, who disabled an account, who changed a role.
+ *
+ * Separate from auditEvents, which is scoped to one agreement.
+ */
+export const adminAuditEvents = pgTable(
+  'admin_audit_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    type: text('type').notNull(),
+    actorEmail: text('actor_email').notNull(),
+    targetEmail: text('target_email'),
+    ip: text('ip'),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('admin_audit_org_idx').on(t.organizationId, t.createdAt)],
 )
 
 /**

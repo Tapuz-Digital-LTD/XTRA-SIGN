@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -137,22 +137,24 @@ export function buildFixtures(): void {
   if (!existsSync(FIXTURES.bigPdf)) writeFileSync(FIXTURES.bigPdf, bigPdf(60))
 
   if (!existsSync(FIXTURES.doc)) {
-    // Only LibreOffice can produce a genuine Word 97 binary. Run it in the same
-    // isolated image the app uses.
-    execFileSync(
+    // Only LibreOffice can produce a genuine Word 97 binary, and a hand-written
+    // fixture would not exercise the legacy path at all. Run it inside the
+    // already-running conversion container and capture the bytes it emits.
+    const doc = execFileSync(
       'docker',
       [
-        'run', '--rm', '--network', 'none',
-        '--tmpfs', '/scratch:rw', '--tmpfs', '/tmp:rw',
+        'compose', 'exec', '-T', '-u', 'root',
         '-e', 'HOME=/scratch',
-        '-v', `${DIR}:/work`,
-        '--entrypoint', 'soffice',
-        'xtra-sign-converter',
-        '--headless', '--norestore', '--nolockcheck',
-        '-env:UserInstallation=file:///scratch/p',
-        '--convert-to', 'doc', '--outdir', '/work', '/work/hesken.docx',
+        'converter',
+        'sh', '-c',
+        'cd /scratch && cat > h.docx && soffice --headless --norestore ' +
+          '-env:UserInstallation=file:///scratch/p --convert-to doc --outdir /scratch h.docx ' +
+          '>/dev/null 2>&1 && cat /scratch/h.doc',
       ],
-      { stdio: 'ignore', timeout: 120_000 },
+      { input: readFileSync(FIXTURES.docx), timeout: 180_000, maxBuffer: 32 * 1024 * 1024 },
     )
+
+    if (doc.length === 0) throw new Error('legacy .doc fixture generation failed')
+    writeFileSync(FIXTURES.doc, doc)
   }
 }

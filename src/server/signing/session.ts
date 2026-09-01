@@ -18,7 +18,9 @@ import { OPEN_STATUSES } from '@/lib/status'
  *   in a car park with one bar of signal.
  */
 
-export const SIGNING_COOKIE = 'xtra_sign_signer'
+/** Same `__Host-` reasoning as the staff session cookie. */
+export const SIGNING_COOKIE =
+  process.env.NODE_ENV === 'production' ? '__Host-xtra_sign_signer' : 'xtra_sign_signer'
 const SESSION_TTL_MS = 60 * 60 * 1000
 
 export type SigningContext = {

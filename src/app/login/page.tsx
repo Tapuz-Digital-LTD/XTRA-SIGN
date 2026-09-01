@@ -1,6 +1,9 @@
+import Link from 'next/link'
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getSession } from '@/server/auth/session'
 import { login } from '@/server/auth/login'
+import { clientIp } from '@/server/log'
 
 export default async function LoginPage({
   searchParams,
@@ -12,9 +15,11 @@ export default async function LoginPage({
 
   async function submit(formData: FormData) {
     'use server'
+    const headerList = await headers()
     const result = await login(
       String(formData.get('email') ?? ''),
       String(formData.get('password') ?? ''),
+      { ip: clientIp(new Request('http://local', { headers: headerList })) },
     )
     if (!result.ok) redirect('/login?error=1')
     redirect('/documents')
@@ -70,6 +75,15 @@ export default async function LoginPage({
             כניסה
           </button>
         </form>
+
+        <p className="mt-6 text-center text-sm">
+          <Link
+            href="/forgot-password"
+            className="text-muted underline-offset-4 hover:text-fg hover:underline"
+          >
+            שכחתי סיסמה
+          </Link>
+        </p>
       </div>
     </div>
   )

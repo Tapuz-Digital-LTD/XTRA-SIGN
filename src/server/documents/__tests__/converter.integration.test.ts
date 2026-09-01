@@ -1,7 +1,6 @@
-import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { convertDocument } from '../converter'
+import { convertDocument, converterIsReachable, converterUrl } from '../converter'
 import { validateUpload } from '../file-validation'
 import { ProcessingError } from '../limits'
 import { FIXTURES, buildFixtures } from './fixtures'
@@ -14,16 +13,16 @@ import { FIXTURES, buildFixtures } from './fixtures'
  * Fails rather than skips when the image is missing — a silently skipped
  * security test still reads as a green run.
  */
-beforeAll(() => {
-  try {
-    execFileSync('docker', ['image', 'inspect', 'xtra-sign-converter'], { stdio: 'ignore' })
-  } catch {
+beforeAll(async () => {
+  // Fails rather than skips: a silently skipped test still reads as a green run.
+  const reachable = await converterIsReachable()
+  if (!reachable) {
     throw new Error(
-      'converter image missing. Run: docker compose --profile converter build converter',
+      `conversion service unreachable at ${converterUrl()}. Run: docker compose up -d converter`,
     )
   }
   buildFixtures()
-}, 120_000)
+}, 180_000)
 
 describe('DOCX conversion', () => {
   it('converts a Hebrew DOCX to a PDF and page images', async () => {
