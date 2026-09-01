@@ -62,6 +62,17 @@ const MESSAGES = {
 /** Present in every non-encrypted .docx, and in nothing else that is a ZIP. */
 const DOCX_MARKER = Buffer.from('word/document.xml')
 
+/**
+ * OLE2 (`D0CF11E0`) is the container for .doc, .xls, .ppt and .msg alike — the
+ * same trap as PK for ZIP. A Word binary document always holds a stream named
+ * "WordDocument"; a spreadsheet does not.
+ *
+ * Stream names live in the OLE2 directory entries as UTF-16LE, so the marker is
+ * matched in that encoding against the raw bytes. Nothing is parsed or opened
+ * to perform the check.
+ */
+const DOC_MARKER = Buffer.from('WordDocument', 'utf16le')
+
 export function validateUpload(buffer: Buffer): ValidationOk | ValidationError {
   if (buffer.length === 0) return { ok: false, code: 'empty', message: MESSAGES.empty }
   if (buffer.length > MAX_FILE_BYTES)
@@ -79,6 +90,12 @@ export function validateUpload(buffer: Buffer): ValidationOk | ValidationError {
   // marker is findable in the raw bytes without unpacking anything — which is
   // the point: nothing is decompressed before it has been accepted.
   if (match.kind === 'docx' && !buffer.includes(DOCX_MARKER)) {
+    return { ok: false, code: 'unsupported_type', message: MESSAGES.unsupported_type }
+  }
+
+  // Same reasoning for the legacy binary format: OLE2 is shared by Word, Excel,
+  // PowerPoint and Outlook, and LibreOffice will open any of them.
+  if (match.kind === 'doc' && !buffer.includes(DOC_MARKER)) {
     return { ok: false, code: 'unsupported_type', message: MESSAGES.unsupported_type }
   }
 

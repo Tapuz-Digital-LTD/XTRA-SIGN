@@ -3,6 +3,7 @@ import { requireSession, UnauthorizedError } from '@/server/auth/session'
 import { CsrfError, assertSameOrigin } from '@/server/http/csrf'
 import { MAX_FILE_BYTES } from '@/server/documents/file-validation'
 import { uploadDocument } from '@/server/documents/upload-document'
+import { processDocumentVersion } from '@/server/documents/process-document'
 
 export async function POST(request: Request) {
   let session
@@ -52,8 +53,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: { code: result.code, message: result.message } }, { status: 400 })
   }
 
+  // Conversion runs inline for now: the MVP has one user at a time and an
+  // honest "still preparing" state costs more than it buys. It moves to a queue
+  // when concurrency justifies one.
+  const processed = await processDocumentVersion({
+    agreementId: result.agreementId,
+    organizationId: session.organizationId,
+    versionId: result.versionId,
+    actor: session.email,
+  })
+
+  if (!processed.ok) {
+    // The agreement and the original file are kept: the user can still download
+    // what they uploaded, and retry or replace it.
+    return NextResponse.json(
+      { agreementId: result.agreementId, error: { message: processed.message } },
+      { status: 422 },
+    )
+  }
+
   return NextResponse.json({
     agreementId: result.agreementId,
-    needsConversion: result.needsConversion,
+    pageCount: processed.pageCount,
   })
 }

@@ -14,9 +14,11 @@ const DOCX = Buffer.concat([
   Buffer.from([0x50, 0x4b, 0x03, 0x04]),
   Buffer.from('....word/document.xml....'),
 ])
+// A real .doc is OLE2 AND carries a WordDocument stream. OLE2 alone is shared
+// with .xls, .ppt and .msg, all of which LibreOffice would happily open.
 const DOC = Buffer.concat([
   Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
-  Buffer.from('ole'),
+  Buffer.from('WordDocument', 'utf16le'),
 ])
 
 describe('validateUpload', () => {
@@ -33,6 +35,15 @@ describe('validateUpload', () => {
     const result = validateUpload(html)
     expect(result.ok).toBe(false)
     expect(result.ok === false && result.code).toBe('unsupported_type')
+  })
+
+  it('rejects an OLE2 file that is not a Word document', () => {
+    // Same trap as ZIP: .xls, .ppt and .msg all start with D0CF11E0.
+    const spreadsheet = Buffer.concat([
+      Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
+      Buffer.from('Workbook', 'utf16le'),
+    ])
+    expect(validateUpload(spreadsheet)).toMatchObject({ ok: false, code: 'unsupported_type' })
   })
 
   it('rejects a ZIP that is not actually a Word document', () => {
