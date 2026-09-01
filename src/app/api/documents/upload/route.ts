@@ -4,7 +4,7 @@ import { buildStorageKey, MAX_FILE_BYTES } from '@/server/documents/file-validat
 import { adoptUploadedDocument } from '@/server/documents/upload-document'
 import { CsrfError, assertSameOrigin } from '@/server/http/csrf'
 import { consume } from '@/server/http/rate-limit'
-import { clientIp } from '@/server/log'
+import { clientIp, log } from '@/server/log'
 import { presignUpload } from '@/server/storage/blob'
 
 /**
@@ -93,6 +93,17 @@ export async function POST(request: Request) {
     if (error instanceof UnauthorizedError) {
       return NextResponse.json({ error: { message: 'נדרשת התחברות.' } }, { status: 401 })
     }
-    throw error
+
+    // Anything else is ours. Say so in the log — with the message, which for a
+    // Blob or database failure names the cause — and answer with JSON, so the
+    // page shows a sentence rather than the fallback it uses for an HTML 500.
+    log.error('upload failed', {
+      error: error instanceof Error ? error.message : String(error),
+      name: error instanceof Error ? error.name : typeof error,
+    })
+    return NextResponse.json(
+      { error: { message: 'ההעלאה נכשלה בצד השרת. נסו שוב, ואם זה חוזר פנו למנהל המערכת.' } },
+      { status: 500 },
+    )
   }
 }

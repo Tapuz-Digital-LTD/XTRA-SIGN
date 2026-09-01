@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { BLOB_UPLOAD_ORIGIN, buildCsp, isConnectableUploadUrl } from '../content-security-policy'
+import { afterEach, describe, expect, it } from 'vitest'
+import { blobApiOrigin, buildCsp, isConnectableUploadUrl } from '../content-security-policy'
 
 /**
  * The upload broke in production and worked everywhere else, because
@@ -8,15 +8,20 @@ import { BLOB_UPLOAD_ORIGIN, buildCsp, isConnectableUploadUrl } from '../content
  * page could report it — a request the policy refuses never gets a response.
  *
  * These assertions pin the two halves of that fix together: the directive that
- * permits the host, and the check that the URL actually minted matches it.
+ * permits the origin, and the check that the URL actually minted matches it.
  */
 
 /**
- * The exact shape `@vercel/blob` builds, from `constructBlobUrl`:
- * `https://${storeId}.${access}.blob.vercel-storage.com/${pathname}` — with
- * `access` always 'private' here.
+ * The exact shape `@vercel/blob` builds for a presigned PUT, from
+ * `buildPresignedPutUrl`: the API base (`getApiUrl`) with the pathname and
+ * the signature in the query. NOT the store host — that is where a presigned
+ * GET goes, and the two must not be confused again.
  */
-const PRESIGNED_UPLOAD_URL =
+const PRESIGNED_PUT_URL =
+  'https://vercel.com/api/blob/?pathname=org%2Fo1%2Fagreements%2Fa1%2Fsource%2Ff1.pdf' +
+  '&vercel-blob-delegation=tok&vercel-blob-signature=sig'
+
+const PRESIGNED_GET_URL =
   'https://store_abc123.private.blob.vercel-storage.com/org/o1/agreements/a1/source/f1.pdf' +
   '?vercel-blob-delegation=tok&vercel-blob-signature=sig'
 
@@ -26,35 +31,48 @@ function directive(csp: string, name: string): string {
   return found
 }
 
+afterEach(() => {
+  delete process.env.VERCEL_BLOB_API_URL
+  delete process.env.NEXT_PUBLIC_VERCEL_BLOB_API_URL
+})
+
 describe('connect-src', () => {
-  it('permits the Blob host the browser uploads to', () => {
+  it('permits the Blob API origin the browser uploads to', () => {
     expect(directive(buildCsp({ isProd: true }), 'connect-src')).toBe(
-      `connect-src 'self' ${BLOB_UPLOAD_ORIGIN}`,
+      "connect-src 'self' https://vercel.com",
     )
   })
 
   it('permits the URL Blob actually mints for a presigned upload', () => {
-    expect(isConnectableUploadUrl(PRESIGNED_UPLOAD_URL)).toBe(true)
+    expect(isConnectableUploadUrl(PRESIGNED_PUT_URL)).toBe(true)
   })
 
   it('permits the development stand-in, which is a path on our own origin', () => {
     expect(isConnectableUploadUrl('/api/dev-blob/org/o1/agreements/a1/source/f1.pdf')).toBe(true)
   })
 
+  it('follows the same override the SDK honours', () => {
+    // A self-hosted or staging Blob API moves the upload origin with it; the
+    // policy and the guard must move together or the upload dies again.
+    process.env.VERCEL_BLOB_API_URL = 'https://blob-staging.example.com/api/blob'
+    expect(blobApiOrigin()).toBe('https://blob-staging.example.com')
+    expect(directive(buildCsp({ isProd: true }), 'connect-src')).toBe(
+      "connect-src 'self' https://blob-staging.example.com",
+    )
+    expect(isConnectableUploadUrl('https://blob-staging.example.com/api/blob/?pathname=x')).toBe(
+      true,
+    )
+    expect(isConnectableUploadUrl(PRESIGNED_PUT_URL)).toBe(false)
+  })
+
   it('refuses any other origin', () => {
-    // Not a wildcard for the whole internet: only the private Blob host.
     expect(isConnectableUploadUrl('https://evil.example.com/upload')).toBe(false)
-    expect(isConnectableUploadUrl('https://blob.vercel-storage.com.evil.example.com/x')).toBe(false)
-    // `*.` needs a label in front of the suffix.
-    expect(isConnectableUploadUrl('https://private.blob.vercel-storage.com/x')).toBe(false)
-    // A public store is not what this app writes to, and is not permitted.
-    expect(isConnectableUploadUrl('https://store_abc123.public.blob.vercel-storage.com/x')).toBe(
-      false,
-    )
+    expect(isConnectableUploadUrl('https://vercel.com.evil.example.com/api/blob/')).toBe(false)
+    // The store host is where downloads come from, not where uploads go; the
+    // guard exists precisely to catch that confusion.
+    expect(isConnectableUploadUrl(PRESIGNED_GET_URL)).toBe(false)
     // Plain HTTP would strip the transport protection the signed URL relies on.
-    expect(isConnectableUploadUrl('http://store_abc123.private.blob.vercel-storage.com/x')).toBe(
-      false,
-    )
+    expect(isConnectableUploadUrl('http://vercel.com/api/blob/?pathname=x')).toBe(false)
     expect(isConnectableUploadUrl('not a url')).toBe(false)
   })
 })

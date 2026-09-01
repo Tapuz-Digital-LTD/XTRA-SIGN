@@ -8,30 +8,38 @@
  */
 
 /**
- * The host a presigned Blob upload lands on.
+ * Where the SDK sends a presigned PUT. Mirrors `getApiUrl` in `@vercel/blob`:
+ * the API base, overridable through the same two variables the SDK reads.
  *
- * `@vercel/blob` builds a presigned URL as
- * `https://<storeId>.<access>.blob.vercel-storage.com/<pathname>`, and every
- * object this app writes uses `access: 'private'`.
- *
- * This MUST be reachable from `connect-src`. The browser PUTs the chosen file
- * straight to that host — the whole point of presigning is that a 25MB upload
- * never crosses a function — and `connect-src 'self'` blocks that request
- * before a single byte leaves the page. There is no status code and no
- * response to inspect: `fetch` simply rejects, which the upload UI can only
- * report as "check your internet connection". That was the bug.
+ * NOT the store host. A presigned *download* is
+ * `https://<storeId>.private.blob.vercel-storage.com/<pathname>`, but a
+ * presigned *upload* is `https://vercel.com/api/blob/?pathname=…` — the two
+ * operations go to different origins, and only the upload is made by page
+ * script. (Downloads are `<a href>` navigations to a route that redirects to
+ * the signed URL, and a navigation is not governed by `connect-src`.)
  */
-const BLOB_UPLOAD_HOST_SUFFIX = '.private.blob.vercel-storage.com'
+const DEFAULT_BLOB_API_URL = 'https://vercel.com/api/blob'
 
-export const BLOB_UPLOAD_ORIGIN = `https://*${BLOB_UPLOAD_HOST_SUFFIX}`
+export function blobApiOrigin(): string {
+  const configured =
+    process.env.VERCEL_BLOB_API_URL || process.env.NEXT_PUBLIC_VERCEL_BLOB_API_URL
+  try {
+    return new URL(configured || DEFAULT_BLOB_API_URL).origin
+  } catch {
+    return new URL(DEFAULT_BLOB_API_URL).origin
+  }
+}
 
 /**
  * Whether a presigned upload URL is one the browser is actually allowed to
  * reach under the policy below.
  *
- * Called on the server, at the moment the URL is minted, so that a change in
- * how Blob shapes its URLs fails loudly here — with the offending origin named
- * — instead of becoming a dead PUT in someone's browser.
+ * Called on the server at the moment the URL is minted, so that a change in
+ * where the SDK sends uploads fails loudly here — with the offending origin
+ * named — instead of becoming a dead PUT in someone's browser. The browser
+ * PUTs the chosen file straight to that origin; `connect-src 'self'` blocks
+ * such a request before a single byte leaves the page, with no status code
+ * and no response to inspect. That was the original bug.
  *
  * A relative URL is the development stand-in route on our own origin, which
  * `'self'` already covers.
@@ -46,13 +54,7 @@ export function isConnectableUploadUrl(url: string): boolean {
     return false
   }
 
-  return (
-    parsed.protocol === 'https:' &&
-    parsed.hostname.endsWith(BLOB_UPLOAD_HOST_SUFFIX) &&
-    // `*.` requires at least one label in front of the suffix; a bare
-    // "private.blob.vercel-storage.com" would not match the CSP source.
-    parsed.hostname.length > BLOB_UPLOAD_HOST_SUFFIX.length
-  )
+  return parsed.protocol === 'https:' && parsed.origin === blobApiOrigin()
 }
 
 /**
@@ -69,16 +71,12 @@ export function isConnectableUploadUrl(url: string): boolean {
  * `img-src 'self' data: blob:` — page previews come from our own routes, and
  * the signature pad produces a data/blob URL before it is uploaded.
  *
- * `connect-src` is `'self'` plus the Blob upload host and nothing else. The
+ * `connect-src` is `'self'` plus the Blob API origin and nothing else. The
  * browser still never talks to InforU or to any other third party: every
  * outbound call but the upload PUT goes through the server, which is what
  * keeps credentials off the client. The upload is the one exception, and it
  * carries no credential of ours — the URL is signed, scoped to a single
  * pathname, limited to `put`, and expires in two minutes.
- *
- * Note that downloads do NOT need an entry here: those are `<a href>`
- * navigations to a route that redirects to a signed URL, and a navigation is
- * not governed by `connect-src`.
  */
 export function buildCsp(options: { isProd: boolean }): string {
   const { isProd } = options
@@ -89,7 +87,7 @@ export function buildCsp(options: { isProd: boolean }): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
-    `connect-src 'self' ${BLOB_UPLOAD_ORIGIN}`,
+    `connect-src 'self' ${blobApiOrigin()}`,
     // pdf.js runs its parser in a Web Worker, which Next serves from a blob: URL.
     // Without this the preview silently fails to render.
     "worker-src 'self' blob:",
