@@ -21,14 +21,25 @@ const RENDER_WIDTH = 1240
 
 let workerConfigured = false
 
+/**
+ * The `legacy` build, on purpose.
+ *
+ * The default build of pdf.js 6 calls `Map.prototype.getOrInsertComputed`, an
+ * API that only the very newest engines ship. On anything older — Chromium
+ * before 144, and the iOS Safari most signers actually open the link with —
+ * every page fails with "לא הצלחנו להציג את העמוד הזה" and nothing else, which
+ * is what the whole product looked like broken. The legacy build carries the
+ * polyfills; the worker must be the legacy one too, since the same call runs
+ * inside it.
+ */
 async function loadPdfjs() {
-  const pdfjs = await import('pdfjs-dist')
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
   if (!workerConfigured) {
     // Bundled through the app rather than fetched from a CDN: connect-src in
     // the CSP is 'self', and a worker from elsewhere would be blocked — as it
     // should be.
     pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-      'pdfjs-dist/build/pdf.worker.min.mjs',
+      'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
       import.meta.url,
     ).toString()
     workerConfigured = true
@@ -130,7 +141,11 @@ export function PdfPage({
 
         await page.render({ canvas, canvasContext: context, viewport }).promise
         if (!cancelled) setState('done')
-      } catch {
+      } catch (cause) {
+        // The page shows one sentence; the console keeps the reason. Without
+        // this a failure here is undiagnosable — it looks identical whether
+        // the fetch was refused, the file is not a PDF, or the worker failed.
+        console.error(`pdf page ${pageNumber} failed to render`, cause)
         if (!cancelled) setState('error')
       }
     })()

@@ -1,3 +1,4 @@
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import type { DocumentStorage, StoredObject } from './types'
@@ -47,10 +48,24 @@ export class LocalDiskStorage implements DocumentStorage {
     return readFile(pathFor(key))
   }
 
-  async signedDownloadUrl(key: string): Promise<string> {
-    // Nothing signs anything here. Development downloads go through the app's
-    // own authorized routes, which is what this URL is fed to.
-    return `/api/dev-blob/${encodeURIComponent(key)}`
+  async signedDownloadUrl(
+    key: string,
+    options: { expiresInSeconds: number; downloadFilename?: string },
+  ): Promise<string> {
+    // The same shape as the real thing: an absolute URL that carries its own
+    // authorization and expires. The download routes answer with a redirect,
+    // and a redirect needs an absolute URL — a relative one is a 500 — so the
+    // stand-in has to be reachable without a session exactly as a presigned
+    // Blob URL is, which is what the signature is for.
+    const expires = Date.now() + Math.min(Math.max(options.expiresInSeconds, 1), 300) * 1000
+    const url = new URL(
+      `/api/dev-blob/${key.split('/').map(encodeURIComponent).join('/')}`,
+      process.env.SIGN_PUBLIC_URL ?? 'http://localhost:3000',
+    )
+    url.searchParams.set('expires', String(expires))
+    if (options.downloadFilename) url.searchParams.set('filename', options.downloadFilename)
+    url.searchParams.set('signature', signDevDownload(key, expires))
+    return url.toString()
   }
 
   async delete(key: string): Promise<void> {
@@ -66,6 +81,38 @@ export class LocalDiskStorage implements DocumentStorage {
       return false
     }
   }
+}
+
+/**
+ * A per-process secret for the stand-in's signed URLs.
+ *
+ * On globalThis so Next's hot reload does not mint a fresh one on every edit
+ * and invalidate a link someone just clicked. Never persisted, never shared:
+ * a link is only ever valid against the process that issued it, which is all
+ * a development download needs.
+ */
+const globalForSecret = globalThis as unknown as { __xtraSignDevBlobSecret?: Buffer }
+
+function devSecret(): Buffer {
+  if (!globalForSecret.__xtraSignDevBlobSecret) {
+    globalForSecret.__xtraSignDevBlobSecret = randomBytes(32)
+  }
+  return globalForSecret.__xtraSignDevBlobSecret
+}
+
+function signDevDownload(key: string, expires: number): string {
+  return createHmac('sha256', devSecret()).update(`${key}\n${expires}`).digest('base64url')
+}
+
+/** True only for a URL this process signed, for this key, that has not expired. */
+export function verifyDevDownload(key: string, expires: string | null, signature: string | null): boolean {
+  if (!expires || !signature) return false
+  const expiresAt = Number(expires)
+  if (!Number.isFinite(expiresAt) || expiresAt < Date.now()) return false
+
+  const expected = Buffer.from(signDevDownload(key, expiresAt))
+  const given = Buffer.from(signature)
+  return expected.length === given.length && timingSafeEqual(expected, given)
 }
 
 export { ROOT as LOCAL_STORAGE_ROOT, join }
