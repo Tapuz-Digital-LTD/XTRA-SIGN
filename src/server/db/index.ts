@@ -1,30 +1,29 @@
-import { Pool, neonConfig } from '@neondatabase/serverless'
-import { drizzle } from 'drizzle-orm/neon-serverless'
+import { drizzle } from 'drizzle-orm/node-postgres'
+import { Pool } from 'pg'
 import * as schema from './schema'
 
 /**
  * The database connection.
  *
- * `neon-serverless` (WebSocket Pool), NOT `neon-http`. The HTTP driver cannot
- * do interactive transactions, and six places here depend on them — completing
- * a signature writes the signed file, the signature row, the recipient, the
- * agreement status and two audit events as one unit. Losing atomicity there
- * means a signed PDF whose document still says "awaiting signature", which is
- * not a state a signing system may ever be in.
+ * Plain `pg` over `DATABASE_URL`, not Neon's WebSocket driver. Neon speaks
+ * standard Postgres on its pooled endpoint, so this works there — and it also
+ * works against any Postgres, which the WebSocket driver does not: it refuses
+ * to connect to anything that is not a Neon host, so local development would
+ * need a proxy to run at all.
+ *
+ * Interactive transactions are the requirement that rules out the HTTP driver
+ * entirely. Six places depend on them — completing a signature writes the signed
+ * file, the signature, the recipient, the status and two audit events as one
+ * unit, and losing that atomicity means a signed PDF whose document still says
+ * "awaiting signature". `pg` supports them; `neon-http` does not.
  */
-
-// Node needs a WebSocket implementation; the Vercel runtime has one built in.
-if (typeof WebSocket === 'undefined') {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  neonConfig.webSocketConstructor = require('ws')
-}
 
 /**
  * One pool per process, cached on globalThis.
  *
  * Next re-evaluates modules on every hot reload in development, and a fresh
  * pool each time exhausts the connection limit. In production the same cache
- * lets Fluid Compute reuse the pool across invocations on a warm instance.
+ * lets a warm function instance reuse the pool across invocations.
  */
 const globalForDb = globalThis as unknown as { __xtraSignPool?: Pool }
 
@@ -33,7 +32,16 @@ function pool(): Pool {
   if (!connectionString) throw new Error('DATABASE_URL is not configured')
 
   if (!globalForDb.__xtraSignPool) {
-    globalForDb.__xtraSignPool = new Pool({ connectionString })
+    globalForDb.__xtraSignPool = new Pool({
+      connectionString,
+      // Small on purpose: many function instances each holding a large pool is
+      // how a serverless app exhausts a database's connection limit. Point this
+      // at a pooled connection string in production and the pooler does the
+      // real multiplexing.
+      max: 3,
+      idleTimeoutMillis: 10_000,
+      connectionTimeoutMillis: 5_000,
+    })
   }
   return globalForDb.__xtraSignPool
 }

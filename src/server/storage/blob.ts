@@ -104,6 +104,16 @@ export async function presignUpload(input: {
   contentTypes: string[]
   expiresInSeconds?: number
 }): Promise<string> {
+  // With no Blob token, development uploads to the app's own stand-in route.
+  // The client PUTs to a URL either way, so there is one code path in the
+  // browser rather than a development branch nobody exercises.
+  if (!storageIsConfigured()) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('BLOB_READ_WRITE_TOKEN is not configured')
+    }
+    return `/api/dev-blob/${input.key.split('/').map(encodeURIComponent).join('/')}`
+  }
+
   const validUntil = Date.now() + (input.expiresInSeconds ?? 120) * 1000
 
   const token = await issueSignedToken({
@@ -129,9 +139,35 @@ export async function presignUpload(input: {
 
 let cached: DocumentStorage | null = null
 
-/** Lazily built so importing this module never throws at build time. */
+/**
+ * Lazily built so importing this module never throws at build time.
+ *
+ * With no Blob token, development falls back to local disk so `npm run dev`
+ * works with nothing provisioned. Production never falls back: a missing token
+ * there means the deployment is misconfigured, and quietly writing documents to
+ * a container's disk — which vanishes on the next deploy — is far worse than
+ * failing at startup.
+ */
 export function getStorage(): DocumentStorage {
-  if (!cached) cached = new VercelBlobStorage()
+  if (cached) return cached
+
+  if (!storageIsConfigured()) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('BLOB_READ_WRITE_TOKEN is not configured')
+    }
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { LocalDiskStorage } = require('./local') as typeof import('./local')
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        msg: 'no Blob token — documents are being written to .data/blob (development only)',
+      }),
+    )
+    cached = new LocalDiskStorage()
+    return cached
+  }
+
+  cached = new VercelBlobStorage()
   return cached
 }
 

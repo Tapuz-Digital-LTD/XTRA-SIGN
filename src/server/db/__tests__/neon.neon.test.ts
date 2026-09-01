@@ -1,6 +1,6 @@
-import { Pool, neonConfig } from '@neondatabase/serverless'
-import { drizzle } from 'drizzle-orm/neon-serverless'
-import { migrate } from 'drizzle-orm/neon-serverless/migrator'
+import { drizzle } from 'drizzle-orm/node-postgres'
+import { migrate } from 'drizzle-orm/node-postgres/migrator'
+import { Pool } from 'pg'
 import { eq, sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as schema from '../schema'
@@ -9,10 +9,11 @@ import * as schema from '../schema'
  * The things PGlite cannot answer.
  *
  * PGlite is a real Postgres and covers the SQL, the constraints and the
- * migrations — but it is not the driver production uses. Interactive
- * transactions over a WebSocket pool, a rollback that actually rolls back on a
- * pooled connection, two writers racing, and whether the migrations apply to
- * the real instance are all properties of Neon and its driver, not of Postgres.
+ * migrations — but it is in-process and single-connection. Interactive
+ * transactions over a real pool, a rollback that actually rolls back across the
+ * network, two writers racing on separate connections, and whether the
+ * migrations apply to the real instance are properties of Neon and the pool,
+ * not of Postgres-the-language.
  *
  * Opt-in on purpose. It needs a real database, so it runs before a deploy
  * rather than on every local `npm test`:
@@ -41,10 +42,8 @@ let orgId: string
 
 beforeAll(async () => {
   if (!url) return
-  if (typeof WebSocket === 'undefined') {
-    neonConfig.webSocketConstructor = (await import('ws')).default
-  }
-  pool = new Pool({ connectionString: url })
+  // The same driver and the same pool settings the app uses.
+  pool = new Pool({ connectionString: url, max: 3 })
   db = drizzle(pool, { schema })
 }, 60_000)
 
