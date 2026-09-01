@@ -191,12 +191,22 @@ export const templates = pgTable(
       .notNull()
       .references(() => organizations.id),
     name: text('name').notNull(),
-    /** Builder blocks, or null when the template wraps an uploaded file. */
+    /** The composer's source text, or null when the template wraps an uploaded file. */
     content: jsonb('content'),
+    /** The PDF every document made from this template starts as. Copied, never shared. */
     sourceFileKey: text('source_file_key'),
+    /**
+     * The field layout, as a snapshot of the same shape the editor saves. Copied
+     * onto each new document through the same validation the editor's autosave
+     * goes through, so a template cannot smuggle in what the editor refuses.
+     */
+    fields: jsonb('fields'),
+    pageCount: integer('page_count'),
     createdBy: uuid('created_by').references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    /** Soft: agreements keep pointing at the template they were made from. */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (t) => [index('templates_org_idx').on(t.organizationId)],
 )

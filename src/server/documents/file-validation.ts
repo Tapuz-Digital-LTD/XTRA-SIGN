@@ -160,3 +160,19 @@ export function sanitizeDisplayName(name: string): string {
   const withoutExt = cleaned.replace(/\.(pdf|docx?)$/i, '')
   return withoutExt.slice(0, 200) || 'מסמך'
 }
+
+/**
+ * A template's own copy of its PDF.
+ *
+ * Under the organization prefix like everything else, and under the template
+ * rather than any agreement: a document made from a template gets its own copy
+ * under its own agreement, so deleting either never breaks the other.
+ */
+export function buildTemplateStorageKey(input: {
+  organizationId: string
+  templateId: string
+  ext: string
+}): string {
+  const safeExt = /^[a-z0-9]{1,5}$/.test(input.ext) ? input.ext : 'bin'
+  return `org/${input.organizationId}/templates/${input.templateId}/source/${randomUUID()}.${safeExt}`
+}

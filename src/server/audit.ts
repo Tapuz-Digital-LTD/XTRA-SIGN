@@ -28,6 +28,8 @@ export const AUDIT_EVENTS = {
   EXPIRED: 'expired',
   REMINDER_SENT: 'reminder_sent',
   NEW_VERSION_CREATED: 'new_version_created',
+  /** The document's PDF and layout were copied into a template. */
+  SAVED_AS_TEMPLATE: 'saved_as_template',
 } as const
 
 export type AuditEventType = (typeof AUDIT_EVENTS)[keyof typeof AUDIT_EVENTS]

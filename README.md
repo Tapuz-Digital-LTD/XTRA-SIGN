@@ -31,7 +31,7 @@ logged and reported as **not sent**, never as sent.
 ## Tests
 
 ```bash
-npm test        # 137 tests. PGlite — a real Postgres in WASM. No Docker, no setup.
+npm test        # 174 tests. PGlite — a real Postgres in WASM. No Docker, no setup.
 npm run lint
 npm run build
 ```
@@ -77,6 +77,19 @@ It runs only what it has credentials for, and says loudly when it skips:
 5. `npm run test:live`.
 6. Seed the first admin. Everyone after that arrives by invitation.
 
+## Three ways a document starts
+
+- **Upload a PDF.** The browser PUTs the file straight to Blob on a presigned
+  URL; the server then reads the bytes back and validates them.
+- **Write it in the system.** A title and plain text — `#` for a heading, `-`
+  for a list item, `---` for a page break — rendered to an A4 PDF with the same
+  embedded Hebrew font the signed copy uses. From there it is an ordinary
+  document: fields, recipient, send, sign.
+- **From a template.** Any document with its fields laid out can be saved as a
+  template from its page. A new document from a template gets its own copy of
+  the PDF and the fields already in place. Templates are shared within the
+  organization; the person who made one, or an admin, can rename or delete it.
+
 ## What it does not do
 
 - **PDF only.** A Word file is refused at the upload with a message saying to
@@ -85,4 +98,4 @@ It runs only what it has credentials for, and says loudly when it skips:
 - **WhatsApp is a share, not a send.** The button opens WhatsApp with a
   prefilled message; the user picks the contact and presses send there. Nothing
   here can observe delivery, so nothing claims it.
-- No template library, no bulk send, no approval chains, no conditional logic.
+- No bulk send, no approval chains, no conditional logic.

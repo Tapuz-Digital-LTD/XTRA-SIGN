@@ -18,6 +18,7 @@ const LABELS: Record<string, string> = {
   expired: 'פג תוקף',
   reminder_sent: 'נשלחה תזכורת',
   new_version_created: 'נוצרה גרסה חדשה',
+  saved_as_template: 'נשמר כתבנית',
 }
 
 const formatter = new Intl.DateTimeFormat('he-IL', {

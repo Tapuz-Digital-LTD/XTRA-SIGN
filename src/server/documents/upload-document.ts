@@ -25,6 +25,8 @@ export type UploadDocumentInput = {
   filename: string
   /** When the bytes are already in storage, adopt that object instead of writing a new one. */
   existingKey?: string
+  /** Where the document came from, when not a plain upload. Recorded, never trusted for anything. */
+  origin?: { templateId: string } | { composed: true }
   ip?: string | null
   userAgent?: string | null
 }
@@ -75,6 +77,7 @@ export async function uploadDocument(input: UploadDocumentInput): Promise<Upload
     await tx.insert(schema.agreements).values({
       id: agreementId,
       organizationId: session.organizationId,
+      templateId: input.origin && 'templateId' in input.origin ? input.origin.templateId : null,
       title,
       status: 'draft',
       ownerId: session.userId,
@@ -111,6 +114,7 @@ export async function uploadDocument(input: UploadDocumentInput): Promise<Upload
           kind: validation.kind,
           size: validation.size,
           sha256: validation.sha256,
+          ...(input.origin ?? {}),
         },
       },
     ])

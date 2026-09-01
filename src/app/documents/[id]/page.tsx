@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { DocumentPreview } from '@/components/DocumentPreview'
+import { SaveAsTemplate } from '@/components/SaveAsTemplate'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Timeline } from '@/components/Timeline'
 import { ForbiddenError, getSession } from '@/server/auth/session'
@@ -36,7 +37,8 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {doc.hasRendered ? <SaveAsTemplate documentId={doc.id} defaultName={doc.title} /> : null}
           <a
             href={`/api/documents/${doc.id}/download?type=source`}
             className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition-colors hover:bg-slate-50"
