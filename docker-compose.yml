@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: xtra
+      POSTGRES_PASSWORD: xtra
+      POSTGRES_DB: xtra_sign
+      # Containers run UTC. A signature time that is silently offset is not a
+      # defensible record.
+      TZ: UTC
+    ports: ['5432:5432']
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U xtra -d xtra_sign']
+      interval: 5s
+      retries: 10
+
+  # Private object storage for local dev. Never configured public-read; the app
+  # mints short-lived signed URLs instead of exposing a bucket.
+  storage:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: xtra
+      MINIO_ROOT_PASSWORD: xtra-dev-secret
+    ports: ['9000:9000', '9001:9001']
+    volumes: [minio:/data]
+
+volumes:
+  pgdata:
+  minio:
