@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 
 /** Three nav items. Anything more is a category we have not earned yet. */
@@ -20,9 +21,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center justify-between gap-4 py-3 sm:justify-start">
             <Link
               href="/documents"
-              className="inline-flex min-h-11 shrink-0 items-center text-base font-bold tracking-tight text-fg"
+              className="inline-flex min-h-11 shrink-0 items-baseline gap-1.5"
+              aria-label="XTRA SIGN — דף הבית"
             >
-              XTRA <span className="text-brand">Sign</span>
+              {/* The wordmark is Latin, so it needs its own direction island:
+                  inside dir="rtl" its parts lay out right-to-left and read as
+                  "Sign XTRA". */}
+              <span dir="ltr" className="inline-flex items-baseline gap-1.5">
+                <Image
+                  src="/xtra-logo.png"
+                  alt="XTRA"
+                  width={2039}
+                  height={492}
+                  priority
+                  className="h-5 w-auto self-center"
+                />
+                <span className="text-lg font-bold tracking-tight text-fg">
+                  SIGN
+                </span>
+              </span>
             </Link>
 
             <nav
@@ -44,7 +61,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               href="/documents/new"
               className="inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-lg bg-brand px-4 text-sm font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)]"
             >
-              + מסמך חדש
+              <span aria-hidden="true" className="me-1">
+                +
+              </span>
+              מסמך חדש
             </Link>
           </div>
 

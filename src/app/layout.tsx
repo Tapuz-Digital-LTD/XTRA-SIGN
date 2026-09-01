@@ -13,7 +13,7 @@ const assistant = Assistant({
 })
 
 export const metadata: Metadata = {
-  title: 'XTRA Sign',
+  title: 'XTRA SIGN',
   description: 'מסמכים לחתימה',
 }
 

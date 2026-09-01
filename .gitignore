@@ -42,3 +42,4 @@ next-env.d.ts
 
 # Playwright MCP scratch output
 .playwright-mcp/
+mobile-375.png

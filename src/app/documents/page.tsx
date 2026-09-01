@@ -15,7 +15,8 @@ export default function DocumentsPage() {
           <EmptyState
             title="עדיין אין כאן מסמכים"
             description="צרו מסמך ראשון ושלחו אותו לחתימה בכמה צעדים פשוטים."
-            actionLabel="+ יצירת מסמך"
+            actionIcon="+"
+            actionLabel="יצירת מסמך"
             actionHref="/documents/new"
           />
         </div>
