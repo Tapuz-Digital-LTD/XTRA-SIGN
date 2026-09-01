@@ -89,7 +89,7 @@ afterAll(async () => {
   }
 
   // The objects written during the run are dev-bucket litter otherwise.
-  const { getStorage } = await import('@/server/storage/s3')
+  const { getStorage } = await import('@/server/storage/blob')
   for (const key of storageKeys) {
     await getStorage().delete(key).catch(() => {})
   }
@@ -107,7 +107,7 @@ describe('uploadDocument', () => {
     storageKeys.push(version.sourceFileKey!)
 
     // The stored object must be byte-identical to what was uploaded.
-    const { getStorage } = await import('@/server/storage/s3')
+    const { getStorage } = await import('@/server/storage/blob')
     const stored = await getStorage().get(version.sourceFileKey!)
     expect(sha256(stored)).toBe(sha256(PDF))
   })

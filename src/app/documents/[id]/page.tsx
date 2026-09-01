@@ -65,8 +65,8 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
             </p>
           ) : null}
 
-          {doc.hasRendered && doc.pageCount ? (
-            <DocumentPreview documentId={doc.id} pageCount={doc.pageCount} />
+          {doc.hasRendered && doc.pages.length > 0 ? (
+            <DocumentPreview documentId={doc.id} pages={doc.pages} />
           ) : (
             <p
               role="status"

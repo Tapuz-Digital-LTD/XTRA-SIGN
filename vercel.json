@@ -1,0 +1,31 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+
+  "buildCommand": "next build",
+
+  "functions": {
+    "src/app/api/sign/[token]/complete/route.ts": {
+      "memory": 2048,
+      "maxDuration": 60
+    },
+    "src/app/api/documents/upload/route.ts": {
+      "memory": 1024,
+      "maxDuration": 30
+    },
+    "src/app/api/documents/[id]/file/route.ts": {
+      "memory": 1024,
+      "maxDuration": 30
+    },
+    "src/app/api/sign/[token]/file/route.ts": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  },
+
+  "crons": [
+    {
+      "path": "/api/cron/reminders",
+      "schedule": "0 7 * * 0-4"
+    }
+  ]
+}

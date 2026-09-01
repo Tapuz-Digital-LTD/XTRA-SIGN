@@ -1,32 +1,50 @@
 /**
  * Applies pending migrations, then exits.
  *
- * Runs as its own one-off task rather than on app startup: several web tasks
- * starting at once would each try to migrate, and a failed migration inside a
- * starting container looks like a crash loop instead of a clear failure.
+ * Run explicitly and never as part of a build. A build runs on every push and
+ * on every Preview deployment; wiring migrations into it means a branch someone
+ * opened for an experiment can alter the live schema, and two concurrent
+ * deploys can race each other through it.
+ *
+ *   npm run db:migrate
+ *
+ * The target host and database are printed before anything runs, so pointing at
+ * the wrong one is visible rather than discovered afterwards.
  */
-import { migrate } from 'drizzle-orm/postgres-js/migrator'
-import postgres from 'postgres'
-import { drizzle } from 'drizzle-orm/postgres-js'
+import { drizzle } from 'drizzle-orm/node-postgres'
+import { migrate } from 'drizzle-orm/node-postgres/migrator'
+import { Pool } from 'pg'
+
+function describeTarget(url: string): string {
+  try {
+    const parsed = new URL(url)
+    // Host and database only — never the credentials.
+    return `${parsed.hostname}${parsed.pathname}`
+  } catch {
+    return 'unparseable DATABASE_URL'
+  }
+}
 
 async function main() {
   const url = process.env.DATABASE_URL
   if (!url) {
-    console.error(JSON.stringify({ level: 'error', msg: 'DATABASE_URL is not set' }))
+    console.error('DATABASE_URL is not set. Use one of the db:migrate:* scripts.')
     process.exit(1)
   }
 
-  // max: 1 — a migration runner needs exactly one connection, and Postgres
-  // advisory locks in the migrator are per-connection.
-  const sql = postgres(url, { max: 1 })
+  console.log(`Applying migrations to: ${describeTarget(url)}`)
+
+  // max: 1 — a migration runner needs exactly one connection, and the migrator's
+  // advisory lock is per-connection.
+  const pool = new Pool({ connectionString: url, max: 1 })
   try {
-    await migrate(drizzle(sql), { migrationsFolder: './drizzle' })
-    console.log(JSON.stringify({ level: 'info', msg: 'migrations applied' }))
-    await sql.end()
+    await migrate(drizzle(pool), { migrationsFolder: './drizzle' })
+    console.log('Migrations applied.')
+    await pool.end()
     process.exit(0)
   } catch (error) {
-    console.error(JSON.stringify({ level: 'error', msg: 'migration failed', error: String(error) }))
-    await sql.end().catch(() => {})
+    console.error('Migration failed:', error)
+    await pool.end().catch(() => {})
     process.exit(1)
   }
 }

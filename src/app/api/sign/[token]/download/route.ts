@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getDb, schema } from '@/server/db'
 import { resolveSigningToken } from '@/server/signing/session'
-import { getStorage } from '@/server/storage/s3'
+import { getStorage } from '@/server/storage/blob'
 
 /**
  * The signer's copy of the signed document.

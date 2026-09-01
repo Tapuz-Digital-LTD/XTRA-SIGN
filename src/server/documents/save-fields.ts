@@ -169,8 +169,6 @@ export async function loadPageGeometry(versionId: string) {
   return db
     .select({
       pageNumber: schema.documentPages.pageNumber,
-      imageWidth: schema.documentPages.imageWidth,
-      imageHeight: schema.documentPages.imageHeight,
       widthPt: schema.documentPages.widthPt,
       heightPt: schema.documentPages.heightPt,
     })

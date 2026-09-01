@@ -14,6 +14,14 @@ export type AcceptedKind = 'pdf' | 'docx' | 'doc'
 
 type Signature = { kind: AcceptedKind; bytes: number[]; mime: string; ext: string }
 
+/**
+ * Version 1 accepts PDF and nothing else.
+ *
+ * DOC and DOCX used to be converted by LibreOffice in a container. That
+ * container is gone with the move to Vercel, and the honest thing is to refuse
+ * a Word file at the door with a message telling the user to save it as PDF —
+ * rather than accept it and fail after they think it worked.
+ */
 const SIGNATURES: Signature[] = [
   // %PDF-
   { kind: 'pdf', bytes: [0x25, 0x50, 0x44, 0x46, 0x2d], mime: 'application/pdf', ext: 'pdf' },
@@ -56,7 +64,7 @@ export type ValidationError = {
 const MESSAGES = {
   empty: 'הקובץ ריק.',
   too_large: 'הקובץ גדול מדי. הגודל המרבי הוא 25MB.',
-  unsupported_type: 'סוג הקובץ אינו נתמך. ניתן להעלות PDF, DOC או DOCX.',
+  unsupported_type: 'ניתן להעלות קובץ PDF בלבד. אם המסמך ב-Word, שמרו אותו כ-PDF ונסו שוב.',
 } as const
 
 /** Present in every non-encrypted .docx, and in nothing else that is a ZIP. */

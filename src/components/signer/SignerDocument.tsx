@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { FIELD_LABELS, type PageGeometry, type PlacedField } from '@/lib/fields'
+import { PdfPage } from '@/components/PdfPage'
 
 /**
  * The document, with the signer's fields on it.
@@ -63,14 +64,15 @@ export function SignerDocument({
           <div
             key={page.pageNumber}
             className="relative w-full overflow-hidden rounded-[var(--radius-card)] border border-line bg-white"
-            // The page's real shape, measured at conversion — never assumed.
-            style={{ aspectRatio: `${page.imageWidth} / ${page.imageHeight}` }}
+            // The page's real shape, from its own measured size — never assumed.
+            style={{ aspectRatio: `${page.widthPt} / ${page.heightPt}` }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`/api/sign/${token}/pages/${page.pageNumber}`}
-              alt={`עמוד ${page.pageNumber}`}
-              className="absolute inset-0 h-full w-full"
+            <PdfPage
+              url={`/api/sign/${token}/file`}
+              pageNumber={page.pageNumber}
+              widthPt={page.widthPt}
+              heightPt={page.heightPt}
+              className="absolute inset-0"
             />
 
             {fields

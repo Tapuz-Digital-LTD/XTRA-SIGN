@@ -33,7 +33,11 @@ export type PreviewDisposition = 'inline' | 'attachment'
 export function previewHeaders(contentType: string, filename?: string): Headers {
   const headers = new Headers()
   headers.set('Content-Type', contentType)
-  headers.set('Content-Security-Policy', "default-src 'none'; img-src 'self'; sandbox")
+  // `sandbox` with no tokens neutralises script, plugins, forms and same-origin
+  // access for whatever is being served. The bytes are consumed by pdf.js in
+  // the parent page, not rendered by the browser directly, so nothing here
+  // needs to be permitted.
+  headers.set('Content-Security-Policy', "default-src 'none'; sandbox")
   headers.set('X-Content-Type-Options', 'nosniff')
   headers.set('Cache-Control', 'private, no-store, max-age=0')
   headers.set('Referrer-Policy', 'no-referrer')

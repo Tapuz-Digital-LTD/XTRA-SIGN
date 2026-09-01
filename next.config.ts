@@ -27,6 +27,9 @@ const csp = [
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
   "connect-src 'self'",
+  // pdf.js runs its parser in a Web Worker, which Next serves from a blob: URL.
+  // Without this the preview silently fails to render.
+  "worker-src 'self' blob:",
   // Storage is private and signed URLs are followed by a redirect the browser
   // makes itself, so no third-party origin needs to be reachable from a page.
   "form-action 'self'",
@@ -37,13 +40,21 @@ const csp = [
 ].join('; ')
 
 const nextConfig: NextConfig = {
-  // Emits a self-contained server bundle, so the runtime image carries only
-  // what the app actually imports rather than the whole node_modules tree.
-  output: 'standalone',
-
   // Pin the workspace root: a package-lock.json in the parent directory
   // otherwise makes Turbopack guess wrong about where the project starts.
   turbopack: { root: __dirname },
+
+  /**
+   * The Hebrew font the signed PDF embeds.
+   *
+   * A function bundle only carries files the tracer can see, and this one is
+   * read by path at runtime rather than imported. Without it the signed PDF
+   * renders every Hebrew character as a box — and that failure only shows up on
+   * a document someone has already signed.
+   */
+  outputFileTracingIncludes: {
+    '/api/sign/**': ['./src/server/signing/assets/**'],
+  },
 
   // The version banner tells an attacker which advisories to try.
   poweredByHeader: false,

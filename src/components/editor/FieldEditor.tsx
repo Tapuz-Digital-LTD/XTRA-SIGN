@@ -8,6 +8,7 @@ import {
   type PageGeometry,
   type PlacedField,
 } from '@/lib/fields'
+import { PdfPage } from '@/components/PdfPage'
 import { FieldBox } from './FieldBox'
 import { FieldPanel } from './FieldPanel'
 import { FieldToolbar } from './FieldToolbar'
@@ -241,9 +242,8 @@ function EditorPage({
       <div
         ref={ref}
         className="relative w-full overflow-hidden rounded-[var(--radius-card)] border border-line bg-white shadow-[var(--shadow)]"
-        // The real ratio, measured during conversion. Reserves exactly the
-        // right space before the image lands, for any page shape.
-        style={{ aspectRatio: `${page.imageWidth} / ${page.imageHeight}` }}
+        // The real ratio, from the page's own measured size in points.
+        style={{ aspectRatio: `${page.widthPt} / ${page.heightPt}` }}
         onPointerDown={(event) => {
           // A click on the page background clears the selection; a click that
           // started on a field is stopped by the field itself.
@@ -268,12 +268,12 @@ function EditorPage({
           })
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={`/api/documents/${documentId}/pages/${page.pageNumber}`}
-          alt={`עמוד ${page.pageNumber}`}
-          className="pointer-events-none absolute inset-0 h-full w-full select-none"
-          draggable={false}
+        <PdfPage
+          url={`/api/documents/${documentId}/file`}
+          pageNumber={page.pageNumber}
+          widthPt={page.widthPt}
+          heightPt={page.heightPt}
+          className="absolute inset-0"
         />
 
         {fields.map((field) => (

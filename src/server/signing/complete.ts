@@ -4,7 +4,7 @@ import { getDb, schema } from '@/server/db'
 import { buildStorageKey, sha256 } from '@/server/documents/file-validation'
 import { maskPhone } from '@/lib/phone'
 import { InforuEmailProvider } from '@/server/notifications/inforu'
-import { getStorage } from '@/server/storage/s3'
+import { getStorage } from '@/server/storage/blob'
 import { buildSignedPdf } from './pdf'
 import type { SigningContext } from './session'
 

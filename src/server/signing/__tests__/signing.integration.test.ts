@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { StaffSession } from '@/server/auth/session'
@@ -9,8 +8,7 @@ import { saveFields, saveRecipient } from '@/server/documents/save-fields'
 import { buildSendSummary } from '@/server/documents/send-validation'
 import { sendAgreement } from '@/server/documents/send-agreement'
 import { uploadDocument } from '@/server/documents/upload-document'
-import { getStorage } from '@/server/storage/s3'
-import { FIXTURES, buildFixtures } from '@/server/documents/__tests__/fixtures'
+import { getStorage } from '@/server/storage/blob'
 import { completeSigning } from '../complete'
 import { resolveSigningToken } from '../session'
 import { shapeForPdf } from '../pdf-text'
@@ -37,8 +35,19 @@ const PNG_1PX = Buffer.from(
 )
 const SIGNATURE_DATA_URL = `data:image/png;base64,${PNG_1PX.toString('base64')}`
 
+/**
+ * A minimal but real single-page A4 PDF. Version 1 accepts PDF only, so this is
+ * exactly the input the product takes.
+ */
+const A4_PDF = Buffer.from(
+  '%PDF-1.4\n' +
+    '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n' +
+    '2 0 obj\n<< /Type /Pages /Count 1 /Kids [3 0 R] >>\nendobj\n' +
+    '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.276 841.89] >>\nendobj\n' +
+    'trailer\n<< /Root 1 0 R /Size 4 >>\n%%EOF\n',
+)
+
 beforeAll(async () => {
-  buildFixtures()
   const suffix = crypto.randomUUID().slice(0, 8)
 
   const [org] = await db
@@ -68,8 +77,8 @@ beforeAll(async () => {
 
   const uploaded = await uploadDocument({
     session,
-    buffer: readFileSync(FIXTURES.docx),
-    filename: 'הסכם ספק.docx',
+    buffer: A4_PDF,
+    filename: 'הסכם ספק.pdf',
   })
   if (!uploaded.ok) throw new Error('upload failed')
   agreementId = uploaded.agreementId

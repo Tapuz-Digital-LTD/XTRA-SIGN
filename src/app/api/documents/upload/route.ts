@@ -1,17 +1,91 @@
 import { NextResponse } from 'next/server'
 import { requireSession, UnauthorizedError } from '@/server/auth/session'
+import { buildStorageKey, MAX_FILE_BYTES } from '@/server/documents/file-validation'
+import { adoptUploadedDocument } from '@/server/documents/upload-document'
 import { CsrfError, assertSameOrigin } from '@/server/http/csrf'
-import { MAX_FILE_BYTES } from '@/server/documents/file-validation'
-import { uploadDocument } from '@/server/documents/upload-document'
-import { processDocumentVersion } from '@/server/documents/process-document'
+import { consume } from '@/server/http/rate-limit'
+import { clientIp } from '@/server/log'
+import { presignUpload } from '@/server/storage/blob'
+
+/**
+ * Two steps, because the file never passes through a function.
+ *
+ *   POST { step: 'presign' }  → a short-lived URL the browser PUTs the file to
+ *   POST { step: 'adopt' }    → we fetch the leading bytes, validate, and only
+ *                               then create the agreement
+ *
+ * The split keeps a 25MB upload off the request path entirely. It also means
+ * the constraints Blob enforces on the presigned URL — size and declared
+ * content type — are a first line only: the Content-Type is whatever the
+ * browser said, so the real check is on the bytes, after the fact. A file that
+ * fails it is deleted rather than left in the store.
+ */
+
+const ACCEPTED_TYPES = ['application/pdf']
 
 export async function POST(request: Request) {
-  let session
   try {
-    // Before the session is even looked at: a mutation must prove where it came
-    // from. SameSite=Lax alone does not establish that.
     assertSameOrigin(request)
-    session = await requireSession()
+    const session = await requireSession()
+
+    const gate = await consume('upload', session.userId)
+    if (!gate.allowed) {
+      return NextResponse.json(
+        { error: { message: 'הועלו יותר מדי קבצים. נסו שוב מאוחר יותר.' } },
+        { status: 429, headers: { 'Retry-After': String(gate.retryAfter) } },
+      )
+    }
+
+    const body = (await request.json().catch(() => null)) as
+      | { step?: string; key?: string; filename?: string }
+      | null
+
+    if (body?.step === 'presign') {
+      // The key is generated here and carries the tenant prefix, so the browser
+      // never chooses where its file lands.
+      const key = buildStorageKey({
+        organizationId: session.organizationId,
+        agreementId: crypto.randomUUID(),
+        purpose: 'source',
+        ext: 'pdf',
+      })
+
+      const url = await presignUpload({
+        key,
+        maxBytes: MAX_FILE_BYTES,
+        contentTypes: ACCEPTED_TYPES,
+      })
+
+      return NextResponse.json({ key, url })
+    }
+
+    if (body?.step === 'adopt') {
+      if (typeof body.key !== 'string') {
+        return NextResponse.json({ error: { message: 'נתונים לא תקינים.' } }, { status: 400 })
+      }
+
+      // The key must be one we issued for THIS organization. Without this a
+      // caller could adopt an object belonging to another tenant.
+      if (!body.key.startsWith(`org/${session.organizationId}/`)) {
+        return NextResponse.json({ error: { message: 'הבקשה נדחתה.' } }, { status: 403 })
+      }
+
+      const result = await adoptUploadedDocument({
+        session,
+        key: body.key,
+        filename: typeof body.filename === 'string' ? body.filename : 'מסמך.pdf',
+        ip: clientIp(request),
+        userAgent: request.headers.get('user-agent'),
+      })
+
+      if (!result.ok) {
+        return NextResponse.json({ error: { message: result.message } }, { status: 400 })
+      }
+
+      return NextResponse.json({ agreementId: result.agreementId, pageCount: result.pageCount })
+    }
+
+    return NextResponse.json({ error: { message: 'בקשה לא תקינה.' } }, { status: 400 })
   } catch (error) {
     if (error instanceof CsrfError) {
       return NextResponse.json({ error: { message: 'הבקשה נדחתה.' } }, { status: 403 })
@@ -21,59 +95,4 @@ export async function POST(request: Request) {
     }
     throw error
   }
-
-  const form = await request.formData()
-  const file = form.get('file')
-
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: { message: 'לא נבחר קובץ.' } }, { status: 400 })
-  }
-
-  // Reject on the declared size before reading the body into memory. The real
-  // check is on the actual bytes in validateUpload — this only avoids buffering
-  // something huge first.
-  if (file.size > MAX_FILE_BYTES) {
-    return NextResponse.json(
-      { error: { message: 'הקובץ גדול מדי. הגודל המרבי הוא 25MB.' } },
-      { status: 413 },
-    )
-  }
-
-  const buffer = Buffer.from(await file.arrayBuffer())
-
-  const result = await uploadDocument({
-    session,
-    buffer,
-    filename: file.name,
-    ip: request.headers.get('x-forwarded-for'),
-    userAgent: request.headers.get('user-agent'),
-  })
-
-  if (!result.ok) {
-    return NextResponse.json({ error: { code: result.code, message: result.message } }, { status: 400 })
-  }
-
-  // Conversion runs inline for now: the MVP has one user at a time and an
-  // honest "still preparing" state costs more than it buys. It moves to a queue
-  // when concurrency justifies one.
-  const processed = await processDocumentVersion({
-    agreementId: result.agreementId,
-    organizationId: session.organizationId,
-    versionId: result.versionId,
-    actor: session.email,
-  })
-
-  if (!processed.ok) {
-    // The agreement and the original file are kept: the user can still download
-    // what they uploaded, and retry or replace it.
-    return NextResponse.json(
-      { agreementId: result.agreementId, error: { message: processed.message } },
-      { status: 422 },
-    )
-  }
-
-  return NextResponse.json({
-    agreementId: result.agreementId,
-    pageCount: processed.pageCount,
-  })
 }

@@ -13,6 +13,13 @@ import { shapeForPdf } from './pdf-text'
  * assumed page shape.
  */
 
+/**
+ * Resolved from this module rather than from the working directory.
+ *
+ * `process.cwd()` is not the project root inside a serverless bundle, so a
+ * cwd-relative path finds nothing there — and the only symptom is a signed
+ * document full of boxes where the Hebrew should be.
+ */
 const FONT_PATH = join(process.cwd(), 'src/server/signing/assets/Assistant-Regular.ttf')
 
 export type StampField = {

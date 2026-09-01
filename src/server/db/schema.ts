@@ -264,15 +264,12 @@ export const agreementVersions = pgTable(
 )
 
 /**
- * The real geometry of one rendered page.
+ * The real geometry of one page.
  *
  * Pages in one document are not all the same size and are not necessarily A4:
  * an appendix can be Letter, a plan can be landscape. Field positions are
  * fractions of THIS page, so these numbers are what turn a fraction back into
  * a point on the page when the signed PDF is produced.
- *
- * Both units are kept: pixels are what the browser lays the editor out in,
- * points are what the PDF is drawn in.
  */
 export const documentPages = pgTable(
   'document_pages',
@@ -282,10 +279,14 @@ export const documentPages = pgTable(
       .notNull()
       .references(() => agreementVersions.id),
     pageNumber: integer('page_number').notNull(),
-    /** Rendered image size, in pixels. */
-    imageWidth: integer('image_width').notNull(),
-    imageHeight: integer('image_height').notNull(),
-    /** The page's own size in PDF points — never assumed, always measured. */
+    /**
+     * The page's own size in PDF points — never assumed, always measured.
+     *
+     * This is the whole record now. There used to be a rendered image size in
+     * pixels alongside it, from when pages were rasterised server-side; the
+     * browser draws the PDF itself, so the aspect ratio it needs comes from
+     * these two numbers and nothing has to agree with a stored image.
+     */
     widthPt: doublePrecision('width_pt').notNull(),
     heightPt: doublePrecision('height_pt').notNull(),
   },

@@ -60,8 +60,13 @@ export type PlacedField = {
 
 export type PageGeometry = {
   pageNumber: number
-  imageWidth: number
-  imageHeight: number
+  /**
+   * The page's own size in PDF points.
+   *
+   * Also the aspect ratio the editor lays a page out with. There used to be a
+   * separate pixel size from server-side rasterisation; the browser renders the
+   * PDF itself now, so there is one source of truth and nothing to keep in sync.
+   */
   widthPt: number
   heightPt: number
 }

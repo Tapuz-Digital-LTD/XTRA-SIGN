@@ -1,9 +1,8 @@
 import { sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getDb } from '@/server/db'
-import { converterIsReachable } from '@/server/documents/converter'
 import { inforuIsConfigured, logOnlyMode } from '@/server/notifications/inforu'
-import { getStorage, storageIsConfigured } from '@/server/storage/s3'
+import { getStorage, storageIsConfigured } from '@/server/storage/blob'
 import { log } from '@/server/log'
 
 /**
@@ -35,8 +34,6 @@ export async function GET() {
         // the bucket itself is unreachable.
         .catch(() => false)
     : false
-
-  checks.converter = await converterIsReachable()
 
   // Configuration, not connectivity: a wrong flag here means the app would
   // silently not send, which is worse than failing to start.
