@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireSession, UnauthorizedError } from '@/server/auth/session'
 import { CsrfError, assertSameOrigin } from '@/server/http/csrf'
 import { MAX_FILE_BYTES } from '@/server/documents/file-validation'
-import { getStorage } from '@/server/storage/blob'
+import { getStorage, storageIsConfigured } from '@/server/storage/blob'
 import { keyFromSegments } from '@/server/storage/key-path'
 
 /**
@@ -22,7 +22,9 @@ function disabled() {
 
 export async function PUT(request: Request, context: { params: Promise<{ key: string[] }> }) {
   if (process.env.NODE_ENV === 'production') return disabled()
-  if (process.env.BLOB_READ_WRITE_TOKEN) return disabled()
+  // Any working Blob credential means the real store is in use and this
+  // stand-in must stay out of the way.
+  if (storageIsConfigured()) return disabled()
 
   try {
     assertSameOrigin(request)

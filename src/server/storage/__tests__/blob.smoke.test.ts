@@ -17,15 +17,19 @@ import { VercelBlobStorage, presignUpload } from '../blob'
  *
  * Opt-in, like the Neon suite. Run before the first deploy:
  *
- *   BLOB_READ_WRITE_TOKEN=… npm run test:blob
+ *   vercel env pull .env.local && npm run test:live
  */
 
-const token = process.env.BLOB_READ_WRITE_TOKEN
+// Either credential path is enough: a static read-write token, or the store id
+// plus an OIDC token pulled from the linked project with `vercel env pull`.
+const token =
+  process.env.BLOB_READ_WRITE_TOKEN ??
+  (process.env.BLOB_STORE_ID && process.env.VERCEL_OIDC_TOKEN ? 'oidc' : undefined)
 
 const suite = token ? describe : describe.skip
 if (!token) {
   console.warn(
-    '\n[blob] BLOB_READ_WRITE_TOKEN is not set — the Vercel Blob suite did NOT run.' +
+    '\n[blob] no Blob credentials — the Vercel Blob suite did NOT run.' +
       '\n[blob] The in-memory fake does not prove privacy or expiry. Run this before deploying.\n',
   )
 }

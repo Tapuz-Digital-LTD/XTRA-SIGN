@@ -109,7 +109,7 @@ export async function presignUpload(input: {
   // browser rather than a development branch nobody exercises.
   if (!storageIsConfigured()) {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('BLOB_READ_WRITE_TOKEN is not configured')
+      throw new Error('Blob storage is not configured: set BLOB_READ_WRITE_TOKEN, or BLOB_STORE_ID with VERCEL_OIDC_TOKEN')
     }
     return `/api/dev-blob/${input.key.split('/').map(encodeURIComponent).join('/')}`
   }
@@ -153,14 +153,14 @@ export function getStorage(): DocumentStorage {
 
   if (!storageIsConfigured()) {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('BLOB_READ_WRITE_TOKEN is not configured')
+      throw new Error('Blob storage is not configured: set BLOB_READ_WRITE_TOKEN, or BLOB_STORE_ID with VERCEL_OIDC_TOKEN')
     }
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { LocalDiskStorage } = require('./local') as typeof import('./local')
     console.warn(
       JSON.stringify({
         level: 'warn',
-        msg: 'no Blob token — documents are being written to .data/blob (development only)',
+        msg: 'no Blob credentials — documents are being written to .data/blob (development only)',
       }),
     )
     cached = new LocalDiskStorage()
@@ -171,8 +171,21 @@ export function getStorage(): DocumentStorage {
   return cached
 }
 
+/**
+ * Two credential paths, because Vercel now provisions the second one.
+ *
+ * Connecting a Blob store to a project no longer injects a long-lived
+ * `BLOB_READ_WRITE_TOKEN`. It injects `BLOB_STORE_ID`, and the function
+ * authenticates with the short-lived `VERCEL_OIDC_TOKEN` the platform mints per
+ * invocation — a credential that rotates on its own and cannot leak out of a
+ * running function for long. The SDK accepts either.
+ *
+ * Both are still honoured: the static token is what a local `test:live` run or
+ * a non-Vercel host would use.
+ */
 export function storageIsConfigured(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN)
+  if (process.env.BLOB_READ_WRITE_TOKEN) return true
+  return Boolean(process.env.BLOB_STORE_ID && process.env.VERCEL_OIDC_TOKEN)
 }
 
 export { MAX_SIGNED_URL_SECONDS }

@@ -46,3 +46,4 @@ mobile-375.png
 
 # Local development data (PGlite / disk-backed blob)
 .data/
+.first-admin.txt
