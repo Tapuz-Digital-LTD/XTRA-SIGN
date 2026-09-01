@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { toIsraeliNationalFormat } from '@/lib/phone'
 import type { UserRow, UserRole } from '@/server/users/users'
 
 /**
@@ -109,7 +110,8 @@ export function UsersTable({ users, currentUserId }: { users: UserRow[]; current
                   {user.email}
                 </p>
                 <p className="truncate text-xs text-muted" dir="ltr">
-                  {user.phone}
+                  {/* Stored as +972…, shown the way people read it. */}
+                  {toIsraeliNationalFormat(user.phone) ?? user.phone}
                 </p>
               </div>
 
@@ -175,7 +177,7 @@ export function UsersTable({ users, currentUserId }: { users: UserRow[]; current
                   hint="שינוי מספר הטלפון משנה את הדרך שבה המשתמש נכנס למערכת."
                   submitLabel="שמירה"
                   busy={busyId === user.id}
-                  defaults={user}
+                  defaults={{ ...user, phone: toIsraeliNationalFormat(user.phone) ?? user.phone }}
                   onCancel={() => setEditingId(null)}
                   onSubmit={async (values) => {
                     const ok = await call('/api/users/update', { userId: user.id, ...values }, user.id)
