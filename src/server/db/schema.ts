@@ -72,6 +72,24 @@ export const users = pgTable(
   (t) => [uniqueIndex('users_email_unique').on(t.email)],
 )
 
+/**
+ * Staff login sessions. Only a hash is stored: a database dump must not be a
+ * set of usable sessions. The browser holds an opaque HttpOnly cookie.
+ */
+export const userSessions = pgTable(
+  'user_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    sessionHash: text('session_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('user_sessions_hash_unique').on(t.sessionHash)],
+)
+
 export const templates = pgTable(
   'templates',
   {
