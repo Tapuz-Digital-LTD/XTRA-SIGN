@@ -3,6 +3,7 @@ import { requireSession, UnauthorizedError } from '@/server/auth/session'
 import { CsrfError, assertSameOrigin } from '@/server/http/csrf'
 import { MAX_FILE_BYTES } from '@/server/documents/file-validation'
 import { getStorage } from '@/server/storage/blob'
+import { keyFromSegments } from '@/server/storage/key-path'
 
 /**
  * Stands in for a Vercel Blob presigned PUT during development.
@@ -27,11 +28,14 @@ export async function PUT(request: Request, context: { params: Promise<{ key: st
     assertSameOrigin(request)
     const session = await requireSession()
     const { key: segments } = await context.params
-    const key = segments.map(decodeURIComponent).join('/')
 
-    // The same tenant check the adopt step performs. Even in development, a key
-    // outside the caller's organization is not writable.
-    if (!key.startsWith(`org/${session.organizationId}/`)) return disabled()
+    // Segments arrive already decoded from the router. Decoding them again is
+    // exactly how `%252e%252e` becomes `..` after a check has already passed,
+    // so they are used as-is. The helper refuses traversal, embedded separators
+    // and control characters BEFORE applying the tenant prefix — a `startsWith`
+    // on a string containing `..` sees the prefix and misses the escape.
+    const key = keyFromSegments(segments, `org/${session.organizationId}/`)
+    if (!key) return disabled()
 
     const bytes = Buffer.from(await request.arrayBuffer())
     if (bytes.length > MAX_FILE_BYTES) {
