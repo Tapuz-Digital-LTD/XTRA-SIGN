@@ -63,12 +63,20 @@ export default async function EditDocumentPage({
           </p>
         </div>
 
-        <Link
-          href={`/documents/${id}`}
-          className="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition-colors hover:bg-slate-50"
-        >
-          סיום
-        </Link>
+        <div className="flex shrink-0 gap-2">
+          <Link
+            href={`/documents/${id}`}
+            className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition-colors hover:bg-slate-50"
+          >
+            סיום
+          </Link>
+          <Link
+            href={`/documents/${id}/send`}
+            className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)]"
+          >
+            המשך לשליחה
+          </Link>
+        </div>
       </div>
 
       <div className="mt-5">
