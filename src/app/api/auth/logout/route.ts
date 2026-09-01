@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { destroySession } from '@/server/auth/session'
+import { CsrfError, assertSameOrigin } from '@/server/http/csrf'
 
 /**
  * POST only. A logout on GET is CSRF-triggerable from any page that can embed
@@ -7,6 +8,15 @@ import { destroySession } from '@/server/auth/session'
  * allow it.
  */
 export async function POST(request: Request) {
+  try {
+    assertSameOrigin(request)
+  } catch (error) {
+    if (error instanceof CsrfError) {
+      return NextResponse.json({ error: { message: 'הבקשה נדחתה.' } }, { status: 403 })
+    }
+    throw error
+  }
+
   await destroySession()
   return NextResponse.redirect(new URL('/login', request.url), 303)
 }

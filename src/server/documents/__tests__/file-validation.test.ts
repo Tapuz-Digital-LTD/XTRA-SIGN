@@ -9,7 +9,11 @@ import {
 
 /** Real leading bytes, not fixtures that merely claim a type. */
 const PDF = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.from('body')])
-const DOCX = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from('zip')])
+// A real .docx names its main part in a ZIP local file header, uncompressed.
+const DOCX = Buffer.concat([
+  Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+  Buffer.from('....word/document.xml....'),
+])
 const DOC = Buffer.concat([
   Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
   Buffer.from('ole'),
@@ -29,6 +33,18 @@ describe('validateUpload', () => {
     const result = validateUpload(html)
     expect(result.ok).toBe(false)
     expect(result.ok === false && result.code).toBe('unsupported_type')
+  })
+
+  it('rejects a ZIP that is not actually a Word document', () => {
+    // PK\x03\x04 is shared by every ODF file, every JAR, and every zip bomb.
+    // LibreOffice sniffs the real format and opens whatever it finds, so a bare
+    // ZIP must not be accepted as a docx. Verified against the real converter:
+    // it does convert non-Word input handed to it.
+    const bareZip = Buffer.concat([
+      Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+      Buffer.from('spreadsheet/content.xml'),
+    ])
+    expect(validateUpload(bareZip)).toMatchObject({ ok: false, code: 'unsupported_type' })
   })
 
   it('rejects a file whose bytes only nearly match a signature', () => {

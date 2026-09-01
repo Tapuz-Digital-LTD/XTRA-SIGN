@@ -59,6 +59,9 @@ const MESSAGES = {
   unsupported_type: 'סוג הקובץ אינו נתמך. ניתן להעלות PDF, DOC או DOCX.',
 } as const
 
+/** Present in every non-encrypted .docx, and in nothing else that is a ZIP. */
+const DOCX_MARKER = Buffer.from('word/document.xml')
+
 export function validateUpload(buffer: Buffer): ValidationOk | ValidationError {
   if (buffer.length === 0) return { ok: false, code: 'empty', message: MESSAGES.empty }
   if (buffer.length > MAX_FILE_BYTES)
@@ -66,6 +69,18 @@ export function validateUpload(buffer: Buffer): ValidationOk | ValidationError {
 
   const match = SIGNATURES.find((sig) => sig.bytes.every((byte, i) => buffer[i] === byte))
   if (!match) return { ok: false, code: 'unsupported_type', message: MESSAGES.unsupported_type }
+
+  // PK\x03\x04 only says "a ZIP", not "a Word document". Every ODF file, every
+  // JAR, and every zip bomb shares those four bytes. LibreOffice sniffs the
+  // real format and will happily open whatever it finds, so without this an
+  // arbitrary archive reaches the converter.
+  //
+  // ZIP stores entry names uncompressed in the local file headers, so the
+  // marker is findable in the raw bytes without unpacking anything — which is
+  // the point: nothing is decompressed before it has been accepted.
+  if (match.kind === 'docx' && !buffer.includes(DOCX_MARKER)) {
+    return { ok: false, code: 'unsupported_type', message: MESSAGES.unsupported_type }
+  }
 
   return {
     ok: true,

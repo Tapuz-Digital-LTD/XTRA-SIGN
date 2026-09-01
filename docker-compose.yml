@@ -23,8 +23,57 @@ services:
     environment:
       MINIO_ROOT_USER: xtra
       MINIO_ROOT_PASSWORD: xtra-dev-secret
+      TZ: UTC
     ports: ['9100:9000', '9101:9001']
     volumes: [minio:/data]
+
+  # Document conversion. Untrusted bytes meet a large third-party binary here,
+  # so this is the most heavily constrained service in the stack.
+  converter:
+    build: ./docker/converter
+    environment:
+      TZ: UTC
+      CONVERSION_TIMEOUT_MS: '60000'
+      RENDER_TIMEOUT_MS: '30000'
+      MAX_PAGES: '50'
+      RENDER_WIDTH_PX: '1240'
+      SCRATCH_DIR: /scratch
+      HOME: /scratch
+
+    # No network at all. LibreOffice has no legitimate reason to make a
+    # connection, and a document that tries to fetch a remote entity or template
+    # simply cannot. This also means a compromise here cannot reach Postgres,
+    # MinIO, the metadata service, or the internet.
+    network_mode: none
+
+    # Nothing may write to the image. All scratch space is an explicit tmpfs
+    # that vanishes with the container, so a failed run cannot leave residue on
+    # a real filesystem.
+    read_only: true
+    tmpfs:
+      - /scratch:rw,noexec,nosuid,size=512m
+      - /tmp:rw,noexec,nosuid,size=64m
+
+    # A conversion cannot escalate, cannot gain a capability it did not start
+    # with, and cannot fork without bound.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+    deploy:
+      resources:
+        limits:
+          # A decompression bomb hits this ceiling and the process is killed,
+          # rather than the host swapping until something else dies.
+          memory: 1g
+          cpus: '1.0'
+          # A fork bomb in a malformed document cannot exhaust host PIDs.
+          pids: 128
+
+    # No restart loop: a wedged converter should surface, not silently churn.
+    restart: 'no'
+    profiles: ['converter']
 
 volumes:
   pgdata:

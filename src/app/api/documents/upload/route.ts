@@ -1,13 +1,20 @@
 import { NextResponse } from 'next/server'
 import { requireSession, UnauthorizedError } from '@/server/auth/session'
+import { CsrfError, assertSameOrigin } from '@/server/http/csrf'
 import { MAX_FILE_BYTES } from '@/server/documents/file-validation'
 import { uploadDocument } from '@/server/documents/upload-document'
 
 export async function POST(request: Request) {
   let session
   try {
+    // Before the session is even looked at: a mutation must prove where it came
+    // from. SameSite=Lax alone does not establish that.
+    assertSameOrigin(request)
     session = await requireSession()
   } catch (error) {
+    if (error instanceof CsrfError) {
+      return NextResponse.json({ error: { message: 'הבקשה נדחתה.' } }, { status: 403 })
+    }
     if (error instanceof UnauthorizedError) {
       return NextResponse.json({ error: { message: 'נדרשת התחברות.' } }, { status: 401 })
     }
