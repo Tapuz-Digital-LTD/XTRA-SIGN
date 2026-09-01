@@ -175,17 +175,19 @@ export function getStorage(): DocumentStorage {
  * Two credential paths, because Vercel now provisions the second one.
  *
  * Connecting a Blob store to a project no longer injects a long-lived
- * `BLOB_READ_WRITE_TOKEN`. It injects `BLOB_STORE_ID`, and the function
- * authenticates with the short-lived `VERCEL_OIDC_TOKEN` the platform mints per
- * invocation — a credential that rotates on its own and cannot leak out of a
- * running function for long. The SDK accepts either.
+ * `BLOB_READ_WRITE_TOKEN`. It injects `BLOB_STORE_ID`, and each call
+ * authenticates with a short-lived OIDC token the platform mints — which the
+ * SDK fetches from the request context via `@vercel/oidc`, NOT from an
+ * environment variable. So the presence of `VERCEL_OIDC_TOKEN` in the env must
+ * not be part of this check: at runtime on Vercel it is usually absent even
+ * though the credential is right there.
  *
- * Both are still honoured: the static token is what a local `test:live` run or
- * a non-Vercel host would use.
+ * This is therefore only "is a store connected" — `BLOB_STORE_ID` is injected
+ * exactly when one is. Whether the credential actually works is a different
+ * question, answered by the readiness probe's real call against the store.
  */
 export function storageIsConfigured(): boolean {
-  if (process.env.BLOB_READ_WRITE_TOKEN) return true
-  return Boolean(process.env.BLOB_STORE_ID && process.env.VERCEL_OIDC_TOKEN)
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID)
 }
 
 export { MAX_SIGNED_URL_SECONDS }
