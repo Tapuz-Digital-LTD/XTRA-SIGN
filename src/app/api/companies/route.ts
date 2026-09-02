@@ -66,7 +66,7 @@ export async function POST(request: Request) {
       })
       return linked.ok
         ? NextResponse.json(linked)
-        : NextResponse.json({ error: { message: linked.message } }, { status: 400 })
+        : NextResponse.json({ error: { message: linked.message, fields: 'fields' in linked ? linked.fields : undefined } }, { status: 400 })
     }
 
     const result = await registerCompany({
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
 
     return result.ok
       ? NextResponse.json(result)
-      : NextResponse.json({ error: { message: result.message } }, { status: 400 })
+      : NextResponse.json({ error: { message: result.message, fields: 'fields' in result ? result.fields : undefined } }, { status: 400 })
   } catch (error) {
     return handle(error)
   }

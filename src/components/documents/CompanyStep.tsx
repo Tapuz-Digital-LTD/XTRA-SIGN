@@ -50,6 +50,7 @@ export function CompanyStep({ template, crmAvailable }: { template?: string | nu
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -98,6 +99,7 @@ export function CompanyStep({ template, crmAvailable }: { template?: string | nu
   async function submit(body: Record<string, unknown>) {
     setBusy(true)
     setError(null)
+    setFieldErrors({})
     try {
       const response = await fetch('/api/companies', {
         method: 'POST',
@@ -107,6 +109,7 @@ export function CompanyStep({ template, crmAvailable }: { template?: string | nu
       const data = await response.json().catch(() => null)
       if (!response.ok) {
         setError(data?.error?.message ?? 'היצירה נכשלה.')
+        setFieldErrors(data?.error?.fields ?? {})
         return
       }
 
@@ -220,13 +223,22 @@ export function CompanyStep({ template, crmAvailable }: { template?: string | nu
         </div>
 
         <label className="mt-4 block text-sm">
-          <span className="text-muted">שם החברה *</span>
+          <span className="text-muted">
+            שם החברה <span className="text-red-700">*</span>
+          </span>
           <input
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value)
+              setFieldErrors((c) => (c.name ? { ...c, name: '' } : c))
+            }}
             required
-            className="mt-1 h-11 w-full rounded-lg border border-line bg-bg px-3 text-sm text-fg outline-none focus:border-brand"
+            aria-invalid={fieldErrors.name ? true : undefined}
+            className={`mt-1 h-11 w-full rounded-lg border bg-bg px-3 text-sm text-fg outline-none focus:border-brand ${
+              fieldErrors.name ? 'border-red-500' : 'border-line'
+            }`}
           />
+          {fieldErrors.name ? <span role="alert" className="mt-1 block text-xs text-red-700">{fieldErrors.name}</span> : null}
         </label>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="block text-sm">
@@ -235,7 +247,21 @@ export function CompanyStep({ template, crmAvailable }: { template?: string | nu
           </label>
           <label className="block text-sm">
             <span className="text-muted">טלפון</span>
-            <input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} dir="ltr" className="mt-1 h-11 w-full rounded-lg border border-line bg-bg px-3 text-sm text-fg outline-none focus:border-brand" />
+            <input
+              value={contactPhone}
+              onChange={(e) => {
+                setContactPhone(e.target.value)
+                setFieldErrors((c) => (c.contactPhone ? { ...c, contactPhone: '' } : c))
+              }}
+              dir="ltr"
+              type="tel"
+              inputMode="tel"
+              aria-invalid={fieldErrors.contactPhone ? true : undefined}
+              className={`mt-1 h-11 w-full rounded-lg border bg-bg px-3 text-sm text-fg outline-none focus:border-brand ${
+                fieldErrors.contactPhone ? 'border-red-500' : 'border-line'
+              }`}
+            />
+            {fieldErrors.contactPhone ? <span role="alert" className="mt-1 block text-xs text-red-700">{fieldErrors.contactPhone}</span> : null}
           </label>
         </div>
 
@@ -246,7 +272,21 @@ export function CompanyStep({ template, crmAvailable }: { template?: string | nu
           </label>
           <label className="block text-sm">
             <span className="text-muted">אימייל</span>
-            <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} dir="ltr" type="email" className="mt-1 h-11 w-full rounded-lg border border-line bg-bg px-3 text-sm text-fg outline-none focus:border-brand" />
+            <input
+              value={contactEmail}
+              onChange={(e) => {
+                setContactEmail(e.target.value)
+                setFieldErrors((c) => (c.contactEmail ? { ...c, contactEmail: '' } : c))
+              }}
+              dir="ltr"
+              type="email"
+              inputMode="email"
+              aria-invalid={fieldErrors.contactEmail ? true : undefined}
+              className={`mt-1 h-11 w-full rounded-lg border bg-bg px-3 text-sm text-fg outline-none focus:border-brand ${
+                fieldErrors.contactEmail ? 'border-red-500' : 'border-line'
+              }`}
+            />
+            {fieldErrors.contactEmail ? <span role="alert" className="mt-1 block text-xs text-red-700">{fieldErrors.contactEmail}</span> : null}
           </label>
         </div>
 

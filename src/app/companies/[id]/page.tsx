@@ -37,7 +37,7 @@ export default async function CompanyPage({
     : 'all'
 
   const [documents, counts] = await Promise.all([
-    listDocuments(session, { companyId: id, filter }),
+    listDocuments(session, { companyId: id, filter, pageSize: 100 }),
     countDocuments(session, { companyId: id }),
   ])
 
@@ -91,7 +91,7 @@ export default async function CompanyPage({
       ) : null}
 
       <div className="mt-4">
-        {documents.length === 0 ? (
+        {documents.items.length === 0 ? (
           <div className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center">
             <p className="text-sm font-medium text-fg">
               {filter === 'all' ? `עדיין אין מסמכים ל${company.name}` : 'אין מסמכים בסטטוס הזה'}
@@ -102,7 +102,7 @@ export default async function CompanyPage({
           </div>
         ) : (
           <ul className="divide-y divide-line overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface">
-            {documents.map((doc) => (
+            {documents.items.map((doc) => (
               <li key={doc.id}>
                 <Link href={`/documents/${doc.id}`} className="block transition-colors hover:bg-bg">
                   <DocumentRow document={doc} />

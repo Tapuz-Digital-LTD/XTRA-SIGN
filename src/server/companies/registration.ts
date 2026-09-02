@@ -1,6 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
-import { createCompany, type CompanyInput, type CompanyKind } from '@/server/companies/companies'
+import { createCompany, type CompanyFieldErrors, type CompanyInput, type CompanyKind } from '@/server/companies/companies'
 import { createCrmCompany, findCrmMatches, objectTypeFor, type CrmMatch } from '@/server/crm/company-registration'
 import { FireberryProvider } from '@/server/crm/fireberry'
 import { getDb, schema } from '@/server/db'
@@ -28,7 +28,7 @@ export type RegisterResult =
   | { ok: true; outcome: 'created' | 'created_and_linked'; id: string }
   | { ok: true; outcome: 'created_crm_failed'; id: string; message: string }
   | { ok: true; outcome: 'duplicates'; matches: CrmMatch[] }
-  | { ok: false; message: string }
+  | { ok: false; message: string; fields?: CompanyFieldErrors }
 
 /** Whether the CRM half of the choice may even be offered. */
 export function crmRegistrationAvailable(): boolean {

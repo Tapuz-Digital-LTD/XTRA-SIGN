@@ -1,4 +1,5 @@
-import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm'
+import { and, desc, eq, ilike, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm'
+import { normalizeIsraeliPhone } from '@/lib/phone'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
 import type { AgreementStatus } from '@/lib/status'
@@ -22,16 +23,46 @@ export type DocumentListItem = {
   recipientCompany: string | null
   /** Set when the document was imported from the CRM. */
   crmDocumentId: string | null
+  /** The supplier/customer it is filed under. Null for older documents. */
+  company: { id: string; name: string; kind: 'supplier' | 'customer'; fromCrm: boolean } | null
+  recipientPhone: string | null
+  recipientEmail: string | null
+  createdByName: string | null
+  /** How it came to exist. Null on rows created before this was recorded. */
+  sourceKind: string | null
+  /** The most recent thing that happened to it, for one human date column. */
+  lastActivityAt: Date
+  /** The last audit event type, so the date can be worded ("נחתם", "נצפה"). */
+  lastActivityType: string | null
+  /** True when a send attempt is on record as having failed. */
+  hasSendFailure: boolean
+  expiresAt: Date | null
 }
 
 /** The quick filters on the list screen, in the user's terms. */
-export type ListFilter = 'all' | 'pending' | 'signed' | 'drafts'
+export type ListFilter =
+  | 'all'
+  | 'drafts'
+  | 'pending'
+  | 'viewed'
+  | 'signed'
+  | 'canceled'
+  | 'attention'
 
-const FILTER_STATUSES: Record<Exclude<ListFilter, 'all'>, AgreementStatus[]> = {
+const FILTER_STATUSES: Record<'pending' | 'signed' | 'drafts' | 'viewed' | 'canceled', AgreementStatus[]> = {
   pending: ['sent', 'viewed'],
+  viewed: ['viewed'],
   signed: ['signed'],
   drafts: ['draft'],
+  canceled: ['canceled', 'declined', 'expired'],
 }
+
+/**
+ * How long a viewed-but-unsigned document waits before it counts as stuck.
+ * The same threshold the reminder job uses, so the screen and the reminders
+ * cannot disagree about what "waiting too long" means.
+ */
+const STALE_AFTER_DAYS = 3
 
 function scope(session: StaffSession) {
   return session.isAdmin
@@ -44,11 +75,16 @@ function scope(session: StaffSession) {
 
 export async function listDocuments(
   session: StaffSession,
-  options: { filter?: ListFilter; search?: string; companyId?: string } = {},
-): Promise<DocumentListItem[]> {
+  options: { filter?: ListFilter; search?: string; companyId?: string; page?: number; pageSize?: number } = {},
+): Promise<{ items: DocumentListItem[]; total: number; page: number; pageSize: number; now: number }> {
   const db = getDb()
+  // Read here rather than in the page: a clock read during render makes the
+  // render impure, and "how long ago" has to be measured from somewhere.
+  const now = Date.now()
   const filter = options.filter ?? 'all'
   const search = options.search?.trim()
+  const pageSize = Math.min(Math.max(options.pageSize ?? 25, 1), 100)
+  const page = Math.max(options.page ?? 1, 1)
 
   const conditions = [scope(session)]
 
@@ -56,42 +92,160 @@ export async function listDocuments(
     conditions.push(eq(schema.agreements.companyId, options.companyId))
   }
 
-  if (filter !== 'all') {
+  if (filter !== 'all' && filter !== 'attention') {
     conditions.push(inArray(schema.agreements.status, FILTER_STATUSES[filter]))
   }
 
+  // "Needs attention" is a question about the data, not a status someone sets.
+  // Everything here is derivable from what the system already records — no
+  // event was invented to make the tab work.
+  if (filter === 'attention') {
+    const stale = sql`now() - ${sql.raw(`interval '${STALE_AFTER_DAYS} days'`)}`
+    conditions.push(
+      or(
+        // Filed under nobody, so it is only ever findable in this list.
+        isNull(schema.agreements.companyId),
+        // The signing link has run out while the document was still open.
+        and(
+          inArray(schema.agreements.status, ['sent', 'viewed']),
+          isNotNull(schema.agreements.expiresAt),
+          lt(schema.agreements.expiresAt, sql`now()`),
+        ),
+        // Opened, then nothing — for at least as long as a reminder waits.
+        and(eq(schema.agreements.status, 'viewed'), lt(schema.agreements.sentAt, stale)),
+        // A delivery attempt is on record as having failed.
+        sql`exists (
+          select 1 from ${schema.auditEvents} ae
+          where ae.agreement_id = ${schema.agreements.id}
+            and ae.type in ('email_failed', 'sms_failed')
+        )`,
+      )!,
+    )
+  }
+
   if (search) {
-    // One search box over document title, signer name and company — the three
-    // things someone actually remembers. `ilike` with escaped wildcards so a
-    // '%' typed by the user matches a literal '%'.
-    const term = `%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
+    // One box over what someone actually remembers about a document: what it
+    // was called, which company it was for, and who signed it — including the
+    // phone or email it was sent to, which is often the only thing to hand.
+    // `ilike` with escaped wildcards, so a '%' typed by the user is a literal.
+    const escape = (value: string) => `%${value.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
+    const term = escape(search)
+
+    // Phones are stored E.164 (+9725…) but nobody searches that way — they
+    // type the 05… number they know. Match both forms.
+    const asE164 = normalizeIsraeliPhone(search)
+    const phoneTerms = [ilike(schema.recipients.phone, term)]
+    if (asE164) phoneTerms.push(ilike(schema.recipients.phone, escape(asE164)))
+
     conditions.push(
       or(
         ilike(schema.agreements.title, term),
         ilike(schema.recipients.name, term),
         ilike(schema.recipients.company, term),
+        ilike(schema.recipients.email, term),
+        ilike(schema.companies.name, term),
+        ...phoneTerms,
       )!,
     )
   }
 
-  const rows = await db
+  const where = and(...conditions)
+
+  // The newest audit row per document, which is what "last activity" means to
+  // a person: sent, viewed, signed — not just when the row was inserted.
+  const activity = db
+    .select({
+      agreementId: schema.auditEvents.agreementId,
+      lastAt: sql<Date>`max(${schema.auditEvents.createdAt})`.as('last_at'),
+    })
+    .from(schema.auditEvents)
+    .groupBy(schema.auditEvents.agreementId)
+    .as('activity')
+
+  const base = db
     .select({
       id: schema.agreements.id,
       title: schema.agreements.title,
       status: schema.agreements.status,
       createdAt: schema.agreements.createdAt,
       sentAt: schema.agreements.sentAt,
+      expiresAt: schema.agreements.expiresAt,
+      crmDocumentId: schema.agreements.crmDocumentId,
+      sourceKind: schema.agreements.sourceKind,
       recipientName: schema.recipients.name,
       recipientCompany: schema.recipients.company,
-      crmDocumentId: schema.agreements.crmDocumentId,
+      recipientPhone: schema.recipients.phone,
+      recipientEmail: schema.recipients.email,
+      companyId: schema.companies.id,
+      companyName: schema.companies.name,
+      companyKind: schema.companies.kind,
+      companyCrmRecordId: schema.companies.crmRecordId,
+      createdByName: schema.users.name,
+      lastAt: activity.lastAt,
+      hasSendFailure: sql<boolean>`exists (
+        select 1 from ${schema.auditEvents} ae
+        where ae.agreement_id = ${schema.agreements.id}
+          and ae.type in ('email_failed', 'sms_failed')
+      )`,
+      lastActivityType: sql<string | null>`(
+        select ae.type from ${schema.auditEvents} ae
+        where ae.agreement_id = ${schema.agreements.id}
+        order by ae.created_at desc limit 1
+      )`,
     })
     .from(schema.agreements)
     .leftJoin(schema.recipients, eq(schema.recipients.agreementId, schema.agreements.id))
-    .where(and(...conditions))
-    .orderBy(desc(schema.agreements.createdAt))
-    .limit(100)
+    .leftJoin(schema.companies, eq(schema.companies.id, schema.agreements.companyId))
+    .leftJoin(schema.users, eq(schema.users.id, schema.agreements.ownerId))
+    .leftJoin(activity, eq(activity.agreementId, schema.agreements.id))
+    .where(where)
 
-  return rows
+  // Counted with the same joins and the same filter, so the total the pager
+  // shows is the total the query would return.
+  const [countRow] = await db
+    .select({ total: sql<number>`count(*)` })
+    .from(schema.agreements)
+    .leftJoin(schema.recipients, eq(schema.recipients.agreementId, schema.agreements.id))
+    .leftJoin(schema.companies, eq(schema.companies.id, schema.agreements.companyId))
+    .where(where)
+
+  const rows = await base
+    .orderBy(desc(sql`coalesce(${activity.lastAt}, ${schema.agreements.createdAt})`))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize)
+
+  return {
+    items: rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      status: row.status,
+      createdAt: row.createdAt,
+      sentAt: row.sentAt,
+      expiresAt: row.expiresAt,
+      recipientName: row.recipientName,
+      recipientCompany: row.recipientCompany,
+      recipientPhone: row.recipientPhone,
+      recipientEmail: row.recipientEmail,
+      crmDocumentId: row.crmDocumentId,
+      sourceKind: row.sourceKind,
+      createdByName: row.createdByName,
+      company: row.companyId
+        ? {
+            id: row.companyId,
+            name: row.companyName!,
+            kind: row.companyKind!,
+            fromCrm: Boolean(row.companyCrmRecordId),
+          }
+        : null,
+      lastActivityAt: row.lastAt ?? row.createdAt,
+      lastActivityType: row.lastActivityType,
+      hasSendFailure: Boolean(row.hasSendFailure),
+    })),
+    total: Number(countRow?.total ?? 0),
+    page,
+    pageSize,
+    now,
+  }
 }
 
 export type DocumentCounts = { pending: number; signed: number; drafts: number }

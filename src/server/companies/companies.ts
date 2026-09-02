@@ -47,7 +47,9 @@ export type CompanyListItem = CompanyRow & {
   lastActivityAt: Date | null
 }
 
-export type CompanyResult = { ok: true; id: string } | { ok: false; message: string }
+export type CompanyResult =
+  | { ok: true; id: string }
+  | { ok: false; message: string; fields?: CompanyFieldErrors }
 
 const clean = (value: string | null | undefined, max = 200): string | null => {
   const trimmed = (value ?? '').trim().slice(0, max)
@@ -55,13 +57,39 @@ const clean = (value: string | null | undefined, max = 200): string | null => {
 }
 
 /** Validates the shared fields for create and update. */
-function validate(input: CompanyInput): { name: string } | { error: string } {
+/**
+ * Field-level validation, returned per field so the form can point at what is
+ * wrong rather than showing one message under everything.
+ *
+ * The phone matters more than it looks: it is what an OTP and a signing link
+ * are sent to. Accepting "abc" here does not fail here — it fails weeks later,
+ * when a document will not reach its signer and nobody knows why.
+ */
+export type CompanyFieldErrors = Partial<Record<'name' | 'contactPhone' | 'contactEmail' | 'taxId', string>>
+
+function validate(input: CompanyInput): { name: string } | { error: string; fields: CompanyFieldErrors } {
+  const fields: CompanyFieldErrors = {}
+
   const name = (input.name ?? '').trim().slice(0, 200)
-  if (!name) return { error: 'יש להזין שם.' }
+  if (!name) fields.name = 'יש להזין שם.'
+
   const email = clean(input.contactEmail)
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { error: 'כתובת האימייל אינה תקינה.' }
+    fields.contactEmail = 'כתובת האימייל אינה תקינה.'
   }
+
+  const phone = clean(input.contactPhone)
+  if (phone && !normalizeIsraeliPhone(phone)) {
+    fields.contactPhone = 'מספר הטלפון אינו תקין. לדוגמה 050-1234567.'
+  }
+
+  const taxId = clean(input.taxId, 40)
+  if (taxId && !/\d/.test(taxId)) {
+    fields.taxId = 'ח.פ / ע.מ אמור להכיל ספרות.'
+  }
+
+  const first = Object.values(fields)[0]
+  if (first) return { error: first, fields }
   return { name }
 }
 
@@ -79,7 +107,7 @@ export async function createCompany(input: {
   data: CompanyInput
 }): Promise<CompanyResult> {
   const checked = validate(input.data)
-  if ('error' in checked) return { ok: false, message: checked.error }
+  if ('error' in checked) return { ok: false, message: checked.error, fields: checked.fields }
 
   const [row] = await getDb()
     .insert(schema.companies)
@@ -105,7 +133,7 @@ export async function updateCompany(input: {
   data: CompanyInput
 }): Promise<CompanyResult> {
   const checked = validate(input.data)
-  if ('error' in checked) return { ok: false, message: checked.error }
+  if ('error' in checked) return { ok: false, message: checked.error, fields: checked.fields }
 
   const db = getDb()
   // Scope in the WHERE clause: another tenant's company cannot be edited by id.

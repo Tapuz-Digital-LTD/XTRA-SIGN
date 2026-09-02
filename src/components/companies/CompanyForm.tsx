@@ -65,14 +65,20 @@ export function CompanyForm({
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
-  const set = (key: keyof Values) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+  const set = (key: keyof Values) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setValues((v) => ({ ...v, [key]: e.target.value }))
+    // The message goes as soon as the field is touched again, rather than
+    // sitting there while someone fixes exactly what it complained about.
+    setFieldErrors((current) => (current[key] ? { ...current, [key]: '' } : current))
+  }
 
   async function submit(e: React.FormEvent, extra: Record<string, unknown> = { target }) {
     e.preventDefault()
     setBusy(true)
     setError(null)
+    setFieldErrors({})
     try {
       const url = existing ? `/api/companies/${existing.id}` : '/api/companies'
       const response = await fetch(url, {
@@ -83,6 +89,7 @@ export function CompanyForm({
       const data = await response.json().catch(() => null)
       if (!response.ok) {
         setError(data?.error?.message ?? 'הפעולה נכשלה.')
+        setFieldErrors(data?.error?.fields ?? {})
         return
       }
 
@@ -109,11 +116,11 @@ export function CompanyForm({
       className="rounded-[var(--radius-card)] border border-line bg-surface p-4"
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label={`שם ה${noun}`} value={values.name} onChange={set('name')} required autoFocus />
-        <Field label="ח.פ / ע.מ" value={values.taxId} onChange={set('taxId')} dir="ltr" />
+        <Field label={`שם ה${noun}`} value={values.name} onChange={set('name')} required autoFocus error={fieldErrors.name} />
+        <Field label="ח.פ / ע.מ" value={values.taxId} onChange={set('taxId')} dir="ltr" inputMode="numeric" error={fieldErrors.taxId} />
         <Field label="איש קשר" value={values.contactName} onChange={set('contactName')} />
-        <Field label="טלפון" value={values.contactPhone} onChange={set('contactPhone')} type="tel" dir="ltr" />
-        <Field label="אימייל" value={values.contactEmail} onChange={set('contactEmail')} type="email" dir="ltr" />
+        <Field label="טלפון" value={values.contactPhone} onChange={set('contactPhone')} type="tel" dir="ltr" inputMode="tel" error={fieldErrors.contactPhone} />
+        <Field label="אימייל" value={values.contactEmail} onChange={set('contactEmail')} type="email" dir="ltr" inputMode="email" error={fieldErrors.contactEmail} />
       </div>
 
       <div className="mt-3 flex flex-col gap-1.5">
@@ -248,6 +255,8 @@ function Field({
   dir,
   required,
   autoFocus,
+  error,
+  inputMode,
 }: {
   label: string
   value: string
@@ -256,19 +265,36 @@ function Field({
   dir?: 'ltr'
   required?: boolean
   autoFocus?: boolean
+  error?: string
+  inputMode?: 'tel' | 'numeric' | 'email'
 }) {
+  const id = `company-${label}`
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium text-fg">{label}</label>
+      <label htmlFor={id} className="text-xs font-medium text-fg">
+        {label}
+        {required ? <span className="text-danger"> *</span> : null}
+      </label>
       <input
+        id={id}
         type={type}
         value={value}
         onChange={onChange}
         dir={dir}
+        inputMode={inputMode}
         required={required}
         autoFocus={autoFocus}
-        className="min-h-11 rounded-lg border border-line bg-white px-3 text-start text-sm"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
+        className={`min-h-11 rounded-lg border bg-white px-3 text-start text-sm ${
+          error ? 'border-danger' : 'border-line'
+        }`}
       />
+      {error ? (
+        <p id={`${id}-error`} role="alert" className="text-xs text-danger">
+          {error}
+        </p>
+      ) : null}
     </div>
   )
 }

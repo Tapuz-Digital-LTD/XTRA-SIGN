@@ -162,3 +162,42 @@ describe('companies', () => {
     expect(await resolveOwnCompanyId(admin, null)).toBeNull()
   })
 })
+
+describe('input validation', () => {
+  it('refuses a phone that is not a phone, and says which field', async () => {
+    const result = await createCompany({
+      session: admin,
+      kind: 'supplier',
+      data: { name: 'ספק תקין', contactPhone: 'abc123' },
+    })
+    expect(result).toMatchObject({ ok: false })
+    if (result.ok) return
+    expect(result.fields?.contactPhone).toBeTruthy()
+  })
+
+  it('refuses a malformed email', async () => {
+    const result = await createCompany({ session: admin, kind: 'supplier', data: { name: 'ספק', contactEmail: 'not-an-email' } })
+    expect(result).toMatchObject({ ok: false })
+    if (result.ok) return
+    expect(result.fields?.contactEmail).toBeTruthy()
+  })
+
+  it('requires a name', async () => {
+    const result = await createCompany({ session: admin, kind: 'supplier', data: { name: '   ' } })
+    expect(result).toMatchObject({ ok: false })
+    if (result.ok) return
+    expect(result.fields?.name).toBeTruthy()
+  })
+
+  it('accepts a real Israeli phone and stores it normalised', async () => {
+    const result = await createCompany({
+      session: admin,
+      kind: 'supplier',
+      data: { name: `ספק תקין ${crypto.randomUUID().slice(0, 6)}`, contactPhone: '050-123-4567' },
+    })
+    expect(result).toMatchObject({ ok: true })
+    if (!result.ok) return
+    const [row] = await db.select().from(schema.companies).where(eq(schema.companies.id, result.id))
+    expect(row.contactPhone).toBe('+972501234567')
+  })
+})

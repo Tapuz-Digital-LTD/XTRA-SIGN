@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
 import { getStorage } from '@/server/storage/blob'
-import { cancelAgreement, createNewVersion, duplicateAgreement, versionChain } from '../lifecycle'
+import { cancelAgreement, createNewVersion, deleteDraft, duplicateAgreement, versionChain } from '../lifecycle'
 
 /** Against the real Postgres and the in-memory storage. */
 
@@ -128,5 +128,26 @@ describe('document lifecycle', () => {
     expect(chainOfNew.predecessor?.id).toBe(id)
     const chainOfOrig = await versionChain(session, id)
     expect(chainOfOrig.successors.map((s) => s.id)).toContain(result.id)
+  })
+})
+
+describe('deleteDraft', () => {
+  it('removes a draft and everything under it', async () => {
+    const id = await seedDocument('draft')
+    const result = await deleteDraft({ session, agreementId: id })
+    expect(result).toEqual({ ok: true })
+
+    const rows = await db.select().from(schema.agreements).where(eq(schema.agreements.id, id))
+    expect(rows).toHaveLength(0)
+    expect(await db.select().from(schema.recipients).where(eq(schema.recipients.agreementId, id))).toHaveLength(0)
+    expect(await db.select().from(schema.agreementVersions).where(eq(schema.agreementVersions.agreementId, id))).toHaveLength(0)
+  })
+
+  it('refuses a document that was sent, and leaves it alone', async () => {
+    const id = await seedDocument('sent')
+    const result = await deleteDraft({ session, agreementId: id })
+    expect(result).toMatchObject({ ok: false })
+
+    expect(await db.select().from(schema.agreements).where(eq(schema.agreements.id, id))).toHaveLength(1)
   })
 })

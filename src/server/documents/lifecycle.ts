@@ -60,6 +60,68 @@ export async function cancelAgreement(input: {
   return { ok: true }
 }
 
+/**
+ * Deletes a draft outright.
+ *
+ * Only a draft, which by definition was never sent: there is no signing token, no
+ * signature and no counterparty who has seen it, so there is nothing an audit
+ * trail would be preserving. Anything that has left the building is cancelled
+ * instead — a sent or signed document is never removed, whoever asks.
+ */
+export async function deleteDraft(input: {
+  session: StaffSession
+  agreementId: string
+}): Promise<{ ok: true } | { ok: false; message: string }> {
+  const agreement = await authorizeAgreementAccess(input.session, input.agreementId)
+  if (agreement.status !== 'draft') {
+    return { ok: false, message: 'ניתן למחוק רק טיוטה. מסמך שנשלח אפשר לבטל.' }
+  }
+
+  const db = getDb()
+  const storage = getStorage()
+
+  const versions = await db
+    .select({
+      id: schema.agreementVersions.id,
+      sourceFileKey: schema.agreementVersions.sourceFileKey,
+      renderedFileKey: schema.agreementVersions.renderedFileKey,
+    })
+    .from(schema.agreementVersions)
+    .where(eq(schema.agreementVersions.agreementId, agreement.id))
+
+  await db.transaction(async (tx) => {
+    for (const version of versions) {
+      await tx.delete(schema.fields).where(eq(schema.fields.agreementVersionId, version.id))
+      await tx.delete(schema.documentPages).where(eq(schema.documentPages.agreementVersionId, version.id))
+    }
+
+    const recipients = await tx
+      .select({ id: schema.recipients.id })
+      .from(schema.recipients)
+      .where(eq(schema.recipients.agreementId, agreement.id))
+    for (const recipient of recipients) {
+      await tx.delete(schema.signingTokens).where(eq(schema.signingTokens.recipientId, recipient.id))
+    }
+
+    await tx.delete(schema.recipients).where(eq(schema.recipients.agreementId, agreement.id))
+    await tx.delete(schema.auditEvents).where(eq(schema.auditEvents.agreementId, agreement.id))
+    await tx.update(schema.agreements).set({ currentVersionId: null }).where(eq(schema.agreements.id, agreement.id))
+    await tx.delete(schema.agreementVersions).where(eq(schema.agreementVersions.agreementId, agreement.id))
+    await tx.delete(schema.agreements).where(eq(schema.agreements.id, agreement.id))
+  })
+
+  // Storage last: an orphaned object costs a little space, whereas deleting the
+  // file before the rows would leave a document that renders as a broken page
+  // if the transaction rolled back.
+  for (const version of versions) {
+    for (const key of new Set([version.sourceFileKey, version.renderedFileKey].filter(Boolean) as string[])) {
+      await storage.delete(key).catch(() => {})
+    }
+  }
+
+  return { ok: true }
+}
+
 /** Copies the current version's stored files into fresh keys for a new agreement. */
 async function copyVersionFiles(input: {
   organizationId: string
