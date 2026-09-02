@@ -1,4 +1,5 @@
 import { and, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm'
+import { validateCompanyFields, type CompanyFieldErrors } from '@/lib/company-validation'
 import { normalizeIsraeliPhone } from '@/lib/phone'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
@@ -47,6 +48,8 @@ export type CompanyListItem = CompanyRow & {
   lastActivityAt: Date | null
 }
 
+export type { CompanyFieldErrors }
+
 export type CompanyResult =
   | { ok: true; id: string }
   | { ok: false; message: string; fields?: CompanyFieldErrors }
@@ -65,32 +68,17 @@ const clean = (value: string | null | undefined, max = 200): string | null => {
  * are sent to. Accepting "abc" here does not fail here — it fails weeks later,
  * when a document will not reach its signer and nobody knows why.
  */
-export type CompanyFieldErrors = Partial<Record<'name' | 'contactPhone' | 'contactEmail' | 'taxId', string>>
-
 function validate(input: CompanyInput): { name: string } | { error: string; fields: CompanyFieldErrors } {
-  const fields: CompanyFieldErrors = {}
-
-  const name = (input.name ?? '').trim().slice(0, 200)
-  if (!name) fields.name = 'יש להזין שם.'
-
-  const email = clean(input.contactEmail)
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    fields.contactEmail = 'כתובת האימייל אינה תקינה.'
-  }
-
-  const phone = clean(input.contactPhone)
-  if (phone && !normalizeIsraeliPhone(phone)) {
-    fields.contactPhone = 'מספר הטלפון אינו תקין. לדוגמה 050-1234567.'
-  }
-
-  const taxId = clean(input.taxId, 40)
-  if (taxId && !/\d/.test(taxId)) {
-    fields.taxId = 'ח.פ / ע.מ אמור להכיל ספרות.'
-  }
+  const fields = validateCompanyFields({
+    name: input.name,
+    taxId: input.taxId,
+    contactPhone: input.contactPhone,
+    contactEmail: input.contactEmail,
+  })
 
   const first = Object.values(fields)[0]
   if (first) return { error: first, fields }
-  return { name }
+  return { name: (input.name ?? '').trim().slice(0, 200) }
 }
 
 /** A phone is stored as typed when it is not a valid mobile — it is a contact

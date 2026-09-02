@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { validateCompanyField, validateCompanyFields, type CompanyField } from '@/lib/company-validation'
 import type { CompanyRow } from '@/server/companies/companies'
 
 type CrmMatch = {
@@ -74,8 +75,31 @@ export function CompanyForm({
     setFieldErrors((current) => (current[key] ? { ...current, [key]: '' } : current))
   }
 
+  /**
+   * Checked when the field is left, not when the form is sent. Finding out at
+   * the end that something typed five fields ago was wrong is the complaint
+   * this exists to answer.
+   */
+  const check = (key: keyof Values) => () => {
+    if (key === 'contactName' || key === 'notes') return
+    const message = validateCompanyField(key as CompanyField, values[key])
+    setFieldErrors((current) => ({ ...current, [key]: message ?? '' }))
+  }
+
   async function submit(e: React.FormEvent, extra: Record<string, unknown> = { target }) {
     e.preventDefault()
+    const local = validateCompanyFields({
+      name: values.name,
+      taxId: values.taxId,
+      contactPhone: values.contactPhone,
+      contactEmail: values.contactEmail,
+    })
+    if (Object.keys(local).length > 0) {
+      setFieldErrors(local as Record<string, string>)
+      setError(null)
+      return
+    }
+
     setBusy(true)
     setError(null)
     setFieldErrors({})
@@ -116,11 +140,11 @@ export function CompanyForm({
       className="rounded-[var(--radius-card)] border border-line bg-surface p-4"
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label={`שם ה${noun}`} value={values.name} onChange={set('name')} required autoFocus error={fieldErrors.name} />
-        <Field label="ח.פ / ע.מ" value={values.taxId} onChange={set('taxId')} dir="ltr" inputMode="numeric" error={fieldErrors.taxId} />
+        <Field label={`שם ה${noun}`} value={values.name} onChange={set('name')} onBlur={check('name')} required autoFocus error={fieldErrors.name} />
+        <Field label="ח.פ / ע.מ" value={values.taxId} onChange={set('taxId')} onBlur={check('taxId')} dir="ltr" inputMode="numeric" error={fieldErrors.taxId} />
         <Field label="איש קשר" value={values.contactName} onChange={set('contactName')} />
-        <Field label="טלפון" value={values.contactPhone} onChange={set('contactPhone')} type="tel" dir="ltr" inputMode="tel" error={fieldErrors.contactPhone} />
-        <Field label="אימייל" value={values.contactEmail} onChange={set('contactEmail')} type="email" dir="ltr" inputMode="email" error={fieldErrors.contactEmail} />
+        <Field label="טלפון" value={values.contactPhone} onChange={set('contactPhone')} onBlur={check('contactPhone')} type="tel" dir="ltr" inputMode="tel" error={fieldErrors.contactPhone} />
+        <Field label="אימייל" value={values.contactEmail} onChange={set('contactEmail')} onBlur={check('contactEmail')} type="email" dir="ltr" inputMode="email" error={fieldErrors.contactEmail} />
       </div>
 
       <div className="mt-3 flex flex-col gap-1.5">
@@ -219,7 +243,8 @@ export function CompanyForm({
         </p>
       ) : null}
 
-      {error ? (
+      {/* Only a message that is not already pinned to a field. */}
+      {error && Object.values(fieldErrors).every((m) => m !== error) ? (
         <p role="alert" className="mt-3 text-sm text-danger">
           {error}
         </p>
@@ -251,6 +276,7 @@ function Field({
   label,
   value,
   onChange,
+  onBlur,
   type = 'text',
   dir,
   required,
@@ -261,6 +287,7 @@ function Field({
   label: string
   value: string
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onBlur?: () => void
   type?: string
   dir?: 'ltr'
   required?: boolean
@@ -280,6 +307,7 @@ function Field({
         type={type}
         value={value}
         onChange={onChange}
+        onBlur={onBlur}
         dir={dir}
         inputMode={inputMode}
         required={required}

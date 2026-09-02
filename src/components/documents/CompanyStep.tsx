@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { validateCompanyField, validateCompanyFields, type CompanyField } from '@/lib/company-validation'
 import { useEffect, useRef, useState } from 'react'
 
 type Company = { id: string; name: string; kind: 'supplier' | 'customer'; taxId: string | null; fromCrm: boolean }
@@ -131,8 +132,19 @@ export function CompanyStep({ template, crmAvailable }: { template?: string | nu
     }
   }
 
+  /** Checked on leaving a field, with the same rules the server applies. */
+  function check(field: CompanyField, value: string) {
+    const message = validateCompanyField(field, value)
+    setFieldErrors((current) => ({ ...current, [field]: message ?? '' }))
+  }
+
   async function createAndProceed(event: React.FormEvent) {
     event.preventDefault()
+    const local = validateCompanyFields({ name, taxId, contactPhone, contactEmail })
+    if (Object.keys(local).length > 0) {
+      setFieldErrors(local as Record<string, string>)
+      return
+    }
     await submit(payload({ target }))
   }
 
@@ -233,6 +245,7 @@ export function CompanyStep({ template, crmAvailable }: { template?: string | nu
               setFieldErrors((c) => (c.name ? { ...c, name: '' } : c))
             }}
             required
+            onBlur={() => check('name', name)}
             aria-invalid={fieldErrors.name ? true : undefined}
             className={`mt-1 h-11 w-full rounded-lg border bg-bg px-3 text-sm text-fg outline-none focus:border-brand ${
               fieldErrors.name ? 'border-red-500' : 'border-line'
@@ -256,6 +269,7 @@ export function CompanyStep({ template, crmAvailable }: { template?: string | nu
               dir="ltr"
               type="tel"
               inputMode="tel"
+              onBlur={() => check('contactPhone', contactPhone)}
               aria-invalid={fieldErrors.contactPhone ? true : undefined}
               className={`mt-1 h-11 w-full rounded-lg border bg-bg px-3 text-sm text-fg outline-none focus:border-brand ${
                 fieldErrors.contactPhone ? 'border-red-500' : 'border-line'
@@ -268,7 +282,21 @@ export function CompanyStep({ template, crmAvailable }: { template?: string | nu
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="block text-sm">
             <span className="text-muted">ח.פ / ע.מ</span>
-            <input value={taxId} onChange={(e) => setTaxId(e.target.value)} dir="ltr" className="mt-1 h-11 w-full rounded-lg border border-line bg-bg px-3 text-sm text-fg outline-none focus:border-brand" />
+            <input
+              value={taxId}
+              onChange={(e) => {
+                setTaxId(e.target.value)
+                setFieldErrors((c) => (c.taxId ? { ...c, taxId: '' } : c))
+              }}
+              onBlur={() => check('taxId', taxId)}
+              dir="ltr"
+              inputMode="numeric"
+              aria-invalid={fieldErrors.taxId ? true : undefined}
+              className={`mt-1 h-11 w-full rounded-lg border bg-bg px-3 text-sm text-fg outline-none focus:border-brand ${
+                fieldErrors.taxId ? 'border-red-500' : 'border-line'
+              }`}
+            />
+            {fieldErrors.taxId ? <span role="alert" className="mt-1 block text-xs text-red-700">{fieldErrors.taxId}</span> : null}
           </label>
           <label className="block text-sm">
             <span className="text-muted">אימייל</span>
@@ -281,6 +309,7 @@ export function CompanyStep({ template, crmAvailable }: { template?: string | nu
               dir="ltr"
               type="email"
               inputMode="email"
+              onBlur={() => check('contactEmail', contactEmail)}
               aria-invalid={fieldErrors.contactEmail ? true : undefined}
               className={`mt-1 h-11 w-full rounded-lg border bg-bg px-3 text-sm text-fg outline-none focus:border-brand ${
                 fieldErrors.contactEmail ? 'border-red-500' : 'border-line'
@@ -323,7 +352,9 @@ export function CompanyStep({ template, crmAvailable }: { template?: string | nu
           </fieldset>
         ) : null}
 
-        {error ? <p role="alert" className="mt-3 text-sm text-red-800">{error}</p> : null}
+        {error && Object.values(fieldErrors).every((m) => m !== error) ? (
+          <p role="alert" className="mt-3 text-sm text-red-800">{error}</p>
+        ) : null}
 
         <div className="mt-4 flex items-center gap-3">
           <button type="submit" disabled={busy || !name.trim()} className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50">
