@@ -13,8 +13,8 @@ import {
   LineHeight,
   TextStyle,
 } from '@tiptap/extension-text-style'
-import { CharacterCount, Placeholder, TrailingNode } from '@tiptap/extensions'
-import { EditorContent, useEditor, type Editor } from '@tiptap/react'
+import { CharacterCount, Placeholder } from '@tiptap/extensions'
+import { EditorContent, useEditor } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
 import {
@@ -31,7 +31,6 @@ import {
   AlignLeft,
   AlignRight,
   Bold,
-  Columns3,
   GripVertical,
   Image as ImageIcon,
   Italic,
@@ -40,16 +39,14 @@ import {
   Minus,
   Quote,
   Redo2,
-  Rows3,
   SeparatorHorizontal,
   Strikethrough,
   Table as TableIcon,
-  Trash2,
   Underline as UnderlineIcon,
   Undo2,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { FIELD_TYPES, type FieldType } from '@/lib/fields'
 import { useUnsavedGuard } from '@/components/editor/useUnsavedGuard'
 import { FindReplace } from './find-replace'
@@ -57,6 +54,8 @@ import { FindReplaceBar } from './FindReplaceBar'
 import { FIELD_META, XtraFieldNode } from './field-node'
 import { Indent } from './indent'
 import { PageBreakNode } from './page-break-node'
+import { StyledTable, StyledTableCell, StyledTableHeader } from './table-styles'
+import { TablePanel } from './TablePanel'
 import { ResizableImage } from './resizable-image'
 import { ToolButton, ToolDivider } from './toolbar'
 import { PaginationPlus } from 'tiptap-pagination-plus'
@@ -92,25 +91,6 @@ const LINE_HEIGHTS = [
   { value: '2', label: 'כפול' },
 ]
 
-/** Shown only while the cursor is inside a table, where they mean something. */
-function TableControls({ editor }: { editor: Editor }) {
-  return (
-    <div className="flex flex-wrap items-center gap-0.5 border-t border-line bg-blue-50/60 px-3 py-1.5">
-      <span className="me-1 text-xs font-medium text-muted">טבלה:</span>
-      <ToolButton Icon={Rows3} label="הוספת שורה" text="שורה" onClick={() => editor.chain().focus().addRowAfter().run()} />
-      <ToolButton Icon={Columns3} label="הוספת עמודה" text="עמודה" onClick={() => editor.chain().focus().addColumnAfter().run()} />
-      <ToolDivider />
-      <ToolButton Icon={Minus} label="מחיקת שורה" text="שורה" onClick={() => editor.chain().focus().deleteRow().run()} />
-      <ToolButton Icon={Minus} label="מחיקת עמודה" text="עמודה" onClick={() => editor.chain().focus().deleteColumn().run()} />
-      <ToolDivider />
-      <ToolButton label="מיזוג / פיצול תאים" text="מיזוג" onClick={() => editor.chain().focus().mergeOrSplit().run()} />
-      <ToolButton label="שורת כותרת" text="כותרת" onClick={() => editor.chain().focus().toggleHeaderRow().run()} />
-      <ToolDivider />
-      <ToolButton Icon={Trash2} label="מחיקת הטבלה" onClick={() => editor.chain().focus().deleteTable().run()} />
-    </div>
-  )
-}
-
 export function UnifiedComposer({ companyId, companyName }: { companyId: string; companyName: string }) {
   const router = useRouter()
   const [title, setTitle] = useState('')
@@ -118,6 +98,7 @@ export function UnifiedComposer({ companyId, companyName }: { companyId: string;
   const [error, setError] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
   const [finding, setFinding] = useState(false)
+  const titleRef = useRef<HTMLInputElement>(null)
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -135,13 +116,19 @@ export function UnifiedComposer({ companyId, companyName }: { companyId: string;
       Superscript,
       Indent,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      TableKit.configure({ table: { resizable: true } }),
+      // The kit's own table nodes are replaced with ones that carry width,
+      // background and alignment, so those survive into the PDF.
+      TableKit.configure({
+        table: false,
+        tableCell: false,
+        tableHeader: false,
+      }),
+      StyledTable.configure({ resizable: true }),
+      StyledTableCell,
+      StyledTableHeader,
       ResizableImage.configure({ inline: false, allowBase64: true }),
       Placeholder.configure({ placeholder: 'כתבו כאן את תוכן המסמך…' }),
       CharacterCount,
-      // Always leaves a paragraph after the last block, so a table or an image
-      // at the end of the document can never trap the cursor.
-      TrailingNode,
       FindReplace,
       // Draws the real page boundaries. The document is written on pages, not
       // on an endless scroll that only becomes pages at the printer.
@@ -177,7 +164,8 @@ export function UnifiedComposer({ companyId, companyName }: { companyId: string;
     if (!editor) return
     const name = title.trim()
     if (!name) {
-      setError('יש להזין שם למסמך.')
+      setError('יש להזין שם למסמך כדי להמשיך.')
+      titleRef.current?.focus()
       return
     }
     setSaving(true)
@@ -236,13 +224,18 @@ export function UnifiedComposer({ companyId, companyName }: { companyId: string;
             → חזרה
           </button>
           <input
+            ref={titleRef}
             value={title}
             onChange={(e) => {
               setTitle(e.target.value)
               setDirty(true)
+              if (error) setError(null)
             }}
             placeholder="שם המסמך"
-            className="min-h-11 min-w-0 flex-1 rounded-lg border border-line bg-bg px-3 text-sm font-medium text-fg outline-none focus:border-brand sm:max-w-xs"
+            aria-invalid={Boolean(error) && !title.trim()}
+            className={`min-h-11 min-w-0 flex-1 rounded-lg border bg-bg px-3 text-sm font-medium text-fg outline-none sm:max-w-xs ${
+              error && !title.trim() ? 'border-red-500' : 'border-line focus:border-brand'
+            }`}
           />
           <span className="hidden text-xs text-muted sm:inline">עבור {companyName}</span>
           <button
@@ -254,6 +247,17 @@ export function UnifiedComposer({ companyId, companyName }: { companyId: string;
             {saving ? 'שומר…' : 'שמירה והמשך'}
           </button>
         </div>
+
+        {/* Beside the save button that produced it. The old placement was under
+            the page canvas, so pressing save appeared to do nothing at all. */}
+        {error ? (
+          <p
+            role="alert"
+            className="flex items-center gap-2 border-t border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+          >
+            {error}
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-0.5 border-t border-line px-3 py-1.5">
           <ToolButton Icon={Undo2} label="ביטול" disabled={!editor.can().undo()} onClick={() => editor.chain().focus().undo().run()} />
@@ -362,7 +366,7 @@ export function UnifiedComposer({ companyId, companyName }: { companyId: string;
 
         {finding ? <FindReplaceBar editor={editor} onClose={() => setFinding(false)} /> : null}
 
-        {editor.isActive('table') ? <TableControls editor={editor} /> : null}
+        {editor.isActive('table') ? <TablePanel editor={editor} /> : null}
 
         <div className="flex flex-wrap items-center gap-1 border-t border-line bg-bg px-3 py-1.5">
           <span className="me-1 text-xs font-medium text-muted">שדות לחתימה:</span>
@@ -410,11 +414,6 @@ export function UnifiedComposer({ companyId, companyName }: { companyId: string;
         <p className="mx-auto mt-3 max-w-[794px] text-start text-xs text-muted tabular-nums">
           {editor.storage.characterCount.words()} מילים · {editor.storage.characterCount.characters()} תווים
         </p>
-        {error ? (
-          <p role="alert" className="mx-auto mt-3 max-w-[210mm] rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
-          </p>
-        ) : null}
       </main>
     </div>
   )

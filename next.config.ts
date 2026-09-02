@@ -20,27 +20,22 @@ const nextConfig: NextConfig = {
    */
   outputFileTracingIncludes: {
     '/api/sign/**': ['./src/server/signing/assets/**'],
-    // The same font, for the opposite direction: the CRM template renderer
-    // embeds it so headless Chromium — which ships no Hebrew font at all — has
-    // glyphs to draw with.
-    //
-    // The browser itself has to be listed too. `serverExternalPackages` keeps
-    // the bundler's hands off the package, but the tracer still only carries
-    // files it can see being imported, and these archives are opened by path at
-    // runtime. Without them the function deploys perfectly and then reports
-    // that /var/task/node_modules/@sparticuz/chromium/bin does not exist.
-    // Every route that renders HTML to PDF needs the browser and the font.
-    // Listing only the CRM route once meant a second renderer deployed cleanly
-    // and then failed at runtime with the bin directory missing.
-    '/api/crm/**': [
-      './src/server/signing/assets/**',
-      './node_modules/@sparticuz/chromium/bin/**',
-    ],
-    '/api/companies/**': [
-      './src/server/signing/assets/**',
-      './node_modules/@sparticuz/chromium/bin/**',
-    ],
-    '/api/documents/**': [
+    /**
+     * The Hebrew font and the headless browser, for every API route.
+     *
+     * `serverExternalPackages` keeps the bundler's hands off these, but the
+     * tracer still only carries files it can see imported, and both are opened
+     * by path at runtime. Without them a function deploys perfectly and then
+     * reports that /var/task/node_modules/@sparticuz/chromium/bin does not
+     * exist the first time someone renders a document.
+     *
+     * Listed as one glob rather than route by route on purpose. Enumerating
+     * prefixes broke four separate times — each time a new route learned to
+     * render a PDF and nobody remembered this file. The cost is a larger bundle
+     * on routes that never render; the alternative is a runtime failure that
+     * only appears in production, on a document a person is waiting for.
+     */
+    '/api/**': [
       './src/server/signing/assets/**',
       './node_modules/@sparticuz/chromium/bin/**',
     ],

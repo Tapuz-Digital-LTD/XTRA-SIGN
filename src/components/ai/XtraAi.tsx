@@ -1,16 +1,29 @@
 'use client'
 
+import {
+  History,
+  Loader2,
+  Plus,
+  Send,
+  Sparkles,
+  Square,
+  X,
+} from 'lucide-react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApprovalCard } from './ApprovalCard'
 import { ResultCards } from './ResultCards'
 
 /**
- * XTRA AI — the assistant, available from every screen.
+ * XTRA AI — the assistant, available from every internal screen.
  *
  * It reads which screen you are on so that "send him the last agreement" has a
  * "him". That context is a hint sent with the question, never a permission: the
  * server re-checks access to every record it touches.
+ *
+ * The panel keeps running when it is closed. A question asked and then dismissed
+ * still finishes, and the launcher reports that an answer is waiting — closing a
+ * drawer is not the same as cancelling the work.
  */
 
 type Turn =
@@ -30,8 +43,8 @@ type Turn =
 const QUICK_ACTIONS = [
   'מה דורש טיפול?',
   'מי עדיין לא חתם?',
-  'צור קבוצה חדשה',
   'הראה לי את המסמכים האחרונים',
+  'צור קבוצה חדשה',
 ]
 
 /** The current screen, as the few ids a question might refer to. */
@@ -39,12 +52,11 @@ function useScreenContext(): Record<string, unknown> {
   const pathname = usePathname()
   const params = useSearchParams()
 
-  const segments = pathname.split('/').filter(Boolean)
-  const [section, id] = segments
+  const [section, id] = pathname.split('/').filter(Boolean)
   const context: Record<string, unknown> = { page: section ?? 'home' }
 
   if (section === 'companies' && id) context.companyId = id
-  if (section === 'documents' && id) context.documentId = id
+  if (section === 'documents' && id && id !== 'new') context.documentId = id
   if (section === 'groups' && id) context.groupId = id
   if (section === 'suppliers' || section === 'customers') {
     const group = params.get('group')
@@ -53,21 +65,48 @@ function useScreenContext(): Record<string, unknown> {
   return context
 }
 
+/** The assistant's mark, used in the launcher, the header and beside each answer. */
+function Mark({ size = 16 }: { size?: number }) {
+  return (
+    <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand">
+      <Sparkles size={size} strokeWidth={2} aria-hidden="true" />
+    </span>
+  )
+}
+
 export function XtraAi() {
   const screen = useScreenContext()
   const [open, setOpen] = useState(false)
   const [turns, setTurns] = useState<Turn[]>([])
   const [input, setInput] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [thinking, setThinking] = useState(false)
+  const [unseen, setUnseen] = useState(0)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [history, setHistory] = useState<{ id: string; title: string }[]>([])
   const [showHistory, setShowHistory] = useState(false)
+
   const abort = useRef<AbortController | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  // Read inside the stream loop, where a stale closure would otherwise decide
+  // whether an arriving answer counts as unseen.
+  const openRef = useRef(open)
+  openRef.current = open
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [turns])
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [turns, thinking])
+
+  useEffect(() => {
+    if (!open) return
+    setUnseen(0)
+    inputRef.current?.focus()
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
 
   const loadHistory = useCallback(async () => {
     try {
@@ -102,13 +141,23 @@ export function XtraAi() {
     }
   }
 
+  function startNew() {
+    abort.current?.abort()
+    setTurns([])
+    setConversationId(null)
+    setShowHistory(false)
+    setThinking(false)
+    inputRef.current?.focus()
+  }
+
   async function send(text: string) {
     const question = text.trim()
-    if (!question || busy) return
+    if (!question || thinking) return
 
     setInput('')
+    setShowHistory(false)
     setTurns((current) => [...current, { kind: 'user', text: question }])
-    setBusy(true)
+    setThinking(true)
 
     const controller = new AbortController()
     abort.current = controller
@@ -139,8 +188,7 @@ export function XtraAi() {
         if (done) break
         buffer += decoder.decode(value, { stream: true })
 
-        // Server-sent events arrive in whatever chunks the network gives; the
-        // buffer is drained only on a complete event.
+        // Events arrive in whatever chunks the network gives; drain only whole ones.
         const parts = buffer.split('\n\n')
         buffer = parts.pop() ?? ''
 
@@ -152,9 +200,17 @@ export function XtraAi() {
           if (event.type === 'conversation') {
             setConversationId(String(event.conversationId))
           } else if (event.type === 'text') {
-            setTurns((current) => [...current, { kind: 'assistant', text: String(event.text) }])
+            // The first words arriving are what end the "thinking" state.
+            setThinking(false)
+            setTurns((current) => [
+              ...current.filter((turn) => turn.kind !== 'progress'),
+              { kind: 'assistant', text: String(event.text) },
+            ])
           } else if (event.type === 'tool_start') {
-            setTurns((current) => [...current, { kind: 'progress', text: String(event.label) }])
+            setTurns((current) => [
+              ...current.filter((turn) => turn.kind !== 'progress'),
+              { kind: 'progress', text: String(event.label) },
+            ])
           } else if (event.type === 'tool_result') {
             setTurns((current) => [
               ...current.filter((turn) => turn.kind !== 'progress'),
@@ -176,13 +232,17 @@ export function XtraAi() {
           }
         }
       }
+
+      // Finished while the panel was shut: say so on the launcher rather than
+      // letting the answer sit unseen.
+      if (!openRef.current) setUnseen((count) => count + 1)
     } catch (error) {
       if ((error as Error)?.name !== 'AbortError') {
         setTurns((current) => [...current, { kind: 'error', text: 'משהו השתבש. נסו שוב.' }])
       }
     } finally {
       setTurns((current) => current.filter((turn) => turn.kind !== 'progress'))
-      setBusy(false)
+      setThinking(false)
       abort.current = null
       void loadHistory()
     }
@@ -193,66 +253,88 @@ export function XtraAi() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="פתיחת XTRA AI"
-        className="fixed bottom-5 end-5 z-40 inline-flex min-h-12 items-center gap-2 rounded-full bg-brand px-5 text-sm font-semibold text-white shadow-lg transition hover:opacity-90"
+        aria-label={unseen ? `פתיחת XTRA AI — ${unseen} תשובות חדשות` : 'פתיחת XTRA AI'}
+        className="fixed bottom-5 end-5 z-40 inline-flex min-h-12 items-center gap-2 rounded-full bg-brand ps-4 pe-5 text-sm font-semibold text-white shadow-lg ring-1 ring-black/5 transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
       >
-        <span aria-hidden="true">✨</span> XTRA AI
+        {thinking ? (
+          <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+        ) : (
+          <Sparkles size={16} aria-hidden="true" />
+        )}
+        XTRA AI
+        {unseen > 0 ? (
+          <span className="xtra-pop absolute -top-1 -end-1 inline-flex size-5 items-center justify-center rounded-full bg-red-600 text-[11px] font-bold text-white ring-2 ring-white">
+            {unseen}
+          </span>
+        ) : null}
       </button>
     )
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-start bg-black/30" onClick={() => setOpen(false)}>
+    <div
+      className="fixed inset-0 z-50 flex justify-start bg-black/25 backdrop-blur-[1px]"
+      onClick={() => setOpen(false)}
+    >
       <aside
         dir="rtl"
-        onClick={(event) => event.stopPropagation()}
-        className="flex h-full w-full flex-col bg-surface shadow-2xl sm:w-[30rem]"
+        role="dialog"
+        aria-modal="true"
         aria-label="XTRA AI"
+        onClick={(event) => event.stopPropagation()}
+        className="xtra-panel flex h-full w-full flex-col bg-surface shadow-2xl sm:w-[32rem]"
       >
-        <header className="flex min-h-14 items-center gap-2 border-b border-line px-4">
-          <h2 className="text-base font-semibold text-fg">
-            <span aria-hidden="true">✨</span> XTRA AI
-          </h2>
+        <header className="flex min-h-16 items-center gap-2.5 border-b border-line px-4">
+          <Mark size={17} />
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-semibold text-fg">XTRA AI</h2>
+            <p className="truncate text-xs text-muted">
+              {thinking ? 'עובד על זה…' : 'עוזר חכם — התשובות נוצרות אוטומטית'}
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => setShowHistory((value) => !value)}
-            className="ms-auto min-h-11 rounded-lg px-2 text-sm text-muted hover:text-fg"
+            aria-label="שיחות קודמות"
+            aria-pressed={showHistory}
+            className={`inline-flex size-10 items-center justify-center rounded-lg transition ${
+              showHistory ? 'bg-bg text-fg' : 'text-muted hover:bg-bg hover:text-fg'
+            }`}
           >
-            שיחות
+            <History size={17} aria-hidden="true" />
           </button>
           <button
             type="button"
-            onClick={() => {
-              setTurns([])
-              setConversationId(null)
-              setShowHistory(false)
-            }}
-            className="min-h-11 rounded-lg px-2 text-sm text-brand"
+            onClick={startNew}
+            aria-label="שיחה חדשה"
+            className="inline-flex size-10 items-center justify-center rounded-lg text-muted transition hover:bg-bg hover:text-fg"
           >
-            + חדשה
+            <Plus size={18} aria-hidden="true" />
           </button>
           <button
             type="button"
             onClick={() => setOpen(false)}
             aria-label="סגירה"
-            className="min-h-11 min-w-11 rounded-lg text-muted hover:bg-bg"
+            className="inline-flex size-10 items-center justify-center rounded-lg text-muted transition hover:bg-bg hover:text-fg"
           >
-            ✕
+            <X size={18} aria-hidden="true" />
           </button>
         </header>
 
         {showHistory ? (
           <div className="flex-1 overflow-y-auto p-3">
             {history.length === 0 ? (
-              <p className="p-4 text-center text-sm text-muted">אין עדיין שיחות.</p>
+              <p className="p-6 text-center text-sm text-muted">אין עדיין שיחות.</p>
             ) : (
-              <ul className="flex flex-col gap-1">
+              <ul className="flex flex-col gap-0.5">
                 {history.map((conversation) => (
                   <li key={conversation.id}>
                     <button
                       type="button"
                       onClick={() => void openConversation(conversation.id)}
-                      className="w-full truncate rounded-lg px-3 py-3 text-start text-sm text-fg transition hover:bg-bg"
+                      className={`w-full truncate rounded-lg px-3 py-3 text-start text-sm transition hover:bg-bg ${
+                        conversation.id === conversationId ? 'bg-bg font-medium text-fg' : 'text-fg'
+                      }`}
                     >
                       {conversation.title}
                     </button>
@@ -262,19 +344,23 @@ export function XtraAi() {
             )}
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto px-4 py-4">
+          <div className="flex-1 overflow-y-auto px-4 py-5">
             {turns.length === 0 ? (
-              <div className="pt-6">
-                <p className="text-sm text-muted">
-                  אפשר לבקש ממני לחפש, ליצור, להכין מסמכים ולשלוח אותם — בעברית רגילה.
+              <div className="pt-4">
+                <Mark size={18} />
+                <p className="mt-3 text-sm text-fg">
+                  אפשר לבקש ממני לחפש, ליצור מסמכים, להכין שליחות ולעקוב — בעברית רגילה.
                 </p>
-                <div className="mt-4 flex flex-col gap-2">
+                <p className="mt-1 text-xs text-muted">
+                  פעולות שמשנות נתונים או שולחות מסמכים תמיד יוצגו לאישור לפני שאבצע אותן.
+                </p>
+                <div className="mt-5 flex flex-col gap-2">
                   {QUICK_ACTIONS.map((action) => (
                     <button
                       key={action}
                       type="button"
                       onClick={() => void send(action)}
-                      className="min-h-11 rounded-lg border border-line bg-bg px-3 text-start text-sm text-fg transition hover:border-brand"
+                      className="min-h-11 rounded-xl border border-line bg-bg px-3.5 text-start text-sm text-fg transition hover:border-brand hover:bg-surface"
                     >
                       {action}
                     </button>
@@ -282,35 +368,43 @@ export function XtraAi() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-4">
                 {turns.map((turn, index) => {
                   if (turn.kind === 'user') {
                     return (
-                      <p key={index} className="self-start rounded-2xl bg-brand px-3 py-2 text-sm text-white">
-                        {turn.text}
-                      </p>
+                      <div key={index} className="flex justify-start">
+                        <p className="max-w-[85%] rounded-2xl rounded-se-md bg-brand px-3.5 py-2 text-sm leading-relaxed text-white">
+                          {turn.text}
+                        </p>
+                      </div>
                     )
                   }
                   if (turn.kind === 'assistant') {
                     return (
-                      <p key={index} className="whitespace-pre-wrap text-sm text-fg">
-                        {turn.text}
-                      </p>
+                      <div key={index} className="flex gap-2.5">
+                        <Mark />
+                        <p className="min-w-0 flex-1 whitespace-pre-wrap pt-1 text-sm leading-relaxed text-fg">
+                          {turn.text}
+                        </p>
+                      </div>
                     )
                   }
                   if (turn.kind === 'progress') {
                     return (
-                      <p key={index} className="flex items-center gap-2 text-sm text-muted">
-                        <span className="size-2 animate-pulse rounded-full bg-brand" aria-hidden="true" />
-                        {turn.text}…
-                      </p>
+                      <div key={index} className="flex items-center gap-2.5">
+                        <Mark />
+                        <span className="text-sm text-muted">{turn.text}…</span>
+                      </div>
                     )
                   }
                   if (turn.kind === 'result') {
                     return (
-                      <div key={index}>
-                        <p className="text-sm text-fg">{turn.summary}</p>
-                        <ResultCards data={turn.data} />
+                      <div key={index} className="flex gap-2.5">
+                        <Mark />
+                        <div className="min-w-0 flex-1 pt-1">
+                          <p className="text-sm leading-relaxed text-fg">{turn.summary}</p>
+                          <ResultCards data={turn.data} />
+                        </div>
                       </div>
                     )
                   }
@@ -330,11 +424,29 @@ export function XtraAi() {
                     )
                   }
                   return (
-                    <p key={index} role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+                    <p
+                      key={index}
+                      role="alert"
+                      className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-800"
+                    >
                       {turn.text}
                     </p>
                   )
                 })}
+
+                {/* Never a frozen panel: while there is nothing else to show,
+                    this says the assistant is working. */}
+                {thinking ? (
+                  <div className="flex items-center gap-2.5" aria-live="polite">
+                    <Mark />
+                    <span className="flex items-center gap-1" aria-label="חושב">
+                      {[0, 1, 2].map((dot) => (
+                        <span key={dot} className="xtra-dot size-1.5 rounded-full bg-muted" />
+                      ))}
+                    </span>
+                  </div>
+                ) : null}
+
                 <div ref={endRef} />
               </div>
             )}
@@ -346,39 +458,44 @@ export function XtraAi() {
             event.preventDefault()
             void send(input)
           }}
-          className="flex items-end gap-2 border-t border-line p-3"
+          className="border-t border-line p-3"
         >
-          <textarea
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault()
-                void send(input)
-              }
-            }}
-            rows={2}
-            placeholder="מה תרצו שאעשה?"
-            aria-label="הודעה ל-XTRA AI"
-            className="min-h-11 flex-1 resize-none rounded-lg border border-line bg-bg px-3 py-2 text-sm text-fg outline-none focus:border-brand"
-          />
-          {busy ? (
-            <button
-              type="button"
-              onClick={() => abort.current?.abort()}
-              className="min-h-11 rounded-lg border border-line px-3 text-sm text-muted"
-            >
-              עצור
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={!input.trim()}
-              className="min-h-11 rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
-            >
-              שלח
-            </button>
-          )}
+          <div className="flex items-end gap-2 rounded-xl border border-line bg-bg p-1.5 focus-within:border-brand">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  void send(input)
+                }
+              }}
+              rows={1}
+              placeholder="מה תרצו שאעשה?"
+              aria-label="הודעה ל-XTRA AI"
+              className="max-h-32 min-h-9 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-fg outline-none"
+            />
+            {thinking ? (
+              <button
+                type="button"
+                onClick={() => abort.current?.abort()}
+                aria-label="עצירת התשובה"
+                className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-bg text-muted ring-1 ring-line transition hover:text-fg"
+              >
+                <Square size={14} fill="currentColor" aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim()}
+                aria-label="שליחה"
+                className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand text-white transition hover:opacity-90 disabled:opacity-30"
+              >
+                <Send size={15} aria-hidden="true" />
+              </button>
+            )}
+          </div>
         </form>
       </aside>
     </div>

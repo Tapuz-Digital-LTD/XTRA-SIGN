@@ -29,6 +29,9 @@ const ALIGN_CSS: Record<Align, string> = {
 const MIN_WIDTH = 48
 const MAX_WIDTH = 1400
 
+/** A4 minus the printed margins, so "full width" means the page's text column. */
+const TEXT_COLUMN_PX = 703
+
 /** Corner handles keep the aspect ratio; side handles stretch one axis. */
 const HANDLES = [
   { id: 'nw', corner: true, css: 'top-0 start-0 -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize' },
@@ -160,6 +163,47 @@ function ImageView({ node, updateAttributes, selected, editor, getPos }: NodeVie
                 </button>
               ))}
               <span className="mx-1 h-5 w-px bg-line" />
+
+              {/* An exact number, for when "about this big" is not good enough
+                  — a logo that must match the one on last year's contract. */}
+              <label className="inline-flex items-center gap-1 text-xs text-muted">
+                <span className="sr-only">רוחב בפיקסלים</span>
+                <input
+                  type="number"
+                  min={MIN_WIDTH}
+                  max={MAX_WIDTH}
+                  value={width ?? Math.round(imgRef.current?.offsetWidth ?? 0)}
+                  onChange={(event) => {
+                    const next = Number(event.target.value)
+                    if (Number.isFinite(next)) {
+                      updateAttributes({ width: Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, next)) })
+                    }
+                  }}
+                  className="h-8 w-16 rounded border border-line bg-bg px-1.5 text-center text-xs text-fg outline-none focus:border-brand"
+                />
+                px
+              </label>
+
+              {/* Half and full width of the page's text column, the two sizes
+                  people actually reach for. */}
+              <button
+                type="button"
+                title="חצי רוחב"
+                aria-label="חצי רוחב"
+                onClick={() => updateAttributes({ width: Math.round(TEXT_COLUMN_PX / 2) })}
+                className="inline-flex h-8 items-center rounded px-2 text-xs text-fg transition hover:bg-slate-100"
+              >
+                ½
+              </button>
+              <button
+                type="button"
+                title="רוחב מלא"
+                aria-label="רוחב מלא"
+                onClick={() => updateAttributes({ width: TEXT_COLUMN_PX })}
+                className="inline-flex h-8 items-center rounded px-2 text-xs text-fg transition hover:bg-slate-100"
+              >
+                100%
+              </button>
               <button
                 type="button"
                 title="גודל מקורי"

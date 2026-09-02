@@ -1,4 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
+import { Suspense } from 'react'
+import { XtraAi } from '@/components/ai/XtraAi'
 import { UnifiedComposer } from '@/components/composer/UnifiedComposer'
 import { getSession } from '@/server/auth/session'
 import { getCompany } from '@/server/companies/companies'
@@ -18,5 +20,14 @@ export default async function WritePage({
   const company = await getCompany(session, companyId)
   if (!company) notFound()
 
-  return <UnifiedComposer companyId={company.id} companyName={company.name} />
+  return (
+    <>
+      <UnifiedComposer companyId={company.id} companyName={company.name} />
+      {/* The composer has no AppShell, so the assistant is mounted here to keep
+          it available on every internal screen. */}
+      <Suspense fallback={null}>
+        <XtraAi />
+      </Suspense>
+    </>
+  )
 }

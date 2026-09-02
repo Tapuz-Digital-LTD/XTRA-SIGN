@@ -181,3 +181,34 @@ body {
 .xtra-doc sub, .xtra-doc sup { font-size: 0.75em; line-height: 0; position: relative; }
 .xtra-doc sup { top: -0.5em; }
 .xtra-doc sub { bottom: -0.25em; }
+
+/*
+ * The assistant's "thinking" dots.
+ *
+ * A three-dot cadence rather than a spinner: a spinner says "frozen", and the
+ * wait here is a few seconds of real work, not an unknown stall.
+ */
+@keyframes xtra-dot {
+  0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
+}
+.xtra-dot { animation: xtra-dot 1.2s ease-in-out infinite; }
+.xtra-dot:nth-child(2) { animation-delay: 0.15s; }
+.xtra-dot:nth-child(3) { animation-delay: 0.3s; }
+
+/* A new answer arriving while the panel is closed. */
+@keyframes xtra-pop {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.xtra-pop { animation: xtra-pop 180ms cubic-bezier(0.2, 0, 0.2, 1); }
+
+@keyframes xtra-slide-in {
+  from { transform: translateX(-8%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.xtra-panel { animation: xtra-slide-in 200ms cubic-bezier(0.2, 0, 0.2, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .xtra-dot, .xtra-pop, .xtra-panel { animation: none; }
+}
