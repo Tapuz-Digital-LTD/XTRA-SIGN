@@ -65,6 +65,24 @@ function openDocument(url: string): Promise<PDFDocumentProxy> {
       // The document is fetched from our own authorized route, which needs the
       // session cookie.
       withCredentials: true,
+      // Draw glyphs as outlines instead of injecting an @font-face and asking
+      // the browser to lay the text out. The default path substitutes a system
+      // font whenever the embedded one does not load cleanly — which is what
+      // smeared the Hebrew in every preview, splitting words with phantom
+      // spaces because the substitute's advances did not match the positions
+      // pdf.js had already computed. Outlines come straight from the embedded
+      // program, so what the browser shows is exactly what the signed and
+      // downloaded PDF contains.
+      disableFontFace: true,
+      // Non-embedded standard-14 fonts (many real supplier PDFs reference
+      // Helvetica/Times without embedding them) need their metrics and outlines
+      // from here, served same-origin so 'self' in the CSP covers the fetch.
+      // Without it those fonts fall back to a mismatched substitute.
+      standardFontDataUrl: '/pdfjs/standard_fonts/',
+      // CID/Type0 encodings (a Word "Save as PDF" in Hebrew often produces one)
+      // resolve their character maps from here.
+      cMapUrl: '/pdfjs/cmaps/',
+      cMapPacked: true,
       // pdf.js does not execute a document's embedded JavaScript unless the
       // scripting module is explicitly wired up, and nothing here does that.
     }).promise,

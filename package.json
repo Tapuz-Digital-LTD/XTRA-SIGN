@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "dotenv -e .env.local -- tsx scripts/migrate.ts",
-    "test:live": "vitest run --config vitest.smoke.config.ts"
+    "test:live": "vitest run --config vitest.smoke.config.ts",
+    "prebuild": "node scripts/copy-pdfjs-assets.mjs"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
