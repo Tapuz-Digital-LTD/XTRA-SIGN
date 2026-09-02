@@ -3,11 +3,14 @@ import { notFound, redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { DocumentPreview } from '@/components/DocumentPreview'
 import { SaveAsTemplate } from '@/components/SaveAsTemplate'
+import { CrmUploadButton } from '@/components/CrmUploadButton'
 import { RemindButton } from '@/components/RemindButton'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Timeline } from '@/components/Timeline'
 import { ForbiddenError, getSession } from '@/server/auth/session'
 import { authorizeAgreementAccess } from '@/server/documents/authorization'
+import { getCompany } from '@/server/companies/companies'
+import { getCrmProvider } from '@/server/crm/fireberry'
 import { getDocumentDetail } from '@/server/documents/queries'
 
 export default async function DocumentPage({ params }: { params: Promise<{ id: string }> }) {
@@ -27,6 +30,15 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
 
   const doc = await getDocumentDetail(id)
   if (!doc) notFound()
+
+  // The CRM button appears only when the whole chain is real: the CRM is
+  // configured, the document is signed and filed under a company, and that
+  // company carries a CRM record id. Otherwise it would be a dead button.
+  const crmReady =
+    doc.status === 'signed' &&
+    doc.company != null &&
+    getCrmProvider().isConfigured() &&
+    Boolean((await getCompany(session, doc.company.id))?.crmRecordId)
 
   const expiryFormatter = new Intl.DateTimeFormat('he-IL', {
     day: 'numeric',
@@ -60,11 +72,12 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
         <div className="flex shrink-0 flex-wrap gap-2">
           {doc.hasRendered ? <SaveAsTemplate documentId={doc.id} defaultName={doc.title} /> : null}
           <a
-            href={`/api/documents/${doc.id}/download?type=source`}
+            href={`/api/documents/${doc.id}/download?type=${doc.status === 'signed' ? 'signed' : 'source'}`}
             className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition-colors hover:bg-slate-50"
           >
-            הורדת מסמך
+            {doc.status === 'signed' ? 'הורדת מסמך חתום' : 'הורדת מסמך'}
           </a>
+          {crmReady ? <CrmUploadButton documentId={doc.id} /> : null}
           {doc.status === 'draft' && doc.hasRendered ? (
             <Link
               href={`/documents/${doc.id}/edit`}

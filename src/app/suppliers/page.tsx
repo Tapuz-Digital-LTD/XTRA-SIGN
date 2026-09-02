@@ -3,6 +3,7 @@ import { AppShell } from '@/components/AppShell'
 import { CompanyList } from '@/components/companies/CompanyList'
 import { getSession } from '@/server/auth/session'
 import { listCompanies } from '@/server/companies/companies'
+import { getCrmProvider } from '@/server/crm/fireberry'
 
 export default async function SuppliersPage({
   searchParams,
@@ -22,7 +23,7 @@ export default async function SuppliersPage({
         כל ספק במקום אחד — הפרטים שלו וכל המסמכים שנשלחו אליו לחתימה.
       </p>
       <div className="mt-6">
-        <CompanyList companies={companies} kind="supplier" noun="ספק" />
+        <CompanyList companies={companies} kind="supplier" noun="ספק" search={q ?? ''} crmEnabled={getCrmProvider().isConfigured()} />
       </div>
     </AppShell>
   )

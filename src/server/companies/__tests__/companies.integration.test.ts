@@ -140,6 +140,20 @@ describe('companies', () => {
     expect(await resolveOwnCompanyId(admin, co.id)).toBeNull()
   })
 
+  it('stores and returns a CRM record id', async () => {
+    const co = await createCompany({
+      session: admin,
+      kind: 'customer',
+      data: { name: `crm ${suffix}`, crmRecordId: 'a86e183a-3d1d-4e9e-8074-007e337c9c1c' },
+    })
+    if (!co.ok) throw new Error('setup')
+    expect((await getCompany(admin, co.id))?.crmRecordId).toBe('a86e183a-3d1d-4e9e-8074-007e337c9c1c')
+
+    // Clearing it is possible via update.
+    await updateCompany({ session: admin, companyId: co.id, data: { name: `crm ${suffix}`, crmRecordId: '' } })
+    expect((await getCompany(admin, co.id))?.crmRecordId).toBeNull()
+  })
+
   it('resolveOwnCompanyId accepts an own id and rejects a foreign one', async () => {
     const mine = await createCompany({ session: admin, kind: 'supplier', data: { name: `resolve ${suffix}` } })
     if (!mine.ok) throw new Error('setup')

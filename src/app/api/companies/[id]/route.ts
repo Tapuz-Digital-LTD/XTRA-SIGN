@@ -23,6 +23,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         contactPhone: str(body.contactPhone),
         contactEmail: str(body.contactEmail),
         notes: str(body.notes),
+        crmRecordId: str(body.crmRecordId),
       },
     })
 

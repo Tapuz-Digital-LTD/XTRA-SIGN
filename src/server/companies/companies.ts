@@ -21,6 +21,7 @@ export type CompanyInput = {
   contactPhone?: string | null
   contactEmail?: string | null
   notes?: string | null
+  crmRecordId?: string | null
 }
 
 export type CompanyRow = {
@@ -32,6 +33,8 @@ export type CompanyRow = {
   contactPhone: string | null
   contactEmail: string | null
   notes: string | null
+  crmRecordId: string | null
+  crmObjectType: number | null
   createdAt: Date
 }
 
@@ -87,6 +90,7 @@ export async function createCompany(input: {
       contactPhone: normaliseContactPhone(input.data.contactPhone ?? null),
       contactEmail: clean(input.data.contactEmail),
       notes: clean(input.data.notes, 2000),
+      crmRecordId: clean(input.data.crmRecordId, 100),
     })
     .returning({ id: schema.companies.id })
 
@@ -112,6 +116,7 @@ export async function updateCompany(input: {
       contactPhone: normaliseContactPhone(input.data.contactPhone ?? null),
       contactEmail: clean(input.data.contactEmail),
       notes: clean(input.data.notes, 2000),
+      crmRecordId: clean(input.data.crmRecordId, 100),
     })
     .where(
       and(
@@ -185,6 +190,8 @@ export async function listCompanies(
       contactPhone: schema.companies.contactPhone,
       contactEmail: schema.companies.contactEmail,
       notes: schema.companies.notes,
+      crmRecordId: schema.companies.crmRecordId,
+      crmObjectType: schema.companies.crmObjectType,
       createdAt: schema.companies.createdAt,
     })
     .from(schema.companies)
@@ -247,6 +254,8 @@ export async function getCompany(
       contactPhone: schema.companies.contactPhone,
       contactEmail: schema.companies.contactEmail,
       notes: schema.companies.notes,
+      crmRecordId: schema.companies.crmRecordId,
+      crmObjectType: schema.companies.crmObjectType,
       createdAt: schema.companies.createdAt,
     })
     .from(schema.companies)

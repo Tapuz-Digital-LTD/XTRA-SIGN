@@ -20,6 +20,7 @@ export type AuthorizedAgreement = {
   title: string
   status: (typeof schema.agreementStatus.enumValues)[number]
   ownerId: string
+  companyId: string | null
   currentVersionId: string | null
 }
 
@@ -45,6 +46,7 @@ export async function authorizeAgreementAccess(
       title: schema.agreements.title,
       status: schema.agreements.status,
       ownerId: schema.agreements.ownerId,
+      companyId: schema.agreements.companyId,
       currentVersionId: schema.agreements.currentVersionId,
     })
     .from(schema.agreements)

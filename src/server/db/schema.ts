@@ -89,6 +89,17 @@ export const companies = pgTable(
     contactPhone: text('contact_phone'),
     contactEmail: text('contact_email'),
     notes: text('notes'),
+    /**
+     * Links this company to a record in the external CRM, so a signed agreement
+     * can be pushed straight onto the right supplier/customer there.
+     *
+     * `crmRecordId` is the record's GUID in the CRM. `crmObjectType` is the
+     * CRM's object number; when null it is derived from `kind` (customer → the
+     * CRM's account object, supplier → its vendor object), which is the common
+     * case — an operator normally only pastes the record id.
+     */
+    crmRecordId: text('crm_record_id'),
+    crmObjectType: integer('crm_object_type'),
     /** Soft delete: agreements keep pointing at the company they were filed under. */
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

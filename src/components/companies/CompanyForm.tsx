@@ -11,6 +11,7 @@ type Values = {
   contactPhone: string
   contactEmail: string
   notes: string
+  crmRecordId: string
 }
 
 /**
@@ -21,6 +22,7 @@ export function CompanyForm({
   kind,
   existing,
   noun,
+  crmEnabled,
   onDone,
   onCancel,
 }: {
@@ -28,6 +30,8 @@ export function CompanyForm({
   existing?: CompanyRow
   /** "ספק" / "לקוח", for the labels. */
   noun: string
+  /** Whether the CRM connection is configured — gates the CRM record id field. */
+  crmEnabled?: boolean
   onDone?: (id: string) => void
   onCancel?: () => void
 }) {
@@ -39,6 +43,7 @@ export function CompanyForm({
     contactPhone: existing?.contactPhone ?? '',
     contactEmail: existing?.contactEmail ?? '',
     notes: existing?.notes ?? '',
+    crmRecordId: existing?.crmRecordId ?? '',
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -96,6 +101,23 @@ export function CompanyForm({
           className="rounded-lg border border-line bg-white px-3 py-2 text-sm"
         />
       </div>
+
+      {crmEnabled ? (
+        <div className="mt-3 flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-fg">מזהה רשומה ב-CRM</label>
+          <input
+            type="text"
+            value={values.crmRecordId}
+            onChange={set('crmRecordId')}
+            dir="ltr"
+            placeholder="GUID של הרשומה ב-Fireberry"
+            className="min-h-11 rounded-lg border border-line bg-white px-3 text-start text-sm"
+          />
+          <p className="text-xs text-muted">
+            מאפשר להעלות הסכם חתום ישירות לרשומה של ה{noun} ב-CRM בלחיצה אחת.
+          </p>
+        </div>
+      ) : null}
 
       {error ? (
         <p role="alert" className="mt-3 text-sm text-danger">

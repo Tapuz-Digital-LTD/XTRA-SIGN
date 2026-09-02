@@ -30,6 +30,8 @@ export const AUDIT_EVENTS = {
   NEW_VERSION_CREATED: 'new_version_created',
   /** The document's PDF and layout were copied into a template. */
   SAVED_AS_TEMPLATE: 'saved_as_template',
+  /** The signed PDF was pushed to the external CRM. */
+  CRM_UPLOADED: 'crm_uploaded',
 } as const
 
 export type AuditEventType = (typeof AUDIT_EVENTS)[keyof typeof AUDIT_EVENTS]

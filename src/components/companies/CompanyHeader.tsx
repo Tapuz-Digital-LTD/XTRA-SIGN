@@ -9,7 +9,7 @@ import type { CompanyRow } from '@/server/companies/companies'
  * A company's identity and the two actions on it — edit and remove. Kept a
  * client island so the rest of the page stays server-rendered.
  */
-export function CompanyHeader({ company, noun }: { company: CompanyRow; noun: string }) {
+export function CompanyHeader({ company, noun, crmEnabled }: { company: CompanyRow; noun: string; crmEnabled: boolean }) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -48,6 +48,7 @@ export function CompanyHeader({ company, noun }: { company: CompanyRow; noun: st
         kind={company.kind}
         existing={company}
         noun={noun}
+        crmEnabled={crmEnabled}
         onCancel={() => setEditing(false)}
         onDone={() => {
           setEditing(false)

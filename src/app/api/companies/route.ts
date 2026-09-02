@@ -34,6 +34,7 @@ export async function POST(request: Request) {
         contactPhone: str(body.contactPhone),
         contactEmail: str(body.contactEmail),
         notes: str(body.notes),
+        crmRecordId: str(body.crmRecordId),
       },
     })
 
