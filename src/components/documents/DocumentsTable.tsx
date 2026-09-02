@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { StatusBadge } from '@/components/StatusBadge'
 import { describeActivity } from '@/lib/relative-time'
@@ -33,11 +34,7 @@ export function DocumentsTable({ documents, now }: { documents: DocumentListItem
         {documents.map((doc) => (
           <li key={doc.id} className="rounded-[var(--radius-card)] border border-line bg-surface">
             <div className="flex items-start gap-2 p-3">
-              <button
-                type="button"
-                onClick={() => open(doc.id)}
-                className="min-w-0 flex-1 text-start"
-              >
+              <Link href={`/documents/${doc.id}`} className="min-w-0 flex-1 text-start">
                 <span className="block truncate text-sm font-medium text-fg">{doc.title}</span>
                 <span className="mt-1 flex flex-wrap items-center gap-1.5">
                   <CompanyChip doc={doc} />
@@ -49,7 +46,7 @@ export function DocumentsTable({ documents, now }: { documents: DocumentListItem
                   <StatusBadge status={doc.status} />
                   <span className="text-xs text-muted">{describeActivity(doc.lastActivityAt, doc.lastActivityType, at)}</span>
                 </span>
-              </button>
+              </Link>
               <RowActions
                 documentId={doc.id}
                 status={doc.status}
@@ -83,7 +80,15 @@ export function DocumentsTable({ documents, now }: { documents: DocumentListItem
                 className="cursor-pointer border-b border-line last:border-0 transition hover:bg-bg"
               >
                 <td className="max-w-[18rem] px-4 py-3">
-                  <span className="block truncate font-medium text-fg">{doc.title}</span>
+                  {/* A real link, so the row can be focused, opened in a new
+                      tab, and reached without a mouse. */}
+                  <Link
+                    href={`/documents/${doc.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="block truncate font-medium text-fg hover:underline"
+                  >
+                    {doc.title}
+                  </Link>
                   {doc.sourceKind && SOURCE_TEXT[doc.sourceKind] ? (
                     <span className="block text-xs text-muted">{SOURCE_TEXT[doc.sourceKind]}</span>
                   ) : null}

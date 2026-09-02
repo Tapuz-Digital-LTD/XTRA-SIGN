@@ -237,7 +237,9 @@ export async function listDocuments(
             fromCrm: Boolean(row.companyCrmRecordId),
           }
         : null,
-      lastActivityAt: row.lastAt ?? row.createdAt,
+      // The aggregate comes back from the driver as a timestamp string — the
+      // `sql<Date>` annotation is a compile-time claim, not a runtime one.
+      lastActivityAt: row.lastAt ? new Date(row.lastAt) : row.createdAt,
       lastActivityType: row.lastActivityType,
       hasSendFailure: Boolean(row.hasSendFailure),
     })),

@@ -95,6 +95,16 @@ describe('inbox listing', () => {
     expect(doc.recipientEmail).toBe('israel@example.com')
   })
 
+  it('returns lastActivityAt as a real Date, not a driver string', async () => {
+    // The aggregate arrives as a timestamp string; anything formatting it will
+    // throw on a string. This is that guard.
+    const result = await listDocuments(session, { pageSize: 50 })
+    for (const doc of result.items) {
+      expect(doc.lastActivityAt).toBeInstanceOf(Date)
+      expect(Number.isNaN(doc.lastActivityAt.getTime())).toBe(false)
+    }
+  })
+
   it('shows a document with no company rather than hiding it', async () => {
     const result = await listDocuments(session, { search: 'ללא שיוך' })
     expect(result.items[0].company).toBeNull()
