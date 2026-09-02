@@ -2,7 +2,8 @@ import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import chromium from '@sparticuz/chromium'
-import puppeteer, { type Browser } from 'puppeteer-core'
+import puppeteer, { type Browser, type Page } from 'puppeteer-core'
+import { log } from '@/server/log'
 
 /**
  * Turning a Fireberry template's HTML into a PDF.
@@ -63,8 +64,7 @@ async function hebrewFontCss(): Promise<string> {
     @font-face { font-family: 'Times New Roman'; src: ${src}; font-weight: 100 900; font-display: block; }
     html, body { font-family: 'Assistant', sans-serif; }
     /* A page break inside a table row or a heading reads as a printing fault. */
-    table { break-inside: avoid; }
-  tr, td, th, h1, h2, h3, h4, h5, h6, li { break-inside: avoid; }
+    tr, td, th, h1, h2, h3, h4, h5, h6, li { break-inside: avoid; }
     /* Nothing may animate: an animation mid-capture is a non-deterministic render. */
     *, *::before, *::after { animation: none !important; transition: none !important; }
   `
@@ -85,6 +85,39 @@ async function resolveBrowser(): Promise<{ executablePath: string; args: string[
   return { executablePath: local, args: ['--no-sandbox', '--disable-dev-shm-usage'] }
 }
 
+/** The printable width of an A4 page at the margins above, in CSS pixels. */
+const PRINTABLE_WIDTH_PX = Math.round(((210 - 24) / 25.4) * 96)
+
+/**
+ * How much to shrink the document so it prints the way it was designed.
+ *
+ * A CRM print template is drawn on a canvas of the author's choosing, and the
+ * engine that prints it fits that canvas onto the paper. Rendering it at 1:1
+ * instead does not just change the margins: text set for a 1000px canvas wraps
+ * far more often inside a 703px page, and an agreement that its author sees as
+ * two pages arrives as six.
+ *
+ * The design width is measured from the widest block the template actually
+ * lays out, so a template already drawn at page width scales by 1 and is left
+ * exactly as it was.
+ */
+async function fitToPage(page: Page): Promise<number> {
+  const designWidth = await page.evaluate(() => {
+    // Overflow past the page is what reveals the canvas the template was drawn
+    // on; content that fits reports exactly the page width.
+    const doc = document.documentElement
+    return Math.max(doc.scrollWidth, document.body.scrollWidth)
+  })
+
+  // Chromium refuses anything outside 0.1–2, and shrinking past 60% turns a
+  // readable agreement into something nobody can sign in good conscience.
+  const raw = designWidth > PRINTABLE_WIDTH_PX ? PRINTABLE_WIDTH_PX / designWidth : 1
+  const scale = Math.min(1, Math.max(0.6, raw))
+
+  log.info('crm pdf fit', { designWidth, printableWidth: PRINTABLE_WIDTH_PX, scale })
+  return scale
+}
+
 export async function renderHtmlToPdf(html: string): Promise<Buffer> {
   const { executablePath, args } = await resolveBrowser()
   const css = await hebrewFontCss()
@@ -95,7 +128,9 @@ export async function renderHtmlToPdf(html: string): Promise<Buffer> {
       executablePath,
       args,
       headless: true,
-      defaultViewport: { width: 1240, height: 1754, deviceScaleFactor: 1 },
+      // The printable width, so the page lays out at the size it will print
+      // at and `fitToPage` measures real overflow rather than the viewport.
+      defaultViewport: { width: PRINTABLE_WIDTH_PX, height: 1123, deviceScaleFactor: 1 },
     })
     const page = await browser.newPage()
 
@@ -117,7 +152,8 @@ export async function renderHtmlToPdf(html: string): Promise<Buffer> {
     // is exactly how a correct-looking PDF ends up full of fallback glyphs.
     await page.evaluate(() => document.fonts.ready)
 
-    const pdf = await page.pdf({ ...PAGE, printBackground: true, preferCSSPageSize: false })
+    const scale = await fitToPage(page)
+    const pdf = await page.pdf({ ...PAGE, scale, printBackground: true, preferCSSPageSize: false })
     return Buffer.from(pdf)
   } finally {
     await browser?.close().catch(() => {})

@@ -342,6 +342,15 @@ export const groups = pgTable(
       .references(() => organizations.id),
     name: text('name').notNull(),
     description: text('description'),
+    /**
+     * 'supplier' | 'customer'. Suppliers and customers are organised
+     * separately: a group is a shortlist you send an agreement to, and the
+     * agreement you send a supplier is not the one you send a customer.
+     *
+     * Nullable for the groups that existed before the split, which stay mixed
+     * and appear under both.
+     */
+    kind: text('kind'),
     createdBy: uuid('created_by').references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     /** Soft: batches and agreements keep pointing at the group they came from. */

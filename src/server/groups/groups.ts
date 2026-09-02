@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import { ForbiddenError, type StaffSession } from '@/server/auth/session'
 import type { CompanyKind } from '@/server/companies/companies'
 import { getDb, schema } from '@/server/db'
@@ -22,6 +22,8 @@ export type GroupListItem = {
   id: string
   name: string
   description: string | null
+  /** null for the groups that predate the split; they belong to both. */
+  kind: 'supplier' | 'customer' | null
   companyCount: number
   createdAt: Date
 }
@@ -51,7 +53,15 @@ export async function authorizeGroup(session: StaffSession, groupId: string) {
   return group
 }
 
-export async function listGroups(session: StaffSession): Promise<GroupListItem[]> {
+export async function listGroups(
+  session: StaffSession,
+  /**
+   * Restricts to the groups a supplier or a customer screen should offer.
+   * Groups created before kinds existed have none and belong to both, so
+   * filtering must keep them rather than hide work already organised.
+   */
+  kind?: 'supplier' | 'customer',
+): Promise<GroupListItem[]> {
   // A join and a group-by rather than a correlated subquery: the aliasing a
   // subquery needs does not survive being interpolated, and this is the shape
   // the database is happiest with anyway.
@@ -61,6 +71,7 @@ export async function listGroups(session: StaffSession): Promise<GroupListItem[]
       name: schema.groups.name,
       description: schema.groups.description,
       createdAt: schema.groups.createdAt,
+      kind: schema.groups.kind,
       companyCount: sql<number>`count(${schema.companies.id})`,
     })
     .from(schema.groups)
@@ -69,17 +80,34 @@ export async function listGroups(session: StaffSession): Promise<GroupListItem[]
       schema.companies,
       and(eq(schema.companies.id, schema.companyGroups.companyId), isNull(schema.companies.deletedAt)),
     )
-    .where(and(eq(schema.groups.organizationId, session.organizationId), isNull(schema.groups.deletedAt)))
-    .groupBy(schema.groups.id, schema.groups.name, schema.groups.description, schema.groups.createdAt)
+    .where(
+      and(
+        eq(schema.groups.organizationId, session.organizationId),
+        isNull(schema.groups.deletedAt),
+        kind ? or(eq(schema.groups.kind, kind), isNull(schema.groups.kind)) : undefined,
+      ),
+    )
+    .groupBy(
+      schema.groups.id,
+      schema.groups.name,
+      schema.groups.description,
+      schema.groups.createdAt,
+      schema.groups.kind,
+    )
     .orderBy(desc(schema.groups.createdAt))
 
-  return rows.map((row) => ({ ...row, companyCount: Number(row.companyCount) }))
+  return rows.map((row) => ({
+    ...row,
+    kind: (row.kind as 'supplier' | 'customer' | null) ?? null,
+    companyCount: Number(row.companyCount),
+  }))
 }
 
 export async function createGroup(input: {
   session: StaffSession
   name: string
   description?: string | null
+  kind?: 'supplier' | 'customer' | null
   /** Seed membership, for "create a group from this selection". */
   companyIds?: string[]
 }): Promise<GroupResult> {
@@ -92,6 +120,7 @@ export async function createGroup(input: {
       organizationId: input.session.organizationId,
       name,
       description: input.description?.trim().slice(0, 2000) || null,
+      kind: input.kind === 'supplier' || input.kind === 'customer' ? input.kind : null,
       createdBy: input.session.userId,
     })
     .returning({ id: schema.groups.id })
