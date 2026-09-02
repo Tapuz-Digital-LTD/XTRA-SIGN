@@ -41,6 +41,15 @@ export type BusinessDocument = {
   label: string
 }
 
+/**
+ * Fireberry record ids are GUIDs. Anything else is refused rather than
+ * interpolated: these values go into a CRM query expression, where a stray
+ * bracket or an `or` would change which records the filter matches.
+ */
+export function isCrmId(value: string): boolean {
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(value)
+}
+
 const str = (v: unknown): string | null => {
   if (v == null) return null
   const t = String(v).trim()
@@ -68,6 +77,7 @@ export async function listBusinessDocuments(input: {
 }): Promise<BusinessDocument[]> {
   const provider = new FireberryProvider()
   if (!provider.isConfigured()) return []
+  if (!isCrmId(input.crmRecordId)) return []
 
   // Whether the company is the customer or the supplier on the order depends on
   // which object it is.
@@ -124,6 +134,7 @@ export async function renderBusinessDocument(input: {
 }): Promise<RenderedBusinessDocument> {
   const provider = new FireberryProvider()
   if (!provider.isConfigured()) throw new Error('CRM is not configured')
+  if (!isCrmId(input.recordId)) throw new Error('invalid record id')
 
   const record = await provider.getRecord(input.objectType, input.recordId)
   if (!record) throw new Error('record not found')

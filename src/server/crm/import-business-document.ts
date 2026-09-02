@@ -6,7 +6,7 @@ import { getDb, schema } from '@/server/db'
 import { processDocumentVersion } from '@/server/documents/process-document'
 import { uploadDocument } from '@/server/documents/upload-document'
 import { log } from '@/server/log'
-import { renderBusinessDocument } from './business-documents'
+import { listBusinessDocuments, renderBusinessDocument } from './business-documents'
 import { sanitizeTemplateHtml } from './html-sanitize'
 import { inlineAssets } from './inline-assets'
 import { renderHtmlToPdf } from './html-to-pdf'
@@ -37,6 +37,21 @@ export async function importBusinessDocument(input: {
 }): Promise<ImportResult> {
   const company = await getCompany(input.session, input.companyId)
   if (!company) return { ok: false, message: 'הספק או הלקוח לא נמצא.' }
+  if (!company.crmRecordId || company.crmObjectType == null) {
+    return { ok: false, message: 'הרשומה אינה מחוברת ל-Fireberry.' }
+  }
+
+  // The record id arrives from the client, so it is checked against the
+  // documents this company actually has rather than trusted. Without this,
+  // any CRM record in the tenant could be pulled in by guessing an id.
+  const available = await listBusinessDocuments({
+    crmObjectType: company.crmObjectType,
+    crmRecordId: company.crmRecordId,
+  })
+  const permitted = available.find(
+    (doc) => doc.id === input.crmRecordId && doc.objectType === input.crmObjectType,
+  )
+  if (!permitted) return { ok: false, message: 'המסמך אינו שייך לספק או ללקוח הזה.' }
 
   let rendered
   try {

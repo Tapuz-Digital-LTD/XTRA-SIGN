@@ -64,3 +64,19 @@ describe('value formatting', () => {
     expect(id).not.toContain('1,758')
   })
 })
+
+describe('isCrmId', () => {
+  it('accepts a GUID and refuses anything that could alter a query', async () => {
+    const { isCrmId } = await import('../business-documents')
+    expect(isCrmId('9054a10c-5f7f-4d01-b212-87f6272acf6d')).toBe(true)
+    for (const bad of [
+      '9054a10c-5f7f-4d01-b212-87f6272acf6d) or (1 = 1',
+      "' or '1'='1",
+      '../../etc',
+      '',
+      'not-a-guid',
+    ]) {
+      expect(isCrmId(bad)).toBe(false)
+    }
+  })
+})
