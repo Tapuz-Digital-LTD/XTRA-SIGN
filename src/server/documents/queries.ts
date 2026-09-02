@@ -20,6 +20,8 @@ export type DocumentListItem = {
   sentAt: Date | null
   recipientName: string | null
   recipientCompany: string | null
+  /** Set when the document was imported from the CRM. */
+  crmDocumentId: string | null
 }
 
 /** The quick filters on the list screen, in the user's terms. */
@@ -81,6 +83,7 @@ export async function listDocuments(
       sentAt: schema.agreements.sentAt,
       recipientName: schema.recipients.name,
       recipientCompany: schema.recipients.company,
+      crmDocumentId: schema.agreements.crmDocumentId,
     })
     .from(schema.agreements)
     .leftJoin(schema.recipients, eq(schema.recipients.agreementId, schema.agreements.id))

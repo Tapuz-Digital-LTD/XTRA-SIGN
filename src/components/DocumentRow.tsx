@@ -17,6 +17,11 @@ export function DocumentRow({ document: doc }: { document: DocumentListItem }) {
       </div>
 
       <div className="flex items-center gap-3 sm:gap-4">
+        {doc.crmDocumentId ? (
+          <span className="whitespace-nowrap rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+            מקור: Fireberry
+          </span>
+        ) : null}
         <StatusBadge status={doc.status} />
         <time
           dateTime={(doc.sentAt ?? doc.createdAt).toISOString()}

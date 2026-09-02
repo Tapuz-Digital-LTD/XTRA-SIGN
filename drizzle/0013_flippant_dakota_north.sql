@@ -1,0 +1,2 @@
+ALTER TABLE "agreements" ADD COLUMN "crm_document_id" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "agreements_crm_document_unique" ON "agreements" USING btree ("organization_id","crm_document_id") WHERE "agreements"."crm_document_id" is not null;

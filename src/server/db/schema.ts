@@ -307,6 +307,8 @@ export const agreements = pgTable(
     templateId: uuid('template_id').references(() => templates.id),
     /** The supplier/customer this agreement is filed under, if any. */
     companyId: uuid('company_id').references(() => companies.id),
+    /** The Fireberry file id this document was imported from, if any. Dedup key. */
+    crmDocumentId: text('crm_document_id'),
     title: text('title').notNull(),
     status: agreementStatus('status').default('draft').notNull(),
     ownerId: uuid('owner_id')
@@ -324,6 +326,9 @@ export const agreements = pgTable(
     index('agreements_org_status_idx').on(t.organizationId, t.status),
     index('agreements_owner_idx').on(t.ownerId),
     index('agreements_company_idx').on(t.companyId),
+    uniqueIndex('agreements_crm_document_unique')
+      .on(t.organizationId, t.crmDocumentId)
+      .where(sql`${t.crmDocumentId} is not null`),
   ],
 )
 

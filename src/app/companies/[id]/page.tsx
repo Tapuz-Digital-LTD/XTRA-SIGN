@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { CompanyHeader } from '@/components/companies/CompanyHeader'
+import { CrmDocumentImport } from '@/components/companies/CrmDocumentImport'
 import { DocumentRow } from '@/components/DocumentRow'
 import { getSession } from '@/server/auth/session'
 import { getCompany } from '@/server/companies/companies'
@@ -55,6 +56,8 @@ export default async function CompanyPage({
 
       <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-fg">מסמכים</h2>
+        <div className="flex flex-wrap items-center gap-2">
+        {company.crmRecordId ? <CrmDocumentImport companyId={company.id} /> : null}
         <Link
           href={`/documents/new?company=${company.id}`}
           className="inline-flex min-h-11 items-center whitespace-nowrap rounded-lg bg-brand px-4 text-sm font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)]"
@@ -64,6 +67,7 @@ export default async function CompanyPage({
           </span>
           מסמך חדש
         </Link>
+        </div>
       </div>
 
       {/* Filters, only once there is something to filter. */}

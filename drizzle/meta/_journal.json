@@ -92,6 +92,13 @@
       "when": 1788344170592,
       "tag": "0012_whole_cloak",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1788348732340,
+      "tag": "0013_flippant_dakota_north",
+      "breakpoints": true
     }
   ]
 }

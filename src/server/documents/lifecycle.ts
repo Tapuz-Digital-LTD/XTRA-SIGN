@@ -18,7 +18,6 @@ import { buildStorageKey } from './file-validation'
 
 export type LifecycleResult = { ok: true; id: string } | { ok: false; message: string }
 
-const OPEN = ['sent', 'viewed'] as const
 
 /** Stops an open (or draft) request. A signed document cannot be cancelled. */
 export async function cancelAgreement(input: {

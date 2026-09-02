@@ -78,6 +78,65 @@ export class FireberryProvider implements CrmProvider {
     }
   }
 
+  /**
+   * The files attached to one CRM record. Read-only.
+   *
+   * `GET /v3/record/{objectType}/{recordId}/files` returns `{id, url, size,
+   * name}` per file — no mime or date, so the type is derived from the
+   * extension. Entries whose url is null are skipped: they exist in the CRM but
+   * expose nothing to download.
+   */
+  async listRecordFiles(input: {
+    objectType: number
+    recordId: string
+  }): Promise<{ id: string; name: string; url: string; sizeMb: number | null }[]> {
+    const token = process.env.FIREBERRY_API_TOKEN
+    if (!token) throw new Error('CRM is not configured')
+    const base = (process.env.FIREBERRY_API_URL ?? DEFAULT_BASE).replace(/\/+$/, '')
+
+    const response = await fetch(
+      `${base}/v3/record/${input.objectType}/${encodeURIComponent(input.recordId)}/files`,
+      { headers: { tokenid: token } },
+    )
+    if (!response.ok) throw new Error(`Fireberry file list failed (${response.status})`)
+
+    const body = (await response.json()) as { data?: { data?: unknown[] } }
+    const rows = Array.isArray(body.data?.data) ? body.data!.data! : []
+
+    return rows
+      .map((r) => r as { id?: unknown; url?: unknown; name?: unknown; size?: unknown })
+      .filter((r) => typeof r.id === 'string' && typeof r.url === 'string' && typeof r.name === 'string')
+      .map((r) => ({
+        id: String(r.id),
+        name: String(r.name),
+        url: String(r.url),
+        sizeMb: typeof r.size === 'number' ? r.size : null,
+      }))
+  }
+
+  /**
+   * Fetches one file's bytes.
+   *
+   * The URL comes back with the filename unencoded, so a Hebrew or spaced name
+   * produces an invalid request unless the path is percent-encoded first.
+   */
+  async downloadFile(url: string, maxBytes: number): Promise<Buffer> {
+    const parsed = new URL(url)
+    const safe = `${parsed.origin}${parsed.pathname.split('/').map(encodeURIComponent).join('/')}${parsed.search}`
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30_000)
+    try {
+      const response = await fetch(safe, { signal: controller.signal })
+      if (!response.ok) throw new Error(`Fireberry file download failed (${response.status})`)
+      const buffer = Buffer.from(await response.arrayBuffer())
+      if (buffer.byteLength > maxBytes) throw new Error('file too large')
+      return buffer
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
+
   async uploadFile(input: {
     target: CrmUploadTarget
     filename: string
