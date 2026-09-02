@@ -12,6 +12,8 @@ import { authorizeAgreementAccess } from '@/server/documents/authorization'
 import { getCompany } from '@/server/companies/companies'
 import { getCrmProvider } from '@/server/crm/fireberry'
 import { getDocumentDetail } from '@/server/documents/queries'
+import { versionChain } from '@/server/documents/lifecycle'
+import { DocumentActions } from '@/components/DocumentActions'
 
 export default async function DocumentPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
@@ -30,6 +32,8 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
 
   const doc = await getDocumentDetail(id)
   if (!doc) notFound()
+
+  const chain = await versionChain(session, id)
 
   // The CRM button appears only when the whole chain is real: the CRM is
   // configured, the document is signed and filed under a company, and that
@@ -163,6 +167,35 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
               </p>
             </div>
           ) : null}
+
+          {chain.predecessor || chain.successors.length > 0 ? (
+            <div className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
+              <h2 className="text-sm font-semibold text-fg">גרסאות</h2>
+              <ul className="mt-2 flex flex-col gap-1.5 text-sm">
+                {chain.predecessor ? (
+                  <li>
+                    <Link href={`/documents/${chain.predecessor.id}`} className="text-brand underline-offset-4 hover:underline">
+                      → הגרסה הקודמת
+                    </Link>
+                  </li>
+                ) : null}
+                {chain.successors.map((s) => (
+                  <li key={s.id}>
+                    <Link href={`/documents/${s.id}`} className="text-brand underline-offset-4 hover:underline">
+                      ← גרסה חדשה יותר
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <div className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
+            <h2 className="text-sm font-semibold text-fg">פעולות</h2>
+            <div className="mt-3">
+              <DocumentActions documentId={doc.id} status={doc.status} />
+            </div>
+          </div>
 
           <div className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
             <h2 className="text-sm font-semibold text-fg">היסטוריית המסמך</h2>
