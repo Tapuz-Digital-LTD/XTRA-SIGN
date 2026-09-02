@@ -1,20 +1,65 @@
 'use client'
 
-import { Color } from '@tiptap/extension-color'
-import { FontFamily } from '@tiptap/extension-font-family'
-import Image from '@tiptap/extension-image'
+import DragHandle from '@tiptap/extension-drag-handle-react'
+import Subscript from '@tiptap/extension-subscript'
+import Superscript from '@tiptap/extension-superscript'
 import { TableKit } from '@tiptap/extension-table'
 import TextAlign from '@tiptap/extension-text-align'
-import { TextStyle } from '@tiptap/extension-text-style'
-import Underline from '@tiptap/extension-underline'
-import { EditorContent, useEditor } from '@tiptap/react'
+import {
+  BackgroundColor,
+  Color,
+  FontFamily,
+  FontSize,
+  LineHeight,
+  TextStyle,
+} from '@tiptap/extension-text-style'
+import { CharacterCount, Placeholder, TrailingNode } from '@tiptap/extensions'
+import { EditorContent, useEditor, type Editor } from '@tiptap/react'
+import { BubbleMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
+import {
+  AlignCenter,
+  Baseline,
+  Highlighter,
+  Indent as IndentIcon,
+  Outdent,
+  RemoveFormatting,
+  Search,
+  Subscript as SubscriptIcon,
+  Superscript as SuperscriptIcon,
+  AlignJustify,
+  AlignLeft,
+  AlignRight,
+  Bold,
+  Columns3,
+  GripVertical,
+  Image as ImageIcon,
+  Italic,
+  List,
+  ListOrdered,
+  Minus,
+  Quote,
+  Redo2,
+  Rows3,
+  SeparatorHorizontal,
+  Strikethrough,
+  Table as TableIcon,
+  Trash2,
+  Underline as UnderlineIcon,
+  Undo2,
+} from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { FIELD_TYPES, type FieldType } from '@/lib/fields'
 import { useUnsavedGuard } from '@/components/editor/useUnsavedGuard'
+import { FindReplace } from './find-replace'
+import { FindReplaceBar } from './FindReplaceBar'
 import { FIELD_META, XtraFieldNode } from './field-node'
+import { Indent } from './indent'
 import { PageBreakNode } from './page-break-node'
+import { ResizableImage } from './resizable-image'
+import { ToolButton, ToolDivider } from './toolbar'
+import { PaginationPlus } from 'tiptap-pagination-plus'
 
 /**
  * Writing a document and placing its signature fields, in one screen.
@@ -24,32 +69,45 @@ import { PageBreakNode } from './page-break-node'
  * על החתום: [חתימה]" — and where it sits in the sentence is where it sits on
  * the page. Saving renders the document once and measures each field's real
  * position from the PDF, so what was written and what gets signed cannot drift.
+ *
+ * The canvas is a real A4 page at real margins, and the text is styled with the
+ * same point sizes the renderer uses. What is on screen is the page.
  */
-/** A toolbar button. Defined once, not rebuilt on every render. */
-function Btn({
-  onClick,
-  active,
-  label,
-  children,
-}: {
-  onClick: () => void
-  active?: boolean
-  label: string
-  children: React.ReactNode
-}) {
+
+/**
+ * A4 at the margins `renderComposedDocument` prints with, in CSS pixels.
+ *
+ * 96px to the inch: 210mm is 794px wide, 297mm is 1123px tall, and a 12mm
+ * margin is 45px. These are the numbers the page view is built from, so the
+ * page breaks drawn on screen fall where the printed ones will.
+ */
+const A4 = { width: 794, height: 1123, margin: 45 } as const
+
+const FONTS = ['Assistant', 'Arial', 'Times New Roman', 'Courier New', 'David']
+const FONT_SIZES = ['10pt', '11pt', '12pt', '14pt', '16pt', '18pt', '24pt', '32pt']
+const LINE_HEIGHTS = [
+  { value: '1.15', label: 'צפוף' },
+  { value: '1.5', label: 'רגיל' },
+  { value: '1.8', label: 'מרווח' },
+  { value: '2', label: 'כפול' },
+]
+
+/** Shown only while the cursor is inside a table, where they mean something. */
+function TableControls({ editor }: { editor: Editor }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      aria-pressed={active}
-      title={label}
-      className={`inline-flex min-h-9 min-w-9 items-center justify-center rounded px-2 text-sm transition ${
-        active ? 'bg-brand text-white' : 'text-fg hover:bg-slate-100'
-      }`}
-    >
-      {children}
-    </button>
+    <div className="flex flex-wrap items-center gap-0.5 border-t border-line bg-blue-50/60 px-3 py-1.5">
+      <span className="me-1 text-xs font-medium text-muted">טבלה:</span>
+      <ToolButton Icon={Rows3} label="הוספת שורה" text="שורה" onClick={() => editor.chain().focus().addRowAfter().run()} />
+      <ToolButton Icon={Columns3} label="הוספת עמודה" text="עמודה" onClick={() => editor.chain().focus().addColumnAfter().run()} />
+      <ToolDivider />
+      <ToolButton Icon={Minus} label="מחיקת שורה" text="שורה" onClick={() => editor.chain().focus().deleteRow().run()} />
+      <ToolButton Icon={Minus} label="מחיקת עמודה" text="עמודה" onClick={() => editor.chain().focus().deleteColumn().run()} />
+      <ToolDivider />
+      <ToolButton label="מיזוג / פיצול תאים" text="מיזוג" onClick={() => editor.chain().focus().mergeOrSplit().run()} />
+      <ToolButton label="שורת כותרת" text="כותרת" onClick={() => editor.chain().focus().toggleHeaderRow().run()} />
+      <ToolDivider />
+      <ToolButton Icon={Trash2} label="מחיקת הטבלה" onClick={() => editor.chain().focus().deleteTable().run()} />
+    </div>
   )
 }
 
@@ -59,26 +117,55 @@ export function UnifiedComposer({ companyId, companyName }: { companyId: string;
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
+  const [finding, setFinding] = useState(false)
 
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
+      // Underline and Link already ship inside StarterKit v3; adding them again
+      // registers the same extension twice.
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
-      Underline,
       TextStyle,
       Color,
+      BackgroundColor,
       FontFamily,
+      FontSize,
+      LineHeight,
+      Subscript,
+      Superscript,
+      Indent,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       TableKit.configure({ table: { resizable: true } }),
-      Image.configure({ inline: false, allowBase64: true }),
+      ResizableImage.configure({ inline: false, allowBase64: true }),
+      Placeholder.configure({ placeholder: 'כתבו כאן את תוכן המסמך…' }),
+      CharacterCount,
+      // Always leaves a paragraph after the last block, so a table or an image
+      // at the end of the document can never trap the cursor.
+      TrailingNode,
+      FindReplace,
+      // Draws the real page boundaries. The document is written on pages, not
+      // on an endless scroll that only becomes pages at the printer.
+      PaginationPlus.configure({
+        pageHeight: A4.height,
+        pageWidth: A4.width,
+        marginTop: A4.margin,
+        marginBottom: A4.margin,
+        marginLeft: A4.margin,
+        marginRight: A4.margin,
+        pageGap: 24,
+        pageBreakBackground: '#f1f5f9',
+        pageGapBorderSize: 1,
+        contentMarginTop: 0,
+        contentMarginBottom: 0,
+      }),
       XtraFieldNode,
       PageBreakNode,
     ],
-    content: '<h1>הסכם</h1><p>כתבו כאן את תוכן המסמך.</p>',
+    content: '<h1>הסכם</h1><p></p>',
     editorProps: {
       attributes: {
         dir: 'rtl',
-        class: 'xtra-doc min-h-[60vh] outline-none',
+        class: 'xtra-doc outline-none',
       },
     },
     onUpdate: () => setDirty(true),
@@ -169,45 +256,113 @@ export function UnifiedComposer({ companyId, companyName }: { companyId: string;
         </div>
 
         <div className="flex flex-wrap items-center gap-0.5 border-t border-line px-3 py-1.5">
-          <Btn onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} label="מודגש"><b>B</b></Btn>
-          <Btn onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} label="נטוי"><i>I</i></Btn>
-          <Btn onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive('underline')} label="קו תחתון"><u>U</u></Btn>
-          <span className="mx-1 h-5 w-px bg-line" />
-          {([1, 2, 3] as const).map((level) => (
-            <Btn key={level} onClick={() => editor.chain().focus().toggleHeading({ level }).run()} active={editor.isActive('heading', { level })} label={`כותרת ${level}`}>H{level}</Btn>
-          ))}
-          <span className="mx-1 h-5 w-px bg-line" />
-          <Btn onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} label="רשימה">•</Btn>
-          <Btn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} label="רשימה ממוספרת">1.</Btn>
-          <span className="mx-1 h-5 w-px bg-line" />
-          {(['right', 'center', 'left', 'justify'] as const).map((align) => (
-            <Btn key={align} onClick={() => editor.chain().focus().setTextAlign(align).run()} active={editor.isActive({ textAlign: align })} label={`יישור ${align}`}>
-              {align === 'right' ? '⇥' : align === 'center' ? '≡' : align === 'left' ? '⇤' : '☰'}
-            </Btn>
-          ))}
-          <span className="mx-1 h-5 w-px bg-line" />
+          <ToolButton Icon={Undo2} label="ביטול" disabled={!editor.can().undo()} onClick={() => editor.chain().focus().undo().run()} />
+          <ToolButton Icon={Redo2} label="שחזור" disabled={!editor.can().redo()} onClick={() => editor.chain().focus().redo().run()} />
+          <ToolDivider />
+
+          <select
+            aria-label="סגנון פסקה"
+            value={editor.isActive('heading', { level: 1 }) ? 'h1' : editor.isActive('heading', { level: 2 }) ? 'h2' : editor.isActive('heading', { level: 3 }) ? 'h3' : 'p'}
+            onChange={(e) => {
+              const value = e.target.value
+              if (value === 'p') editor.chain().focus().setParagraph().run()
+              else editor.chain().focus().toggleHeading({ level: Number(value.slice(1)) as 1 | 2 | 3 }).run()
+            }}
+            className="h-9 rounded-md border border-line bg-surface px-2 text-sm text-fg"
+          >
+            <option value="p">טקסט רגיל</option>
+            <option value="h1">כותרת ראשית</option>
+            <option value="h2">כותרת משנה</option>
+            <option value="h3">כותרת קטנה</option>
+          </select>
           <select
             aria-label="גופן"
+            defaultValue=""
             onChange={(e) => editor.chain().focus().setFontFamily(e.target.value).run()}
-            className="min-h-9 rounded border border-line bg-surface px-1 text-sm"
+            className="h-9 rounded-md border border-line bg-surface px-2 text-sm text-fg"
           >
-            <option value="">גופן</option>
-            {['Assistant', 'Arial', 'Times New Roman'].map((f) => <option key={f} value={f}>{f}</option>)}
+            <option value="" disabled>גופן</option>
+            {FONTS.map((font) => <option key={font} value={font}>{font}</option>)}
           </select>
-          <input
-            type="color"
-            aria-label="צבע טקסט"
-            onChange={(e) => editor.chain().focus().setColor(e.target.value).run()}
-            className="h-9 w-9 cursor-pointer rounded border border-line bg-surface p-0.5"
-          />
-          <span className="mx-1 h-5 w-px bg-line" />
-          <Btn onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} label="טבלה">▦</Btn>
-          <Btn onClick={addImage} label="תמונה">🖼</Btn>
-          <Btn onClick={() => editor.chain().focus().setPageBreak().run()} label="מעבר עמוד">⤓</Btn>
-          <span className="mx-1 h-5 w-px bg-line" />
-          <Btn onClick={() => editor.chain().focus().undo().run()} label="ביטול">↶</Btn>
-          <Btn onClick={() => editor.chain().focus().redo().run()} label="שחזור">↷</Btn>
+          <select
+            aria-label="גודל גופן"
+            defaultValue=""
+            onChange={(e) => editor.chain().focus().setFontSize(e.target.value).run()}
+            className="h-9 rounded-md border border-line bg-surface px-2 text-sm text-fg"
+          >
+            <option value="" disabled>גודל</option>
+            {FONT_SIZES.map((size) => <option key={size} value={size}>{size.replace('pt', '')}</option>)}
+          </select>
+          <select
+            aria-label="ריווח שורות"
+            defaultValue=""
+            onChange={(e) => editor.chain().focus().setLineHeight(e.target.value).run()}
+            className="h-9 rounded-md border border-line bg-surface px-2 text-sm text-fg"
+          >
+            <option value="" disabled>ריווח</option>
+            {LINE_HEIGHTS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+          <ToolDivider />
+
+          <ToolButton Icon={Bold} label="מודגש" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} />
+          <ToolButton Icon={Italic} label="נטוי" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()} />
+          <ToolButton Icon={UnderlineIcon} label="קו תחתון" active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()} />
+          <ToolButton Icon={Strikethrough} label="קו חוצה" active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()} />
+          <ToolButton Icon={SuperscriptIcon} label="כתב עילי" active={editor.isActive('superscript')} onClick={() => editor.chain().focus().toggleSuperscript().run()} />
+          <ToolButton Icon={SubscriptIcon} label="כתב תחתי" active={editor.isActive('subscript')} onClick={() => editor.chain().focus().toggleSubscript().run()} />
+          <label className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-md hover:bg-slate-100" title="צבע טקסט">
+            <span className="sr-only">צבע טקסט</span>
+            <Baseline size={16} aria-hidden="true" className="pointer-events-none absolute" />
+            <input
+              type="color"
+              aria-label="צבע טקסט"
+              onChange={(e) => editor.chain().focus().setColor(e.target.value).run()}
+              className="h-5 w-5 cursor-pointer border-0 bg-transparent p-0 opacity-0"
+            />
+          </label>
+          <label className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-md hover:bg-slate-100" title="צבע הדגשה">
+            <span className="sr-only">צבע הדגשה</span>
+            <Highlighter size={16} aria-hidden="true" className="pointer-events-none absolute" />
+            <input
+              type="color"
+              aria-label="צבע הדגשה"
+              onChange={(e) => editor.chain().focus().setBackgroundColor(e.target.value).run()}
+              className="h-5 w-5 cursor-pointer border-0 bg-transparent p-0 opacity-0"
+            />
+          </label>
+          <ToolButton Icon={RemoveFormatting} label="ניקוי עיצוב" onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()} />
+          <ToolDivider />
+
+          {(
+            [
+              { align: 'right', label: 'יישור לימין', Icon: AlignRight },
+              { align: 'center', label: 'מרכוז', Icon: AlignCenter },
+              { align: 'left', label: 'יישור לשמאל', Icon: AlignLeft },
+              { align: 'justify', label: 'יישור לשני הצדדים', Icon: AlignJustify },
+            ] as const
+          ).map(({ align, label, Icon }) => (
+            <ToolButton key={align} Icon={Icon} label={label} active={editor.isActive({ textAlign: align })} onClick={() => editor.chain().focus().setTextAlign(align).run()} />
+          ))}
+          <ToolDivider />
+
+          <ToolButton Icon={List} label="רשימה" active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()} />
+          <ToolButton Icon={ListOrdered} label="רשימה ממוספרת" active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()} />
+          <ToolButton Icon={Quote} label="ציטוט" active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()} />
+          <ToolButton Icon={IndentIcon} label="הגדלת כניסה" onClick={() => editor.chain().focus().indent().run()} />
+          <ToolButton Icon={Outdent} label="הקטנת כניסה" onClick={() => editor.chain().focus().outdent().run()} />
+          <ToolDivider />
+
+          <ToolButton Icon={TableIcon} label="הוספת טבלה" onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} />
+          <ToolButton Icon={ImageIcon} label="הוספת תמונה" onClick={addImage} />
+          <ToolButton Icon={Minus} label="קו מפריד" onClick={() => editor.chain().focus().setHorizontalRule().run()} />
+          <ToolButton Icon={SeparatorHorizontal} label="מעבר עמוד" onClick={() => editor.chain().focus().setPageBreak().run()} />
+          <ToolDivider />
+          <ToolButton Icon={Search} label="חיפוש והחלפה" active={finding} onClick={() => setFinding((open) => !open)} />
         </div>
+
+        {finding ? <FindReplaceBar editor={editor} onClose={() => setFinding(false)} /> : null}
+
+        {editor.isActive('table') ? <TableControls editor={editor} /> : null}
 
         <div className="flex flex-wrap items-center gap-1 border-t border-line bg-bg px-3 py-1.5">
           <span className="me-1 text-xs font-medium text-muted">שדות לחתימה:</span>
@@ -225,12 +380,38 @@ export function UnifiedComposer({ companyId, companyName }: { companyId: string;
         </div>
       </header>
 
+      {/* Formatting where the eye already is, rather than back up at the toolbar. */}
+      <BubbleMenu editor={editor} className="flex items-center gap-0.5 rounded-lg border border-line bg-surface p-1 shadow-[var(--shadow)]">
+        <ToolButton Icon={Bold} label="מודגש" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} />
+        <ToolButton Icon={Italic} label="נטוי" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()} />
+        <ToolButton Icon={UnderlineIcon} label="קו תחתון" active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()} />
+        <ToolDivider />
+        <ToolButton Icon={AlignRight} label="יישור לימין" active={editor.isActive({ textAlign: 'right' })} onClick={() => editor.chain().focus().setTextAlign('right').run()} />
+        <ToolButton Icon={AlignCenter} label="מרכוז" active={editor.isActive({ textAlign: 'center' })} onClick={() => editor.chain().focus().setTextAlign('center').run()} />
+      </BubbleMenu>
+
+      {/* Grab any block by its grip and move it, without cut and paste. */}
+      <DragHandle editor={editor}>
+        <div className="xtra-drag-handle" title="גררו כדי להזיז" aria-hidden="true">
+          <GripVertical size={16} />
+        </div>
+      </DragHandle>
+
       <main className="flex-1 overflow-y-auto px-3 py-6">
-        <div className="mx-auto max-w-[820px] rounded-[var(--radius-card)] border border-line bg-white p-[15mm] shadow-[var(--shadow)]">
+        {/* PaginationPlus paints the pages, their margins and the gaps between
+            them, so this wrapper only sets the paper width and its shadow. */}
+        <div
+          className="mx-auto max-w-full bg-white shadow-[0_1px_3px_rgb(0_0_0_/_0.12),0_8px_24px_rgb(0_0_0_/_0.08)]"
+          style={{ width: A4.width }}
+        >
           <EditorContent editor={editor} />
         </div>
+
+        <p className="mx-auto mt-3 max-w-[794px] text-start text-xs text-muted tabular-nums">
+          {editor.storage.characterCount.words()} מילים · {editor.storage.characterCount.characters()} תווים
+        </p>
         {error ? (
-          <p role="alert" className="mx-auto mt-3 max-w-[820px] rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+          <p role="alert" className="mx-auto mt-3 max-w-[210mm] rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
             {error}
           </p>
         ) : null}

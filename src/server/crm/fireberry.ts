@@ -193,6 +193,33 @@ export class FireberryProvider implements CrmProvider {
     return collected
   }
 
+  /**
+   * Updates named fields on one record.
+   *
+   * Narrow on purpose: callers pass the specific fields they mean, so a write
+   * can never carry along whatever else happened to be read earlier.
+   */
+  async updateRecord(
+    objectType: number,
+    recordId: string,
+    fields: Record<string, string | number | null>,
+  ): Promise<boolean> {
+    const token = process.env.FIREBERRY_API_TOKEN
+    if (!token) throw new Error('CRM is not configured')
+    const base = (process.env.FIREBERRY_API_URL ?? DEFAULT_BASE).replace(/\/+$/, '')
+
+    const body = Object.fromEntries(Object.entries(fields).filter(([, v]) => v != null))
+    const response = await fetch(`${base}/record/${objectType}/${encodeURIComponent(recordId)}`, {
+      method: 'PUT',
+      headers: { tokenid: token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (!response.ok) throw new Error(`Fireberry update failed (${response.status})`)
+
+    const parsed = (await response.json()) as { success?: boolean }
+    return parsed.success === true
+  }
+
   /** One record, whole. Read-only. */
   async getRecord(objectType: number, recordId: string): Promise<Record<string, unknown> | null> {
     const token = process.env.FIREBERRY_API_TOKEN

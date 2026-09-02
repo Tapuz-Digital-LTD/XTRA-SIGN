@@ -95,6 +95,22 @@ export async function runBulkSend(input: {
   const group = await authorizeGroup(input.session, input.groupId)
   const template = await authorizeTemplateAccess(input.session, input.templateId)
 
+  // The company ids arrive from the browser, so they are a request, not a fact.
+  // Intersecting them with the group's real membership is what stops a crafted
+  // request from creating and sending agreements for companies the caller was
+  // never shown — including ones in another organization.
+  const members = new Set(
+    (await listGroupCompanies(input.session, group.id)).map((company) => company.id),
+  )
+  const companyIds = input.companyIds.filter((id) => members.has(id))
+  if (companyIds.length !== input.companyIds.length) {
+    log.warn('bulk send dropped unauthorized companies', {
+      groupId: group.id,
+      requested: input.companyIds.length,
+      allowed: companyIds.length,
+    })
+  }
+
   let batchId = input.batchId
   if (batchId) {
     const [existing] = await db
@@ -119,17 +135,17 @@ export async function runBulkSend(input: {
         groupName: group.name,
         templateName: template.name,
         createdBy: input.session.userId,
-        totalRequested: input.companyIds.length,
+        totalRequested: companyIds.length,
       })
       .returning({ id: schema.bulkBatches.id })
     batchId = batch.id
 
     // One row per company up front, so the batch describes the whole intent
     // even if the process dies halfway through.
-    if (input.companyIds.length > 0) {
+    if (companyIds.length > 0) {
       await db
         .insert(schema.bulkBatchItems)
-        .values(input.companyIds.map((companyId) => ({ batchId: batch.id, companyId })))
+        .values(companyIds.map((companyId) => ({ batchId: batch.id, companyId })))
         .onConflictDoNothing()
     }
   }

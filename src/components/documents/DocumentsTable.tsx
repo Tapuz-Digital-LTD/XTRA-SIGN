@@ -60,16 +60,19 @@ export function DocumentsTable({ documents, now }: { documents: DocumentListItem
 
       {/* Desktop */}
       <div className="hidden overflow-x-auto rounded-[var(--radius-card)] border border-line bg-surface lg:block">
-        <table className="w-full text-start text-sm">
+        {/* `table-fixed` plus explicit widths is what makes `truncate` work.
+            Under the default auto layout a long name grows its column instead
+            of being clipped, and pushes the next one over its neighbour. */}
+        <table className="w-full table-fixed text-start text-sm">
           <thead>
             <tr className="border-b border-line text-xs text-muted">
-              <th className="px-4 py-3 text-start font-medium">מסמך</th>
-              <th className="px-4 py-3 text-start font-medium">חברה</th>
-              <th className="px-4 py-3 text-start font-medium">נמען</th>
-              <th className="px-4 py-3 text-start font-medium">סטטוס</th>
-              <th className="px-4 py-3 text-start font-medium">פעילות אחרונה</th>
-              <th className="px-4 py-3 text-start font-medium">יוצר</th>
-              <th className="w-px px-2 py-3"></th>
+              <th className="w-[22%] px-4 py-3 text-start font-medium">מסמך</th>
+              <th className="w-[22%] px-4 py-3 text-start font-medium">חברה</th>
+              <th className="w-[18%] px-4 py-3 text-start font-medium">נמען</th>
+              <th className="w-[12%] px-4 py-3 text-start font-medium">סטטוס</th>
+              <th className="w-[14%] px-4 py-3 text-start font-medium">פעילות אחרונה</th>
+              <th className="w-[9%] px-4 py-3 text-start font-medium">יוצר</th>
+              <th className="w-[3%] px-2 py-3"></th>
             </tr>
           </thead>
           <tbody>
@@ -79,7 +82,7 @@ export function DocumentsTable({ documents, now }: { documents: DocumentListItem
                 onClick={() => open(doc.id)}
                 className="cursor-pointer border-b border-line last:border-0 transition hover:bg-bg"
               >
-                <td className="max-w-[18rem] px-4 py-3">
+                <td className="px-4 py-3">
                   {/* A real link, so the row can be focused, opened in a new
                       tab, and reached without a mouse. */}
                   <Link
@@ -98,10 +101,10 @@ export function DocumentsTable({ documents, now }: { documents: DocumentListItem
                       .join(' · ')}
                   </span>
                 </td>
-                <td className="max-w-[14rem] px-4 py-3">
+                <td className="px-4 py-3">
                   <CompanyChip doc={doc} />
                 </td>
-                <td className="max-w-[12rem] px-4 py-3">
+                <td className="px-4 py-3">
                   <span className="block truncate text-fg">{doc.recipientName ?? '—'}</span>
                   <span className="block truncate text-xs text-muted">
                     {doc.recipientPhone ?? doc.recipientEmail ?? ''}
@@ -113,10 +116,12 @@ export function DocumentsTable({ documents, now }: { documents: DocumentListItem
                     <span className="mt-1 block text-xs text-red-700">שליחה נכשלה</span>
                   ) : null}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-muted">
-                  {describeActivity(doc.lastActivityAt, doc.lastActivityType, at)}
+                <td className="px-4 py-3 text-muted">
+                  <span className="block truncate">
+                    {describeActivity(doc.lastActivityAt, doc.lastActivityType, at)}
+                  </span>
                 </td>
-                <td className="max-w-[8rem] px-4 py-3">
+                <td className="px-4 py-3">
                   <span className="block truncate text-muted">{doc.createdByName ?? '—'}</span>
                 </td>
                 <td className="px-2 py-3" onClick={(e) => e.stopPropagation()}>
@@ -140,14 +145,14 @@ export function DocumentsTable({ documents, now }: { documents: DocumentListItem
 function CompanyChip({ doc }: { doc: DocumentListItem }) {
   if (!doc.company) {
     return (
-      <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+      <span className="inline-flex max-w-full items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
         ללא שיוך
       </span>
     )
   }
   return (
-    <span className="inline-flex min-w-0 items-center gap-1.5">
-      <span className="truncate text-fg">{doc.company.name}</span>
+    <span className="flex min-w-0 items-center gap-1.5">
+      <span className="min-w-0 flex-1 truncate text-fg">{doc.company.name}</span>
       <span className="shrink-0 text-xs text-muted">{doc.company.kind === 'supplier' ? 'ספק' : 'לקוח'}</span>
       <span
         className={`shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-medium ${

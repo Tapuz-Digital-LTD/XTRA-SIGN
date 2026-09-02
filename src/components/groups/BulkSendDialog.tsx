@@ -19,13 +19,24 @@ export function BulkSendDialog({
   groupId,
   groupName,
   templates,
+  /** When given, only these companies are offered — the ticked rows. */
+  restrictTo,
+  label,
+  variant = 'secondary',
+  onClose,
+  autoOpen = false,
 }: {
   groupId: string
   groupName: string
   templates: { id: string; name: string; signatureCount: number }[]
+  restrictTo?: string[]
+  label?: string
+  variant?: 'primary' | 'secondary'
+  onClose?: () => void
+  autoOpen?: boolean
 }) {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(autoOpen)
   const [step, setStep] = useState<Step>('template')
   const [templateId, setTemplateId] = useState<string | null>(null)
   const [plan, setPlan] = useState<BulkPlan | null>(null)
@@ -51,7 +62,13 @@ export function BulkSendDialog({
         setError(data?.error?.message ?? 'לא הצלחנו להכין את הרשימה.')
         return
       }
-      setPlan(data)
+      // Narrowing here rather than server-side keeps one planning endpoint:
+      // the plan still explains why a company is not ready, and the send below
+      // only ever posts ids that survived this filter.
+      const narrowed: BulkPlan = restrictTo
+        ? { ...data, rows: (data.rows as BulkPlan['rows']).filter((row) => restrictTo.includes(row.companyId)) }
+        : data
+      setPlan(narrowed)
       setTemplateId(id)
       setStep('review')
     } finally {
@@ -88,6 +105,11 @@ export function BulkSendDialog({
     }
   }
 
+  function close() {
+    setOpen(false)
+    onClose?.()
+  }
+
   if (!open) {
     return (
       <button
@@ -96,9 +118,13 @@ export function BulkSendDialog({
           reset()
           setOpen(true)
         }}
-        className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition hover:border-brand"
+        className={
+          variant === 'primary'
+            ? 'inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90'
+            : 'inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition hover:border-brand'
+        }
       >
-        שליחת הסכם לחתימה
+        {label ?? 'שליחת הסכם לחתימה'}
       </button>
     )
   }
@@ -110,8 +136,10 @@ export function BulkSendDialog({
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
       <div className="flex max-h-[88dvh] w-full max-w-2xl flex-col rounded-t-2xl bg-surface sm:rounded-2xl">
         <div className="flex min-h-14 items-center justify-between border-b border-line px-4">
-          <h2 className="text-base font-semibold text-fg">שליחת הסכם — {groupName}</h2>
-          <button type="button" onClick={() => setOpen(false)} aria-label="סגירה" className="min-h-11 min-w-11 rounded-lg text-muted hover:bg-bg">✕</button>
+          <h2 className="text-base font-semibold text-fg">
+            שליחת הסכם — {restrictTo ? `${restrictTo.length} נבחרות` : groupName}
+          </h2>
+          <button type="button" onClick={close} aria-label="סגירה" className="min-h-11 min-w-11 rounded-lg text-muted hover:bg-bg">✕</button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">

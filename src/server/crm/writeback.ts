@@ -4,6 +4,42 @@ import { log } from '@/server/log'
 import { notify } from '@/server/notifications/notifications'
 import { FireberryProvider } from './fireberry'
 
+const ORDER_OBJECT = 13
+
+/**
+ * Fireberry's own value for a quote that has been agreed.
+ *
+ * The picklist on object 13 offers נשלחה/נכשל/טרם נשלחה/אושרה — there is no
+ * literal "נחתם", so the nearest true statement is used rather than a new
+ * option invented in someone else's CRM.
+ */
+const STATUS_APPROVED = 4
+/** "תאריך חתימה על ההסכם" on the quote. */
+const SIGNED_DATE_FIELD = 'pcfsystemfield115'
+
+/**
+ * Reflects the signature on the source record.
+ *
+ * Best-effort and separate from the upload: the PDF landing is the part that
+ * matters, and a picklist that has been reconfigured in the CRM must not turn
+ * a successful write-back into a failure.
+ */
+async function markRecordSigned(
+  provider: FireberryProvider,
+  objectType: number,
+  recordId: string,
+): Promise<void> {
+  if (objectType !== ORDER_OBJECT) return
+  try {
+    await provider.updateRecord(objectType, recordId, {
+      statuscode: STATUS_APPROVED,
+      [SIGNED_DATE_FIELD]: new Date().toISOString(),
+    })
+  } catch (error) {
+    log.error('crm status update failed', { recordId, error: String(error) })
+  }
+}
+
 /**
  * Pushing a signed PDF back to the CRM record it came from.
  *
@@ -54,6 +90,10 @@ export async function writeBackSignedDocument(agreementId: string): Promise<{ ok
       bytes,
     })
     if (!result.ok) throw new Error(result.message)
+
+    // And mark the record itself. The signed PDF sitting on a quote still
+    // marked "waiting" is how a CRM stops being believed.
+    await markRecordSigned(provider, row.crmObjectType, row.crmRecordId)
 
     await db
       .update(schema.agreements)

@@ -63,7 +63,8 @@ async function hebrewFontCss(): Promise<string> {
     @font-face { font-family: 'Times New Roman'; src: ${src}; font-weight: 100 900; font-display: block; }
     html, body { font-family: 'Assistant', sans-serif; }
     /* A page break inside a table row or a heading reads as a printing fault. */
-    tr, td, th, h1, h2, h3, h4, h5, h6, li { break-inside: avoid; }
+    table { break-inside: avoid; }
+  tr, td, th, h1, h2, h3, h4, h5, h6, li { break-inside: avoid; }
     /* Nothing may animate: an animation mid-capture is a non-deterministic render. */
     *, *::before, *::after { animation: none !important; transition: none !important; }
   `

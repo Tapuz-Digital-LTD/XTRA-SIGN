@@ -74,3 +74,110 @@ body {
     font-size: 16px;
   }
 }
+
+/*
+ * The composer canvas.
+ *
+ * These rules are the on-screen twin of the print stylesheet in
+ * `src/server/documents/composer-render.ts`: same point sizes, same margins,
+ * same table borders. They are duplicated rather than shared because one runs
+ * in the browser and the other inside headless Chromium — but they must be
+ * changed together, or the editor stops telling the truth about the PDF.
+ */
+.xtra-doc {
+  font-size: 12pt;
+  line-height: 1.6;
+  color: #0f172a;
+}
+.xtra-doc h1 { font-size: 20pt; font-weight: 700; margin: 0 0 12pt; }
+.xtra-doc h2 { font-size: 16pt; font-weight: 700; margin: 16pt 0 8pt; }
+.xtra-doc h3 { font-size: 13pt; font-weight: 700; margin: 12pt 0 6pt; }
+.xtra-doc p { margin: 0 0 8pt; min-height: 1em; }
+.xtra-doc ul { list-style: disc; margin: 0 0 8pt; padding-inline-start: 20pt; }
+.xtra-doc ol { list-style: decimal; margin: 0 0 8pt; padding-inline-start: 20pt; }
+.xtra-doc li { margin: 0 0 2pt; }
+.xtra-doc blockquote {
+  margin: 8pt 0;
+  padding-inline-start: 10pt;
+  border-inline-start: 3px solid #cbd5e1;
+  color: #475569;
+}
+.xtra-doc table { width: 100%; border-collapse: collapse; margin: 8pt 0; table-layout: fixed; }
+.xtra-doc td, .xtra-doc th { border: 1px solid #94a3b8; padding: 6pt; vertical-align: top; }
+.xtra-doc th { background: #f1f5f9; font-weight: 700; }
+.xtra-doc hr { border: 0; border-top: 1px solid #cbd5e1; margin: 12pt 0; }
+.xtra-doc a { color: #1d4ed8; text-decoration: underline; }
+
+/* The cell being edited, and the drag bars for resizing a column. */
+.xtra-doc .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgb(37 99 235 / 0.12);
+  pointer-events: none;
+}
+.xtra-doc td, .xtra-doc th { position: relative; }
+.xtra-doc .column-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: -1px;
+  inset-inline-end: -2px;
+  width: 4px;
+  background: var(--color-brand, #2563eb);
+  cursor: col-resize;
+}
+
+/* An author-placed page break, shown as the divider it will become. */
+.xtra-doc [data-page-break] {
+  height: 0;
+  margin: 14pt 0;
+  border-top: 2px dashed #94a3b8;
+  position: relative;
+}
+.xtra-doc [data-page-break]::after {
+  content: 'מעבר עמוד';
+  position: absolute;
+  top: -8pt;
+  inset-inline-start: 50%;
+  transform: translateX(50%);
+  background: #fff;
+  padding: 0 6pt;
+  font-size: 8pt;
+  color: #64748b;
+}
+
+/* Placeholder text on the one empty paragraph the cursor is sitting in. */
+.xtra-doc p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: inline-start;
+  height: 0;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+/* The grip that appears beside a block on hover, for dragging it. */
+.xtra-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.375rem;
+  color: #64748b;
+  cursor: grab;
+  transition: background 120ms ease, color 120ms ease;
+}
+.xtra-drag-handle:hover { background: #e2e8f0; color: #0f172a; }
+.xtra-drag-handle:active { cursor: grabbing; }
+@media (prefers-reduced-motion: reduce) {
+  .xtra-drag-handle { transition: none; }
+}
+
+/* Search hits. The active one has to be findable at a glance among the rest. */
+.xtra-find-match { background: #fde68a; border-radius: 2px; }
+.xtra-find-current { background: #f59e0b; color: #1c1917; border-radius: 2px; }
+
+/* Sub- and superscript need an explicit size; the reset flattens them. */
+.xtra-doc sub, .xtra-doc sup { font-size: 0.75em; line-height: 0; position: relative; }
+.xtra-doc sup { top: -0.5em; }
+.xtra-doc sub { bottom: -0.25em; }

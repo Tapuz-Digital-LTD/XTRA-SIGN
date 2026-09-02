@@ -246,7 +246,7 @@ export function CompanyList({
         </div>
       ) : (
         <div className="overflow-x-auto rounded-[var(--radius-card)] border border-line bg-surface">
-          <table className="w-full min-w-[44rem] text-start text-sm">
+          <table className="w-full min-w-[44rem] table-fixed text-start text-sm">
             <thead>
               <tr className="border-b border-line text-xs text-muted">
                 <th className="w-px px-3 py-3">
@@ -258,13 +258,13 @@ export function CompanyList({
                     aria-label={`בחירת כל ${filtered.length} השורות המוצגות`}
                   />
                 </th>
-                <th className="px-4 py-3 text-start font-medium">{noun === 'ספק' ? 'ספק' : 'לקוח'}</th>
-                <th className="px-4 py-3 text-start font-medium">ח.פ / ע.מ</th>
-                <th className="px-4 py-3 text-start font-medium">איש קשר</th>
-                <th className="px-3 py-3 text-center font-medium">מסמכים</th>
-                <th className="px-3 py-3 text-center font-medium">ממתינים</th>
-                <th className="px-4 py-3 text-start font-medium">מקור</th>
-                <th className="px-4 py-3 text-start font-medium">פעילות</th>
+                <th className="w-[26%] px-4 py-3 text-start font-medium">{noun === 'ספק' ? 'ספק' : 'לקוח'}</th>
+                <th className="w-[13%] px-4 py-3 text-start font-medium">ח.פ / ע.מ</th>
+                <th className="w-[20%] px-4 py-3 text-start font-medium">איש קשר</th>
+                <th className="w-[9%] px-3 py-3 text-center font-medium">מסמכים</th>
+                <th className="w-[9%] px-3 py-3 text-center font-medium">ממתינים</th>
+                <th className="w-[10%] px-4 py-3 text-start font-medium">מקור</th>
+                <th className="w-[13%] px-4 py-3 text-start font-medium">פעילות</th>
               </tr>
             </thead>
             <tbody>
@@ -283,9 +283,11 @@ export function CompanyList({
                       aria-label={`בחירת ${company.name}`}
                     />
                   </td>
-                  <td className="px-4 py-3 font-medium text-fg">{company.name}</td>
-                  <td className="px-4 py-3 text-muted" dir="ltr">{company.taxId ?? '—'}</td>
-                  <td className="px-4 py-3 text-muted">{company.contactName ?? '—'}</td>
+                  {/* Each cell clips its own text: in a fixed-layout table an
+                      unclipped long name spills over the next column. */}
+                  <td className="truncate px-4 py-3 font-medium text-fg" title={company.name}>{company.name}</td>
+                  <td className="truncate px-4 py-3 text-muted" dir="ltr">{company.taxId ?? '—'}</td>
+                  <td className="truncate px-4 py-3 text-muted">{company.contactName ?? '—'}</td>
                   <td className="px-3 py-3 text-center text-fg">{company.documentCount}</td>
                   <td className="px-3 py-3 text-center">
                     {company.pendingCount > 0 ? (
@@ -298,10 +300,10 @@ export function CompanyList({
                     {company.crmRecordId ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">CRM</span>
                     ) : (
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">XTRA Sign בלבד</span>
+                      <span className="inline-block max-w-full truncate rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">XTRA Sign</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-xs text-muted">
+                  <td className="truncate px-4 py-3 text-xs text-muted">
                     {company.lastActivityAt ? formatter.format(company.lastActivityAt) : '—'}
                   </td>
                 </tr>

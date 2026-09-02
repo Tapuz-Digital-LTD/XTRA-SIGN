@@ -112,6 +112,18 @@ export function GroupWorkspace({
             ניקוי הבחירה
           </button>
           <span className="ms-auto flex flex-wrap gap-2">
+            {/* Sending to the ticked rows — one company or forty — rather than
+                to the whole group. The group is a way to organise, not a
+                commitment to write to everyone in it. */}
+            <BulkSendDialog
+              key={selectedList.join(',')}
+              groupId={groupId}
+              groupName={groupName}
+              templates={templates}
+              restrictTo={selectedList}
+              variant="primary"
+              label={selected.size === 1 ? 'שליחה לנבחרת' : `שליחה ל-${selected.size} הנבחרות`}
+            />
             <a
               href={`/api/companies/export?ids=${selectedList.join(',')}`}
               className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-3 text-sm text-fg transition hover:border-brand"
@@ -139,7 +151,7 @@ export function GroupWorkspace({
         </div>
       ) : (
         <div className="overflow-x-auto rounded-[var(--radius-card)] border border-line bg-surface">
-          <table className="w-full min-w-[48rem] text-start text-sm">
+          <table className="w-full min-w-[48rem] table-fixed text-start text-sm">
             <thead>
               <tr className="border-b border-line text-xs text-muted">
                 <th className="w-px px-3 py-3">
@@ -151,12 +163,12 @@ export function GroupWorkspace({
                     aria-label={search ? 'בחירת כל התוצאות המוצגות' : 'בחירת כל החברות'}
                   />
                 </th>
-                <th className="px-4 py-3 text-start font-medium">חברה</th>
-                <th className="px-4 py-3 text-start font-medium">סוג</th>
-                <th className="px-4 py-3 text-start font-medium">איש קשר</th>
-                <th className="px-4 py-3 text-start font-medium">טלפון</th>
-                <th className="px-4 py-3 text-start font-medium">אימייל</th>
-                <th className="px-4 py-3 text-start font-medium">מוכנה לשליחה</th>
+                <th className="w-[26%] px-4 py-3 text-start font-medium">חברה</th>
+                <th className="w-[8%] px-4 py-3 text-start font-medium">סוג</th>
+                <th className="w-[16%] px-4 py-3 text-start font-medium">איש קשר</th>
+                <th className="w-[16%] px-4 py-3 text-start font-medium">טלפון</th>
+                <th className="w-[22%] px-4 py-3 text-start font-medium">אימייל</th>
+                <th className="w-[12%] px-4 py-3 text-start font-medium">מוכנה לשליחה</th>
               </tr>
             </thead>
             <tbody>
@@ -171,16 +183,16 @@ export function GroupWorkspace({
                       aria-label={`בחירת ${company.name}`}
                     />
                   </td>
-                  <td className="max-w-[16rem] px-4 py-3">
+                  <td className="px-4 py-3">
                     <Link href={`/companies/${company.id}`} className="block truncate font-medium text-fg hover:underline">
                       {company.name}
                     </Link>
-                    <span className="text-xs text-muted">{company.fromCrm ? 'CRM' : 'XTRA Sign'}</span>
+                    <span className="block truncate text-xs text-muted">{company.fromCrm ? 'CRM' : 'XTRA Sign'}</span>
                   </td>
-                  <td className="px-4 py-3 text-muted">{company.kind === 'supplier' ? 'ספק' : 'לקוח'}</td>
-                  <td className="max-w-[10rem] px-4 py-3"><span className="block truncate">{company.contactName ?? '—'}</span></td>
-                  <td className="px-4 py-3" dir="ltr">{company.contactPhone ?? '—'}</td>
-                  <td className="max-w-[14rem] px-4 py-3" dir="ltr"><span className="block truncate">{company.contactEmail ?? '—'}</span></td>
+                  <td className="truncate px-4 py-3 text-muted">{company.kind === 'supplier' ? 'ספק' : 'לקוח'}</td>
+                  <td className="px-4 py-3"><span className="block truncate">{company.contactName ?? '—'}</span></td>
+                  <td className="truncate px-4 py-3" dir="ltr">{company.contactPhone ?? '—'}</td>
+                  <td className="px-4 py-3" dir="ltr"><span className="block truncate">{company.contactEmail ?? '—'}</span></td>
                   <td className="px-4 py-3">
                     {company.readyToSend ? (
                       <span className="whitespace-nowrap rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">מוכנה</span>

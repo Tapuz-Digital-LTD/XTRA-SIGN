@@ -342,6 +342,10 @@ export type DocumentDetail = {
   linkExpired: boolean
   /** Imported from Fireberry rather than uploaded here. */
   fromCrm: boolean
+  /** The CRM record this document was made from, when it was. */
+  crmRecordId: string | null
+  /** done | failed | null — pushing the signed PDF back to that record. */
+  crmWritebackState: 'done' | 'failed' | null
   timeline: { type: string; createdAt: Date }[]
 }
 
@@ -430,7 +434,9 @@ export async function getDocumentDetail(agreementId: string): Promise<DocumentDe
     company: company ?? null,
     expiresAt: agreement.expiresAt,
     linkExpired: agreement.expiresAt ? agreement.expiresAt.getTime() < Date.now() : false,
-    fromCrm: Boolean(agreement.crmDocumentId),
+    fromCrm: Boolean(agreement.crmDocumentId || agreement.crmRecordId),
+    crmRecordId: agreement.crmRecordId,
+    crmWritebackState: (agreement.crmWritebackState as 'done' | 'failed' | null) ?? null,
     timeline,
   }
 }

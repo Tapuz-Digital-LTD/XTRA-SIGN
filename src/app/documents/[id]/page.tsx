@@ -6,6 +6,7 @@ import { SaveAsTemplate } from '@/components/SaveAsTemplate'
 import { CrmUploadButton } from '@/components/CrmUploadButton'
 import { RemindButton } from '@/components/RemindButton'
 import { CompanyPicker } from '@/components/documents/CompanyPicker'
+import { CrmWritebackButton } from '@/components/documents/CrmWritebackButton'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Timeline } from '@/components/Timeline'
 import { ForbiddenError, getSession } from '@/server/auth/session'
@@ -113,7 +114,11 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
               הורדת אישור חתימה
             </a>
           ) : null}
-          {crmReady ? <CrmUploadButton documentId={doc.id} alreadyUploaded={crmAlreadyUploaded} /> : null}
+          {crmReady && doc.crmRecordId ? (
+            <CrmWritebackButton documentId={doc.id} state={doc.crmWritebackState} />
+          ) : crmReady ? (
+            <CrmUploadButton documentId={doc.id} alreadyUploaded={crmAlreadyUploaded} />
+          ) : null}
           {doc.status === 'draft' && doc.hasRendered ? (
             <Link
               href={`/documents/${doc.id}/edit`}

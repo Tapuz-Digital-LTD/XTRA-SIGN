@@ -154,3 +154,38 @@ describe('retrying failures', () => {
     vi.restoreAllMocks()
   })
 })
+
+describe('runBulkSend authorization', () => {
+  it('ignores company ids that are not in the group', async () => {
+    const spy = vi.spyOn(send, 'sendAgreement').mockResolvedValue({ ok: true, results: [] } as never)
+
+    // A company that exists in the organization but was never added to the
+    // group. The browser can name it; the server must not act on it.
+    const [outsider] = await db
+      .insert(schema.companies)
+      .values({
+        organizationId: orgId,
+        name: 'מחוץ לקבוצה',
+        kind: 'customer',
+        contactName: 'איש קשר',
+        contactPhone: '+972500000099',
+      })
+      .returning()
+
+    const result = await runBulkSend({
+      session,
+      groupId,
+      templateId,
+      companyIds: [...readyIds, outsider.id],
+    })
+
+    expect(result.sent).toBe(2)
+    const agreements = await db
+      .select()
+      .from(schema.agreements)
+      .where(eq(schema.agreements.organizationId, orgId))
+    expect(agreements.some((a) => a.companyId === outsider.id)).toBe(false)
+
+    spy.mockRestore()
+  })
+})
