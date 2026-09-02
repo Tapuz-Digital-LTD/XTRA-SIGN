@@ -148,6 +148,27 @@
       "when": 1788382247017,
       "tag": "0020_free_inhumans",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1788382578626,
+      "tag": "0021_low_plazm",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1788383283945,
+      "tag": "0022_fine_wiccan",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1788383348456,
+      "tag": "0023_rainy_shadow_king",
+      "breakpoints": true
     }
   ]
 }

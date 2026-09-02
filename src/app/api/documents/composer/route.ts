@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireSession } from '@/server/auth/session'
-import { renderComposedDocument } from '@/server/documents/composer-render'
+import { saveComposedDocument } from '@/server/documents/composer-save'
 import { processDocumentVersion } from '@/server/documents/process-document'
 import { saveFields } from '@/server/documents/save-fields'
 import { uploadDocument } from '@/server/documents/upload-document'
@@ -40,50 +40,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: { message: 'המסמך ארוך מדי.' } }, { status: 400 })
     }
 
-    let rendered
-    try {
-      rendered = await renderComposedDocument(html)
-    } catch (error) {
-      log.error('composer render failed', { error: String(error) })
-      return NextResponse.json({ error: { message: 'ההמרה ל-PDF נכשלה.' } }, { status: 400 })
-    }
-
-    const uploaded = await uploadDocument({
+    const result = await saveComposedDocument({
       session,
-      buffer: rendered.pdf,
-      filename: `${title}.pdf`,
+      title,
+      html,
       companyId,
-      sourceKind: 'composed',
-      origin: { composed: true },
       ip: clientIp(request),
       userAgent: request.headers.get('user-agent'),
     })
-    if (!uploaded.ok) {
-      return NextResponse.json({ error: { message: uploaded.message } }, { status: 400 })
-    }
+    if (!result.ok) return NextResponse.json({ error: { message: result.message } }, { status: 400 })
 
-    const processed = await processDocumentVersion({
-      agreementId: uploaded.agreementId,
-      organizationId: session.organizationId,
-      versionId: uploaded.versionId,
-      actor: session.email,
-    })
-    if (!processed.ok) {
-      return NextResponse.json({ error: { message: processed.message } }, { status: 400 })
-    }
-
-    if (rendered.fields.length > 0) {
-      const saved = await saveFields({ session, agreementId: uploaded.agreementId, fields: rendered.fields })
-      if (!saved.ok) {
-        // The document exists; say plainly that the fields did not make it
-        // rather than leaving a half-made draft to be discovered later.
-        return NextResponse.json(
-          { ok: true, agreementId: uploaded.agreementId, warning: `המסמך נוצר, אך השדות לא נשמרו: ${saved.message}` },
-        )
-      }
-    }
-
-    return NextResponse.json({ ok: true, agreementId: uploaded.agreementId, fields: rendered.fields.length })
+    return NextResponse.json(result)
   } catch (error) {
     return templateFailure(error)
   }

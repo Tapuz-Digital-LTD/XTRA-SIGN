@@ -57,9 +57,37 @@ export const deliveryChannel = pgEnum('delivery_channel', ['email', 'sms'])
 
 export const deliveryStatus = pgEnum('delivery_status', ['queued', 'sent', 'failed'])
 
+/**
+ * The organization using XTRA Sign, and the details that appear on the
+ * documents it sends.
+ *
+ * One source for "our" side of every agreement. Templates and the assistant
+ * both read it, so the legal name and company number are never typed into a
+ * prompt or hard-coded — changing them here changes every document made after.
+ */
 export const organizations = pgTable('organizations', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
+  /** The name that belongs on a contract, when it differs from the everyday one. */
+  legalName: text('legal_name'),
+  taxId: text('tax_id'),
+  address: text('address'),
+  phone: text('phone'),
+  email: text('email'),
+  website: text('website'),
+  /** A URL for the letterhead; images are embedded when a document is rendered. */
+  logoUrl: text('logo_url'),
+  /**
+   * The brand kit a designed document follows.
+   *
+   * Held here rather than described in a prompt, so "design it in XTRA's
+   * colours" resolves to the same values every time and can be corrected in one
+   * place when the brand changes.
+   */
+  brandPrimary: text('brand_primary'),
+  brandAccent: text('brand_accent'),
+  brandFont: text('brand_font'),
+  footerText: text('footer_text'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
 
@@ -771,4 +799,95 @@ export const auditEvents = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index('audit_agreement_idx').on(t.agreementId, t.createdAt)],
+)
+
+
+/**
+ * XTRA AI conversations.
+ *
+ * Kept per user rather than per organization: a colleague's half-finished
+ * instruction to send eighty agreements is not something to hand to someone
+ * else, even inside the same company.
+ */
+export const aiConversations = pgTable(
+  'ai_conversations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    /** Taken from the first thing asked, and renameable. */
+    title: text('title').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => [index('ai_conversations_user_idx').on(t.userId, t.updatedAt)],
+)
+
+export const aiMessages = pgTable(
+  'ai_messages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    conversationId: uuid('conversation_id')
+      .notNull()
+      .references(() => aiConversations.id),
+    /** 'user' | 'assistant'. Tool traffic lives in ai_actions, not here. */
+    role: text('role').notNull(),
+    content: text('content').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('ai_messages_conversation_idx').on(t.conversationId, t.createdAt)],
+)
+
+/**
+ * Every tool the assistant ran, and what came of it.
+ *
+ * This is the audit trail for work done through the assistant, and the record
+ * a confirmation is checked against: an approval names one action id and one
+ * payload hash, so saying "yes" cannot authorise a different send than the one
+ * that was shown.
+ */
+export const aiActions = pgTable(
+  'ai_actions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    conversationId: uuid('conversation_id')
+      .notNull()
+      .references(() => aiConversations.id),
+    messageId: uuid('message_id').references(() => aiMessages.id),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    /** The person the assistant acted for. They own the consequences. */
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    toolName: text('tool_name').notNull(),
+    targetType: text('target_type'),
+    targetId: text('target_id'),
+    /** Human-readable, and free of anything secret. */
+    inputSummary: text('input_summary'),
+    resultSummary: text('result_summary'),
+    /** 'pending' | 'ok' | 'failed' | 'rejected' */
+    status: text('status').notNull().default('pending'),
+    /** 'not_required' | 'awaiting' | 'approved' | 'declined' | 'expired' */
+    approvalStatus: text('approval_status').notNull().default('not_required'),
+    /**
+     * SHA-256 of the exact arguments shown to the user. An approval that does
+     * not match this hash is refused, so a stale "yes" cannot be replayed
+     * against different arguments.
+     */
+    payloadHash: text('payload_hash'),
+    payload: jsonb('payload'),
+    approvalExpiresAt: timestamp('approval_expires_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('ai_actions_conversation_idx').on(t.conversationId, t.createdAt),
+    index('ai_actions_org_idx').on(t.organizationId, t.createdAt),
+  ],
 )

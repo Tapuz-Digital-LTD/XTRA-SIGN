@@ -3,6 +3,8 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { Suspense } from 'react'
+import { XtraAi } from '@/components/ai/XtraAi'
 import { NotificationBell } from '@/components/NotificationBell'
 
 /**
@@ -111,6 +113,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">{children}</main>
+
+      {/* Available from every screen, and aware of which one it is opened on.
+          Suspense because it reads the query string. */}
+      <Suspense fallback={null}>
+        <XtraAi />
+      </Suspense>
     </div>
   )
 }

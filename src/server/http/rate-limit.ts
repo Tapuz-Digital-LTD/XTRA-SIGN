@@ -37,6 +37,9 @@ export const LIMITS = {
   otpVerify: { limit: 10, windowMs: 15 * 60_000 },
   upload: { limit: 60, windowMs: 60 * 60_000 },
   signingLink: { limit: 60, windowMs: 15 * 60_000 },
+  // A model call is expensive and a runaway client could make many. Generous
+  // enough for a real conversation, low enough to bound a bad afternoon.
+  aiTurn: { limit: 40, windowMs: 5 * 60_000 },
 } as const satisfies Record<string, LimitRule>
 
 export type LimitName = keyof typeof LIMITS
