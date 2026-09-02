@@ -46,9 +46,9 @@ const DAY_MS = 24 * 60 * 60 * 1000
 /**
  * Excludes versions something else supersedes.
  *
- * A new version is its own agreement row, so without this one document appears
- * on the dashboard as several near-identical entries — which is exactly what
- * the list screens had to fix too.
+ * The same rule the document queries apply — repeated here because these are
+ * hand-written queries against the same table rather than calls into that
+ * module.
  */
 function latestVersionOnly() {
   return sql`not exists (

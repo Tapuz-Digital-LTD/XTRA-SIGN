@@ -66,6 +66,21 @@ const FILTER_STATUSES: Record<'pending' | 'signed' | 'drafts' | 'viewed' | 'canc
  */
 const STALE_AFTER_DAYS = 3
 
+/**
+ * Excludes a version that something else supersedes.
+ *
+ * A version chain is one document. Counting every version separately inflates
+ * every number built on it — the dashboard tiles, the "ועוד N" line, the
+ * company page — into saying there are four agreements where there is one.
+ */
+function latestVersionOnly() {
+  return sql`not exists (
+    select 1 from ${schema.agreements} newer
+    where newer.supersedes_id = ${schema.agreements.id}
+      and newer.organization_id = ${schema.agreements.organizationId}
+  )`
+}
+
 function scope(session: StaffSession) {
   return session.isAdmin
     ? eq(schema.agreements.organizationId, session.organizationId)
@@ -102,15 +117,7 @@ export async function listDocuments(
   // supersedes is history: it stays reachable from the document it became, but
   // listing every version separately turns one agreement into four rows that
   // all look alike.
-  if (!options.includeSuperseded) {
-    conditions.push(
-      sql`not exists (
-        select 1 from ${schema.agreements} newer
-        where newer.supersedes_id = ${schema.agreements.id}
-          and newer.organization_id = ${schema.agreements.organizationId}
-      )`,
-    )
-  }
+  if (!options.includeSuperseded) conditions.push(latestVersionOnly())
 
   if (options.companyId) {
     conditions.push(eq(schema.agreements.companyId, options.companyId))
@@ -294,8 +301,8 @@ export async function countDocuments(
 ): Promise<DocumentCounts> {
   const db = getDb()
   const where = options.companyId
-    ? and(scope(session), eq(schema.agreements.companyId, options.companyId))
-    : scope(session)
+    ? and(scope(session), latestVersionOnly(), eq(schema.agreements.companyId, options.companyId))
+    : and(scope(session), latestVersionOnly())
   const [row] = await db
     .select({
       pending: sql<number>`count(*) filter (where ${schema.agreements.status} in ('sent','viewed'))`,

@@ -178,3 +178,26 @@ describe('version chains', () => {
     expect(withHistory.items).toHaveLength(3)
   })
 })
+
+describe('counts', () => {
+  it('counts a version chain once, so the tiles match the list', async () => {
+    const { countDocuments } = await import('../queries')
+
+    const before = await countDocuments(session)
+    const [v1] = await db
+      .insert(schema.agreements)
+      .values({ organizationId: orgId, title: 'ספירת גרסאות', status: 'sent', ownerId: session.userId, companyId, sentAt: new Date() })
+      .returning({ id: schema.agreements.id })
+    await db
+      .insert(schema.agreements)
+      .values({ organizationId: orgId, title: 'ספירת גרסאות', status: 'sent', ownerId: session.userId, companyId, sentAt: new Date(), supersedesId: v1.id })
+
+    const after = await countDocuments(session)
+    // Two rows added, one document.
+    expect(after.pending).toBe(before.pending + 1)
+
+    const listed = await listDocuments(session, { search: 'ספירת גרסאות' })
+    expect(listed.items).toHaveLength(1)
+    expect(listed.total).toBe(1)
+  })
+})
