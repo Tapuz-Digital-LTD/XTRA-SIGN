@@ -163,6 +163,57 @@ export async function deleteCompany(input: {
  * Companies are fetched first, then document stats in one grouped pass and
  * merged in — so a company with no documents still appears, with zeroes.
  */
+/**
+ * Companies of either kind, for a picker.
+ *
+ * `listCompanies` is the screen query: it is per-kind and carries document
+ * counts. Filing a document needs neither — it needs a short, fast list that
+ * spans suppliers and customers together, so this is a separate, smaller query
+ * rather than two calls and a merge in the caller.
+ */
+export async function searchCompanies(
+  session: StaffSession,
+  search: string,
+  limit = 20,
+): Promise<{ id: string; name: string; kind: CompanyKind; taxId: string | null; fromCrm: boolean }[]> {
+  const term = search.trim()
+  const conditions = [
+    eq(schema.companies.organizationId, session.organizationId),
+    isNull(schema.companies.deletedAt),
+  ]
+  if (term) {
+    const like = `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
+    conditions.push(
+      or(
+        ilike(schema.companies.name, like),
+        ilike(schema.companies.taxId, like),
+        ilike(schema.companies.contactName, like),
+      )!,
+    )
+  }
+
+  const rows = await getDb()
+    .select({
+      id: schema.companies.id,
+      name: schema.companies.name,
+      kind: schema.companies.kind,
+      taxId: schema.companies.taxId,
+      crmRecordId: schema.companies.crmRecordId,
+    })
+    .from(schema.companies)
+    .where(and(...conditions))
+    .orderBy(schema.companies.name)
+    .limit(Math.min(Math.max(limit, 1), 50))
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    kind: row.kind,
+    taxId: row.taxId,
+    fromCrm: Boolean(row.crmRecordId),
+  }))
+}
+
 export async function listCompanies(
   session: StaffSession,
   kind: CompanyKind,

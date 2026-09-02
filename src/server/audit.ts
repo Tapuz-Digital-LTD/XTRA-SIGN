@@ -32,6 +32,8 @@ export const AUDIT_EVENTS = {
   SAVED_AS_TEMPLATE: 'saved_as_template',
   /** The signed PDF was pushed to the external CRM. */
   CRM_UPLOADED: 'crm_uploaded',
+  /** The document was filed under a supplier or customer. */
+  COMPANY_LINKED: 'company_linked',
 } as const
 
 export type AuditEventType = (typeof AUDIT_EVENTS)[keyof typeof AUDIT_EVENTS]

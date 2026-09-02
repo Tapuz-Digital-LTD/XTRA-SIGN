@@ -10,6 +10,7 @@ import { usePathname } from 'next/navigation'
  */
 const NAV = [
   { href: '/', label: 'לוח בקרה' },
+  { href: '/documents', label: 'מסמכים' },
   { href: '/suppliers', label: 'ספקים' },
   { href: '/customers', label: 'לקוחות' },
   { href: '/templates', label: 'תבניות' },

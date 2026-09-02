@@ -5,6 +5,7 @@ import { DocumentPreview } from '@/components/DocumentPreview'
 import { SaveAsTemplate } from '@/components/SaveAsTemplate'
 import { CrmUploadButton } from '@/components/CrmUploadButton'
 import { RemindButton } from '@/components/RemindButton'
+import { CompanyPicker } from '@/components/documents/CompanyPicker'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Timeline } from '@/components/Timeline'
 import { ForbiddenError, getSession } from '@/server/auth/session'
@@ -56,6 +57,16 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
 
   return (
     <AppShell>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <CompanyPicker
+          documentId={doc.id}
+          current={doc.company ? { id: doc.company.id, name: doc.company.name } : null}
+        />
+        {!doc.company ? (
+          <span className="text-xs text-muted">המסמך אינו משויך לספק או ללקוח</span>
+        ) : null}
+      </div>
+
       {doc.company ? (
         <div className="mb-4">
           <Link

@@ -20,6 +20,7 @@ const LABELS: Record<string, string> = {
   new_version_created: 'נוצרה גרסה חדשה',
   saved_as_template: 'נשמר כתבנית',
   crm_uploaded: 'הועלה ל-CRM',
+  company_linked: 'שויך לספק/לקוח',
 }
 
 const formatter = new Intl.DateTimeFormat('he-IL', {

@@ -1,8 +1,21 @@
 import { NextResponse } from 'next/server'
 import { requireSession, UnauthorizedError } from '@/server/auth/session'
-import { createCompany, type CompanyKind } from '@/server/companies/companies'
+import { createCompany, searchCompanies, type CompanyKind } from '@/server/companies/companies'
 import { CsrfError, assertSameOrigin } from '@/server/http/csrf'
 import { consume } from '@/server/http/rate-limit'
+import { templateFailure } from '@/server/http/template-errors'
+
+/** Companies of either kind, for the document filing picker. */
+export async function GET(request: Request) {
+  try {
+    const session = await requireSession()
+    const search = new URL(request.url).searchParams.get('q') ?? ''
+    const companies = await searchCompanies(session, search)
+    return NextResponse.json({ ok: true, companies })
+  } catch (error) {
+    return templateFailure(error)
+  }
+}
 
 /** Create a supplier or a customer. */
 export async function POST(request: Request) {
