@@ -53,7 +53,7 @@ afterAll(async () => {
 /** Stubs the CRM and the browser; everything else is the real code path. */
 function stubCrm() {
   vi.spyOn(FireberryProvider.prototype, 'listPrintTemplates').mockResolvedValue([
-    { id: 't1', name: 'הסכם ספקים', modifiedOn: '2026-06-10T15:25:05', boundObject: 'הצעת מחיר' },
+    { id: 't1', name: 'הסכם ספקים', modifiedOn: '2026-06-10T15:25:05' },
   ])
   vi.spyOn(FireberryProvider.prototype, 'getPrintTemplate').mockImplementation(async (id) =>
     id === 't1' ? { id: 't1', name: 'הסכם ספקים', body: crmBody, modifiedOn: '2026-06-10T15:25:05' } : null,

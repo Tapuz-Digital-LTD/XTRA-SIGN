@@ -120,21 +120,23 @@ export class FireberryProvider implements CrmProvider {
   /**
    * The organization's print templates (object 27).
    *
-   * Listing only: `templatebody` is not returned by the query endpoint however
-   * it is asked for, so the body comes from `getPrintTemplate` one record at a
-   * time. `recordtype` is the numeric object a template is bound to and
-   * `mdobjectname` its Hebrew name, both of which the operator needs to tell
-   * "הסכם ספקים" from "תבנית הדפסה לחשבונית מס".
+   * Listing only, and deliberately thin.
+   *
+   * `templatebody` is not returned by the query endpoint however it is asked
+   * for, so the body comes from `getPrintTemplate` one record at a time. The
+   * object a template is bound to is not asked for either: `recordtype` and
+   * `mdobjectname` are rejected as invalid query fields — only the raw
+   * `mdobjectid` GUID is selectable, and resolving 23 of those to names would
+   * cost a request per template on every listing. The template's own name
+   * already distinguishes "הסכם ספקים" from "תבנית הדפסה לחשבונית מס".
    */
-  async listPrintTemplates(): Promise<
-    { id: string; name: string; modifiedOn: string | null; boundObject: string | null }[]
-  > {
-    const collected: { id: string; name: string; modifiedOn: string | null; boundObject: string | null }[] = []
+  async listPrintTemplates(): Promise<{ id: string; name: string; modifiedOn: string | null }[]> {
+    const collected: { id: string; name: string; modifiedOn: string | null }[] = []
 
     for (let page = 1; page <= 20; page++) {
       const batch = await this.queryRecords({
         objectType: PRINT_TEMPLATE_OBJECT,
-        fields: ['printtemplateid', 'name', 'modifiedon', 'recordtype', 'mdobjectname'],
+        fields: ['printtemplateid', 'name', 'modifiedon'],
         pageNumber: page,
         pageSize: 100,
       })
@@ -146,7 +148,6 @@ export class FireberryProvider implements CrmProvider {
           id,
           name,
           modifiedOn: typeof row.modifiedon === 'string' ? row.modifiedon : null,
-          boundObject: typeof row.mdobjectname === 'string' ? row.mdobjectname : null,
         })
       }
       if (batch.isLastPage) break

@@ -34,7 +34,6 @@ const MAX_TEMPLATES_PER_CALL = 5
 export type CrmTemplate = {
   id: string
   name: string
-  boundObject: string | null
   modifiedOn: string | null
   /** A version of this template is already here. */
   imported: boolean

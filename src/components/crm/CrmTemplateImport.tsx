@@ -151,7 +151,6 @@ export function CrmTemplateImport() {
                         <span className="block truncate text-sm font-medium text-fg">{template.name}</span>
                         <span className="block truncate text-xs text-muted">
                           {[
-                            template.boundObject,
                             template.modifiedOn ? `עודכן ${template.modifiedOn.slice(0, 10)}` : null,
                             template.versions > 0 ? `${template.versions} גרסאות אצלנו` : null,
                           ]
