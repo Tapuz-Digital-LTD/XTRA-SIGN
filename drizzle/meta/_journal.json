@@ -169,6 +169,13 @@
       "when": 1788383348456,
       "tag": "0023_rainy_shadow_king",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1788389027236,
+      "tag": "0024_ancient_violations",
+      "breakpoints": true
     }
   ]
 }

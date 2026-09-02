@@ -118,7 +118,24 @@ async function fitToPage(page: Page): Promise<number> {
   return scale
 }
 
-export async function renderHtmlToPdf(html: string): Promise<Buffer> {
+export type RenderOptions = {
+  /**
+   * Whether to shrink a document drawn on a canvas wider than the page.
+   *
+   * On for CRM templates, which are drawn to someone else's canvas. Off for a
+   * document we laid out ourselves in page millimetres — scaling that would
+   * move every element away from where its author put it, which is exactly the
+   * promise the canvas editor makes.
+   */
+  fitToPage?: boolean
+  /** Overrides the page margins; the canvas supplies its own. */
+  margin?: string
+}
+
+export async function renderHtmlToPdf(
+  html: string,
+  options: RenderOptions = {},
+): Promise<Buffer> {
   const { executablePath, args } = await resolveBrowser()
   const css = await hebrewFontCss()
 
@@ -152,8 +169,19 @@ export async function renderHtmlToPdf(html: string): Promise<Buffer> {
     // is exactly how a correct-looking PDF ends up full of fallback glyphs.
     await page.evaluate(() => document.fonts.ready)
 
-    const scale = await fitToPage(page)
-    const pdf = await page.pdf({ ...PAGE, scale, printBackground: true, preferCSSPageSize: false })
+    const scale = options.fitToPage === false ? 1 : await fitToPage(page)
+    const margin = options.margin
+      ? { top: options.margin, right: options.margin, bottom: options.margin, left: options.margin }
+      : PAGE.margin
+    const pdf = await page.pdf({
+      ...PAGE,
+      margin,
+      scale,
+      printBackground: true,
+      // The canvas sets its own @page size in millimetres, and honouring it is
+      // what keeps a stored coordinate and a printed one the same number.
+      preferCSSPageSize: options.fitToPage === false,
+    })
     return Buffer.from(pdf)
   } finally {
     await browser?.close().catch(() => {})

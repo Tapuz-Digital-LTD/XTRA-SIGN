@@ -316,6 +316,8 @@ export const templates = pgTable(
      * goes through, so a template cannot smuggle in what the editor refuses.
      */
     fields: jsonb('fields'),
+    /** The canvas document this template was designed from, when it was. */
+    canvasDocument: jsonb('canvas_document'),
     pageCount: integer('page_count'),
     createdBy: uuid('created_by').references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -520,6 +522,16 @@ export const agreements = pgTable(
     crmWritebackState: text('crm_writeback_state'),
     crmWritebackAt: timestamp('crm_writeback_at', { withTimezone: true }),
     crmWritebackError: text('crm_writeback_error'),
+    /**
+     * The canvas document this agreement was designed from.
+     *
+     * Kept alongside the rendered PDF rather than instead of it: the PDF is
+     * what was signed and must never change, while this is what the editor and
+     * XTRA AI reopen to make the next version. Null for documents that arrived
+     * as a PDF or came from the older composer, which stay readable exactly as
+     * they are.
+     */
+    canvasDocument: jsonb('canvas_document'),
     title: text('title').notNull(),
     status: agreementStatus('status').default('draft').notNull(),
     ownerId: uuid('owner_id')

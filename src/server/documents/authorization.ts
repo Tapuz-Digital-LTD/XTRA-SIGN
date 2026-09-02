@@ -22,6 +22,8 @@ export type AuthorizedAgreement = {
   ownerId: string
   companyId: string | null
   currentVersionId: string | null
+  /** The canvas design, when the document was made in the design editor. */
+  canvasDocument: unknown
 }
 
 /**
@@ -48,6 +50,7 @@ export async function authorizeAgreementAccess(
       ownerId: schema.agreements.ownerId,
       companyId: schema.agreements.companyId,
       currentVersionId: schema.agreements.currentVersionId,
+      canvasDocument: schema.agreements.canvasDocument,
     })
     .from(schema.agreements)
     .where(
