@@ -54,7 +54,7 @@ const nextConfig: NextConfig = {
    * the extraction at runtime. Both packages are loaded from node_modules at
    * runtime instead.
    */
-  serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core'],
+  serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core', 'pdfjs-dist'],
 
   // The version banner tells an attacker which advisories to try.
   poweredByHeader: false,

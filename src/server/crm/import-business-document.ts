@@ -58,6 +58,7 @@ export async function importBusinessDocument(input: {
     rendered = await renderBusinessDocument({
       objectType: input.crmObjectType,
       recordId: input.crmRecordId,
+      kind: company.kind,
     })
   } catch (error) {
     log.error('business document render failed', { recordId: input.crmRecordId, error: String(error) })

@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { CompanyHeader } from '@/components/companies/CompanyHeader'
 import { CrmDocumentImport } from '@/components/companies/CrmDocumentImport'
+import { CrmBusinessImport } from '@/components/crm/CrmBusinessImport'
 import { DocumentsTable } from '@/components/documents/DocumentsTable'
 import { getSession } from '@/server/auth/session'
 import { getCompany } from '@/server/companies/companies'
@@ -181,8 +182,30 @@ export default async function CompanyPage({
               <dd className="mt-0.5 text-sm text-fg">{company.crmObjectType === 1 ? 'לקוח' : 'ספק'}</dd>
             </div>
           </dl>
-          <div className="mt-4">
-            <CrmDocumentImport companyId={company.id} />
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-lg border border-line p-4">
+              <h3 className="text-sm font-semibold text-fg">
+                {company.kind === 'supplier' ? 'הסכמים והצעות' : 'הצעות מחיר'}
+              </h3>
+              <p className="mt-1 text-xs text-muted">
+                {company.kind === 'supplier'
+                  ? 'הצעות והזמנות של הספק, מודפסות מתבנית "הסכם ספקים" עם כל השורות שבהן.'
+                  : 'הצעות המחיר של הלקוח, מודפסות מתבנית "הצעת מחיר" עם כל השורות שבהן.'}
+              </p>
+              <div className="mt-3">
+                <CrmBusinessImport companyId={company.id} kind={company.kind} />
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-line p-4">
+              <h3 className="text-sm font-semibold text-fg">קבצים מצורפים</h3>
+              <p className="mt-1 text-xs text-muted">
+                קובצי PDF שכבר מצורפים לרשומה עצמה ב-Fireberry.
+              </p>
+              <div className="mt-3">
+                <CrmDocumentImport companyId={company.id} />
+              </div>
+            </div>
           </div>
         </div>
       ) : null}

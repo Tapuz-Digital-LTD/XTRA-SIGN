@@ -120,7 +120,7 @@ export default async function NewDocumentPage({
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <CrmDocumentImport companyId={company.id} />
-              <CrmBusinessImport companyId={company.id} />
+              <CrmBusinessImport companyId={company.id} kind={company.kind} />
             </div>
           </div>
         ) : null}

@@ -113,6 +113,36 @@ export async function listBusinessDocuments(input: {
     .reverse()
 }
 
+/**
+ * Which print template a company's documents are produced with.
+ *
+ * In Fireberry both customers and suppliers have quotes; what differs is the
+ * template chosen when printing one. A customer's quote prints as "הצעת מחיר",
+ * a supplier's as "הסכם ספקים" — so the company decides the template, not the
+ * record. Matched by name so renaming a template in the CRM does not silently
+ * fall back to the wrong one; an exact match is required.
+ */
+export const TEMPLATE_BY_KIND: Record<'supplier' | 'customer', string> = {
+  supplier: 'הסכם ספקים',
+  customer: 'הצעת מחיר',
+}
+
+/** Finds that template, or nothing. Never a near-enough substitute. */
+export async function templateForKind(
+  kind: 'supplier' | 'customer',
+): Promise<{ id: string; name: string; body: string } | null> {
+  const provider = new FireberryProvider()
+  if (!provider.isConfigured()) return null
+
+  const wanted = TEMPLATE_BY_KIND[kind]
+  const templates = await provider.listPrintTemplates()
+  const match = templates.find((t) => t.name.trim() === wanted)
+  if (!match) return null
+
+  const full = await provider.getPrintTemplate(match.id)
+  return full ? { id: full.id, name: full.name, body: full.body } : null
+}
+
 export type RenderedBusinessDocument = {
   html: string
   /** Every value that went into it, for the frozen snapshot. */
@@ -131,6 +161,8 @@ export type RenderedBusinessDocument = {
 export async function renderBusinessDocument(input: {
   objectType: number
   recordId: string
+  /** Chooses the print template, the way the CRM's own print dialog does. */
+  kind: 'supplier' | 'customer'
 }): Promise<RenderedBusinessDocument> {
   const provider = new FireberryProvider()
   if (!provider.isConfigured()) throw new Error('CRM is not configured')
@@ -139,11 +171,8 @@ export async function renderBusinessDocument(input: {
   const record = await provider.getRecord(input.objectType, input.recordId)
   if (!record) throw new Error('record not found')
 
-  const templateId = str(record.printtemplateid)
-  if (!templateId) throw new Error('no print template on this record')
-
-  const template = await provider.getPrintTemplate(templateId)
-  if (!template) throw new Error('print template not found')
+  const template = await templateForKind(input.kind)
+  if (!template) throw new Error(`print template "${TEMPLATE_BY_KIND[input.kind]}" not found`)
 
   const items = await provider.queryRecords({
     objectType: ORDER_ITEM_OBJECT,

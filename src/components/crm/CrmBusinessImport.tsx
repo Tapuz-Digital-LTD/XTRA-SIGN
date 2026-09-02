@@ -11,7 +11,14 @@ import type { BusinessDocument } from '@/server/crm/business-documents'
  * recognise. That it is assembled from a print template, a record and a table
  * of line items is machinery, and none of it appears here.
  */
-export function CrmBusinessImport({ companyId }: { companyId: string }) {
+export function CrmBusinessImport({
+  companyId,
+  kind = 'supplier',
+}: {
+  companyId: string
+  kind?: 'supplier' | 'customer'
+}) {
+  const noun = kind === 'customer' ? 'הצעת מחיר' : 'הסכם'
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [documents, setDocuments] = useState<BusinessDocument[]>([])
@@ -67,7 +74,7 @@ export function CrmBusinessImport({ companyId }: { companyId: string }) {
         onClick={() => void load()}
         className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition hover:border-brand"
       >
-        בחירת הצעה או הזמנה
+        {kind === 'customer' ? 'בחירת הצעת מחיר' : 'בחירת הסכם או הצעה'}
       </button>
     )
   }
@@ -76,7 +83,9 @@ export function CrmBusinessImport({ companyId }: { companyId: string }) {
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
       <div className="flex max-h-[85dvh] w-full max-w-lg flex-col rounded-t-2xl bg-surface sm:rounded-2xl">
         <div className="flex min-h-14 items-center justify-between border-b border-line px-4">
-          <h2 className="text-base font-semibold text-fg">מסמך קיים מ-Fireberry</h2>
+          <h2 className="text-base font-semibold text-fg">
+            {kind === 'customer' ? 'הצעות מחיר ב-Fireberry' : 'הסכמים והצעות ב-Fireberry'}
+          </h2>
           <button type="button" onClick={() => setOpen(false)} aria-label="סגירה" className="min-h-11 min-w-11 rounded-lg text-muted hover:bg-bg">✕</button>
         </div>
 
@@ -85,7 +94,9 @@ export function CrmBusinessImport({ companyId }: { companyId: string }) {
           {loading ? (
             <p className="px-4 py-8 text-center text-sm text-muted">טוען מ-Fireberry…</p>
           ) : documents.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-muted">לא נמצאו הצעות או הזמנות לחברה הזו.</p>
+            <p className="px-4 py-8 text-center text-sm text-muted">
+              לא נמצאו {noun === 'הצעת מחיר' ? 'הצעות מחיר' : 'הסכמים או הצעות'} לרשומה הזו ב-Fireberry.
+            </p>
           ) : (
             <ul className="divide-y divide-line">
               {documents.map((doc) => (
@@ -109,7 +120,8 @@ export function CrmBusinessImport({ companyId }: { companyId: string }) {
         </div>
 
         <p className="border-t border-line px-4 py-3 text-xs text-muted">
-          המסמך יובא כפי שהוא, עם כל הנתונים והשורות שבו. שום דבר ב-Fireberry לא משתנה.
+          המסמך יופק מתבנית ״{kind === 'customer' ? 'הצעת מחיר' : 'הסכם ספקים'}״ עם כל הנתונים והשורות שבו.
+          שום דבר ב-Fireberry לא משתנה.
         </p>
       </div>
     </div>

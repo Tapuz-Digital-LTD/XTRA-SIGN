@@ -119,7 +119,16 @@ async function locateMarkers(
   keys: Set<string>,
 ): Promise<Map<string, { page: number; x: number; y: number; width: number; height: number }>> {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
-  const task = pdfjs.getDocument({ data: new Uint8Array(pdf), useSystemFonts: false })
+
+  // Server-side there is no worker to spawn, and pdf.js otherwise tries to
+  // import one from a path that does not exist inside the function bundle.
+  // Pointing it at the real module in node_modules makes the fake worker load.
+  pdfjs.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs')
+
+  const task = pdfjs.getDocument({
+    data: new Uint8Array(pdf),
+    useSystemFonts: false,
+  })
   const doc = await task.promise
   const found = new Map<string, { page: number; x: number; y: number; width: number; height: number }>()
 
