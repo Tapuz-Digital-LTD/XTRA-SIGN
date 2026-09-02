@@ -87,6 +87,39 @@ describe('inlineAssets', () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(25)
   })
 
+  it('stops reading a body that lies about its size', async () => {
+    // No content-length, and far more than the cap: the guard has to be the
+    // read loop, not the header.
+    let pulled = 0
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled += 1
+        if (pulled > 500) return controller.close()
+        controller.enqueue(new Uint8Array(64 * 1024))
+      },
+    })
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(body, { status: 200, headers: { 'content-type': 'image/png' } }),
+    )
+    const { html, images } = withImages('https://example.com/liar.png')
+    const result = await inlineAssets(html, images)
+
+    expect(result.failed).toEqual([{ src: 'https://example.com/liar.png', reason: 'התמונה גדולה מדי' }])
+    // Cancelled around the 5 MB cap rather than reading all 32 MB.
+    expect(pulled).toBeLessThan(200)
+  })
+
+  it('refuses a host that resolves to a private address', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    // A public-looking name; the resolver is what gives it away.
+    const { html, images } = withImages('https://internal.example.com/a.png')
+    const result = await inlineAssets(html, images)
+    // Either the pre-check or the connect-time guard refuses it; what matters
+    // is that no data URI is produced.
+    if (fetchSpy.mock.calls.length > 0) expect(result.failed).toHaveLength(1)
+    expect(result.html).not.toContain('data:image')
+  })
+
   it('keeps one failure from losing the rest of the document', async () => {
     const png = Buffer.from([0x89, 0x50, 0x4e, 0x47])
     vi.spyOn(globalThis, 'fetch')

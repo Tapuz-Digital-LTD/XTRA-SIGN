@@ -1,5 +1,16 @@
 import { parseFragment, serialize } from 'parse5'
-import type { ChildNode, Element, ParentNode } from 'parse5/dist/tree-adapters/default'
+
+/**
+ * The shape of the tree we walk.
+ *
+ * Declared here rather than imported from parse5's internal tree-adapter path,
+ * which is not part of its public entry points and would break on a minor
+ * release. Structural typing means these still line up with the real nodes.
+ */
+type Attribute = { name: string; value: string }
+type ChildNode = { nodeName: string; tagName?: string; attrs?: Attribute[]; childNodes?: ChildNode[] }
+type Element = ChildNode & { tagName: string; attrs: Attribute[] }
+type ParentNode = { childNodes: ChildNode[] }
 
 /**
  * Sanitising a Fireberry print template before it is rendered.
@@ -48,11 +59,11 @@ const SAFE_SCHEME = /^(https?:|mailto:|tel:|#|\/)/i
 export type TemplateImage = { index: number; src: string }
 
 function isElement(node: ChildNode): node is Element {
-  return 'tagName' in node
+  return typeof node.tagName === 'string' && Array.isArray(node.attrs)
 }
 
-function hasChildren(node: ChildNode): node is Element {
-  return 'childNodes' in node
+function hasChildren(node: ChildNode): node is ChildNode & ParentNode {
+  return Array.isArray(node.childNodes)
 }
 
 /**
@@ -75,7 +86,7 @@ function clean(parent: ParentNode, images: TemplateImage[]): void {
     const tag = node.tagName.toLowerCase()
     if (!ALLOWED_TAGS.has(tag)) continue
 
-    node.attrs = node.attrs.filter((attr) => {
+    node.attrs = node.attrs.filter((attr: Attribute) => {
       const name = attr.name.toLowerCase()
       // Every `on*` handler, whatever it is called.
       if (name.startsWith('on')) return false
@@ -85,7 +96,7 @@ function clean(parent: ParentNode, images: TemplateImage[]): void {
     })
 
     if (tag === 'img') {
-      const src = node.attrs.find((a) => a.name === 'src')?.value
+      const src = node.attrs.find((a: Attribute) => a.name === 'src')?.value
       if (src) {
         node.attrs.push({ name: 'data-xtra-img', value: String(images.length) })
         images.push({ index: images.length, src })
@@ -108,6 +119,6 @@ function clean(parent: ParentNode, images: TemplateImage[]): void {
 export function sanitizeTemplateHtml(html: string): { html: string; images: TemplateImage[] } {
   const images: TemplateImage[] = []
   const fragment = parseFragment(html)
-  clean(fragment, images)
+  clean(fragment as unknown as ParentNode, images)
   return { html: serialize(fragment), images }
 }

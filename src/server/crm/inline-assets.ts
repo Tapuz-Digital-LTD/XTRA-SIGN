@@ -1,5 +1,7 @@
+import { lookup as dnsLookup } from 'node:dns'
 import { lookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
+import { Agent } from 'undici'
 import type { TemplateImage } from './html-sanitize'
 
 /**
@@ -77,6 +79,58 @@ async function isFetchable(url: URL): Promise<boolean> {
   }
 }
 
+/**
+ * A dispatcher that refuses to connect to a non-public address.
+ *
+ * This is the enforcement point. `isFetchable` below is a cheap early
+ * rejection that keeps obvious cases from opening a socket at all; this is what
+ * makes the guarantee, because it sees the address the connection will use.
+ */
+const guardedAgent = new Agent({
+  connect: {
+    lookup(hostname, options, callback) {
+      dnsLookup(hostname, { ...options, all: true }, (error, addresses) => {
+        if (error) return callback(error, '', 0)
+        const list = Array.isArray(addresses) ? addresses : [{ address: String(addresses), family: 4 }]
+        if (list.length === 0 || !list.every((entry) => isPublicAddress(entry.address))) {
+          return callback(new Error('address is not publicly routable'), '', 0)
+        }
+        // Undici asks for every address when it wants to try them in turn, so
+        // hand back the same shape it asked for — all of them already checked.
+        if (options?.all) return callback(null, list as never, 0 as never)
+        return callback(null, list[0].address, list[0].family)
+      })
+    },
+  },
+})
+
+/** Reads a body, giving up the moment it exceeds the cap. */
+async function readCapped(response: Response): Promise<Buffer | null> {
+  if (!response.body) return null
+  const reader = response.body.getReader()
+  const chunks: Buffer[] = []
+  let total = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      // Stop at the cap rather than buffering the whole response and measuring
+      // it afterwards: a Content-Length can be absent or simply untrue, and
+      // "download it all, then decide" is how a 5 MB limit becomes an
+      // out-of-memory crash.
+      if (total > MAX_BYTES) {
+        await reader.cancel().catch(() => {})
+        return null
+      }
+      chunks.push(Buffer.from(value))
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  return Buffer.concat(chunks)
+}
+
 async function fetchImage(src: string): Promise<{ ok: true; dataUri: string } | { ok: false; reason: string }> {
   let url: URL
   try {
@@ -92,7 +146,12 @@ async function fetchImage(src: string): Promise<{ ok: true; dataUri: string } | 
   try {
     // No redirect following: a redirect would land on an address this function
     // never got to check.
-    const response = await fetch(url, { signal: controller.signal, redirect: 'error' })
+    const response = await fetch(url, {
+      signal: controller.signal,
+      redirect: 'error',
+      // @ts-expect-error -- Node's fetch takes an undici dispatcher; the DOM lib types do not know it.
+      dispatcher: guardedAgent,
+    })
     if (!response.ok) return { ok: false, reason: `שגיאה ${response.status}` }
 
     const type = (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
@@ -101,8 +160,8 @@ async function fetchImage(src: string): Promise<{ ok: true; dataUri: string } | 
     const declared = Number(response.headers.get('content-length'))
     if (Number.isFinite(declared) && declared > MAX_BYTES) return { ok: false, reason: 'התמונה גדולה מדי' }
 
-    const bytes = Buffer.from(await response.arrayBuffer())
-    if (bytes.byteLength > MAX_BYTES) return { ok: false, reason: 'התמונה גדולה מדי' }
+    const bytes = await readCapped(response)
+    if (!bytes) return { ok: false, reason: 'התמונה גדולה מדי' }
 
     return { ok: true, dataUri: `data:${type};base64,${bytes.toString('base64')}` }
   } catch {

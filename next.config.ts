@@ -20,7 +20,21 @@ const nextConfig: NextConfig = {
    */
   outputFileTracingIncludes: {
     '/api/sign/**': ['./src/server/signing/assets/**'],
+    // The same font, for the opposite direction: the CRM template renderer
+    // embeds it so headless Chromium — which ships no Hebrew font at all — has
+    // glyphs to draw with.
+    '/api/crm/**': ['./src/server/signing/assets/**'],
   },
+
+  /**
+   * The headless browser used to convert a Fireberry template to PDF.
+   *
+   * Left to the bundler, the Chromium binary inside this package is treated as
+   * something to trace and rewrite, which either bloats the bundle or breaks
+   * the extraction at runtime. Both packages are loaded from node_modules at
+   * runtime instead.
+   */
+  serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core'],
 
   // The version banner tells an attacker which advisories to try.
   poweredByHeader: false,
