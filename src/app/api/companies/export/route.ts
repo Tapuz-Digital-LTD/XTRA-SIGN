@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { attachmentFilename } from '@/lib/content-disposition'
 import { requireSession } from '@/server/auth/session'
 import { searchCompanies, type CompanyKind } from '@/server/companies/companies'
 import { buildExportWorkbook, type ExportRow } from '@/server/companies/excel'
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="xtra-sign-${title}.xlsx"`,
+        'Content-Disposition': attachmentFilename(`xtra-sign-${title}.xlsx`),
         'Cache-Control': 'no-store',
       },
     })
