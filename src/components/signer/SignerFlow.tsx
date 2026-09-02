@@ -9,11 +9,11 @@ import { SignerDocument } from './SignerDocument'
 /**
  * The signer's whole journey, mobile-first.
  *
- * Four states, no navigation: intro, verify, fill and sign, done. Someone
- * standing in a car park on a phone should never have to decide where to go
- * next — the next action is always the one button at the bottom.
+ * intro → verify → start → sign (guided) → done. Someone standing in a car park
+ * on a phone is led through every action one button at a time and never has to
+ * decide where to go next.
  */
-type Stage = 'intro' | 'verify' | 'document' | 'done'
+type Stage = 'intro' | 'verify' | 'start' | 'document' | 'done'
 
 export function SignerFlow({
   token,
@@ -34,21 +34,60 @@ export function SignerFlow({
   pages: PageGeometry[]
   fields: PlacedField[]
 }) {
-  // A verified session skips straight to the document, which is what makes a
-  // refresh or a reopened link painless.
-  const [stage, setStage] = useState<Stage>(verified ? 'document' : 'intro')
+  const [stage, setStage] = useState<Stage>(verified ? 'start' : 'intro')
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(fields.map((f) => [f.id, f.value ?? ''])),
   )
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [signature, setSignature] = useState<{ dataUrl: string; method: 'drawn' | 'typed'; consent: string } | null>(null)
   const [signing, setSigning] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Fields the signer has to deal with. Ours are already filled and shown as
-  // context, not as work.
-  const signerFields = useMemo(() => fields.filter((f) => f.ownedBy === 'signer'), [fields])
-  const remaining = signerFields.filter(
-    (f) => f.required && f.type !== 'signature' && !values[f.id]?.trim(),
+  // How many actions the signer has: their required fields, plus every signature.
+  const actionCount = useMemo(
+    () =>
+      fields.filter((f) => f.ownedBy === 'signer' && (f.type === 'signature' || f.required)).length,
+    [fields],
   )
+
+  async function finish() {
+    if (!signature) {
+      setError('נדרשת חתימה כדי לסיים.')
+      return
+    }
+    setSigning(true)
+    setError(null)
+    try {
+      // Values first: the completion endpoint refuses if a required field is
+      // still empty, and this is the write that carries them.
+      const save = await fetch(`/api/sign/${token}/fields`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values }),
+      })
+      if (!save.ok) {
+        const data = await save.json().catch(() => null)
+        setError(data?.error?.message ?? 'לא הצלחנו לשמור את הפרטים.')
+        return
+      }
+
+      const response = await fetch(`/api/sign/${token}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ signature: signature.dataUrl, method: signature.method, consent: signature.consent }),
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok) {
+        setError(data?.error?.message ?? 'החתימה נכשלה. נסו שוב.')
+        return
+      }
+      setStage('done')
+    } catch {
+      setError('החתימה נכשלה. בדקו את החיבור לאינטרנט.')
+    } finally {
+      setSigning(false)
+    }
+  }
 
   if (stage === 'done') {
     return (
@@ -56,7 +95,7 @@ export function SignerFlow({
         <p className="text-4xl" aria-hidden="true">
           ✓
         </p>
-        <h1 className="mt-3 text-xl font-bold text-fg">המסמך נחתם בהצלחה</h1>
+        <h1 className="mt-3 text-xl font-bold text-fg">החתימה הושלמה בהצלחה</h1>
         <p className="mt-2 text-sm text-muted">העתק של המסמך החתום נשלח אליך.</p>
         <a
           href={`/api/sign/${token}/download`}
@@ -77,10 +116,9 @@ export function SignerFlow({
         <h1 className="mt-6 text-xl font-bold text-fg">שלום {signerName},</h1>
         <p className="mt-1 text-lg text-fg">מחכה לך מסמך לחתימה</p>
         <p className="mt-3 text-sm text-muted">{title}</p>
-
         <button
           type="button"
-          onClick={() => setStage(hasPhone ? 'verify' : 'document')}
+          onClick={() => setStage(hasPhone ? 'verify' : 'start')}
           className="mt-8 min-h-12 w-full rounded-lg bg-brand text-sm font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)]"
         >
           לצפייה וחתימה
@@ -92,71 +130,63 @@ export function SignerFlow({
   if (stage === 'verify') {
     return (
       <Centered>
-        <OtpStep
-          token={token}
-          maskedPhone={maskedPhone}
-          onVerified={() => setStage('document')}
-        />
+        <OtpStep token={token} maskedPhone={maskedPhone} onVerified={() => setStage('start')} />
+      </Centered>
+    )
+  }
+
+  if (stage === 'start') {
+    return (
+      <Centered>
+        <p className="text-2xl" aria-hidden="true">
+          ✍
+        </p>
+        <h1 className="mt-3 text-xl font-bold text-fg">אפשר להתחיל</h1>
+        <p className="mt-2 text-sm text-muted">
+          {actionCount > 0
+            ? `נדרשות ${actionCount} פעולות. נוביל אותך ביניהן אחת-אחת — לא צריך לחפש כלום.`
+            : 'נותר רק לחתום. נוביל אותך לשם.'}
+        </p>
+        <button
+          type="button"
+          onClick={() => setStage('document')}
+          className="mt-8 min-h-12 w-full rounded-lg bg-brand text-base font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]"
+        >
+          התחלת חתימה
+        </button>
       </Centered>
     )
   }
 
   return (
-    <SignerDocument
-      token={token}
-      title={title}
-      pages={pages}
-      fields={fields}
-      values={values}
-      remaining={remaining.length}
-      error={error}
-      busy={signing}
-      onChange={(id, value) => setValues((v) => ({ ...v, [id]: value }))}
-      renderSignature={(onDone) => (
+    <>
+      <SignerDocument
+        token={token}
+        title={title}
+        pages={pages}
+        fields={fields}
+        values={values}
+        signatureCaptured={Boolean(signature)}
+        error={error}
+        busy={signing}
+        onChange={(id, value) => setValues((v) => ({ ...v, [id]: value }))}
+        onOpenSignature={() => setSheetOpen(true)}
+        onFinish={finish}
+      />
+      {sheetOpen ? (
         <SignatureSheet
           signerName={signerName}
-          busy={signing}
-          onCancel={() => onDone(false)}
+          busy={false}
+          onCancel={() => setSheetOpen(false)}
           onConfirm={async (dataUrl, method, consent) => {
-            setSigning(true)
-            setError(null)
-            try {
-              // Values first: the completion endpoint refuses if a required
-              // field is still empty, and this is the one write that carries them.
-              const save = await fetch(`/api/sign/${token}/fields`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ values }),
-              })
-              if (!save.ok) {
-                const data = await save.json().catch(() => null)
-                setError(data?.error?.message ?? 'לא הצלחנו לשמור את הפרטים.')
-                return
-              }
-
-              const response = await fetch(`/api/sign/${token}/complete`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ signature: dataUrl, method, consent }),
-              })
-              const data = await response.json().catch(() => null)
-
-              if (!response.ok) {
-                setError(data?.error?.message ?? 'החתימה נכשלה. נסו שוב.')
-                return
-              }
-
-              setStage('done')
-            } catch {
-              setError('החתימה נכשלה. בדקו את החיבור לאינטרנט.')
-            } finally {
-              setSigning(false)
-              onDone(true)
-            }
+            // Capture only — the actual completion happens once from the finish
+            // button, so the same signature is applied to every signature spot.
+            setSignature({ dataUrl, method, consent })
+            setSheetOpen(false)
           }}
         />
-      )}
-    />
+      ) : null}
+    </>
   )
 }
 

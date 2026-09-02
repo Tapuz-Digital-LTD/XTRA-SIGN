@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+
 import { AUDIT_EVENTS } from '@/server/audit'
 import type { StaffSession } from '@/server/auth/session'
 import { getCompany } from '@/server/companies/companies'
