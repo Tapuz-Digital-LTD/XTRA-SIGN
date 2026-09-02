@@ -19,6 +19,13 @@
 - **Existing security properties are preserved:** private Blob storage, tenant isolation, Origin-based CSRF checks, OTP hashing, signing-token expiry and revocation, document hashing, rate limiting, immutability of signed documents.
 - Hebrew/RTL throughout; mobile-first for anything a signer touches.
 
+## Approved Product Decisions (2026-09-02)
+
+1. **Line-item merge fields stay manual.** No orders/line-items model enters XTRA Sign. `productname`, `itemprice`, `itemquantity`, `totalamount` and friends are **detected, preserved and marked `unmapped`**, are placeable in the editor like any other field, and are filled by the sender before sending. They are never dropped.
+2. **Field placement is manual in v1.** No auto-placement, no pdf.js coordinate extraction. The import must be boring and reliable: HTML → PDF once → the operator places fields in the existing editor → saves the template. Everything needed to add auto-placement later is retained (see `crm_source_html_key`), and the stored format does not have to change to add it.
+3. **Write-back to Fireberry is allowed, narrowly.** Only when a document was created in the context of a Fireberry Agreement record and has been **signed**: set status = signed, set the signing date, and upload the signed PDF through the existing file-upload path. No other write to Fireberry, ever. Every write is server-side, uses the integration token, is tenant-safe, idempotent, and audited. **XTRA Sign is the source of truth:** a failed write-back never un-signs, alters, or blocks a signed document — it is recorded, surfaced, and retryable.
+4. **Admin provisioning only.** A Fireberry user does not get an XTRA Sign account by having Fireberry access or by passing OTP. An XTRA Sign admin creates users and sets roles. No auto-provisioning.
+
 ---
 
 # Part I — Design
@@ -52,7 +59,11 @@ operator picks a template in /templates
   → inline every <img> as a data: URI      ← this is what makes it a snapshot
   → render to PDF with Chromium (JS off, network blocked)
   → validateUpload(buffer) → private Blob → templates row
-       (crm_template_id, crm_modified_on, crm_content_hash, source='crm')
+       (crm_template_id, crm_modified_on, crm_content_hash,
+        crm_merge_fields, crm_source_html_key, source='crm')
+  → the exact HTML that produced this PDF is also stored in private Blob,
+    so a future auto-placement pass can re-render it with sentinels
+    without changing the stored format (Decision 2)
   → operator opens the existing editor and places fields
 ```
 
@@ -140,6 +151,8 @@ The mapping table lives in one file and is the only place a Fireberry field name
 | `createdon` | `document.date` | today, at send time |
 | line-item tokens (`productname`, `itemprice`, `itemquantity`, `description`, `pcfcurrency`, `totalamount`, …) | *unmapped* | see Decision D2 |
 
+Unmapped tokens (`sourceKey: null`) are **not discarded**: they are stored with the rest, shown in the editor under "למילוי ידני", placed like any other field, and become ordinary sender-filled fields that the operator types before sending. This is Decision 1.
+
 Filling happens **server-side at document creation**, reading the company row from our own database by id after the normal authorization check. The Fireberry record id is never the source of the data and never the basis of access.
 
 ## 6. Static signature handling
@@ -199,7 +212,7 @@ A second component in the same Fireberry app, `חתימות`, whose entire body 
 | `src/server/crm/html-to-pdf.ts` | Chromium launch, font injection, deterministic print settings, PDF bytes out |
 | `src/server/crm/merge-fields.ts` | The token → `source_key` table, plus `detectMergeFields(html)` |
 | `src/server/crm/signature-images.ts` | Candidate scoring and removal |
-| `src/server/crm/import-templates.ts` | `listCrmTemplates()` / `importCrmTemplates()` — orchestration, dedup, audit |
+| `src/server/crm/import-templates.ts` | `listCrmTemplates()` / `importCrmTemplates()` — orchestration, versioning, audit |
 | `src/server/documents/autofill.ts` | Fill sender fields from a company at document creation |
 | `src/app/api/crm/templates/route.ts` | List + import endpoints |
 | `src/app/embed/layout.tsx`, `src/app/embed/company/page.tsx` | Embedded surfaces |
@@ -224,18 +237,46 @@ A second component in the same Fireberry app, `חתימות`, whose entire body 
 ## 11. Schema changes (all additive — stop-and-explain point)
 
 ```sql
-ALTER TABLE templates ADD COLUMN crm_template_id   text;
-ALTER TABLE templates ADD COLUMN crm_modified_on   text;
-ALTER TABLE templates ADD COLUMN crm_content_hash  text;
-ALTER TABLE templates ADD COLUMN crm_merge_fields  jsonb;
-ALTER TABLE templates ADD COLUMN source            text;   -- 'crm' | null
-CREATE UNIQUE INDEX templates_crm_unique
-  ON templates (organization_id, crm_template_id)
+ALTER TABLE templates ADD COLUMN crm_template_id     text;
+ALTER TABLE templates ADD COLUMN crm_modified_on     text;
+ALTER TABLE templates ADD COLUMN crm_content_hash    text;
+ALTER TABLE templates ADD COLUMN crm_merge_fields    jsonb;
+ALTER TABLE templates ADD COLUMN crm_source_html_key text;
+ALTER TABLE templates ADD COLUMN source              text;   -- 'crm' | null
+
+-- Identity of an imported template is (which CRM template, which CONTENT).
+-- Same template, changed content  -> different hash -> a NEW row is allowed.
+-- Same template, same content     -> same hash      -> refused as a duplicate.
+CREATE UNIQUE INDEX templates_crm_version_unique
+  ON templates (organization_id, crm_template_id, crm_content_hash)
   WHERE crm_template_id IS NOT NULL;
 
-ALTER TABLE fields ADD COLUMN source_key text;             -- 'company.name' etc.
+ALTER TABLE fields ADD COLUMN source_key text;               -- 'company.name' etc.
 ```
-Six nullable columns and one partial unique index. No column is dropped, renamed or retyped; every existing row and code path is valid unchanged. `crm_content_hash` is SHA-256 of the template body, so "a new version exists in Fireberry" is decided by content, not by a `modifiedon` that bumps when nothing changed.
+Seven nullable columns and one partial unique index. No column is dropped, renamed or retyped; every existing row and code path is valid unchanged.
+
+### Versioning model
+
+The unique key is **`(organization_id, crm_template_id, crm_content_hash)`**, not `(organization_id, crm_template_id)`. That one change is what makes versioning real:
+
+| Situation | Result |
+|---|---|
+| Import a template for the first time | New row |
+| Import the same template again, content unchanged | Same hash → index refuses → reported as "כבר יובא", nothing written |
+| Fireberry template edited, then imported | Different hash → **a new, separate template row** |
+| An older imported version | Untouched, forever. Its PDF, its fields and every document made from it are unaffected |
+
+`crm_content_hash` is SHA-256 of the raw `templatebody` **as fetched**, computed before sanitizing or inlining, so the identity is the CRM's content and not an artefact of our pipeline.
+
+**A template row is immutable once written.** Nothing in the import path ever UPDATEs an existing template — not its PDF, not its fields, not its bookkeeping columns. "Offered, never applied" is enforced by the absence of an update statement, not by convention.
+
+**Provenance** is fully recoverable per template: `crm_template_id` (which Fireberry template), `crm_content_hash` (which content), `crm_modified_on` (the CRM's own timestamp for that version), `created_at` (when we took the snapshot). Version ordering within one `crm_template_id` is `created_at ASC`; the UI numbers them "גרסה 1, 2, 3…" from that, with no stored counter to drift.
+
+**"A new version exists in Fireberry"** is a two-stage check, because `templatebody` is not returned by the bulk query and fetching 23 bodies to render a badge would be wasteful:
+1. *Cheap, on the listing:* the CRM's current `modifiedon` (from `/api/query`) is newer than the newest `crm_modified_on` we hold for that `crm_template_id` → show "קיימת גרסה חדשה ב-Fireberry".
+2. *Exact, on import:* fetch the body, hash it. If the hash matches a version we already hold, nothing is written and the user is told "התוכן זהה לגרסה שכבר יובאה — לא נוצרה גרסה חדשה."
+
+Stage 1 can therefore produce a false positive when someone opens and re-saves a template in Fireberry without changing anything. That is deliberate: the alternative is either mutating an imported row (which breaks immutability) or fetching every body on every listing. The false positive costs one click and is answered honestly at stage 2.
 
 ---
 
@@ -327,18 +368,26 @@ listCrmTemplates(s: StaffSession): Promise<ListResult>
 importCrmTemplates(i: { session; templateIds: string[] }): Promise<ImportResult>
 ```
 
-- [ ] **Step 1: Migration** — the five `templates` columns and the partial unique index from §11. Generate with `npm run db:generate`, review the SQL, apply with `npm run db:migrate`.
+- [ ] **Step 1: Migration** — the seven `templates` columns and the `templates_crm_version_unique` partial index from §11. Generate with `npm run db:generate`, review the SQL, apply with `npm run db:migrate`.
 - [ ] **Step 2: Failing test — provider reads object 27** (against a stubbed fetch; the live shape is already known: `data.Record.templatebody`).
 - [ ] **Step 3: Implement `listPrintTemplates` / `getPrintTemplate`.** Note `templatebody` is **not** returned by `/api/query` — the list comes from query, the body from `GET /api/record/27/{id}`.
 - [ ] **Step 4: Failing test — dedup**
 ```ts
-it('imports once and reports the second attempt as already imported', async () => {
+it('refuses an unchanged re-import but creates a new version when the CRM body changed', async () => {
   await importCrmTemplates({ session, templateIds: ['t1'] })
   const again = await importCrmTemplates({ session, templateIds: ['t1'] })
   expect(again).toMatchObject({ ok: true, imported: 0, skipped: 1 })
+
+  crmBodyBecomes('t1', '<p>נוסח חדש</p>')
+  const v2 = await importCrmTemplates({ session, templateIds: ['t1'] })
+  expect(v2).toMatchObject({ ok: true, imported: 1 })
+
+  const versions = await templateVersions(session, 't1')
+  expect(versions).toHaveLength(2)
+  expect(versions[0].sourceFileKey).not.toBe(versions[1].sourceFileKey)  // v1 untouched
 })
 ```
-- [ ] **Step 5: Implement `importCrmTemplates`** — sanitize → inline → render → `validateUpload` → `buildTemplateStorageKey` → private Blob → insert `templates` row with `crm_template_id`, `crm_content_hash`, `crm_merge_fields`, `source:'crm'` → audit event. Per-file failures are reported by name, as the document import already does.
+- [ ] **Step 5: Implement `importCrmTemplates`** — sanitize → inline → render → `validateUpload` → `buildTemplateStorageKey` → private Blob → insert `templates` row with `crm_template_id`, `crm_modified_on`, `crm_content_hash`, `crm_merge_fields`, `crm_source_html_key`, `source:'crm'` → audit event. The hash is taken on the **raw** body before sanitizing. Never UPDATE an existing template row. Per-file failures are reported by name, as the document import already does.
 - [ ] **Step 6: Test that a template is a plain template** — a document created from an imported template has a copied PDF and no link back to Fireberry.
 - [ ] **Step 7: UI** — "ייבוא תבניות מ-Fireberry" on `/templates`, modal listing name + bound object + last modified, "כבר יובא" badge, `מקור: Fireberry` badge on the row.
 - [ ] **Step 8: Suite, build, lint, commit, deploy, verify in production on a real template.**
@@ -426,7 +475,57 @@ it('404s when the CRM record belongs to another organization', async () => {
 - [ ] **Step 5: Set `SIGN_FRAME_ANCESTORS`** to the real Fireberry app origin observed in step 4.
 - [ ] **Step 6: `fireberry push` + `install`; verify on a real supplier record; confirm the OTP is asked once and not again on a later visit.**
 
-## Phase 7 — Rollout
+## Phase 7 — Signed-document write-back to a Fireberry Agreement
+
+Approved by Decision 3, and deliberately last: it depends on the embed flow to know which Fireberry Agreement record a document belongs to.
+
+**Files:** create `src/server/crm/writeback.ts`, `src/app/api/crm/writeback/retry/route.ts`; modify `src/server/db/schema.ts`, `src/server/signing/complete.ts`, `src/app/documents/[id]/page.tsx`.
+
+**Schema (additive, nullable — a second stop-and-explain point):**
+```sql
+ALTER TABLE agreements ADD COLUMN crm_record_object_type integer;  -- 1006 etc.
+ALTER TABLE agreements ADD COLUMN crm_record_id          text;     -- the Agreement record
+ALTER TABLE agreements ADD COLUMN crm_writeback_state    text;     -- pending|done|failed
+ALTER TABLE agreements ADD COLUMN crm_writeback_at       timestamptz;
+ALTER TABLE agreements ADD COLUMN crm_writeback_error    text;
+```
+
+**Interfaces produced:**
+```ts
+writeBackSignedAgreement(agreementId: string): Promise<{ ok: true } | { ok: false; error: string }>
+```
+
+- [ ] **Step 1: Failing test — signing never depends on the CRM**
+```ts
+it('keeps the document signed when the CRM write fails', async () => {
+  crmFails()
+  await completeSigning({ token })
+  const doc = await getDocumentDetail(agreementId)
+  expect(doc.status).toBe('signed')                       // unchanged
+  expect(doc.crmWritebackState).toBe('failed')            // recorded, visible
+})
+```
+- [ ] **Step 2: Failing test — idempotent**
+```ts
+it('does not write twice for the same agreement', async () => {
+  await writeBackSignedAgreement(id)
+  await writeBackSignedAgreement(id)
+  expect(crmCalls()).toHaveLength(1)                      // second is a no-op on state 'done'
+})
+```
+- [ ] **Step 3: Failing test — refuses anything but a signed document in this org**
+```ts
+it('refuses an unsigned document and a foreign organization', async () => {
+  await expect(writeBackSignedAgreement(draftId)).resolves.toMatchObject({ ok: false })
+  await expect(writeBackSignedAgreement(foreignOrgId)).resolves.toMatchObject({ ok: false })
+})
+```
+- [ ] **Step 4: Implement `writeBackSignedAgreement`** — re-read the agreement server-side; require `status === 'signed'` and a stored `crm_record_id`; skip when state is already `done`; update the CRM record's status + signing date; upload the clean signed PDF through the existing `uploadAgreement` path; set state and write an audit row. Every failure path sets `failed` + `crm_writeback_error` and returns `{ ok:false }` — it never throws into the signing flow.
+- [ ] **Step 5: Call it from `complete.ts` after the signature is durably committed**, in a `.catch()` that cannot affect the signing result.
+- [ ] **Step 6: Surface and retry** — the document page shows "העדכון ל-Fireberry נכשל" with a retry button on the new route; the route is admin-only, rate-limited and CSRF-checked like every other mutation.
+- [ ] **Step 7: Suite, build, commit.**
+
+## Phase 8 — Rollout
 
 - [ ] **Step 1:** Deploy Phases 1–4 (template import). They touch no existing behaviour: new columns, new route, new UI entry point.
 - [ ] **Step 2:** Verify in production on `הסכם ספקים`: import → PDF renders with correct Hebrew → place fields → send → sign on a phone → signed PDF and certificate correct.
@@ -434,6 +533,7 @@ it('404s when the CRM record belongs to another organization', async () => {
 - [ ] **Step 4:** Set `SIGN_FRAME_ANCESTORS`, install the Fireberry app for one pilot user, run both flows.
 - [ ] **Step 5:** Replace the personal API token with the `XTRA Sign Integration` user's token.
 - [ ] **Step 6:** Roll out to the rest of the team.
+- [ ] **Step 7:** Enable Phase 7 write-back last, after a signed test document has been verified end to end.
 
 **Rollback:** each phase is independently revertible. Unsetting `SIGN_FRAME_ANCESTORS` disables all framing without a deploy. Uninstalling the Fireberry app leaves XTRA Sign untouched. Imported templates are ordinary templates and survive any rollback of the import code.
 
@@ -444,7 +544,7 @@ it('404s when the CRM record belongs to another organization', async () => {
 | Sanitizer | script/handler/link removed; tables, inline CSS, Hebrew kept |
 | SSRF | metadata IP, loopback, private range, non-https all refused |
 | Render | Hebrew extracts as text, not boxes; output is a valid PDF |
-| Import | dedup by `crm_template_id`; per-item failure reporting; audit row written |
+| Import | duplicate refused by content hash; per-item failure reporting; audit row written |
 | Snapshot | changing the CRM body does not alter an imported template |
 | Merge fields | token → `source_key` mapping; unmapped tokens stay unmapped |
 | Auto-fill | sender fields filled from our DB; foreign company id rejected; signer fields never pre-filled |
@@ -452,4 +552,6 @@ it('404s when the CRM record belongs to another organization', async () => {
 | CSP | default `'none'`; allow-list honoured; `*` rejected |
 | Embed session | partitioned attributes; distinct cookie name; both cookies readable |
 | Authorization | foreign-org CRM record resolves to 404 |
+| Versioning | unchanged content refused as duplicate; changed content creates a second row; the first row is byte-identical afterwards |
+| Write-back | signing survives a CRM failure; idempotent; unsigned and foreign-org refused; audit row written |
 | Regression | full existing suite (198 tests) green throughout |
