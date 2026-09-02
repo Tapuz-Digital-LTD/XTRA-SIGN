@@ -117,12 +117,13 @@ export class FireberryProvider implements CrmProvider {
   /**
    * Fetches one file's bytes.
    *
-   * The URL comes back with the filename unencoded, so a Hebrew or spaced name
-   * produces an invalid request unless the path is percent-encoded first.
+   * The URL arrives with the filename raw — Hebrew and spaces — which a plain
+   * fetch rejects. `new URL()` percent-encodes the path itself, so its
+   * `toString()` is the correct request; encoding those segments again would
+   * turn "%20" into "%2520" and 404.
    */
   async downloadFile(url: string, maxBytes: number): Promise<Buffer> {
-    const parsed = new URL(url)
-    const safe = `${parsed.origin}${parsed.pathname.split('/').map(encodeURIComponent).join('/')}${parsed.search}`
+    const safe = new URL(url).toString()
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 30_000)
