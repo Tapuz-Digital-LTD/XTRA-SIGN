@@ -20,6 +20,9 @@ const DEFAULT_BASE = 'https://api.fireberry.com/api'
 /** Fireberry's print-template object. Not in their public API reference; reached through the generic record endpoints. */
 const PRINT_TEMPLATE_OBJECT = 27
 
+/** Fireberry's Account object, which is what a customer is. */
+const CUSTOMER_OBJECT = 1
+
 function objectFor(kind: 'supplier' | 'customer'): number {
   const env = kind === 'supplier' ? process.env.FIREBERRY_SUPPLIER_OBJECT : process.env.FIREBERRY_CUSTOMER_OBJECT
   const parsed = env ? Number.parseInt(env, 10) : NaN
@@ -115,6 +118,40 @@ export class FireberryProvider implements CrmProvider {
         url: String(r.url),
         sizeMb: typeof r.size === 'number' ? r.size : null,
       }))
+  }
+
+  /**
+   * Creates one record and returns its id.
+   *
+   * The only write to Fireberry besides uploading a signed PDF, and it happens
+   * solely when an operator explicitly asks for a company to exist in the CRM.
+   * Callers check for an existing record first — this method does not
+   * deduplicate, because "is this the same company" is a judgement the operator
+   * makes, not one to guess inside a POST.
+   */
+  async createRecord(objectType: number, fields: Record<string, string | null>): Promise<string | null> {
+    const token = process.env.FIREBERRY_API_TOKEN
+    if (!token) throw new Error('CRM is not configured')
+    const base = (process.env.FIREBERRY_API_URL ?? DEFAULT_BASE).replace(/\/+$/, '')
+
+    const body = Object.fromEntries(Object.entries(fields).filter(([, v]) => v != null && v !== ''))
+    const response = await fetch(`${base}/record/${objectType}`, {
+      method: 'POST',
+      headers: { tokenid: token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (!response.ok) throw new Error(`Fireberry create failed (${response.status})`)
+
+    const parsed = (await response.json()) as {
+      success?: boolean
+      data?: { Record?: Record<string, unknown> }
+    }
+    if (!parsed.success) throw new Error('Fireberry create was refused')
+
+    const record = parsed.data?.Record ?? {}
+    const idField = objectType === CUSTOMER_OBJECT ? 'accountid' : `customobject${objectType}id`
+    const id = record[idField]
+    return typeof id === 'string' ? id : null
   }
 
   /**

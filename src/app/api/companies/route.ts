@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireSession, UnauthorizedError } from '@/server/auth/session'
-import { createCompany, searchCompanies, type CompanyKind } from '@/server/companies/companies'
+import { searchCompanies, type CompanyKind } from '@/server/companies/companies'
+import { linkExistingCrmRecord, objectTypeFor, registerCompany } from '@/server/companies/registration'
 import { CsrfError, assertSameOrigin } from '@/server/http/csrf'
 import { consume } from '@/server/http/rate-limit'
 import { templateFailure } from '@/server/http/template-errors'
@@ -40,22 +41,43 @@ export async function POST(request: Request) {
     const kind = body.kind === 'customer' ? 'customer' : body.kind === 'supplier' ? 'supplier' : null
     if (!kind) return NextResponse.json({ error: { message: 'סוג לא תקין.' } }, { status: 400 })
 
-    const result = await createCompany({
+    const data = {
+      name: String(body.name ?? ''),
+      taxId: str(body.taxId),
+      contactName: str(body.contactName),
+      contactPhone: str(body.contactPhone),
+      contactEmail: str(body.contactEmail),
+      notes: str(body.notes),
+      // Never taken from the client as a free field: a CRM id is either
+      // assigned by a create we made or chosen from a match we found.
+      crmRecordId: null,
+    }
+
+    // "Link this existing Fireberry record" — the id was offered by our own
+    // duplicate search, so it is checked against the CRM object we searched.
+    const linkTo = str(body.linkCrmRecordId)
+    if (linkTo) {
+      const linked = await linkExistingCrmRecord({
+        session,
+        kind: kind as CompanyKind,
+        data,
+        crmRecordId: linkTo,
+        crmObjectType: objectTypeFor(kind as CompanyKind),
+      })
+      return linked.ok
+        ? NextResponse.json(linked)
+        : NextResponse.json({ error: { message: linked.message } }, { status: 400 })
+    }
+
+    const result = await registerCompany({
       session,
       kind: kind as CompanyKind,
-      data: {
-        name: String(body.name ?? ''),
-        taxId: str(body.taxId),
-        contactName: str(body.contactName),
-        contactPhone: str(body.contactPhone),
-        contactEmail: str(body.contactEmail),
-        notes: str(body.notes),
-        crmRecordId: str(body.crmRecordId),
-      },
+      data,
+      target: body.target === 'crm' ? 'crm' : 'local',
     })
 
     return result.ok
-      ? NextResponse.json({ ok: true, id: result.id })
+      ? NextResponse.json(result)
       : NextResponse.json({ error: { message: result.message } }, { status: 400 })
   } catch (error) {
     return handle(error)

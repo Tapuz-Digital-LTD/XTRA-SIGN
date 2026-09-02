@@ -17,6 +17,7 @@ export const AUDIT_EVENTS = {
   LOGIN_SUCCEEDED: 'login_succeeded',
   LOGIN_FAILED: 'login_failed',
   TEMPLATE_IMPORTED: 'template_imported',
+  COMPANY_LINKED_TO_CRM: 'company_linked_to_crm',
 } as const
 
 export type AdminAuditType = (typeof AUDIT_EVENTS)[keyof typeof AUDIT_EVENTS]
@@ -48,6 +49,7 @@ export async function recordAdminAction(input: {
 /** Hebrew labels. Internal names never reach a screen. */
 export const ADMIN_AUDIT_LABELS: Record<string, string> = {
   template_imported: 'יובאה תבנית מ-Fireberry',
+  company_linked_to_crm: 'חברה קושרה ל-Fireberry',
   user_created: 'נוצר משתמש',
   user_updated: 'פרטי משתמש עודכנו',
   user_disabled: 'משתמש הושבת',

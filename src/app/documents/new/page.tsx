@@ -7,6 +7,7 @@ import { CrmDocumentImport } from '@/components/companies/CrmDocumentImport'
 import { UploadCard } from '@/components/UploadCard'
 import { getSession } from '@/server/auth/session'
 import { getCompany } from '@/server/companies/companies'
+import { crmRegistrationAvailable } from '@/server/companies/registration'
 import { listTemplates } from '@/server/templates/templates'
 
 /**
@@ -36,7 +37,7 @@ export default async function NewDocumentPage({
         <h1 className="mt-1 text-2xl font-bold tracking-tight text-fg">למי המסמך?</h1>
         <p className="mt-1 text-sm text-muted">כל מסמך שייך לספק או ללקוח, כדי שתמיד יהיה ברור איפה למצוא אותו.</p>
         <div className="mt-6 max-w-xl">
-          <CompanyStep template={params.template} />
+          <CompanyStep template={params.template} crmAvailable={crmRegistrationAvailable()} />
         </div>
       </AppShell>
     )
