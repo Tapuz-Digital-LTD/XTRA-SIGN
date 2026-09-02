@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CompanyForm } from '@/components/companies/CompanyForm'
+import { AddToGroupButton } from '@/components/groups/AddToGroupButton'
+import { NewGroupButton } from '@/components/groups/NewGroupButton'
 import type { CompanyListItem } from '@/server/companies/companies'
 
 const formatter = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -33,6 +35,7 @@ export function CompanyList({
 }) {
   const router = useRouter()
   const [adding, setAdding] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState(search)
   const [link, setLink] = useState<LinkFilter>('all')
   const [syncing, setSyncing] = useState(false)
@@ -101,6 +104,27 @@ export function CompanyList({
     { key: 'crm', label: 'CRM' },
     { key: 'local', label: 'XTRA Sign בלבד' },
   ]
+
+  const allVisibleSelected = filtered.length > 0 && filtered.every((c) => selected.has(c.id))
+  const selectedList = [...selected]
+
+  const toggleOne = (id: string) =>
+    setSelected((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
+  // Selects exactly what is on screen after filtering — never rows the user
+  // cannot see, which is how the wrong companies end up in a bulk action.
+  const toggleAllVisible = () =>
+    setSelected((current) => {
+      const next = new Set(current)
+      if (allVisibleSelected) for (const c of filtered) next.delete(c.id)
+      else for (const c of filtered) next.add(c.id)
+      return next
+    })
 
   return (
     <div className="flex flex-col gap-4">
@@ -188,6 +212,25 @@ export function CompanyList({
         </div>
       ) : null}
 
+      {selected.size > 0 ? (
+        <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-lg border border-brand bg-blue-50 px-4 py-3">
+          <span className="text-sm font-semibold text-fg">נבחרו {selected.size}</span>
+          <button type="button" onClick={() => setSelected(new Set())} className="text-xs text-brand underline-offset-4 hover:underline">
+            ניקוי הבחירה
+          </button>
+          <span className="ms-auto flex flex-wrap gap-2">
+            <AddToGroupButton companyIds={selectedList} onDone={() => setSelected(new Set())} />
+            <NewGroupButton companyIds={selectedList} label="צור קבוצה מהבחירה" />
+            <a
+              href={`/api/companies/export?ids=${selectedList.join(',')}`}
+              className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-3 text-sm text-fg transition hover:border-brand"
+            >
+              ייצוא ל-Excel
+            </a>
+          </span>
+        </div>
+      ) : null}
+
       {filtered.length === 0 ? (
         <div className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center">
           <p className="text-sm font-medium text-fg">
@@ -206,6 +249,15 @@ export function CompanyList({
           <table className="w-full min-w-[44rem] text-start text-sm">
             <thead>
               <tr className="border-b border-line text-xs text-muted">
+                <th className="w-px px-3 py-3">
+                  <input
+                    type="checkbox"
+                    className="size-4"
+                    checked={allVisibleSelected}
+                    onChange={toggleAllVisible}
+                    aria-label={`בחירת כל ${filtered.length} השורות המוצגות`}
+                  />
+                </th>
                 <th className="px-4 py-3 text-start font-medium">{noun === 'ספק' ? 'ספק' : 'לקוח'}</th>
                 <th className="px-4 py-3 text-start font-medium">ח.פ / ע.מ</th>
                 <th className="px-4 py-3 text-start font-medium">איש קשר</th>
@@ -222,6 +274,15 @@ export function CompanyList({
                   onClick={() => router.push(`/companies/${company.id}`)}
                   className="cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-bg"
                 >
+                  <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      className="size-4"
+                      checked={selected.has(company.id)}
+                      onChange={() => toggleOne(company.id)}
+                      aria-label={`בחירת ${company.name}`}
+                    />
+                  </td>
                   <td className="px-4 py-3 font-medium text-fg">{company.name}</td>
                   <td className="px-4 py-3 text-muted" dir="ltr">{company.taxId ?? '—'}</td>
                   <td className="px-4 py-3 text-muted">{company.contactName ?? '—'}</td>

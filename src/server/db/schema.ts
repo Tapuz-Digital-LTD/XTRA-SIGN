@@ -7,6 +7,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -322,6 +323,100 @@ export const templates = pgTable(
     uniqueIndex('templates_crm_version_unique')
       .on(t.organizationId, t.crmTemplateId, t.crmContentHash)
       .where(sql`${t.crmTemplateId} is not null`),
+  ],
+)
+
+/**
+ * A named, hand-picked list of companies — a campaign, a season, a project.
+ *
+ * Deliberately not a saved search. "ספקי פסח" is a decision someone made about
+ * which suppliers belong, and a query that re-derives it every time would
+ * quietly change the list under them between one send and the next.
+ */
+export const groups = pgTable(
+  'groups',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    name: text('name').notNull(),
+    description: text('description'),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    /** Soft: batches and agreements keep pointing at the group they came from. */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => [index('groups_org_idx').on(t.organizationId)],
+)
+
+/** Membership. A company may belong to any number of groups. */
+export const companyGroups = pgTable(
+  'company_groups',
+  {
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id),
+    addedAt: timestamp('added_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.groupId, t.companyId] }),
+    index('company_groups_company_idx').on(t.companyId),
+  ],
+)
+
+/**
+ * One press of "send to the group".
+ *
+ * Kept because membership changes: a company can leave "משרד התיירות 2026"
+ * next month, and the question "which agreements went out in that campaign"
+ * must still have an answer. It is also what makes a retry safe — the batch
+ * plus the company is the idempotency key, so re-running a failed send cannot
+ * produce a second agreement for a company that already got one.
+ */
+export const bulkBatches = pgTable(
+  'bulk_batches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    groupId: uuid('group_id').references(() => groups.id),
+    templateId: uuid('template_id').references(() => templates.id),
+    /** The group's name when the batch ran, so history reads correctly after a rename. */
+    groupName: text('group_name'),
+    templateName: text('template_name'),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    totalRequested: integer('total_requested').notNull().default(0),
+  },
+  (t) => [index('bulk_batches_org_idx').on(t.organizationId, t.createdAt)],
+)
+
+/** One company's place in a batch: what happened, and what came of it. */
+export const bulkBatchItems = pgTable(
+  'bulk_batch_items',
+  {
+    batchId: uuid('batch_id')
+      .notNull()
+      .references(() => bulkBatches.id),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id),
+    agreementId: uuid('agreement_id'),
+    /** pending | sent | failed | skipped */
+    status: text('status').notNull().default('pending'),
+    error: text('error'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    // The idempotency key: one row per company per batch, so a retry updates
+    // rather than duplicating.
+    primaryKey({ columns: [t.batchId, t.companyId] }),
+    index('bulk_batch_items_agreement_idx').on(t.agreementId),
   ],
 )
 

@@ -187,6 +187,47 @@ export async function deleteCompany(input: {
  * spans suppliers and customers together, so this is a separate, smaller query
  * rather than two calls and a merge in the caller.
  */
+/** Full contact details for a set of companies, for an export. */
+export async function withContactDetails(
+  session: StaffSession,
+  ids: string[],
+): Promise<
+  {
+    id: string
+    name: string
+    kind: CompanyKind
+    taxId: string | null
+    contactName: string | null
+    contactPhone: string | null
+    contactEmail: string | null
+    fromCrm: boolean
+  }[]
+> {
+  if (ids.length === 0) return []
+  const rows = await getDb()
+    .select()
+    .from(schema.companies)
+    .where(
+      and(
+        inArray(schema.companies.id, ids),
+        eq(schema.companies.organizationId, session.organizationId),
+        isNull(schema.companies.deletedAt),
+      ),
+    )
+    .orderBy(schema.companies.name)
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    kind: row.kind,
+    taxId: row.taxId,
+    contactName: row.contactName,
+    contactPhone: row.contactPhone,
+    contactEmail: row.contactEmail,
+    fromCrm: Boolean(row.crmRecordId),
+  }))
+}
+
 export async function searchCompanies(
   session: StaffSession,
   search: string,
