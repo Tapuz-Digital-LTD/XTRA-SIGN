@@ -4,6 +4,23 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import type { CompanyRow } from '@/server/companies/companies'
 
+type CrmMatch = {
+  crmRecordId: string
+  name: string
+  taxId: string | null
+  contactPhone: string | null
+  contactEmail: string | null
+  matchedOn: 'taxId' | 'email' | 'phone' | 'name'
+}
+
+/** Why a record was suggested — a name alone is a hint, and says so. */
+const MATCH_REASON: Record<CrmMatch['matchedOn'], string> = {
+  taxId: 'התאמה לפי ח.פ/ע.מ',
+  email: 'התאמה לפי אימייל',
+  phone: 'התאמה לפי טלפון',
+  name: 'שם דומה — ייתכן שזו חברה אחרת',
+}
+
 type Values = {
   name: string
   taxId: string
@@ -21,6 +38,7 @@ export function CompanyForm({
   kind,
   existing,
   noun,
+  crmAvailable = false,
   onDone,
   onCancel,
 }: {
@@ -28,6 +46,8 @@ export function CompanyForm({
   existing?: CompanyRow
   /** "ספק" / "לקוח", for the labels. */
   noun: string
+  /** Whether a Fireberry record can be created or linked at all. */
+  crmAvailable?: boolean
   onDone?: (id: string) => void
   onCancel?: () => void
 }) {
@@ -40,13 +60,16 @@ export function CompanyForm({
     contactEmail: existing?.contactEmail ?? '',
     notes: existing?.notes ?? '',
   })
+  const [target, setTarget] = useState<'local' | 'crm'>('local')
+  const [matches, setMatches] = useState<CrmMatch[] | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const set = (key: keyof Values) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setValues((v) => ({ ...v, [key]: e.target.value }))
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent, extra: Record<string, unknown> = { target }) {
     e.preventDefault()
     setBusy(true)
     setError(null)
@@ -55,13 +78,22 @@ export function CompanyForm({
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(existing ? values : { ...values, kind }),
+        body: JSON.stringify(existing ? values : { ...values, kind, ...extra }),
       })
       const data = await response.json().catch(() => null)
       if (!response.ok) {
         setError(data?.error?.message ?? 'הפעולה נכשלה.')
         return
       }
+
+      // Nothing was written yet — the CRM already has a candidate.
+      if (data?.outcome === 'duplicates') {
+        setMatches(data.matches ?? [])
+        return
+      }
+      // Saved here, refused there. Say so rather than implying it is in the CRM.
+      if (data?.outcome === 'created_crm_failed') setNotice(data.message)
+
       router.refresh()
       onDone?.(data?.id ?? existing?.id)
     } catch {
@@ -97,6 +129,88 @@ export function CompanyForm({
         />
       </div>
 
+
+      {crmAvailable && !existing ? (
+        <fieldset className="mt-4">
+          <legend className="text-xs font-medium text-fg">איפה לשמור?</legend>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+            {(
+              [
+                ['local', 'XTRA Sign בלבד', `ה${noun} ישמש למסמכים וחתימות במערכת הזו.`],
+                ['crm', 'XTRA Sign + Fireberry CRM', `ה${noun} ייווצר או יקושר גם ל-Fireberry.`],
+              ] as const
+            ).map(([value, label, hint]) => (
+              <label
+                key={value}
+                className={`flex flex-1 cursor-pointer items-start gap-2 rounded-lg border p-3 transition ${
+                  target === value ? 'border-brand bg-blue-50' : 'border-line hover:border-brand'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="company-target"
+                  className="mt-0.5 size-4 shrink-0"
+                  checked={target === value}
+                  onChange={() => setTarget(value)}
+                />
+                <span>
+                  <span className="block text-sm font-medium text-fg">{label}</span>
+                  <span className="block text-xs text-muted">{hint}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
+
+      {matches ? (
+        <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3">
+          <p className="text-sm font-semibold text-amber-900">נראה שהחברה כבר קיימת ב-Fireberry</p>
+          <p className="mt-1 text-xs text-amber-900">בחרו את הרשומה הנכונה כדי לא ליצור כפילות ב-CRM.</p>
+          <ul className="mt-2 divide-y divide-amber-200">
+            {matches.map((match) => (
+              <li key={match.crmRecordId} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-fg">{match.name}</span>
+                  <span className="block truncate text-xs text-muted">
+                    {[match.taxId ? `ח.פ ${match.taxId}` : null, match.contactPhone, match.contactEmail]
+                      .filter(Boolean)
+                      .join(' · ') || 'ללא פרטים נוספים'}
+                  </span>
+                  <span className="block text-xs text-muted">{MATCH_REASON[match.matchedOn]}</span>
+                </span>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={(e) => void submit(e as unknown as React.FormEvent, { linkCrmRecordId: match.crmRecordId })}
+                  className="min-h-11 rounded-lg bg-brand px-3 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  קישור לרשומה הזו
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-2 flex flex-wrap gap-3">
+            <button type="button" onClick={() => setMatches(null)} className="text-xs text-brand underline-offset-4 hover:underline">
+              חזרה לעריכה
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={(e) => void submit(e as unknown as React.FormEvent, { target: 'local' })}
+              className="text-xs text-muted underline-offset-4 hover:text-fg hover:underline disabled:opacity-50"
+            >
+              אף אחת לא מתאימה — שמירה ב-XTRA Sign בלבד
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {notice ? (
+        <p role="status" className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {notice}
+        </p>
+      ) : null}
 
       {error ? (
         <p role="alert" className="mt-3 text-sm text-danger">

@@ -3,7 +3,6 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
 import * as crm from '@/server/crm/company-registration'
-import { FireberryProvider } from '@/server/crm/fireberry'
 import { linkExistingCrmRecord, registerCompany } from '../registration'
 
 /**

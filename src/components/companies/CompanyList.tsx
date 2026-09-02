@@ -139,25 +139,6 @@ export function CompanyList({
         </div>
       </div>
 
-      {crmCount > 0 ? (
-        <div className="flex flex-wrap gap-1" role="tablist" aria-label="סינון לפי מקור">
-          {filters.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              role="tab"
-              aria-selected={link === f.key}
-              onClick={() => setLink(f.key)}
-              className={`inline-flex min-h-9 items-center rounded-lg px-3 text-sm transition-colors ${
-                link === f.key ? 'bg-brand text-white' : 'text-muted hover:bg-slate-100 hover:text-fg'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
       {confirmSync ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setConfirmSync(false)}>
           <div className="w-full max-w-sm rounded-[var(--radius-card)] border border-line bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -185,7 +166,26 @@ export function CompanyList({
       ) : null}
 
       {adding ? (
-        <CompanyForm kind={kind} noun={noun} onCancel={() => setAdding(false)} onDone={() => setAdding(false)} />
+        <CompanyForm kind={kind} noun={noun} crmAvailable={crmEnabled} onCancel={() => setAdding(false)} onDone={() => setAdding(false)} />
+      ) : null}
+
+      {crmCount > 0 ? (
+        <div className="flex flex-wrap gap-1" role="tablist" aria-label="סינון לפי מקור">
+          {filters.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              role="tab"
+              aria-selected={link === f.key}
+              onClick={() => setLink(f.key)}
+              className={`inline-flex min-h-9 items-center rounded-lg px-3 text-sm transition-colors ${
+                link === f.key ? 'bg-brand text-white' : 'text-muted hover:bg-slate-100 hover:text-fg'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
       ) : null}
 
       {filtered.length === 0 ? (
