@@ -74,6 +74,8 @@ export async function saveFields(input: {
       width: parsed.width,
       height: parsed.height,
       options: parsed.options,
+      placeholder: parsed.placeholder,
+      autoFill: parsed.autoFill,
       // Only a field we fill in carries a value at this stage.
       value: parsed.ownedBy === 'sender' ? parsed.value : null,
     })
@@ -138,6 +140,8 @@ function parseField(raw: unknown, pageCount: number): PlacedField | null {
     ...clampToPage({ x, y, width, height }),
     value: typeof f.value === 'string' ? f.value.slice(0, 500) : null,
     options,
+    placeholder: typeof f.placeholder === 'string' ? f.placeholder.slice(0, 200) : null,
+    autoFill: f.autoFill === true,
   }
 }
 
@@ -161,6 +165,8 @@ export async function loadFields(versionId: string): Promise<PlacedField[]> {
     height: row.height,
     value: row.value,
     options: (row.options as string[] | null) ?? null,
+    placeholder: row.placeholder,
+    autoFill: row.autoFill,
   }))
 }
 

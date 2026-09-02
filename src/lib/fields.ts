@@ -56,6 +56,10 @@ export type PlacedField = {
   height: number
   value: string | null
   options: string[] | null
+  /** Hint text for a signer-filled field: a title/example separate from the value. */
+  placeholder: string | null
+  /** System-filled at signing (a date stamped with the signing date). */
+  autoFill: boolean
 }
 
 export type PageGeometry = {

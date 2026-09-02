@@ -71,6 +71,13 @@
       "when": 1788339091193,
       "tag": "0009_nosy_rafael_vega",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788340757033,
+      "tag": "0010_motionless_red_shift",
+      "breakpoints": true
     }
   ]
 }

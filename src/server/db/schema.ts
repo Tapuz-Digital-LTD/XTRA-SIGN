@@ -467,6 +467,10 @@ export const fields = pgTable(
     height: doublePrecision('height').notNull(),
     options: jsonb('options'),
     value: text('value'),
+    /** Hint text for a field the signer fills — a title separate from the value. */
+    placeholder: text('placeholder'),
+    /** Filled by the system at signing time (a date field stamped with the signing date). */
+    autoFill: boolean('auto_fill').default(false).notNull(),
     filledAt: timestamp('filled_at', { withTimezone: true }),
   },
   (t) => [index('fields_version_idx').on(t.agreementVersionId)],

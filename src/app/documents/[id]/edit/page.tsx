@@ -7,11 +7,7 @@ import { authorizeAgreementAccess } from '@/server/documents/authorization'
 import { loadFields, loadPageGeometry } from '@/server/documents/save-fields'
 import { getDocumentDetail } from '@/server/documents/queries'
 
-export default async function EditDocumentPage({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
+export default async function EditDocumentPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
   if (!session) redirect('/login')
 
@@ -45,57 +41,36 @@ export default async function EditDocumentPage({
           role="status"
           className="mt-6 rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center text-sm text-muted"
         >
-          לא הצלחנו להכין תצוגה של המסמך, ולכן לא ניתן להוסיף שדות. ניתן להוריד את
-          הקובץ המקורי ולהעלות אותו מחדש כ-PDF.
+          לא הצלחנו להכין תצוגה של המסמך, ולכן לא ניתן להוסיף שדות. ניתן להוריד את הקובץ המקורי
+          ולהעלות אותו מחדש כ-PDF.
         </p>
+        <div className="mt-4 text-center">
+          <Link href={`/documents/${id}`} className="text-sm text-brand underline">
+            חזרה למסמך
+          </Link>
+        </div>
       </AppShell>
     )
   }
 
+  // The editor is document-first: it takes the whole viewport, without the site
+  // navigation, so the page itself is the largest thing on screen.
   return (
-    <AppShell>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="truncate text-xl font-bold tracking-tight text-fg">{doc.title}</h1>
-          <p className="text-xs text-muted">
-            {/* Progress, in the four steps the spec asks for. */}
-            1. מסמך → <span className="font-medium text-fg">2. שדות</span> → 3. חותם → 4. שליחה
-          </p>
-        </div>
-
-        <div className="flex shrink-0 gap-2">
-          <Link
-            href={`/documents/${id}`}
-            className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition-colors hover:bg-slate-50"
-          >
-            סיום
-          </Link>
-          <Link
-            href={`/documents/${id}/send`}
-            className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)]"
-          >
-            המשך לשליחה
-          </Link>
-        </div>
-      </div>
-
-      <div className="mt-5">
-        <FieldEditor
-          documentId={id}
-          pages={pages}
-          initialFields={fields}
-          initialRecipient={
-            doc.recipient
-              ? {
-                  name: doc.recipient.name,
-                  company: doc.recipient.company,
-                  phone: doc.recipient.phone,
-                  email: doc.recipient.email,
-                }
-              : null
-          }
-        />
-      </div>
-    </AppShell>
+    <FieldEditor
+      documentId={id}
+      title={doc.title}
+      pages={pages}
+      initialFields={fields}
+      initialRecipient={
+        doc.recipient
+          ? {
+              name: doc.recipient.name,
+              company: doc.recipient.company,
+              phone: doc.recipient.phone,
+              email: doc.recipient.email,
+            }
+          : null
+      }
+    />
   )
 }

@@ -113,11 +113,11 @@ export function CompanyList({
                   className="cursor-pointer border-b border-line last:border-0 transition-colors hover:bg-bg"
                 >
                   <td className="px-4 py-3">
-                    <span className="font-medium text-fg">{company.name}</span>
+                    <div className="font-medium text-fg">{company.name}</div>
                     {company.taxId ? (
-                      <span className="ms-2 text-xs text-muted" dir="ltr">
-                        {company.taxId}
-                      </span>
+                      <div className="text-xs text-muted" dir="ltr">
+                        ח.פ {company.taxId}
+                      </div>
                     ) : null}
                   </td>
                   <td className="px-4 py-3 text-muted">{company.contactName ?? '—'}</td>

@@ -51,7 +51,7 @@ export async function completeSigning(input: {
 
   // Nothing is signed until every required field actually has a value.
   const missing = fields.filter(
-    (f) => f.required && f.type !== 'signature' && !f.value?.trim(),
+    (f) => f.required && f.type !== 'signature' && !f.autoFill && !f.value?.trim(),
   )
   if (missing.length > 0) {
     return { ok: false, message: `נותרו ${missing.length} שדות למילוי.` }
@@ -75,7 +75,8 @@ export async function completeSigning(input: {
     fields: fields.map((f) => ({
       type: f.type,
       label: f.label,
-      value: f.value,
+      // A date set to fill automatically is stamped with the signing date.
+      value: f.autoFill && f.type === 'date' ? formatSigningDate(signedAt) : f.value,
       page: f.page,
       x: f.x,
       y: f.y,
@@ -203,6 +204,13 @@ async function notifyAfterSigning(context: SigningContext, signedPdf: Buffer): P
   }
 
   void signedPdf
+}
+
+/** dd/mm/yyyy in the local Israel calendar sense — the date a person would write. */
+function formatSigningDate(date: Date): string {
+  const d = String(date.getUTCDate()).padStart(2, '0')
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0')
+  return `${d}/${m}/${date.getUTCFullYear()}`
 }
 
 /**
