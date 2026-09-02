@@ -23,7 +23,16 @@ const nextConfig: NextConfig = {
     // The same font, for the opposite direction: the CRM template renderer
     // embeds it so headless Chromium — which ships no Hebrew font at all — has
     // glyphs to draw with.
-    '/api/crm/**': ['./src/server/signing/assets/**'],
+    //
+    // The browser itself has to be listed too. `serverExternalPackages` keeps
+    // the bundler's hands off the package, but the tracer still only carries
+    // files it can see being imported, and these archives are opened by path at
+    // runtime. Without them the function deploys perfectly and then reports
+    // that /var/task/node_modules/@sparticuz/chromium/bin does not exist.
+    '/api/crm/**': [
+      './src/server/signing/assets/**',
+      './node_modules/@sparticuz/chromium/bin/**',
+    ],
   },
 
   /**
