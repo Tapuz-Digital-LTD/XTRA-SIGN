@@ -36,6 +36,8 @@ export type DocumentListItem = {
   lastActivityType: string | null
   /** True when a send attempt is on record as having failed. */
   hasSendFailure: boolean
+  /** How many versions this document has had, counting itself. */
+  versionCount: number
   expiresAt: Date | null
 }
 
@@ -75,7 +77,15 @@ function scope(session: StaffSession) {
 
 export async function listDocuments(
   session: StaffSession,
-  options: { filter?: ListFilter; search?: string; companyId?: string; page?: number; pageSize?: number } = {},
+  options: {
+    filter?: ListFilter
+    search?: string
+    companyId?: string
+    page?: number
+    pageSize?: number
+    /** Show superseded versions as their own rows. Off by default. */
+    includeSuperseded?: boolean
+  } = {},
 ): Promise<{ items: DocumentListItem[]; total: number; page: number; pageSize: number; now: number }> {
   const db = getDb()
   // Read here rather than in the page: a clock read during render makes the
@@ -87,6 +97,20 @@ export async function listDocuments(
   const page = Math.max(options.page ?? 1, 1)
 
   const conditions = [scope(session)]
+
+  // A version chain is one document, not several. A row that something else
+  // supersedes is history: it stays reachable from the document it became, but
+  // listing every version separately turns one agreement into four rows that
+  // all look alike.
+  if (!options.includeSuperseded) {
+    conditions.push(
+      sql`not exists (
+        select 1 from ${schema.agreements} newer
+        where newer.supersedes_id = ${schema.agreements.id}
+          and newer.organization_id = ${schema.agreements.organizationId}
+      )`,
+    )
+  }
 
   if (options.companyId) {
     conditions.push(eq(schema.agreements.companyId, options.companyId))
@@ -187,6 +211,13 @@ export async function listDocuments(
         where ae.agreement_id = ${schema.agreements.id}
           and ae.type in ('email_failed', 'sms_failed')
       )`,
+      versionCount: sql<number>`(
+        with recursive chain as (
+          select ${schema.agreements.id} as id, ${schema.agreements.supersedesId} as prev
+          union all
+          select a.id, a.supersedes_id from ${schema.agreements} a join chain on a.id = chain.prev
+        ) select count(*) from chain
+      )`,
       lastActivityType: sql<string | null>`(
         select ae.type from ${schema.auditEvents} ae
         where ae.agreement_id = ${schema.agreements.id}
@@ -242,6 +273,7 @@ export async function listDocuments(
       lastActivityAt: row.lastAt ? new Date(row.lastAt) : row.createdAt,
       lastActivityType: row.lastActivityType,
       hasSendFailure: Boolean(row.hasSendFailure),
+      versionCount: Number(row.versionCount ?? 1),
     })),
     total: Number(countRow?.total ?? 0),
     page,

@@ -14,6 +14,7 @@ import { getCompany } from '@/server/companies/companies'
 import { getCrmProvider } from '@/server/crm/fireberry'
 import { wasUploadedToCrm } from '@/server/crm/upload-agreement'
 import { getDocumentDetail } from '@/server/documents/queries'
+import { loadFields } from '@/server/documents/save-fields'
 import { versionChain } from '@/server/documents/lifecycle'
 import { DocumentActions } from '@/components/DocumentActions'
 
@@ -25,8 +26,9 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
 
   // Authorization first, and a refusal renders as not-found so the page cannot
   // be used to confirm which ids exist.
+  let agreement
   try {
-    await authorizeAgreementAccess(session, id)
+    agreement = await authorizeAgreementAccess(session, id)
   } catch (error) {
     if (error instanceof ForbiddenError) notFound()
     throw error
@@ -36,6 +38,10 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
   if (!doc) notFound()
 
   const chain = await versionChain(session, id)
+
+  // The placed fields, drawn over the preview below. They are stored beside the
+  // PDF until signing, so without them this screen shows an untouched file.
+  const fields = agreement.currentVersionId ? await loadFields(agreement.currentVersionId) : []
 
   // The CRM button appears only when the whole chain is real: the CRM is
   // configured, the document is signed and filed under a company, and that
@@ -138,7 +144,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
           ) : null}
 
           {doc.hasRendered && doc.pages.length > 0 ? (
-            <DocumentPreview documentId={doc.id} pages={doc.pages} />
+            <DocumentPreview documentId={doc.id} pages={doc.pages} fields={fields} />
           ) : (
             <p
               role="status"

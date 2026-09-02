@@ -87,7 +87,7 @@ export function PreviewViewer({
   )
 }
 
-function PreviewField({ field, signerView }: { field: PlacedField; signerView: boolean }) {
+export function PreviewField({ field, signerView }: { field: PlacedField; signerView: boolean }) {
   const spec = FIELD_TYPES.find((f) => f.type === field.type)
   const isSigner = field.ownedBy === 'signer'
   const filledByUs = !isSigner && field.value?.trim()

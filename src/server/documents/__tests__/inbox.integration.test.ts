@@ -157,3 +157,24 @@ describe('inbox paging', () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 })
+
+describe('version chains', () => {
+  it('lists one row per document, not one per version', async () => {
+    const v1 = await seed({ title: 'הסכם רב-גרסאות', status: 'canceled' })
+    const [v2] = await db
+      .insert(schema.agreements)
+      .values({ organizationId: orgId, title: 'הסכם רב-גרסאות', status: 'draft', ownerId: session.userId, companyId, supersedesId: v1 })
+      .returning({ id: schema.agreements.id })
+    await db
+      .insert(schema.agreements)
+      .values({ organizationId: orgId, title: 'הסכם רב-גרסאות', status: 'draft', ownerId: session.userId, companyId, supersedesId: v2.id })
+
+    const result = await listDocuments(session, { search: 'רב-גרסאות' })
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0].versionCount).toBe(3)
+
+    // The earlier versions are still there when asked for explicitly.
+    const withHistory = await listDocuments(session, { search: 'רב-גרסאות', includeSuperseded: true })
+    expect(withHistory.items).toHaveLength(3)
+  })
+})

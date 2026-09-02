@@ -89,9 +89,14 @@ export function DocumentsTable({ documents, now }: { documents: DocumentListItem
                   >
                     {doc.title}
                   </Link>
-                  {doc.sourceKind && SOURCE_TEXT[doc.sourceKind] ? (
-                    <span className="block text-xs text-muted">{SOURCE_TEXT[doc.sourceKind]}</span>
-                  ) : null}
+                  <span className="block text-xs text-muted">
+                    {[
+                      doc.sourceKind ? SOURCE_TEXT[doc.sourceKind] : null,
+                      doc.versionCount > 1 ? `גרסה ${doc.versionCount}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
                 </td>
                 <td className="max-w-[14rem] px-4 py-3">
                   <CompanyChip doc={doc} />

@@ -103,6 +103,7 @@ export function PdfPage({
   widthPt,
   heightPt,
   className,
+  children,
 }: {
   url: string
   pageNumber: number
@@ -110,6 +111,8 @@ export function PdfPage({
   widthPt: number
   heightPt: number
   className?: string
+  /** Overlaid on the page, positioned in percentages of it — the placed fields. */
+  children?: React.ReactNode
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const boxRef = useRef<HTMLDivElement>(null)
@@ -194,6 +197,7 @@ export function PdfPage({
           לא הצלחנו להציג את העמוד הזה.
         </p>
       ) : null}
+      {children}
     </div>
   )
 }
