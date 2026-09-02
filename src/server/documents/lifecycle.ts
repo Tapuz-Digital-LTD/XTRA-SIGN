@@ -112,7 +112,7 @@ async function cloneAgreement(input: {
   if (!version) return { ok: false, message: 'המסמך אינו זמין להעתקה.' }
 
   const [company] = await db
-    .select({ companyId: schema.agreements.companyId })
+    .select({ companyId: schema.agreements.companyId, sourceKind: schema.agreements.sourceKind })
     .from(schema.agreements)
     .where(eq(schema.agreements.id, agreement.id))
     .limit(1)
@@ -146,6 +146,7 @@ async function cloneAgreement(input: {
       id: newId,
       organizationId: input.session.organizationId,
       companyId: company?.companyId ?? null,
+      sourceKind: company?.sourceKind ?? null,
       title: input.title,
       status: 'draft',
       ownerId: input.session.userId,

@@ -52,7 +52,7 @@ export type ValidationOk = {
 
 export type ValidationError = {
   ok: false
-  code: 'empty' | 'too_large' | 'unsupported_type'
+  code: 'empty' | 'too_large' | 'unsupported_type' | 'missing_company'
   message: string
 }
 

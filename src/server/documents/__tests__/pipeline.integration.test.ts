@@ -16,6 +16,15 @@ const db = getDb()
 
 let orgId: string
 let session: StaffSession
+/** Every document belongs to a company now; tests file theirs under one. */
+async function testCompany(organizationId: string): Promise<string> {
+  const [row] = await getDb()
+    .insert(schema.companies)
+    .values({ organizationId, kind: 'supplier', name: `ספק בדיקה ${crypto.randomUUID().slice(0, 6)}` })
+    .returning({ id: schema.companies.id })
+  return row.id
+}
+
 const createdAgreements: string[] = []
 
 beforeAll(async () => {
@@ -66,6 +75,7 @@ afterAll(async () => {
     await db.delete(schema.agreements).where(eq(schema.agreements.id, id))
   }
   await db.delete(schema.users).where(eq(schema.users.organizationId, orgId))
+  await db.delete(schema.companies).where(eq(schema.companies.organizationId, orgId))
   await db.delete(schema.organizations).where(eq(schema.organizations.id, orgId))
 })
 
@@ -84,7 +94,7 @@ describe('PDF end to end', () => {
       ),
     ])
 
-    const uploaded = await uploadDocument({ session, buffer: pdf, filename: 'מסמך.pdf' })
+    const uploaded = await uploadDocument({ session, buffer: pdf, filename: 'מסמך.pdf', companyId: await testCompany(session.organizationId) })
     if (!uploaded.ok) throw new Error('upload rejected')
     createdAgreements.push(uploaded.agreementId)
 
@@ -130,6 +140,7 @@ describe('a failed conversion', () => {
 
     const uploaded = await uploadDocument({
       session,
+      companyId: await testCompany(session.organizationId),
       buffer: brokenZip,
       filename: 'שבור.docx',
     })

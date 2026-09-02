@@ -22,9 +22,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       )
     }
 
+    const body = (await request.json().catch(() => null)) as { companyId?: unknown } | null
+    if (typeof body?.companyId !== 'string') {
+      return NextResponse.json({ error: { message: 'יש לבחור ספק או לקוח למסמך.' } }, { status: 400 })
+    }
+
     const result = await createDocumentFromTemplate({
       session,
       templateId: id,
+      companyId: body.companyId,
       ip: clientIp(request),
       userAgent: request.headers.get('user-agent'),
     })

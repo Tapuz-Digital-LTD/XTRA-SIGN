@@ -187,6 +187,7 @@ export async function importCrmDocuments(input: {
       buffer: bytes,
       filename: file.name,
       companyId: company.id,
+      sourceKind: 'crm_document',
       ip: input.ip,
       userAgent: input.userAgent,
     })

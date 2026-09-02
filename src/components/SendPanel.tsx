@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 import { RecipientForm } from '@/components/editor/RecipientForm'
 import { buildWhatsAppShareUrl } from '@/lib/whatsapp-share'
@@ -87,6 +88,23 @@ export function SendPanel({
           </p>
         ) : null}
 
+        <dl className="mx-auto mt-4 max-w-xs text-start text-sm">
+          <div className="flex justify-between gap-3 py-1">
+            <dt className="text-muted">נשלח אל</dt>
+            <dd className="font-medium text-fg">{summary.recipientName ?? '—'}</dd>
+          </div>
+          {summary.filedCompanyName ? (
+            <div className="flex justify-between gap-3 py-1">
+              <dt className="text-muted">חברה</dt>
+              <dd className="font-medium text-fg">{summary.filedCompanyName}</dd>
+            </div>
+          ) : null}
+          <div className="flex justify-between gap-3 py-1">
+            <dt className="text-muted">סטטוס</dt>
+            <dd className="font-medium text-fg">ממתין לחתימה</dd>
+          </div>
+        </dl>
+
         {signingUrl ? (
           <WhatsAppShareButton
             documentId={documentId}
@@ -94,6 +112,22 @@ export function SendPanel({
             url={signingUrl}
           />
         ) : null}
+
+        {/* Two ways forward, so the document is never "lost" after sending. */}
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
+          <Link
+            href={`/documents/${documentId}`}
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90"
+          >
+            פתיחת המסמך
+          </Link>
+          <Link
+            href="/documents"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition hover:border-brand"
+          >
+            חזרה למסמכים
+          </Link>
+        </div>
       </div>
     )
   }

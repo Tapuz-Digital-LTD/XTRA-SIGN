@@ -321,6 +321,7 @@ export async function createComposedDocument(input: {
     filename: `${title}.pdf`,
     origin: { composed: true },
     companyId: input.companyId ?? null,
+    sourceKind: 'composed',
     ip: input.ip,
     userAgent: input.userAgent,
   })

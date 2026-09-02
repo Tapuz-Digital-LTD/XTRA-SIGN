@@ -337,6 +337,12 @@ export const agreements = pgTable(
     companyId: uuid('company_id').references(() => companies.id),
     /** The Fireberry file id this document was imported from, if any. Dedup key. */
     crmDocumentId: text('crm_document_id'),
+    /**
+     * How the document came to exist: 'uploaded' | 'composed' | 'xtra_template'
+     * | 'crm_document'. Null on rows from before this column — display derives
+     * those best-effort and never guesses in writes.
+     */
+    sourceKind: text('source_kind'),
     title: text('title').notNull(),
     status: agreementStatus('status').default('draft').notNull(),
     ownerId: uuid('owner_id')

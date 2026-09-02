@@ -27,8 +27,10 @@ export type UploadDocumentInput = {
   existingKey?: string
   /** Where the document came from, when not a plain upload. Recorded, never trusted for anything. */
   origin?: { templateId: string } | { composed: true }
-  /** The supplier/customer this document is filed under. Verified by the caller. */
+  /** The supplier/customer this document is filed under. Verified by the caller, and required: every new document belongs to someone. */
   companyId?: string | null
+  /** How the document came to exist. Defaults to a plain upload. */
+  sourceKind?: 'uploaded' | 'composed' | 'xtra_template' | 'crm_document'
   ip?: string | null
   userAgent?: string | null
 }
@@ -47,6 +49,13 @@ export type UploadDocumentResult =
 
 export async function uploadDocument(input: UploadDocumentInput): Promise<UploadDocumentResult> {
   const { session, buffer, filename } = input
+
+  // Every new document is filed under a company from birth. The rule is here,
+  // at the single point every creation path passes through, so no route can
+  // quietly produce an orphan the way template-made documents once did.
+  if (!input.companyId) {
+    return { ok: false, code: 'missing_company', message: 'יש לבחור ספק או לקוח למסמך.' }
+  }
 
   // Validate before anything is stored or written. Bytes that fail here never
   // reach the object store.
@@ -80,10 +89,11 @@ export async function uploadDocument(input: UploadDocumentInput): Promise<Upload
       id: agreementId,
       organizationId: session.organizationId,
       templateId: input.origin && 'templateId' in input.origin ? input.origin.templateId : null,
-      companyId: input.companyId ?? null,
+      companyId: input.companyId,
       title,
       status: 'draft',
       ownerId: session.userId,
+      sourceKind: input.sourceKind ?? 'uploaded',
     })
 
     const [version] = await tx

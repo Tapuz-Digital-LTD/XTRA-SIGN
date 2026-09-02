@@ -15,6 +15,8 @@ export type Channel = 'email' | 'sms'
 
 export type SendSummary = {
   title: string
+  /** The supplier/customer the document is filed under. */
+  filedCompanyName: string | null
   recipientName: string | null
   recipientCompany: string | null
   recipientPhone: string | null
@@ -40,8 +42,9 @@ export async function buildSendSummary(
   const db = getDb()
 
   const [agreement] = await db
-    .select({ title: schema.agreements.title })
+    .select({ title: schema.agreements.title, filedCompanyName: schema.companies.name })
     .from(schema.agreements)
+    .leftJoin(schema.companies, eq(schema.companies.id, schema.agreements.companyId))
     .where(eq(schema.agreements.id, agreementId))
     .limit(1)
 
@@ -116,6 +119,7 @@ export async function buildSendSummary(
 
   return {
     title: agreement?.title ?? '',
+    filedCompanyName: agreement?.filedCompanyName ?? null,
     recipientName: recipient?.name ?? null,
     recipientCompany: recipient?.company ?? null,
     recipientPhone: recipient?.phone ?? null,

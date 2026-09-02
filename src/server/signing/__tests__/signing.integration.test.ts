@@ -24,6 +24,15 @@ const db = getDb()
 
 let orgId: string
 let session: StaffSession
+/** Every document belongs to a company now; tests file theirs under one. */
+async function testCompany(organizationId: string): Promise<string> {
+  const [row] = await getDb()
+    .insert(schema.companies)
+    .values({ organizationId, kind: 'supplier', name: `ספק בדיקה ${crypto.randomUUID().slice(0, 6)}` })
+    .returning({ id: schema.companies.id })
+  return row.id
+}
+
 let agreementId: string
 let versionId: string
 let signingUrl: string
@@ -77,6 +86,7 @@ beforeAll(async () => {
 
   const uploaded = await uploadDocument({
     session,
+    companyId: await testCompany(session.organizationId),
     buffer: A4_PDF,
     filename: 'הסכם ספק.pdf',
   })
@@ -113,6 +123,7 @@ afterAll(async () => {
   await db.delete(schema.agreementVersions).where(eq(schema.agreementVersions.agreementId, agreementId))
   await db.delete(schema.agreements).where(eq(schema.agreements.id, agreementId))
   await db.delete(schema.users).where(eq(schema.users.organizationId, orgId))
+  await db.delete(schema.companies).where(eq(schema.companies.organizationId, orgId))
   await db.delete(schema.organizations).where(eq(schema.organizations.id, orgId))
 })
 

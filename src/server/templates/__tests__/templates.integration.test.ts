@@ -34,6 +34,15 @@ async function makeOrg(name: string) {
   return row.id
 }
 
+/** Every document belongs to a company now, so each org gets one to file under. */
+async function makeCompany(organizationId: string): Promise<string> {
+  const [row] = await db
+    .insert(schema.companies)
+    .values({ organizationId, kind: 'supplier', name: `ספק ${crypto.randomUUID().slice(0, 6)}` })
+    .returning({ id: schema.companies.id })
+  return row.id
+}
+
 async function makeUser(organizationId: string, email: string, isAdmin = false): Promise<StaffSession> {
   const [row] = await db
     .insert(schema.users)
@@ -91,6 +100,7 @@ beforeAll(async () => {
     session: alice,
     title: 'הסכם ספק',
     text: '# תנאים\nהספק מתחייב.\n---\nעמוד שני',
+    companyId: await makeCompany(orgA),
   })
   if (!composed.ok) throw new Error(composed.message)
   sourceAgreementId = composed.agreementId
@@ -160,7 +170,11 @@ describe('a document from a template', () => {
 
     const before = fakeStorage.size()
     // A colleague uses it — templates are shared.
-    const result = await createDocumentFromTemplate({ session: carol, templateId: template.id })
+    const result = await createDocumentFromTemplate({
+      session: carol,
+      templateId: template.id,
+      companyId: await makeCompany(carol.organizationId),
+    })
     expect(result.ok).toBe(true)
     if (!result.ok) return
 
@@ -196,10 +210,14 @@ describe('a document from a template', () => {
       .select({ id: schema.templates.id })
       .from(schema.templates)
       .where(eq(schema.templates.name, 'הסכם ספק סטנדרטי'))
-    await expect(createDocumentFromTemplate({ session: bob, templateId: template.id })).rejects.toBeInstanceOf(
+    await expect(
+      createDocumentFromTemplate({ session: bob, templateId: template.id, companyId: await makeCompany(bob.organizationId) }),
+    ).rejects.toBeInstanceOf(
       ForbiddenError,
     )
-    await expect(createDocumentFromTemplate({ session: bob, templateId: 'not-a-uuid' })).rejects.toBeInstanceOf(
+    await expect(
+      createDocumentFromTemplate({ session: bob, templateId: 'not-a-uuid', companyId: await makeCompany(bob.organizationId) }),
+    ).rejects.toBeInstanceOf(
       ForbiddenError,
     )
   })
@@ -228,7 +246,9 @@ describe('managing', () => {
     expect(row.deletedAt).not.toBeNull()
 
     // And a deleted template cannot be used.
-    await expect(createDocumentFromTemplate({ session: alice, templateId: template.id })).rejects.toBeInstanceOf(
+    await expect(
+      createDocumentFromTemplate({ session: alice, templateId: template.id, companyId: await makeCompany(alice.organizationId) }),
+    ).rejects.toBeInstanceOf(
       ForbiddenError,
     )
   })

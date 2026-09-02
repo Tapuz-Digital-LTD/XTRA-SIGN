@@ -34,12 +34,9 @@ export function TemplateList({ templates }: { templates: TemplateListItem[] }) {
     }
   }
 
-  const use = (id: string) =>
-    call(
-      id,
-      () => fetch(`/api/templates/${id}/use`, { method: 'POST' }),
-      (data) => router.push(`/documents/${data.agreementId}/edit`),
-    )
+  // A document always belongs to a company, so using a template routes through
+  // the new-document flow with the template pre-chosen.
+  const use = (id: string) => router.push(`/documents/new?template=${id}`)
 
   const remove = (template: TemplateListItem) => {
     if (!window.confirm(`למחוק את התבנית "${template.name}"? מסמכים שנוצרו ממנה לא יושפעו.`)) return
