@@ -11,6 +11,7 @@ import { ForbiddenError, getSession } from '@/server/auth/session'
 import { authorizeAgreementAccess } from '@/server/documents/authorization'
 import { getCompany } from '@/server/companies/companies'
 import { getCrmProvider } from '@/server/crm/fireberry'
+import { wasUploadedToCrm } from '@/server/crm/upload-agreement'
 import { getDocumentDetail } from '@/server/documents/queries'
 import { versionChain } from '@/server/documents/lifecycle'
 import { DocumentActions } from '@/components/DocumentActions'
@@ -43,6 +44,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
     doc.company != null &&
     getCrmProvider().isConfigured() &&
     Boolean((await getCompany(session, doc.company.id))?.crmRecordId)
+  const crmAlreadyUploaded = crmReady ? await wasUploadedToCrm(doc.id) : false
 
   const expiryFormatter = new Intl.DateTimeFormat('he-IL', {
     day: 'numeric',
@@ -89,7 +91,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
               הורדת אישור חתימה
             </a>
           ) : null}
-          {crmReady ? <CrmUploadButton documentId={doc.id} /> : null}
+          {crmReady ? <CrmUploadButton documentId={doc.id} alreadyUploaded={crmAlreadyUploaded} /> : null}
           {doc.status === 'draft' && doc.hasRendered ? (
             <Link
               href={`/documents/${doc.id}/edit`}

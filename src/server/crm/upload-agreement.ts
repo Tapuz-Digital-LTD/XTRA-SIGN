@@ -85,3 +85,21 @@ export async function uploadAgreementToCrm(input: {
 
   return result
 }
+
+/** Whether a signed document was already pushed to the CRM successfully. */
+export async function wasUploadedToCrm(agreementId: string): Promise<boolean> {
+  const { getDb, schema } = await import('@/server/db')
+  const { and, eq, sql } = await import('drizzle-orm')
+  const rows = await getDb()
+    .select({ id: schema.auditEvents.id })
+    .from(schema.auditEvents)
+    .where(
+      and(
+        eq(schema.auditEvents.agreementId, agreementId),
+        eq(schema.auditEvents.type, 'crm_uploaded'),
+        sql`${schema.auditEvents.metadata}->>'delivered' = 'true'`,
+      ),
+    )
+    .limit(1)
+  return rows.length > 0
+}
