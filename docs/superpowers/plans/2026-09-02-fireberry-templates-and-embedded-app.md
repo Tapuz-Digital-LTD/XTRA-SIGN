@@ -555,3 +555,105 @@ it('refuses an unsigned document and a foreign organization', async () => {
 | Versioning | unchanged content refused as duplicate; changed content creates a second row; the first row is byte-identical afterwards |
 | Write-back | signing survives a CRM failure; idempotent; unsigned and foreign-org refused; audit row written |
 | Regression | full existing suite (198 tests) green throughout |
+
+---
+
+# Addendum (2026-09-02) — Four document sources, and why 3 and 4 are not the same thing
+
+## The distinction that drives the model
+
+**A template is a blueprint. An existing Fireberry business document is already an instance.**
+Merging a blank template against a record is the wrong operation for the second: order 1758 already
+*has* its customer, its date, its number, its line items and its totals. Re-deriving them would be
+re-computing something that already exists, and would silently disagree with the CRM the moment any
+rule differed.
+
+| # | Source | Blueprint? | Creates a `templates` row? | Data comes from |
+|---|---|---|---|---|
+| 1 | From scratch (XTRA Sign composer) | — | no | the author |
+| 2 | XTRA Sign template | yes | reuses one | the author, plus company fields |
+| 3 | Fireberry **template** (object 27) | yes | yes, on import | merge against the chosen company's CRM record |
+| 4 | Fireberry **business document** (an order/quote, e.g. 1758) | **no** | **never** | the record itself, as it already stands |
+
+Flow 4 must not pass through the templates table at all. That is the architectural lock-in being
+avoided: "everything from Fireberry is a template" is false.
+
+## Discovery results
+
+**Line items are a real collection, not a scalar token.** Object 17 (`CrmOrderItem`) carries
+`productname` (מוצר/שירות), `description` (תיאור), `itemquantity` (כמות), `itemprice`
+(מחיר ליחידה), `itemtotalprice` (סכום), `tax` (מע״מ), `pcfcurrency` (מטבע/אחוז),
+`catalognumber` (מק״ט), `itemorder` (סדר — the row order) and `crmorderid` (the parent). Verified on
+order 1758: 11,000 ₪, 2024-03-07, one item "אתר בחירת מתנות" qty 55 × 200.
+
+This also explains the tokens in `הסכם ספקים` that were not fields of object 13 — `itemprice`,
+`pcfcurrency`, `productname` are **object 17** fields, i.e. cells of a repeating row.
+
+**Token meanings, read from Fireberry metadata rather than guessed:**
+
+| token | object | actual meaning |
+|---|---|---|
+| `createdon` | 13 | נוצר בתאריך — the *order's* creation date. **Not "today".** |
+| `accountidname` | 13 | לקוח (display name of the customer lookup) |
+| `pcfsystemfield104` (on 13) | 13 | שם חברה |
+| `pcfsuppliers_pcfsystemfield109` | 1000 | שם החברה הרשמי |
+| `pcfsuppliers_pcfstreet` | 1000 | כתובת |
+| `pcfsuppliers_pcfcity` | 1000 | עיר |
+| `pcfsuppliers_pcfsystemfield100` | 1000 | **שם פרטי** |
+| `pcfsuppliers_pcfsystemfield101` | 1000 | **שם משפחה** |
+| `pcfsuppliers_pcfsystemfield104` | 1000 | טלפון נייד |
+
+A hand-written mapping would have got several of these wrong — `…field100` reads like "contact name"
+and is actually a first name. **Resolution is by Fireberry field name against the linked object's
+metadata; a hand-written table is only a fallback for what metadata cannot answer.**
+
+**Can Fireberry hand us the rendered document? No supported way was found.**
+- Not in the public API reference (only file upload/list/download).
+- Not in either official MCP server.
+- The order does declare `printtemplateid` (1758 → "הצעת מחיר"), so the CRM knows which template
+  renders it — but it stores **no rendered file** on the record (`files` is empty).
+- `POST /api/printtemplate/{…}` exists (405 on GET where unknown controllers 404) but is
+  undocumented and returned a generic 500 for every body shape tried, including with a real order id
+  and its real bound template. Probing stopped there rather than blind-POSTing at a live CRM.
+
+**Consequence, and why this is still high fidelity:** we reproduce the document from *Fireberry's own
+template* plus *Fireberry's own data* — not a layout of our invention. The one transformation needed
+is the repeating row: find the `<tr>` whose cells contain object-17 tokens and clone it per line item,
+ordered by `itemorder`. Worth raising a Fireberry support ticket for an official render endpoint; if
+one appears, it replaces this step without touching anything else.
+
+## Data model
+
+```sql
+-- agreements gains provenance. All nullable, all additive.
+source_kind      text  -- 'blank' | 'xtra_template' | 'crm_template' | 'crm_document'
+crm_object_type  integer  -- flows 3 and 4: which CRM object
+crm_record_id    text     -- flow 4: WHICH business record (order 1758)
+merge_snapshot   jsonb    -- flows 3 and 4: the values used, frozen at creation
+-- already present: company_id, template_id, crm_document_id (an imported CRM *file*)
+```
+
+`crm_record_id` is what answers, in six months, "this signature was on quote 1758 for customer X".
+It is distinct from `crm_document_id`, which means "this document is a copy of a file that was
+attached to a CRM record".
+
+`merge_snapshot` is what makes a created document immune to later CRM edits: Fireberry is the source
+of values **at creation time**, and the agreement is a frozen snapshot from that moment on.
+
+## Write-back target
+
+Write-back already planned in Phase 7 uploads to the company record. For flow 4 the target is the
+**source record itself** (`crm_object_type` + `crm_record_id`) — quote 1758 receives the signed PDF,
+not just the customer card. Idempotency is by the existing write-back state on the agreement, so a
+retry never uploads a second copy.
+
+## "New document" — the four options
+
+```
+מסמך חדש
+├── יצירה מאפס            → the composer
+├── מתבנית XTRA Sign      → templates saved here
+├── מתבנית Fireberry      → object 27, merged against the chosen company
+└── ממסמך קיים ב-Fireberry → the company's own orders/quotes, e.g. "הצעה 1758 · 11,000 ₪ · 07/03/2024"
+```
+Reached from a company's page, the company is already chosen and options 3 and 4 are scoped to it.
