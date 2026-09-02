@@ -115,7 +115,7 @@ export default async function NewDocumentPage({
           <div className="rounded-[var(--radius-card)] border border-line bg-surface p-6 sm:col-span-2">
             <h2 className="text-base font-semibold text-fg">🔗 מסמך קיים מ-Fireberry</h2>
             <p className="mt-1 text-sm text-muted">
-              קבצים שכבר מצורפים לרשומה של {company.name}, או הצעה/הזמנה קיימת עם כל השורות שבה.
+              הצעת מחיר קיימת של {company.name} עם כל השורות שבה, או קובץ שכבר מצורף לרשומה.
               הייבוא אינו משנה דבר ב-CRM.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">

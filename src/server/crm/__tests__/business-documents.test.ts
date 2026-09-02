@@ -80,3 +80,13 @@ describe('isCrmId', () => {
     }
   })
 })
+
+describe('template selection', () => {
+  it('maps the company kind to the template the CRM would print with', async () => {
+    const { TEMPLATE_BY_KIND } = await import('../business-documents')
+    // A quote is a quote for both; only which template it prints on differs,
+    // and that is never shown to anyone.
+    expect(TEMPLATE_BY_KIND.supplier).toBe('הסכם ספקים')
+    expect(TEMPLATE_BY_KIND.customer).toBe('הצעת מחיר')
+  })
+})

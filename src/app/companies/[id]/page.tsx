@@ -6,7 +6,8 @@ import { CrmDocumentImport } from '@/components/companies/CrmDocumentImport'
 import { CrmBusinessImport } from '@/components/crm/CrmBusinessImport'
 import { DocumentsTable } from '@/components/documents/DocumentsTable'
 import { getSession } from '@/server/auth/session'
-import { getCompany } from '@/server/companies/companies'
+import { crmObjectTypeFor, getCompany } from '@/server/companies/companies'
+import { listBusinessDocuments } from '@/server/crm/business-documents'
 import { countDocuments, listDocuments, type ListFilter } from '@/server/documents/queries'
 
 const DOC_FILTERS: { key: ListFilter; label: string }[] = [
@@ -46,9 +47,16 @@ export default async function CompanyPage({
     ? (query.filter as ListFilter)
     : 'all'
 
-  const [documents, counts] = await Promise.all([
+  const [documents, counts, quotes] = await Promise.all([
     listDocuments(session, { companyId: id, filter, pageSize: 100 }),
     countDocuments(session, { companyId: id }),
+    // Only when that tab is open: it is a live CRM call, not a local count.
+    tab === 'crm' && company.crmRecordId
+      ? listBusinessDocuments({
+          crmObjectType: crmObjectTypeFor(company),
+          crmRecordId: company.crmRecordId,
+        }).catch(() => [])
+      : Promise.resolve([]),
   ])
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
@@ -184,13 +192,14 @@ export default async function CompanyPage({
           </dl>
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <div className="rounded-lg border border-line p-4">
+              {/* The record is a quote for suppliers and customers alike; which
+                  print template it comes out on is machinery, and stays out of
+                  the label. */}
               <h3 className="text-sm font-semibold text-fg">
-                {company.kind === 'supplier' ? 'הסכמים והצעות' : 'הצעות מחיר'}
+                הצעות מחיר{quotes.length > 0 ? ` (${quotes.length})` : ''}
               </h3>
               <p className="mt-1 text-xs text-muted">
-                {company.kind === 'supplier'
-                  ? 'הצעות והזמנות של הספק, מודפסות מתבנית "הסכם ספקים" עם כל השורות שבהן.'
-                  : 'הצעות המחיר של הלקוח, מודפסות מתבנית "הצעת מחיר" עם כל השורות שבהן.'}
+                הצעות המחיר של {company.name} ב-Fireberry, עם כל השורות שבהן.
               </p>
               <div className="mt-3">
                 <CrmBusinessImport companyId={company.id} kind={company.kind} />
