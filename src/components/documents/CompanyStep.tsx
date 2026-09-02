@@ -39,7 +39,7 @@ export function CompanyStep({ template }: { template?: string | null }) {
       if (cancelled) return
       setLoading(true)
       try {
-        const response = await fetch(`/api/companies?q=${encodeURIComponent(query)}`)
+        const response = await fetch(`/api/companies?q=${encodeURIComponent(query)}&kind=${kind}`)
         const data = await response.json().catch(() => null)
         if (!cancelled && response.ok) setResults(data.companies ?? [])
       } catch {
@@ -52,7 +52,7 @@ export function CompanyStep({ template }: { template?: string | null }) {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [query])
+  }, [query, kind])
 
   function proceed(companyId: string) {
     const params = new URLSearchParams({ company: companyId })
@@ -146,12 +146,33 @@ export function CompanyStep({ template }: { template?: string | null }) {
 
   return (
     <div className="rounded-[var(--radius-card)] border border-line bg-surface p-5">
+      <div className="mb-3 flex gap-1 rounded-lg bg-bg p-1" role="tablist" aria-label="סוג חברה">
+        {(
+          [
+            ['supplier', 'ספקים'],
+            ['customer', 'לקוחות'],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={kind === value}
+            onClick={() => setKind(value)}
+            className={`min-h-11 flex-1 rounded-md text-sm transition ${
+              kind === value ? 'bg-surface font-semibold text-fg shadow-sm' : 'text-muted hover:text-fg'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <input
         ref={inputRef}
         type="search"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        placeholder="חיפוש ספק או לקוח — שם, ח.פ או איש קשר"
+        placeholder={kind === 'supplier' ? 'חיפוש ספק — שם, ח.פ או איש קשר' : 'חיפוש לקוח — שם, ח.פ או איש קשר'}
         className="h-12 w-full rounded-lg border border-line bg-bg px-4 text-sm text-fg outline-none focus:border-brand"
       />
 
@@ -160,7 +181,7 @@ export function CompanyStep({ template }: { template?: string | null }) {
           <p className="py-8 text-center text-sm text-muted">מחפש…</p>
         ) : results.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted">
-            {query ? 'לא נמצאה חברה מתאימה.' : 'התחילו להקליד כדי לחפש.'}
+            {query ? (kind === 'supplier' ? 'לא נמצא ספק מתאים.' : 'לא נמצא לקוח מתאים.') : 'התחילו להקליד כדי לחפש.'}
           </p>
         ) : (
           <ul className="divide-y divide-line">
@@ -192,7 +213,7 @@ export function CompanyStep({ template }: { template?: string | null }) {
         onClick={() => setCreating(true)}
         className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-dashed border-line px-4 text-sm font-medium text-fg transition hover:border-brand"
       >
-        + יצירת לקוח/ספק חדש
+        {kind === 'supplier' ? '+ יצירת ספק חדש' : '+ יצירת לקוח חדש'}
       </button>
     </div>
   )

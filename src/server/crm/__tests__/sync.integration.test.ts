@@ -94,11 +94,32 @@ describe('syncFromFireberry', () => {
     expect(row.name).toBe('שם חדש')
   })
 
-  it('counts a row with no name or id as failed, not imported', async () => {
-    mockFireberry([{ accountid: '', accountname: 'no id' }, { accountid: custId(), accountname: '' }], [])
+  it('fails a row with no id, and imports an unnamed one as "(ללא שם)"', async () => {
+    const unnamed = custId()
+    mockFireberry([{ accountid: '', accountname: 'no id' }, { accountid: unnamed, accountname: '' }], [])
     const result = await syncFromFireberry(session)
     if (!result.ok) return
-    expect(result.counts.failed).toBe(2)
-    expect(result.counts.added).toBe(0)
+    // No id means nothing to upsert by — that is a failure. No *name* is a data
+    // gap in the CRM, and a real record must not vanish because of it.
+    expect(result.counts.failed).toBe(1)
+    expect(result.counts.added).toBe(1)
+
+    const [row] = await db.select().from(schema.companies).where(eq(schema.companies.crmRecordId, unnamed))
+    expect(row.name).toBe('(ללא שם)')
+  })
+})
+
+describe('isPlaceholderName', () => {
+  it('treats filler as no name', async () => {
+    const { isPlaceholderName } = await import('../sync')
+    for (const junk of ['-', '.', '?', '--', ' ', 'א', '/', null]) {
+      expect(isPlaceholderName(junk as string | null)).toBe(true)
+    }
+  })
+  it('keeps real names, short ones included', async () => {
+    const { isPlaceholderName } = await import('../sync')
+    for (const real of ['3M', 'מקדונלד\'ס ישראל', 'HP', 'א.ב שיווק']) {
+      expect(isPlaceholderName(real)).toBe(false)
+    }
   })
 })

@@ -39,6 +39,31 @@ function str(v: unknown): string | null {
   return t === '' ? null : t
 }
 
+/**
+ * Whether a CRM "name" is a real name or a filler someone typed to get past a
+ * required field. 94 customer records arrived named ".", "-", "?" or a single
+ * letter — each with a perfectly real contact person attached.
+ */
+export function isPlaceholderName(name: string | null): boolean {
+  if (!name) return true
+  const trimmed = name.trim()
+  if (trimmed.length <= 1) return true
+  return /^[-.?/\\'"·*_ ]+$/.test(trimmed)
+}
+
+/**
+ * The name a company shows here: the CRM's, unless it is filler — then the
+ * contact's, then the email, then an honest "(ללא שם)". Self-correcting: a real
+ * name typed into Fireberry later bumps `modifiedon`, the row is refetched, and
+ * the real name wins.
+ */
+function displayName(raw: { name: string | null; contactName: string | null; contactEmail: string | null }): string | null {
+  if (!isPlaceholderName(raw.name)) return raw.name
+  if (raw.contactName && !isPlaceholderName(raw.contactName)) return raw.contactName.trim()
+  if (raw.contactEmail?.trim()) return raw.contactEmail.trim()
+  return '(ללא שם)'
+}
+
 function joinAddress(parts: (string | null)[]): string | null {
   const joined = parts.filter(Boolean).join(', ')
   return joined === '' ? null : joined
@@ -177,7 +202,7 @@ export async function syncFromFireberry(session: StaffSession): Promise<SyncResu
     // Phase 3: upsert.
     for (const r of rows) {
       const { crmId, values: raw } = mapRow(r)
-      const name = raw.name
+      const name = displayName(raw)
       if (!crmId || !name) {
         counts.failed += 1
         continue

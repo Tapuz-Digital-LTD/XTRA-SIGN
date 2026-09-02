@@ -175,12 +175,14 @@ export async function searchCompanies(
   session: StaffSession,
   search: string,
   limit = 20,
+  kind?: CompanyKind,
 ): Promise<{ id: string; name: string; kind: CompanyKind; taxId: string | null; fromCrm: boolean }[]> {
   const term = search.trim()
   const conditions = [
     eq(schema.companies.organizationId, session.organizationId),
     isNull(schema.companies.deletedAt),
   ]
+  if (kind) conditions.push(eq(schema.companies.kind, kind))
   if (term) {
     const like = `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
     conditions.push(
@@ -202,7 +204,9 @@ export async function searchCompanies(
     })
     .from(schema.companies)
     .where(and(...conditions))
-    .orderBy(schema.companies.name)
+    // Newest first. For CRM rows this is when the record reached us, which
+    // tracks CRM activity order; a brand-new customer lands at the top.
+    .orderBy(desc(schema.companies.createdAt), schema.companies.name)
     .limit(Math.min(Math.max(limit, 1), 50))
 
   return rows.map((row) => ({

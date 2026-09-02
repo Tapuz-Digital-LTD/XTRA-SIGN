@@ -9,8 +9,11 @@ import { templateFailure } from '@/server/http/template-errors'
 export async function GET(request: Request) {
   try {
     const session = await requireSession()
-    const search = new URL(request.url).searchParams.get('q') ?? ''
-    const companies = await searchCompanies(session, search)
+    const url = new URL(request.url)
+    const search = url.searchParams.get('q') ?? ''
+    const kindParam = url.searchParams.get('kind')
+    const kind = kindParam === 'supplier' || kindParam === 'customer' ? kindParam : undefined
+    const companies = await searchCompanies(session, search, 20, kind)
     return NextResponse.json({ ok: true, companies })
   } catch (error) {
     return templateFailure(error)
