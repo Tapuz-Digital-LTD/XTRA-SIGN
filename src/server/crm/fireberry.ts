@@ -44,6 +44,10 @@ export class FireberryProvider implements CrmProvider {
     fields: string[]
     pageNumber: number
     pageSize?: number
+    /** Optional Fireberry filter, e.g. "(modifiedon > 2026-08-01)". */
+    query?: string
+    /** Field to sort by (ascending), e.g. "modifiedon" — used to advance a watermark. */
+    sortBy?: string
   }): Promise<{ rows: Record<string, unknown>[]; isLastPage: boolean }> {
     const token = process.env.FIREBERRY_API_TOKEN
     if (!token) throw new Error('CRM is not configured')
@@ -57,6 +61,8 @@ export class FireberryProvider implements CrmProvider {
         page_size: input.pageSize ?? 100,
         page_number: input.pageNumber,
         fields: input.fields.join(','),
+        ...(input.query ? { query: input.query } : {}),
+        ...(input.sortBy ? { sort_by: input.sortBy, sort_type: 'asc' } : {}),
       }),
     })
     if (!response.ok) {

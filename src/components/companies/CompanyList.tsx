@@ -36,6 +36,7 @@ export function CompanyList({
   const [query, setQuery] = useState(search)
   const [link, setLink] = useState<LinkFilter>('all')
   const [syncing, setSyncing] = useState(false)
+  const [confirmSync, setConfirmSync] = useState(false)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
 
@@ -71,6 +72,7 @@ export function CompanyList({
   const crmCount = companies.filter((c) => c.crmRecordId).length
 
   async function sync() {
+    setConfirmSync(false)
     setSyncing(true)
     setSyncMsg(null)
     setSyncError(null)
@@ -115,7 +117,7 @@ export function CompanyList({
         {crmEnabled ? (
           <button
             type="button"
-            onClick={sync}
+            onClick={() => setConfirmSync(true)}
             disabled={syncing}
             className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition-colors hover:bg-slate-50 disabled:opacity-60"
           >
@@ -153,6 +155,25 @@ export function CompanyList({
               {f.label}
             </button>
           ))}
+        </div>
+      ) : null}
+
+      {confirmSync ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setConfirmSync(false)}>
+          <div className="w-full max-w-sm rounded-[var(--radius-card)] border border-line bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-base font-semibold text-fg">להתחיל סנכרון מ-Fireberry?</h2>
+            <p className="mt-2 text-sm text-muted">
+              ייובאו {pluralNoun} חדשים ומעודכנים מה-CRM. הפעולה מייבאת רק את מה שהשתנה מאז הסנכרון האחרון.
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button type="button" onClick={sync} className="min-h-11 flex-1 rounded-lg bg-brand text-sm font-medium text-white hover:bg-[var(--color-accent-hover)]">
+                כן, התחל סנכרון
+              </button>
+              <button type="button" onClick={() => setConfirmSync(false)} className="min-h-11 flex-1 rounded-lg border border-line bg-white text-sm text-fg hover:bg-slate-50">
+                לא
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
 

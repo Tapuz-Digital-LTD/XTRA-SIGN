@@ -125,6 +125,27 @@ export const companies = pgTable(
   ],
 )
 
+/**
+ * The high-water mark for the Fireberry read-sync, per organization and object.
+ *
+ * Holds the latest `modifiedon` already imported, so the next sync asks Fireberry
+ * only for records changed since then instead of pulling everything again.
+ */
+export const crmSyncState = pgTable(
+  'crm_sync_state',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    objectType: integer('object_type').notNull(),
+    /** Fireberry's `modifiedon` of the newest record imported, as its raw string. */
+    watermark: text('watermark'),
+    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('crm_sync_state_unique').on(t.organizationId, t.objectType)],
+)
+
 export const users = pgTable(
   'users',
   {

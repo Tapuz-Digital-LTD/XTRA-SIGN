@@ -25,7 +25,7 @@ const MAPPING = {
   customer: {
     objectType: 1,
     idField: 'accountid',
-    fields: ['accountid', 'accountname', 'idnumber', 'telephone1', 'emailaddress1', 'billingstreet', 'billingcity', 'billingcountry'],
+    fields: ['accountid', 'accountname', 'idnumber', 'telephone1', 'emailaddress1', 'billingstreet', 'billingcity', 'billingcountry', 'modifiedon'],
     map: (r: Record<string, unknown>) => ({
       name: str(r.accountname),
       taxId: str(r.idnumber),
@@ -38,7 +38,7 @@ const MAPPING = {
   supplier: {
     objectType: 1000,
     idField: 'customobject1000id',
-    fields: ['customobject1000id', 'name', 'pcfvatid', 'pcfsystemfield129', 'pcfsystemfield130', 'pcfsystemfield127', 'pcfsystemfield103', 'pcfstreet', 'pcfcity'],
+    fields: ['customobject1000id', 'name', 'pcfvatid', 'pcfsystemfield129', 'pcfsystemfield130', 'pcfsystemfield127', 'pcfsystemfield103', 'pcfstreet', 'pcfcity', 'modifiedon'],
     map: (r: Record<string, unknown>) => ({
       name: str(r.name),
       taxId: str(r.pcfvatid),
@@ -77,6 +77,21 @@ export async function syncFromFireberry(session: StaffSession): Promise<SyncResu
 
   for (const kind of ['customer', 'supplier'] as CompanyKind[]) {
     const cfg = MAPPING[kind]
+    const label = kind === 'customer' ? 'לקוחות' : 'ספקים'
+
+    // The high-water mark: only records changed since it are fetched. Its
+    // absence (first sync) means a full import.
+    const [state] = await db
+      .select()
+      .from(schema.crmSyncState)
+      .where(
+        and(
+          eq(schema.crmSyncState.organizationId, session.organizationId),
+          eq(schema.crmSyncState.objectType, cfg.objectType),
+        ),
+      )
+      .limit(1)
+    const watermark = state?.watermark ?? null
 
     // Existing CRM-linked companies of this kind, by their Fireberry id.
     const existing = await db
@@ -91,19 +106,31 @@ export async function syncFromFireberry(session: StaffSession): Promise<SyncResu
       )
     const byCrmId = new Map(existing.filter((c) => c.crmRecordId).map((c) => [c.crmRecordId!, c]))
 
+    let maxModified = watermark
+    let kindFailed = false
     let page = 1
     // A hard page cap so a runaway never loops forever.
-    for (let guard = 0; guard < 100; guard++) {
+    for (let guard = 0; guard < 200; guard++) {
       let batch
       try {
-        batch = await provider.queryRecords({ objectType: cfg.objectType, fields: [...cfg.fields], pageNumber: page })
+        batch = await provider.queryRecords({
+          objectType: cfg.objectType,
+          fields: [...cfg.fields],
+          pageNumber: page,
+          // Fireberry compares the raw modifiedon string; ISO order is chronological.
+          query: watermark ? `(modifiedon > ${watermark})` : undefined,
+          sortBy: 'modifiedon',
+        })
       } catch (error) {
-        errors.push(`${kind === 'customer' ? 'לקוחות' : 'ספקים'}: קריאה מ-CRM נכשלה (עמוד ${page}).`)
+        errors.push(`${label}: קריאה מ-CRM נכשלה (עמוד ${page}).`)
+        kindFailed = true
         void error
         break
       }
 
       for (const row of batch.rows) {
+        const modified = str(row.modifiedon)
+        if (modified && (!maxModified || modified > maxModified)) maxModified = modified
         const crmId = str(row[cfg.idField])
         const mapped = cfg.map(row)
         if (!crmId || !mapped.name) {
@@ -155,6 +182,25 @@ export async function syncFromFireberry(session: StaffSession): Promise<SyncResu
 
       if (batch.isLastPage) break
       page += 1
+    }
+
+    // Advance the watermark so the next run is incremental. Skipped if the read
+    // failed partway, so nothing changed is missed on the retry.
+    if (!kindFailed) {
+      const now = new Date()
+      if (state) {
+        await db
+          .update(schema.crmSyncState)
+          .set({ watermark: maxModified, lastSyncedAt: now })
+          .where(eq(schema.crmSyncState.id, state.id))
+      } else {
+        await db.insert(schema.crmSyncState).values({
+          organizationId: session.organizationId,
+          objectType: cfg.objectType,
+          watermark: maxModified,
+          lastSyncedAt: now,
+        })
+      }
     }
   }
 

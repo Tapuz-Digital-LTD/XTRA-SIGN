@@ -26,6 +26,7 @@ afterEach(() => vi.restoreAllMocks())
 
 afterAll(async () => {
   await db.delete(schema.companies).where(eq(schema.companies.organizationId, orgId))
+  await db.delete(schema.crmSyncState).where(eq(schema.crmSyncState.organizationId, orgId))
   await db.delete(schema.users).where(eq(schema.users.organizationId, orgId))
   await db.delete(schema.organizations).where(eq(schema.organizations.id, orgId))
   delete process.env.FIREBERRY_API_TOKEN
@@ -47,8 +48,8 @@ describe('syncFromFireberry', () => {
     const c1 = custId()
     const s1 = supId()
     mockFireberry(
-      [{ accountid: c1, accountname: 'מקדונלדס', idnumber: '511', telephone1: '03-1', emailaddress1: 'a@b.co', billingstreet: 'רחוב 1', billingcity: 'תל אביב' }],
-      [{ customobject1000id: s1, name: 'כיתן', pcfvatid: '512', pcfsystemfield129: 'דנה', pcfsystemfield130: '050-2', pcfsystemfield103: 'c@d.co', pcfstreet: 'רחוב 2', pcfcity: 'חיפה' }],
+      [{ accountid: c1, accountname: 'מקדונלדס', idnumber: '511', telephone1: '03-1', emailaddress1: 'a@b.co', billingstreet: 'רחוב 1', billingcity: 'תל אביב', modifiedon: '2026-09-01T10:00:00' }],
+      [{ customobject1000id: s1, name: 'כיתן', pcfvatid: '512', pcfsystemfield129: 'דנה', pcfsystemfield130: '050-2', pcfsystemfield103: 'c@d.co', pcfstreet: 'רחוב 2', pcfcity: 'חיפה', modifiedon: '2026-09-01T09:00:00' }],
     )
 
     const first = await syncFromFireberry(session)
@@ -69,6 +70,14 @@ describe('syncFromFireberry', () => {
     expect(second.counts.unchanged).toBe(2)
     // Still exactly one row per Fireberry id.
     expect(await db.select().from(schema.companies).where(eq(schema.companies.crmRecordId, c1))).toHaveLength(1)
+
+    // The watermark advanced to the newest modifiedon seen, so the next run is
+    // incremental rather than a full re-pull.
+    const [state] = await db
+      .select()
+      .from(schema.crmSyncState)
+      .where(eq(schema.crmSyncState.objectType, 1))
+    expect(state?.watermark).toBe('2026-09-01T10:00:00')
   })
 
   it('updates an existing record in place when a field changes', async () => {
