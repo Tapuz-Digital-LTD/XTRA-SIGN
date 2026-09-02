@@ -17,6 +17,9 @@ import type { CrmProvider, CrmUploadResult, CrmUploadTarget } from './types'
 
 const DEFAULT_BASE = 'https://api.fireberry.com/api'
 
+/** Fireberry's print-template object. Not in their public API reference; reached through the generic record endpoints. */
+const PRINT_TEMPLATE_OBJECT = 27
+
 function objectFor(kind: 'supplier' | 'customer'): number {
   const env = kind === 'supplier' ? process.env.FIREBERRY_SUPPLIER_OBJECT : process.env.FIREBERRY_CUSTOMER_OBJECT
   const parsed = env ? Number.parseInt(env, 10) : NaN
@@ -112,6 +115,70 @@ export class FireberryProvider implements CrmProvider {
         url: String(r.url),
         sizeMb: typeof r.size === 'number' ? r.size : null,
       }))
+  }
+
+  /**
+   * The organization's print templates (object 27).
+   *
+   * Listing only: `templatebody` is not returned by the query endpoint however
+   * it is asked for, so the body comes from `getPrintTemplate` one record at a
+   * time. `recordtype` is the numeric object a template is bound to and
+   * `mdobjectname` its Hebrew name, both of which the operator needs to tell
+   * "הסכם ספקים" from "תבנית הדפסה לחשבונית מס".
+   */
+  async listPrintTemplates(): Promise<
+    { id: string; name: string; modifiedOn: string | null; boundObject: string | null }[]
+  > {
+    const collected: { id: string; name: string; modifiedOn: string | null; boundObject: string | null }[] = []
+
+    for (let page = 1; page <= 20; page++) {
+      const batch = await this.queryRecords({
+        objectType: PRINT_TEMPLATE_OBJECT,
+        fields: ['printtemplateid', 'name', 'modifiedon', 'recordtype', 'mdobjectname'],
+        pageNumber: page,
+        pageSize: 100,
+      })
+      for (const row of batch.rows) {
+        const id = typeof row.printtemplateid === 'string' ? row.printtemplateid : null
+        const name = typeof row.name === 'string' ? row.name.trim() : ''
+        if (!id || !name) continue
+        collected.push({
+          id,
+          name,
+          modifiedOn: typeof row.modifiedon === 'string' ? row.modifiedon : null,
+          boundObject: typeof row.mdobjectname === 'string' ? row.mdobjectname : null,
+        })
+      }
+      if (batch.isLastPage) break
+    }
+
+    return collected
+  }
+
+  /** One print template with its HTML body. */
+  async getPrintTemplate(
+    id: string,
+  ): Promise<{ id: string; name: string; body: string; modifiedOn: string | null } | null> {
+    const token = process.env.FIREBERRY_API_TOKEN
+    if (!token) throw new Error('CRM is not configured')
+    const base = (process.env.FIREBERRY_API_URL ?? DEFAULT_BASE).replace(/\/+$/, '')
+
+    const response = await fetch(
+      `${base}/record/${PRINT_TEMPLATE_OBJECT}/${encodeURIComponent(id)}`,
+      { headers: { tokenid: token } },
+    )
+    if (!response.ok) throw new Error(`Fireberry template read failed (${response.status})`)
+
+    const body = (await response.json()) as { data?: { Record?: Record<string, unknown> } }
+    const record = body.data?.Record
+    if (!record || typeof record.templatebody !== 'string') return null
+
+    return {
+      id,
+      name: typeof record.name === 'string' ? record.name : id,
+      body: record.templatebody,
+      modifiedOn: typeof record.modifiedon === 'string' ? record.modifiedon : null,
+    }
   }
 
   /**

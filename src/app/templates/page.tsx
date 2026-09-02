@@ -2,7 +2,9 @@ import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { EmptyState } from '@/components/EmptyState'
 import { TemplateList } from '@/components/TemplateList'
+import { CrmTemplateImport } from '@/components/crm/CrmTemplateImport'
 import { getSession } from '@/server/auth/session'
+import { getCrmProvider } from '@/server/crm/fireberry'
 import { listTemplates } from '@/server/templates/templates'
 
 /**
@@ -17,7 +19,10 @@ export default async function TemplatesPage() {
 
   return (
     <AppShell>
-      <h1 className="text-2xl font-bold tracking-tight text-fg">תבניות</h1>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight text-fg">תבניות</h1>
+        {getCrmProvider().isConfigured() ? <CrmTemplateImport /> : null}
+      </div>
       <p className="mt-1 text-sm text-muted">
         מסמך שנשמר עם השדות שלו, כדי לשלוח אותו שוב ושוב בלי לסדר הכול מחדש. שומרים תבנית
         מעמוד המסמך, בלחיצה על &quot;שמירה כתבנית&quot;.

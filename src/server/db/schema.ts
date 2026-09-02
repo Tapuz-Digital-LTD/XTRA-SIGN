@@ -293,8 +293,36 @@ export const templates = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
     /** Soft: agreements keep pointing at the template they were made from. */
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    /** 'crm' when imported from Fireberry; null for one made here. */
+    source: text('source'),
+    /** The Fireberry PrintTemplate this was imported from. */
+    crmTemplateId: text('crm_template_id'),
+    /** That template's `modifiedon` at the moment of import — provenance, not a watermark. */
+    crmModifiedOn: text('crm_modified_on'),
+    /**
+     * SHA-256 of the raw `templatebody` as fetched, before sanitising.
+     *
+     * This is what makes a version a version. Identity is (template, content),
+     * so re-importing unchanged content is refused while an edited template
+     * imports as a new row and the old one is left exactly as it was.
+     */
+    crmContentHash: text('crm_content_hash'),
+    /** The merge tokens found in the body, for the editor to offer as fields. */
+    crmMergeFields: jsonb('crm_merge_fields'),
+    /**
+     * The exact HTML that produced this template's PDF.
+     *
+     * Kept so a later change can re-render it — to place fields automatically,
+     * say — without needing Fireberry to still hold that version.
+     */
+    crmSourceHtmlKey: text('crm_source_html_key'),
   },
-  (t) => [index('templates_org_idx').on(t.organizationId)],
+  (t) => [
+    index('templates_org_idx').on(t.organizationId),
+    uniqueIndex('templates_crm_version_unique')
+      .on(t.organizationId, t.crmTemplateId, t.crmContentHash)
+      .where(sql`${t.crmTemplateId} is not null`),
+  ],
 )
 
 export const agreements = pgTable(

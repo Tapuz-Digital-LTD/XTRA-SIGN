@@ -25,6 +25,10 @@
     "src/app/api/companies/[id]/crm-documents/route.ts": {
       "memory": 1024,
       "maxDuration": 120
+    },
+    "src/app/api/crm/templates/route.ts": {
+      "memory": 3008,
+      "maxDuration": 300
     }
   },
   "crons": [
