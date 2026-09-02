@@ -5,11 +5,16 @@ import { getSession } from '@/server/auth/session'
 import { listCompanies } from '@/server/companies/companies'
 import { getCrmProvider } from '@/server/crm/fireberry'
 
-export default async function CustomersPage() {
+export default async function CustomersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>
+}) {
   const session = await getSession()
   if (!session) redirect('/login')
+  const { q } = await searchParams
 
-  const companies = await listCompanies(session, 'customer')
+  const companies = await listCompanies(session, 'customer', q)
 
   return (
     <AppShell>
@@ -18,7 +23,7 @@ export default async function CustomersPage() {
         כל לקוח במקום אחד — הפרטים שלו וכל המסמכים שנשלחו אליו לחתימה.
       </p>
       <div className="mt-6">
-        <CompanyList companies={companies} kind="customer" noun="לקוח" crmEnabled={getCrmProvider().isConfigured()} />
+        <CompanyList companies={companies} kind="customer" search={q ?? ''} noun="לקוח" crmEnabled={getCrmProvider().isConfigured()} />
       </div>
     </AppShell>
   )

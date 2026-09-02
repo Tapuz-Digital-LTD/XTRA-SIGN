@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, inArray, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm'
 import { normalizeIsraeliPhone } from '@/lib/phone'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
@@ -179,7 +179,14 @@ export async function listCompanies(
   const term = search?.trim()
   if (term) {
     const like = `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
-    conditions.push(ilike(schema.companies.name, like))
+    // Name, ח.פ and contact — the three things someone remembers a company by.
+    conditions.push(
+      or(
+        ilike(schema.companies.name, like),
+        ilike(schema.companies.taxId, like),
+        ilike(schema.companies.contactName, like),
+      )!,
+    )
   }
 
   const companies = await db

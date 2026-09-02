@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CompanyForm } from '@/components/companies/CompanyForm'
 import type { CompanyListItem } from '@/server/companies/companies'
 
@@ -21,37 +21,52 @@ export function CompanyList({
   companies,
   kind,
   noun,
+  search,
   crmEnabled,
 }: {
   companies: CompanyListItem[]
   kind: 'supplier' | 'customer'
   noun: string
+  /** The active server-side search term (from the URL). */
+  search: string
   crmEnabled: boolean
 }) {
   const router = useRouter()
   const [adding, setAdding] = useState(false)
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(search)
   const [link, setLink] = useState<LinkFilter>('all')
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
 
   const pluralNoun = noun === 'ספק' ? 'ספקים' : 'לקוחות'
+  const basePath = kind === 'supplier' ? '/suppliers' : '/customers'
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return companies.filter((c) => {
-      if (link === 'crm' && !c.crmRecordId) return false
-      if (link === 'local' && c.crmRecordId) return false
-      if (!q) return true
-      return (
-        c.name.toLowerCase().includes(q) ||
-        (c.taxId ?? '').toLowerCase().includes(q) ||
-        (c.contactName ?? '').toLowerCase().includes(q) ||
-        (c.contactPhone ?? '').includes(q)
-      )
-    })
-  }, [companies, query, link])
+  // Debounced server-side search: the dataset is far larger than one page, so
+  // filtering must happen in the query, not over the loaded rows. As-you-type,
+  // no button, no Enter — the URL is pushed 300ms after the last keystroke.
+  const firstRender = useRef(true)
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false
+      return
+    }
+    const t = setTimeout(() => {
+      const q = query.trim()
+      router.push(q ? `${basePath}?q=${encodeURIComponent(q)}` : basePath)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [query, basePath, router])
+
+  const filtered = useMemo(
+    () =>
+      companies.filter((c) => {
+        if (link === 'crm' && !c.crmRecordId) return false
+        if (link === 'local' && c.crmRecordId) return false
+        return true
+      }),
+    [companies, link],
+  )
 
   const crmCount = companies.filter((c) => c.crmRecordId).length
 
@@ -155,10 +170,10 @@ export function CompanyList({
       {filtered.length === 0 ? (
         <div className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center">
           <p className="text-sm font-medium text-fg">
-            {query.trim() || link !== 'all' ? `לא נמצאו ${pluralNoun} מתאימים` : `עדיין אין ${pluralNoun}`}
+            {search.trim() || link !== 'all' ? `לא נמצאו ${pluralNoun} מתאימים` : `עדיין אין ${pluralNoun}`}
           </p>
           <p className="mt-1 text-sm text-muted">
-            {query.trim()
+            {search.trim()
               ? 'נסו חיפוש אחר, או נקו את הסינון.'
               : link !== 'all'
                 ? 'שנו את הסינון למעלה.'
