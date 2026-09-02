@@ -135,7 +135,11 @@ export async function runBulkSend(input: {
   }
 
   const pending = await db
-    .select({ companyId: schema.bulkBatchItems.companyId, status: schema.bulkBatchItems.status })
+    .select({
+      companyId: schema.bulkBatchItems.companyId,
+      status: schema.bulkBatchItems.status,
+      agreementId: schema.bulkBatchItems.agreementId,
+    })
     .from(schema.bulkBatchItems)
     .where(eq(schema.bulkBatchItems.batchId, batchId))
 
@@ -167,22 +171,32 @@ export async function runBulkSend(input: {
         }
 
         try {
-          const created = await createDocumentFromTemplate({
-            session: input.session,
-            templateId: template.id,
-            companyId: company.id,
-          })
-          if (!created.ok) {
-            await markItem(batchId!, row.companyId, 'failed', created.message)
-            failed.push({ companyName: company.name, reason: created.message })
-            return
+          // A previous attempt may have created the document and then failed to
+          // send it. Reusing that agreement is what keeps a retry from leaving
+          // the company with two copies of the same thing.
+          let agreementId = row.agreementId
+          if (!agreementId) {
+            const created = await createDocumentFromTemplate({
+              session: input.session,
+              templateId: template.id,
+              companyId: company.id,
+            })
+            if (!created.ok) {
+              await markItem(batchId!, row.companyId, 'failed', created.message)
+              failed.push({ companyName: company.name, reason: created.message })
+              return
+            }
+            agreementId = created.agreementId
+            // Recorded immediately, so even a crash between here and the send
+            // leaves the retry something to find.
+            await markItem(batchId!, row.companyId, 'pending', null, agreementId)
           }
 
           // The recipient is seeded from the company at creation; this makes
           // sure it is there even for a company whose contact was added later.
           await saveRecipient({
             session: input.session,
-            agreementId: created.agreementId,
+            agreementId,
             name: company.contactName ?? company.name,
             company: company.name,
             phone: company.contactPhone,
@@ -195,17 +209,17 @@ export async function runBulkSend(input: {
 
           const result = await sendAgreement({
             session: input.session,
-            agreementId: created.agreementId,
+            agreementId,
             channels,
           })
 
           if (!result.ok) {
-            await markItem(batchId!, row.companyId, 'failed', result.blockers.join(', '), created.agreementId)
+            await markItem(batchId!, row.companyId, 'failed', result.blockers.join(', '), agreementId)
             failed.push({ companyName: company.name, reason: result.blockers.join(', ') })
             return
           }
 
-          await markItem(batchId!, row.companyId, 'sent', null, created.agreementId)
+          await markItem(batchId!, row.companyId, 'sent', null, agreementId)
           sent += 1
         } catch (error) {
           log.error('bulk send item failed', { companyId: company.id, error: String(error) })
@@ -222,7 +236,7 @@ export async function runBulkSend(input: {
 async function markItem(
   batchId: string,
   companyId: string,
-  status: 'sent' | 'failed' | 'skipped',
+  status: 'sent' | 'failed' | 'skipped' | 'pending',
   error: string | null,
   agreementId?: string,
 ): Promise<void> {

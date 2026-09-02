@@ -129,3 +129,28 @@ describe('runBulkSend', () => {
     vi.restoreAllMocks()
   })
 })
+
+describe('retrying failures', () => {
+  it('reuses the agreement a failed attempt already created', async () => {
+    // A batch where the send fails: the documents exist, the sends do not.
+    vi.spyOn(send, 'sendAgreement').mockResolvedValue({ ok: false, blockers: ['ספק לא זמין'] } as never)
+    const first = await runBulkSend({ session, groupId, templateId, companyIds: readyIds })
+    expect(first.sent).toBe(0)
+    expect(first.failed).toHaveLength(2)
+
+    const afterFirst = (await db.select().from(schema.agreements).where(eq(schema.agreements.organizationId, orgId))).length
+    vi.restoreAllMocks()
+
+    // Now it works. The retry must send those same two, not make two more.
+    vi.spyOn(send, 'sendAgreement').mockResolvedValue({ ok: true, results: [] } as never)
+    const retry = await runBulkSend({ session, groupId, templateId, companyIds: readyIds, batchId: first.batchId })
+
+    expect(retry.sent).toBe(2)
+    const afterRetry = (await db.select().from(schema.agreements).where(eq(schema.agreements.organizationId, orgId))).length
+    expect(afterRetry).toBe(afterFirst)
+
+    const items = await db.select().from(schema.bulkBatchItems).where(eq(schema.bulkBatchItems.batchId, first.batchId))
+    expect(items.every((i) => i.status === 'sent' && i.agreementId)).toBe(true)
+    vi.restoreAllMocks()
+  })
+})
