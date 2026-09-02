@@ -121,10 +121,13 @@ async function locateMarkers(
 ): Promise<Map<string, { page: number; x: number; y: number; width: number; height: number }>> {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
 
-  // Server-side there is no worker to spawn, and pdf.js otherwise tries to
-  // import one from a path that does not exist inside the function bundle.
-  // Pointing it at the real module in node_modules makes the fake worker load.
-  pdfjs.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs')
+  // Left unset on purpose. `require.resolve` here returns the bundler's own
+  // module id rather than a path — Turbopack reports "Cannot find package
+  // '[project]'" and the deployed function rejects it as "Invalid workerSrc
+  // type", so every composed document failed to save. With nothing set, pdf.js
+  // runs its parser on this thread and imports its own worker module from
+  // node_modules, which is present because pdfjs-dist is external to the
+  // bundle. There is no worker to spawn server-side anyway.
 
   const task = pdfjs.getDocument({
     data: new Uint8Array(pdf),
