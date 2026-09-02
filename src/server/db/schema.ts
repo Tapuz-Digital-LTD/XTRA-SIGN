@@ -474,6 +474,15 @@ export const agreements = pgTable(
      * those best-effort and never guesses in writes.
      */
     sourceKind: text('source_kind'),
+    /** Flow 4: the CRM business record this document was made from (a quote, an order). */
+    crmObjectType: integer('crm_object_type'),
+    crmRecordId: text('crm_record_id'),
+    /** The values used at creation, frozen. A later CRM edit never reaches a sent document. */
+    mergeSnapshot: jsonb('merge_snapshot'),
+    /** done | failed | null — pushing the signed PDF back to the source record. */
+    crmWritebackState: text('crm_writeback_state'),
+    crmWritebackAt: timestamp('crm_writeback_at', { withTimezone: true }),
+    crmWritebackError: text('crm_writeback_error'),
     title: text('title').notNull(),
     status: agreementStatus('status').default('draft').notNull(),
     ownerId: uuid('owner_id')

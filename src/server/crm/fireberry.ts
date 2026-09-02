@@ -193,6 +193,21 @@ export class FireberryProvider implements CrmProvider {
     return collected
   }
 
+  /** One record, whole. Read-only. */
+  async getRecord(objectType: number, recordId: string): Promise<Record<string, unknown> | null> {
+    const token = process.env.FIREBERRY_API_TOKEN
+    if (!token) throw new Error('CRM is not configured')
+    const base = (process.env.FIREBERRY_API_URL ?? DEFAULT_BASE).replace(/\/+$/, '')
+
+    const response = await fetch(`${base}/record/${objectType}/${encodeURIComponent(recordId)}`, {
+      headers: { tokenid: token },
+    })
+    if (!response.ok) return null
+
+    const body = (await response.json()) as { data?: { Record?: Record<string, unknown> } }
+    return body.data?.Record ?? null
+  }
+
   /** One print template with its HTML body. */
   async getPrintTemplate(
     id: string,

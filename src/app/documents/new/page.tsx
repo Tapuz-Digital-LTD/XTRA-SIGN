@@ -4,6 +4,7 @@ import { AppShell } from '@/components/AppShell'
 import { CompanyStep } from '@/components/documents/CompanyStep'
 import { UseTemplateButton } from '@/components/documents/UseTemplateButton'
 import { CrmDocumentImport } from '@/components/companies/CrmDocumentImport'
+import { CrmBusinessImport } from '@/components/crm/CrmBusinessImport'
 import { UploadCard } from '@/components/UploadCard'
 import { getSession } from '@/server/auth/session'
 import { getCompany } from '@/server/companies/companies'
@@ -112,10 +113,12 @@ export default async function NewDocumentPage({
           <div className="rounded-[var(--radius-card)] border border-line bg-surface p-6 sm:col-span-2">
             <h2 className="text-base font-semibold text-fg">🔗 מסמך קיים מ-Fireberry</h2>
             <p className="mt-1 text-sm text-muted">
-              קובצי PDF שכבר מצורפים לרשומה של {company.name} ב-Fireberry. הייבוא אינו משנה דבר ב-CRM.
+              קבצים שכבר מצורפים לרשומה של {company.name}, או הצעה/הזמנה קיימת עם כל השורות שבה.
+              הייבוא אינו משנה דבר ב-CRM.
             </p>
-            <div className="mt-3">
+            <div className="mt-3 flex flex-wrap gap-2">
               <CrmDocumentImport companyId={company.id} />
+              <CrmBusinessImport companyId={company.id} />
             </div>
           </div>
         ) : null}
