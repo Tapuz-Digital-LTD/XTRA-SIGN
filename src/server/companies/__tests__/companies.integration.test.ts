@@ -201,3 +201,20 @@ describe('input validation', () => {
     expect(row.contactPhone).toBe('+972501234567')
   })
 })
+
+describe('crmObjectTypeFor', () => {
+  it('falls back to the kind when the object type was never stored', async () => {
+    const { crmObjectTypeFor } = await import('../companies')
+    // A link made before the object type was recorded left the badge showing
+    // while every CRM action refused the company as "not connected".
+    expect(crmObjectTypeFor({ kind: 'supplier', crmObjectType: null })).toBe(1000)
+    expect(crmObjectTypeFor({ kind: 'customer', crmObjectType: null })).toBe(1)
+  })
+
+  it('prefers what was actually stored', () => {
+    // A custom object type must not be overwritten by the guess.
+    return import('../companies').then(({ crmObjectTypeFor }) => {
+      expect(crmObjectTypeFor({ kind: 'supplier', crmObjectType: 1 })).toBe(1)
+    })
+  })
+})

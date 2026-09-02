@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNotNull } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
-import { getCompany } from '@/server/companies/companies'
+import { crmObjectTypeFor, getCompany } from '@/server/companies/companies'
 import { getDb, schema } from '@/server/db'
 import { MAX_FILE_BYTES } from '@/server/documents/file-validation'
 import { processDocumentVersion } from '@/server/documents/process-document'
@@ -50,12 +50,16 @@ type LinkedCompany =
 async function linkedCompany(session: StaffSession, companyId: string): Promise<LinkedCompany> {
   const company = await getCompany(session, companyId)
   if (!company) return { ok: false, message: 'הספק או הלקוח לא נמצא.' }
-  if (!company.crmRecordId || company.crmObjectType == null) {
+  if (!company.crmRecordId) {
     return { ok: false, message: 'הרשומה אינה מחוברת ל-Fireberry.' }
   }
   return {
     ok: true,
-    company: { id: company.id, crmRecordId: company.crmRecordId, crmObjectType: company.crmObjectType },
+    company: {
+      id: company.id,
+      crmRecordId: company.crmRecordId,
+      crmObjectType: crmObjectTypeFor(company),
+    },
   }
 }
 

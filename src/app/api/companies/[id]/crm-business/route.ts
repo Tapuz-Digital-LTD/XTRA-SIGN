@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireSession } from '@/server/auth/session'
-import { getCompany } from '@/server/companies/companies'
+import { crmObjectTypeFor, getCompany } from '@/server/companies/companies'
 import { listBusinessDocuments } from '@/server/crm/business-documents'
 import { importBusinessDocument } from '@/server/crm/import-business-document'
 import { assertSameOrigin } from '@/server/http/csrf'
@@ -14,12 +14,12 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const session = await requireSession()
     const { id } = await context.params
     const company = await getCompany(session, id)
-    if (!company?.crmRecordId || company.crmObjectType == null) {
+    if (!company?.crmRecordId) {
       return NextResponse.json({ ok: true, documents: [] })
     }
 
     const documents = await listBusinessDocuments({
-      crmObjectType: company.crmObjectType,
+      crmObjectType: crmObjectTypeFor(company),
       crmRecordId: company.crmRecordId,
     })
     return NextResponse.json({ ok: true, documents })

@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { PDFDocument } from 'pdf-lib'
 import type { StaffSession } from '@/server/auth/session'
-import { getCompany } from '@/server/companies/companies'
+import { crmObjectTypeFor, getCompany } from '@/server/companies/companies'
 import { getDb, schema } from '@/server/db'
 import { processDocumentVersion } from '@/server/documents/process-document'
 import { uploadDocument } from '@/server/documents/upload-document'
@@ -37,7 +37,7 @@ export async function importBusinessDocument(input: {
 }): Promise<ImportResult> {
   const company = await getCompany(input.session, input.companyId)
   if (!company) return { ok: false, message: 'הספק או הלקוח לא נמצא.' }
-  if (!company.crmRecordId || company.crmObjectType == null) {
+  if (!company.crmRecordId) {
     return { ok: false, message: 'הרשומה אינה מחוברת ל-Fireberry.' }
   }
 
@@ -45,7 +45,7 @@ export async function importBusinessDocument(input: {
   // documents this company actually has rather than trusted. Without this,
   // any CRM record in the tenant could be pulled in by guessing an id.
   const available = await listBusinessDocuments({
-    crmObjectType: company.crmObjectType,
+    crmObjectType: crmObjectTypeFor(company),
     crmRecordId: company.crmRecordId,
   })
   const permitted = available.find(

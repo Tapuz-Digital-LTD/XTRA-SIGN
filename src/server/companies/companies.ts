@@ -363,6 +363,20 @@ export async function listCompanies(
 }
 
 /** One company, scoped to the tenant. null when it is missing or another org's. */
+/**
+ * Which CRM object a company's record lives in.
+ *
+ * Older links stored the record id without the object type, which left the page
+ * showing a CRM badge while every CRM action refused it as "not connected".
+ * The kind answers it: a supplier is object 1000, a customer is object 1.
+ */
+export function crmObjectTypeFor(company: {
+  kind: CompanyKind
+  crmObjectType: number | null
+}): number {
+  return company.crmObjectType ?? (company.kind === 'customer' ? 1 : 1000)
+}
+
 export async function getCompany(
   session: StaffSession,
   companyId: string,

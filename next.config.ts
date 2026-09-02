@@ -40,6 +40,10 @@ const nextConfig: NextConfig = {
       './src/server/signing/assets/**',
       './node_modules/@sparticuz/chromium/bin/**',
     ],
+    '/api/documents/**': [
+      './src/server/signing/assets/**',
+      './node_modules/@sparticuz/chromium/bin/**',
+    ],
   },
 
   /**

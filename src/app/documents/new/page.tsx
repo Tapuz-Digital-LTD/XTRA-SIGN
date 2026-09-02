@@ -64,9 +64,11 @@ export default async function NewDocumentPage({
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <div className="rounded-[var(--radius-card)] border border-line bg-surface p-6">
           <h2 className="text-base font-semibold text-fg">✏️ יצירה מאפס</h2>
-          <p className="mt-1 text-sm text-muted">כתיבת המסמך ישירות במערכת, בלי קובץ</p>
+          <p className="mt-1 text-sm text-muted">
+            כתיבה, עיצוב ושדות חתימה במסך אחד — בלי קובץ ובלי שלב ביניים
+          </p>
           <Link
-            href={`/documents/new/form?company=${company.id}`}
+            href={`/documents/new/write?company=${company.id}`}
             className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition-colors hover:border-brand"
           >
             כתיבת מסמך

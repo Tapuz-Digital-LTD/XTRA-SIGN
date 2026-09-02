@@ -51,6 +51,9 @@ const ALLOWED_ATTRS = new Set([
   'width', 'height', 'colspan', 'rowspan', 'border', 'cellpadding', 'cellspacing',
   'bgcolor', 'color', 'face', 'size', 'charset', 'name', 'content',
   'src', 'alt', 'href', 'title',
+  // The composer's own markers: which field a span is, and the key the
+  // rendered PDF is searched for. Dropping them silently loses every field.
+  'data-xtra-field', 'data-xtra-key', 'data-page-break',
 ])
 
 /** URL schemes a `src`/`href` may use. Everything else becomes nothing. */
