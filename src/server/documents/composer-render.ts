@@ -44,6 +44,9 @@ async function documentCss(): Promise<string> {
     tr, td, th, h1, h2, h3, li { break-inside: avoid; }
     /* The marker is measured, never read: invisible, but still in the text layer. */
     [data-xtra-field] { color: transparent; }
+    /* The attribute drives the break, so it does not depend on an inline style
+       surviving the editor, the sanitizer and the serialiser intact. */
+    [data-page-break] { break-before: page; page-break-before: always; height: 0; }
   `
   return fontCss
 }

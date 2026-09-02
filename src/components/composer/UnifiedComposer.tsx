@@ -25,6 +25,34 @@ import { PageBreakNode } from './page-break-node'
  * the page. Saving renders the document once and measures each field's real
  * position from the PDF, so what was written and what gets signed cannot drift.
  */
+/** A toolbar button. Defined once, not rebuilt on every render. */
+function Btn({
+  onClick,
+  active,
+  label,
+  children,
+}: {
+  onClick: () => void
+  active?: boolean
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={active}
+      title={label}
+      className={`inline-flex min-h-9 min-w-9 items-center justify-center rounded px-2 text-sm transition ${
+        active ? 'bg-brand text-white' : 'text-fg hover:bg-slate-100'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
 export function UnifiedComposer({ companyId, companyName }: { companyId: string; companyName: string }) {
   const router = useRouter()
   const [title, setTitle] = useState('')
@@ -106,31 +134,6 @@ export function UnifiedComposer({ companyId, companyName }: { companyId: string;
   }
 
   if (!editor) return <p className="p-6 text-sm text-muted">טוען עורך…</p>
-
-  const Btn = ({
-    onClick,
-    active,
-    label,
-    children,
-  }: {
-    onClick: () => void
-    active?: boolean
-    label: string
-    children: React.ReactNode
-  }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      aria-pressed={active}
-      title={label}
-      className={`inline-flex min-h-9 min-w-9 items-center justify-center rounded px-2 text-sm transition ${
-        active ? 'bg-brand text-white' : 'text-fg hover:bg-slate-100'
-      }`}
-    >
-      {children}
-    </button>
-  )
 
   return (
     <div className="flex min-h-dvh flex-col bg-bg">
