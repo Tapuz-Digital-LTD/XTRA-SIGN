@@ -32,8 +32,17 @@ export type EditorRecipient = {
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
-const ZOOM_MIN = 50
+const ZOOM_MIN = 25
 const ZOOM_MAX = 200
+
+/**
+ * The width one page occupies at 100%.
+ *
+ * A fixed base rather than a percentage of the container: with a percentage,
+ * "100%" meant something different on every window, and on a laptop it meant a
+ * page 1270px tall — so the editor opened showing the top third of page one.
+ */
+const PAGE_BASE_WIDTH = 794
 
 export function FieldEditor({
   documentId,
@@ -54,7 +63,9 @@ export function FieldEditor({
   const [saveError, setSaveError] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
 
-  const [zoom, setZoom] = useState(100)
+  // Null until measured: the right starting size is the one that puts a whole
+  // page on screen, which depends on the window rather than on a constant.
+  const [zoom, setZoom] = useState<number | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [placingType, setPlacingType] = useState<FieldType | null>(null)
   const [recipientOpen, setRecipientOpen] = useState(false)
@@ -287,6 +298,41 @@ export function FieldEditor({
 
   const setZoomClamped = (z: number) => setZoom(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)))
 
+  /**
+   * The zoom that puts one whole page on screen.
+   *
+   * An A4 page drawn at the container's full width is about 1270px tall, which
+   * is taller than the window — so the default view showed the top third of
+   * page one and nothing else. Fitting to height means the first thing you see
+   * is a page, which is what you are about to place fields on.
+   */
+  const fitZoom = useCallback(
+    (mode: 'page' | 'width') => {
+      const viewport = scrollRef.current
+      const first = pages[0]
+      if (!viewport || !first) return 100
+
+      const available = viewport.clientWidth - 32
+      const byWidth = (available / PAGE_BASE_WIDTH) * 100
+      if (mode === 'width') return Math.round(byWidth)
+
+      // Height drives it when the page is portrait, which A4 always is.
+      const heightLimit = viewport.clientHeight - 32
+      const pageHeightAtFullWidth = PAGE_BASE_WIDTH * (first.heightPt / first.widthPt)
+      const byHeight = (heightLimit / pageHeightAtFullWidth) * 100
+      return Math.round(Math.min(byWidth, byHeight))
+    },
+    [pages],
+  )
+
+  // Fit once the container has a size, and never fight the user afterwards.
+  useEffect(() => {
+    if (zoom !== null) return
+    setZoom(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, fitZoom('page'))))
+  }, [zoom, fitZoom])
+
+  const zoomValue = zoom ?? 100
+
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-slate-200">
       {/* ── top toolbar ─────────────────────────────────────────────────── */}
@@ -302,12 +348,27 @@ export function FieldEditor({
 
         {/* zoom */}
         <div className="flex items-center rounded-lg border border-line bg-white">
-          <button type="button" onClick={() => setZoomClamped(zoom - 25)} aria-label="הקטנה" className="min-h-9 w-9 text-lg text-fg hover:bg-slate-100">
+          <button type="button" onClick={() => setZoomClamped(zoomValue - 25)} aria-label="הקטנה" className="min-h-9 w-9 text-lg text-fg hover:bg-slate-100">
             −
           </button>
-          <span className="w-12 text-center text-xs tabular-nums text-fg">{zoom}%</span>
-          <button type="button" onClick={() => setZoomClamped(zoom + 25)} aria-label="הגדלה" className="min-h-9 w-9 text-lg text-fg hover:bg-slate-100">
+          <span className="w-12 text-center text-xs tabular-nums text-fg">{zoomValue}%</span>
+          <button type="button" onClick={() => setZoomClamped(zoomValue + 25)} aria-label="הגדלה" className="min-h-9 w-9 text-lg text-fg hover:bg-slate-100">
             +
+          </button>
+          <span aria-hidden="true" className="h-5 w-px bg-line" />
+          <button
+            type="button"
+            onClick={() => setZoomClamped(fitZoom('page'))}
+            className="min-h-9 whitespace-nowrap px-2 text-xs text-fg hover:bg-slate-100"
+          >
+            עמוד מלא
+          </button>
+          <button
+            type="button"
+            onClick={() => setZoomClamped(fitZoom('width'))}
+            className="min-h-9 whitespace-nowrap px-2 text-xs text-fg hover:bg-slate-100"
+          >
+            רוחב
           </button>
         </div>
         <button
@@ -374,7 +435,12 @@ export function FieldEditor({
       {/* ── document area ───────────────────────────────────────────────── */}
       <div className="relative flex min-h-0 flex-1">
         <div ref={scrollRef} className="min-w-0 flex-1 overflow-auto px-2 py-4">
-          <div className="mx-auto flex flex-col items-center gap-4" style={{ width: `${zoom}%`, maxWidth: zoom <= 100 ? '900px' : 'none' }}>
+          {/* Width is driven by the zoom against a fixed base, so 100% always
+              means the same physical size regardless of the window. */}
+          <div
+            className="mx-auto flex flex-col items-center gap-4"
+            style={{ width: `${(PAGE_BASE_WIDTH * zoomValue) / 100}px`, maxWidth: '100%' }}
+          >
             {pages.map((page) => (
               <div key={page.pageNumber} className="w-full">
                 <div
