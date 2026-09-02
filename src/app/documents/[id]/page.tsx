@@ -70,8 +70,13 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="truncate text-2xl font-bold tracking-tight text-fg">{doc.title}</h1>
-          <div className="mt-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <StatusBadge status={doc.status} />
+            {doc.fromCrm ? (
+              <span className="whitespace-nowrap rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+                מקור: Fireberry
+              </span>
+            ) : null}
           </div>
         </div>
 

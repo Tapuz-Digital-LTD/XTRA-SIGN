@@ -1,18 +1,29 @@
+'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 /**
  * The primary spaces. Suppliers and customers are kept apart on purpose — a
  * document is reached through the company it concerns, not from one flat list.
  */
 const NAV = [
+  { href: '/', label: 'לוח בקרה' },
   { href: '/suppliers', label: 'ספקים' },
   { href: '/customers', label: 'לקוחות' },
   { href: '/templates', label: 'תבניות' },
   { href: '/settings', label: 'הגדרות' },
 ]
 
+/** True for the section the user is in — exact for the dashboard, prefix elsewhere. */
+function isActive(pathname: string, href: string): boolean {
+  return href === '/' ? pathname === '/' : pathname.startsWith(href)
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+
   return (
     <div className="min-h-dvh bg-bg">
       {/*
@@ -24,7 +35,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
           <div className="flex items-center justify-between gap-4 py-3 sm:justify-start">
             <Link
-              href="/suppliers"
+              href="/"
               // items-center on the row, not baseline: the wordmark image and
               // the word "SIGN" now share a vertical centre line with the nav,
               // so the logo no longer floats above the menu.
@@ -55,7 +66,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm text-muted transition-colors hover:bg-slate-100 hover:text-fg"
+                  aria-current={isActive(pathname, item.href) ? 'page' : undefined}
+                  className={`inline-flex min-h-11 items-center rounded-lg px-3 text-sm transition-colors hover:bg-slate-100 hover:text-fg ${
+                    isActive(pathname, item.href) ? 'bg-slate-100 font-semibold text-fg' : 'text-muted'
+                  }`}
                 >
                   {item.label}
                 </Link>
@@ -79,7 +93,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg px-2 text-sm text-muted transition-colors hover:bg-slate-100 hover:text-fg"
+                aria-current={isActive(pathname, item.href) ? 'page' : undefined}
+                className={`inline-flex min-h-11 flex-1 items-center justify-center whitespace-nowrap rounded-lg px-1.5 text-[13px] transition-colors hover:bg-slate-100 hover:text-fg ${
+                  isActive(pathname, item.href) ? 'bg-slate-100 font-semibold text-fg' : 'text-muted'
+                }`}
               >
                 {item.label}
               </Link>

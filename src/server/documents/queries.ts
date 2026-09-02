@@ -142,6 +142,8 @@ export type DocumentDetail = {
   expiresAt: Date | null
   /** Whether that expiry is already in the past, resolved at request time. */
   linkExpired: boolean
+  /** Imported from Fireberry rather than uploaded here. */
+  fromCrm: boolean
   timeline: { type: string; createdAt: Date }[]
 }
 
@@ -230,6 +232,7 @@ export async function getDocumentDetail(agreementId: string): Promise<DocumentDe
     company: company ?? null,
     expiresAt: agreement.expiresAt,
     linkExpired: agreement.expiresAt ? agreement.expiresAt.getTime() < Date.now() : false,
+    fromCrm: Boolean(agreement.crmDocumentId),
     timeline,
   }
 }
