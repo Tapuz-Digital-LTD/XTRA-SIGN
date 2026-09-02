@@ -155,7 +155,41 @@ lifecycle (ביטול/שכפול/גרסה) · listDocuments/countDocuments (מת
 | M2 | Inbox: עמודות חברה/יוצר/מקור, פילטרים מלאים, חיפוש טלפון/אימייל, פעולות לפי סטטוס, מחיקת טיוטה | בינוני |
 | M3 | כרטיס חברה בטאבים + "מסמך חדש" מהכרטיס | קטן |
 | M4 | התראות (נחתם/נדחה/פג/כשל שליחה/כשל CRM) + badge + דשבורד "דורש טיפול" | בינוני |
-| M5 | מסמך קיים מ-Fireberry: בוחר הצעות/הזמנות, snapshot עם שורות פריטים, provenance, write-back לרשומת המקור (idempotent) | גדול |
-| M6 | Embedded (Record Component / Global Menu) על אותו אשף עם חברה מה-context | לפי התוכנית הקיימת |
+| M5 | מסמכים קיימים מ-Fireberry — שני סוגי מקור תחת מסך אחד (ראו פירוט) | גדול |
+| M6 | **Unified WYSIWYG Editor** — מחליף את הקומפוזר עבור "יצירה מאפס" (ראו פירוט) | גדול |
+| M7 | Embedded (Record Component / Global Menu) על אותו אשף עם חברה מה-context | לפי התוכנית הקיימת |
+| — | **Final Production QA** — מעבר E2E מלא על כל flow, ואין פיצ'רים חדשים לפני סגירת V1 | גייט |
 
 M1–M4 בלי תלות ב-Fireberry בכלל. M5 יושב על צנרת שכבר הוכחה ב-production.
+
+### M5 בפירוט — "מסמכים מ-Fireberry" הוא מסך אחד, שני מקורות
+
+המשתמש רואה רשימה אחת: "מסמכים מ-Fireberry". מאחורי הקלעים שני סוגים:
+
+**A. קובץ שכבר מצורף לרשומת הלקוח/הספק** (PDF וכד'):
+כרטיס חברה → מסמכי Fireberry → בחר → ייבוא ל-XTRA Sign → הוספת שדות → שליחה.
+הצנרת קיימת (listRecordFiles / downloadFile / uploadDocument) ועובדת ב-production.
+
+**B. מסמך עסקי דינמי** (הצעת מחיר, הזמנה):
+record ראשי + line items (אובייקט 17, לפי `itemorder`) → snapshot מלא של המסמך
+כפי שהוא, כולל טבלת הפריטים → עורך שדות → שליחה. שורה מוצגת אנושית:
+"הצעה 1758 · 11,000 ₪ · 07/03/2024".
+
+ההבדל הטכני בין A ל-B לא מוצג למשתמש. שניהם נפתחים באותו עורך שדות, שניהם
+שומרים provenance (`crm_object_type` + `crm_record_id` / `crm_document_id`),
+ולשניהם write-back של ה-PDF החתום **לרשומת המקור עצמה** (idempotent).
+
+### M6 בפירוט — Unified WYSIWYG Editor (חובה ב-V1)
+
+מחליף את ה-DocumentComposer עבור "יצירה מאפס". מסך אחד מאוחד — תוכן, עיצוב
+ושדות חתימה יחד. אין יותר "כתוב → צור PDF → המשך לשדות" למסמך חדש.
+
+יכולות: RTL מלא · כותרות · Bold/Italic/Underline · גודל וסוג פונט · צבע טקסט ·
+יישור · רשימות · טבלאות · תמונות/לוגו · page breaks · undo/redo · תצוגת עמודים
+כמסמך · שדות XTRA Sign (חתימה/שם/תאריך/checkbox/…) בתוך אותו editor · preview ·
+PDF סופי נאמן ככל האפשר לנראה בעורך.
+
+בסיס קיים: ה-spike של Tiptap (`src/labs/editor/` — XtraField inline atom node +
+ManualPageBreak) והצנרת HTML→PDF מ-Chromium שכבר רצה ב-production — ה-export
+של העורך והרנדור של תבניות Fireberry הם אותו מנוע. הקומפוזר הישן נשאר מאחורי
+הקלעים בזמן הפיתוח ואינו חלק מ-V1 הסופית.
