@@ -95,3 +95,22 @@ describe('getDashboardOverview', () => {
     expect(data.recentlySigned.map((s) => s.title)).toEqual(['חתום'])
   })
 })
+
+describe('version chains on the dashboard', () => {
+  it('counts one document, not one per version', async () => {
+    const [v1] = await db
+      .insert(schema.agreements)
+      .values({ organizationId: orgId, title: 'רב-גרסאות', status: 'canceled', ownerId: admin.userId, sentAt: new Date() })
+      .returning({ id: schema.agreements.id })
+    const [v2] = await db
+      .insert(schema.agreements)
+      .values({ organizationId: orgId, title: 'רב-גרסאות', status: 'sent', ownerId: admin.userId, sentAt: new Date(), supersedesId: v1.id })
+      .returning({ id: schema.agreements.id })
+    await db
+      .insert(schema.agreements)
+      .values({ organizationId: orgId, title: 'רב-גרסאות', status: 'sent', ownerId: admin.userId, sentAt: new Date(), supersedesId: v2.id })
+
+    const data = await getDashboardOverview(admin)
+    expect(data.attention.filter((a) => a.title === 'רב-גרסאות')).toHaveLength(1)
+  })
+})

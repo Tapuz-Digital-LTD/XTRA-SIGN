@@ -241,7 +241,10 @@ export async function listDocuments(
     .where(where)
 
   const rows = await base
-    .orderBy(desc(sql`coalesce(${activity.lastAt}, ${schema.agreements.createdAt})`))
+    // A stable tiebreaker: documents with no events share a timestamp, and
+    // without a second key the database is free to order ties differently per
+    // query — which makes page 2 repeat rows page 1 already showed.
+    .orderBy(desc(sql`coalesce(${activity.lastAt}, ${schema.agreements.createdAt})`), desc(schema.agreements.id))
     .limit(pageSize)
     .offset((page - 1) * pageSize)
 

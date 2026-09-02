@@ -43,6 +43,21 @@ export type DashboardOverview = {
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
+/**
+ * Excludes versions something else supersedes.
+ *
+ * A new version is its own agreement row, so without this one document appears
+ * on the dashboard as several near-identical entries — which is exactly what
+ * the list screens had to fix too.
+ */
+function latestVersionOnly() {
+  return sql`not exists (
+    select 1 from ${schema.agreements} newer
+    where newer.supersedes_id = ${schema.agreements.id}
+      and newer.organization_id = ${schema.agreements.organizationId}
+  )`
+}
+
 function scope(session: StaffSession) {
   return session.isAdmin
     ? eq(schema.agreements.organizationId, session.organizationId)
@@ -87,7 +102,7 @@ export async function getDashboardOverview(session: StaffSession): Promise<Dashb
       .from(schema.agreements)
       .leftJoin(schema.recipients, eq(schema.recipients.agreementId, schema.agreements.id))
       .leftJoin(schema.companies, eq(schema.companies.id, schema.agreements.companyId))
-      .where(and(scope(session), inArray(schema.agreements.status, ['sent', 'viewed'])))
+      .where(and(scope(session), latestVersionOnly(), inArray(schema.agreements.status, ['sent', 'viewed'])))
       .orderBy(sql`${schema.agreements.expiresAt} asc nulls last`)
       .limit(6),
 
@@ -100,7 +115,7 @@ export async function getDashboardOverview(session: StaffSession): Promise<Dashb
       })
       .from(schema.agreements)
       .leftJoin(schema.companies, eq(schema.companies.id, schema.agreements.companyId))
-      .where(and(scope(session), eq(schema.agreements.status, 'signed')))
+      .where(and(scope(session), latestVersionOnly(), eq(schema.agreements.status, 'signed')))
       .orderBy(desc(schema.agreements.completedAt))
       .limit(5),
 
