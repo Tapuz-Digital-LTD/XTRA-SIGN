@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { BrandKitForm } from '@/components/settings/BrandKitForm'
+import { SettingsNav } from '@/components/settings/SettingsNav'
 import { getSession } from '@/server/auth/session'
 import { getOrganizationProfile } from '@/server/organization/profile'
 
@@ -21,7 +22,8 @@ export default async function OrganizationSettingsPage() {
       <p className="mt-1 text-sm text-muted">
         הפרטים שמופיעים על המסמכים שאתם שולחים, והצבעים שבהם XTRA AI מעצב אותם.
       </p>
-      <div className="mt-6 rounded-[var(--radius-card)] border border-line bg-surface p-5">
+      <SettingsNav />
+      <div className="mt-4 rounded-[var(--radius-card)] border border-line bg-surface p-5">
         <BrandKitForm profile={profile} />
       </div>
     </AppShell>

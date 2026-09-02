@@ -8,7 +8,7 @@ import {
   renameGroup,
 } from '@/server/groups/groups'
 import { listTemplates } from '@/server/templates/templates'
-import { defineTool, schema, str, strList } from '../registry'
+import { defineTool, isIdError, requireId, schema, str, strList } from '../registry'
 
 /**
  * Groups, and sending to them.
@@ -162,7 +162,10 @@ export const listGroupCompaniesTool = defineTool<{ groupId: string }>({
   risk: 'safe',
   input: schema({ groupId: str('Group id') }, ['groupId']),
   async run({ groupId }, { session }) {
-    const companies = await listGroupCompanies(session, groupId)
+    const id = requireId(groupId, 'הקבוצה')
+    if (isIdError(id)) return id
+
+    const companies = await listGroupCompanies(session, id)
     return {
       summary: `${companies.length} חברות בקבוצה.`,
       target: { type: 'group', id: groupId },
@@ -191,7 +194,12 @@ export const prepareBulkSend = defineTool<{ groupId: string; templateId: string 
     'templateId',
   ]),
   async run({ groupId, templateId }, { session }) {
-    const plan = await planBulkSend({ session, groupId, templateId })
+    const group = requireId(groupId, 'הקבוצה')
+    if (isIdError(group)) return group
+    const template = requireId(templateId, 'התבנית')
+    if (isIdError(template)) return template
+
+    const plan = await planBulkSend({ session, groupId: group, templateId: template })
     const blocked = plan.rows.filter((row) => !row.ready)
 
     return {

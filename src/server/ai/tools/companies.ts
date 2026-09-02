@@ -7,7 +7,7 @@ import {
 } from '@/server/companies/companies'
 import { listDocuments } from '@/server/documents/queries'
 import { groupsForCompany } from '@/server/groups/groups'
-import { defineTool, schema, str } from '../registry'
+import { defineTool, isIdError, requireId, schema, str } from '../registry'
 
 /**
  * Suppliers and customers, through the very services the screens use.
@@ -67,9 +67,12 @@ export const getCompanyTool = defineTool<{ companyId: string }>({
   risk: 'safe',
   input: schema({ companyId: str('The company id') }, ['companyId']),
   async run({ companyId }, { session }) {
-    const company = await getCompany(session, companyId)
+    const id = requireId(companyId, 'החברה')
+    if (isIdError(id)) return id
+
+    const company = await getCompany(session, id)
     if (!company) return { summary: 'החברה לא נמצאה.' }
-    const groups = await groupsForCompany(session, companyId)
+    const groups = await groupsForCompany(session, id)
 
     return {
       summary: `${company.name}${company.taxId ? ` · ח.פ ${company.taxId}` : ''}`,
@@ -212,7 +215,10 @@ export const listCompanyDocuments = defineTool<{ companyId: string }>({
   risk: 'safe',
   input: schema({ companyId: str('The company id') }, ['companyId']),
   async run({ companyId }, { session }) {
-    const documents = await listDocuments(session, { companyId, filter: 'all', pageSize: MAX_ROWS })
+    const id = requireId(companyId, 'החברה')
+    if (isIdError(id)) return id
+
+    const documents = await listDocuments(session, { companyId: id, filter: 'all', pageSize: MAX_ROWS })
     return {
       summary: documents.items.length ? `${documents.items.length} מסמכים.` : 'אין מסמכים לחברה הזו.',
       data: {

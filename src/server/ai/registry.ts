@@ -80,6 +80,25 @@ export function allTools(): ToolDefinition<never>[] {
   return [...registry.values()]
 }
 
+/**
+ * Guards a record id before it reaches a query.
+ *
+ * A language model will happily shorten a UUID, and an id that is not one makes
+ * Postgres raise a syntax error the caller sees as "something went wrong". A
+ * tool that says plainly it needs the full id gets a usable retry instead.
+ */
+export function requireId(value: unknown, what = 'הרשומה'): string | { summary: string } {
+  const id = typeof value === 'string' ? value.trim() : ''
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+    ? id
+    : { summary: `לא זוהה מזהה תקין של ${what}. אפשר לחפש אותה בשם ולנסות שוב.` }
+}
+
+/** Narrows what `requireId` returned. */
+export function isIdError(value: string | { summary: string }): value is { summary: string } {
+  return typeof value !== 'string'
+}
+
 /** A string field. Kept terse because these are written many times over. */
 export const str = (description: string) => ({ type: 'string', description })
 export const num = (description: string) => ({ type: 'number', description })

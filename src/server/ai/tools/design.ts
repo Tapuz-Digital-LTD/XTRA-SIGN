@@ -1,6 +1,6 @@
 import { getOrganizationProfile, letterhead } from '@/server/organization/profile'
 import { saveComposedDocument } from '@/server/documents/composer-save'
-import { defineTool, schema, str, strList } from '../registry'
+import { defineTool, isIdError, requireId, schema, str } from '../registry'
 
 /**
  * Writing and designing documents.
@@ -199,6 +199,9 @@ export const createDesignedDocument = defineTool<{
     ['companyId', 'title', 'sections'],
   ),
   async run(input, { session }) {
+    const companyId = requireId(input.companyId, 'החברה')
+    if (isIdError(companyId)) return companyId
+
     const profile = await getOrganizationProfile(session)
     const html = composeHtml({
       title: input.title,
@@ -216,7 +219,7 @@ export const createDesignedDocument = defineTool<{
       session,
       title: input.title,
       html,
-      companyId: input.companyId,
+      companyId,
     })
     if (!result.ok) return { summary: result.message }
 

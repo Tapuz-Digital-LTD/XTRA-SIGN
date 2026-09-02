@@ -6,7 +6,7 @@ import { resendAgreement, sendAgreement } from '@/server/documents/send-agreemen
 import { authorizeAgreementAccess } from '@/server/documents/authorization'
 import { getDocumentDetail } from '@/server/documents/queries'
 import type { StaffSession } from '@/server/auth/session'
-import { defineTool, schema, str } from '../registry'
+import { defineTool, isIdError, requireId, schema, str } from '../registry'
 
 /**
  * One document, but only if this session may see it.
@@ -74,6 +74,10 @@ export const getDocumentStatus = defineTool<{ documentId: string }>({
   risk: 'safe',
   input: schema({ documentId: str('Document id') }, ['documentId']),
   async run({ documentId }, { session }) {
+    const checked = requireId(documentId, 'המסמך')
+    if (isIdError(checked)) return checked
+    documentId = checked
+
     // Authorized first, then read: the detail reader takes a bare id, so the
     // access check has to be the explicit one rather than a side effect.
     const doc = await authorizedDocument(session, documentId)
@@ -109,6 +113,13 @@ export const createFromTemplate = defineTool<{ templateId: string; companyId: st
     'companyId',
   ]),
   async run({ templateId, companyId }, { session, ip, userAgent }) {
+    const template = requireId(templateId, 'התבנית')
+    if (isIdError(template)) return template
+    const company = requireId(companyId, 'החברה')
+    if (isIdError(company)) return company
+    templateId = template
+    companyId = company
+
     const result = await createDocumentFromTemplate({
       session,
       templateId,

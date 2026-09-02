@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
+import { SettingsNav } from '@/components/settings/SettingsNav'
 import { UsersTable } from '@/components/settings/UsersTable'
 import { getSession } from '@/server/auth/session'
 import { listUsers } from '@/server/users/users'
@@ -20,7 +21,8 @@ export default async function UsersPage() {
         שנשלח ב-SMS למספר הטלפון שהוגדר — אין סיסמאות במערכת.
       </p>
 
-      <div className="mt-6">
+      <SettingsNav />
+      <div className="mt-4">
         <UsersTable users={users} currentUserId={session.userId} />
       </div>
     </AppShell>
