@@ -50,6 +50,7 @@ export const fieldType = pgEnum('field_type', [
 /** Two levels, as agreed. Anything finer is a permission system nobody asked for. */
 export const userRole = pgEnum('user_role', ['admin', 'user'])
 
+export const companyKind = pgEnum('company_kind', ['supplier', 'customer'])
 export const deliveryChannel = pgEnum('delivery_channel', ['email', 'sms'])
 
 export const deliveryStatus = pgEnum('delivery_status', ['queued', 'sent', 'failed'])
@@ -59,6 +60,41 @@ export const organizations = pgTable('organizations', {
   name: text('name').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
+
+/**
+ * A supplier or a customer the organization signs agreements with.
+ *
+ * Exists so a document is filed under the party it concerns rather than living
+ * in one flat list of everything ever sent. "McDonald's" is a company;
+ * every agreement with them hangs off this row, and its page is where they are
+ * managed — signed copies downloaded, a new one started.
+ *
+ * `kind` splits the two spaces the UI keeps apart: suppliers in one place,
+ * customers in another. Everything else is contact detail an operator fills in
+ * over time, all optional so a company can be created from just a name.
+ */
+export const companies = pgTable(
+  'companies',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    kind: companyKind('kind').notNull(),
+    name: text('name').notNull(),
+    /** ח.פ / ע.מ — the company's registration number, free text. */
+    taxId: text('tax_id'),
+    contactName: text('contact_name'),
+    /** Stored as given; used to prefill a recipient, not as a login credential. */
+    contactPhone: text('contact_phone'),
+    contactEmail: text('contact_email'),
+    notes: text('notes'),
+    /** Soft delete: agreements keep pointing at the company they were filed under. */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('companies_org_kind_idx').on(t.organizationId, t.kind)],
+)
 
 export const users = pgTable(
   'users',
@@ -219,6 +255,8 @@ export const agreements = pgTable(
       .notNull()
       .references(() => organizations.id),
     templateId: uuid('template_id').references(() => templates.id),
+    /** The supplier/customer this agreement is filed under, if any. */
+    companyId: uuid('company_id').references(() => companies.id),
     title: text('title').notNull(),
     status: agreementStatus('status').default('draft').notNull(),
     ownerId: uuid('owner_id')
@@ -235,6 +273,7 @@ export const agreements = pgTable(
   (t) => [
     index('agreements_org_status_idx').on(t.organizationId, t.status),
     index('agreements_owner_idx').on(t.ownerId),
+    index('agreements_company_idx').on(t.companyId),
   ],
 )
 

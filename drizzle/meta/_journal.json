@@ -57,6 +57,13 @@
       "when": 1788300003066,
       "tag": "0007_templates_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788337631902,
+      "tag": "0008_majestic_wallflower",
+      "breakpoints": true
     }
   ]
 }

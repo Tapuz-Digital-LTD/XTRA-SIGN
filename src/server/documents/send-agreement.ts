@@ -208,8 +208,6 @@ export async function resendAgreement(input: {
     return { ok: false, message: 'ניתן לשלוח תזכורת רק למסמך שממתין לחתימה.' }
   }
 
-  // A reminder must not mint a second link: the one already sent stays the only
-  // valid one, so a resend cannot orphan a link the signer already opened.
   const db = getDb()
   const [recipient] = await db
     .select()
@@ -227,9 +225,12 @@ export async function resendAgreement(input: {
 
   if (!existing) return { ok: false, message: 'לא נמצא קישור חתימה פעיל.' }
 
-  // The raw token was never stored, so a reminder cannot rebuild the link. It
-  // is regenerated and the old hash replaced — the previously sent link stops
-  // working, which is why this is a deliberate action and not automatic.
+  // The raw token was never stored, so the original URL cannot be rebuilt to
+  // put in the reminder. The token is rotated in place — same row, so a signer
+  // who already verified keeps their session (it is bound to the row, not the
+  // URL) — and the fresh link is the one sent. The previously sent URL stops
+  // resolving, matching the "newest message is the one that works" rule the
+  // OTP resends use. This is why a reminder is a deliberate action, not silent.
   const token = generateToken()
   await db
     .update(schema.signingTokens)

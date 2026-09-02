@@ -288,6 +288,7 @@ export async function createComposedDocument(input: {
   session: StaffSession
   title: string
   text: string
+  companyId?: string | null
   ip?: string | null
   userAgent?: string | null
 }): Promise<ComposeResult> {
@@ -319,6 +320,7 @@ export async function createComposedDocument(input: {
     buffer: pdf,
     filename: `${title}.pdf`,
     origin: { composed: true },
+    companyId: input.companyId ?? null,
     ip: input.ip,
     userAgent: input.userAgent,
   })

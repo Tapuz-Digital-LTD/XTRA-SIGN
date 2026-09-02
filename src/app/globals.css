@@ -59,3 +59,18 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * iOS Safari zooms the whole page in when a focused input's font-size is under
+ * 16px, and does not zoom back out — which is what made entering the OTP and
+ * phone number lurch and enlarge. Form controls are 16px on small screens so
+ * the focus never triggers it. Page zoom itself stays available, so this does
+ * not cost accessibility the way `maximum-scale=1` would.
+ */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

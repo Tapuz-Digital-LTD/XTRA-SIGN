@@ -59,7 +59,7 @@ function previewLines(text: string): Line[] {
   return out
 }
 
-export function DocumentComposer() {
+export function DocumentComposer({ companyId }: { companyId?: string | null }) {
   const router = useRouter()
   const [title, setTitle] = useState('')
   const [text, setText] = useState('')
@@ -76,7 +76,7 @@ export function DocumentComposer() {
       const response = await fetch('/api/documents/compose', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, text }),
+        body: JSON.stringify({ title, text, ...(companyId ? { companyId } : {}) }),
       })
       const data = await response.json().catch(() => null)
       if (!response.ok) {

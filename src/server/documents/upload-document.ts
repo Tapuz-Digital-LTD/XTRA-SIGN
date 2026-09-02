@@ -27,6 +27,8 @@ export type UploadDocumentInput = {
   existingKey?: string
   /** Where the document came from, when not a plain upload. Recorded, never trusted for anything. */
   origin?: { templateId: string } | { composed: true }
+  /** The supplier/customer this document is filed under. Verified by the caller. */
+  companyId?: string | null
   ip?: string | null
   userAgent?: string | null
 }
@@ -78,6 +80,7 @@ export async function uploadDocument(input: UploadDocumentInput): Promise<Upload
       id: agreementId,
       organizationId: session.organizationId,
       templateId: input.origin && 'templateId' in input.origin ? input.origin.templateId : null,
+      companyId: input.companyId ?? null,
       title,
       status: 'draft',
       ownerId: session.userId,
@@ -147,6 +150,7 @@ export async function adoptUploadedDocument(input: {
   session: StaffSession
   key: string
   filename: string
+  companyId?: string | null
   ip?: string | null
   userAgent?: string | null
 }): Promise<
@@ -166,6 +170,7 @@ export async function adoptUploadedDocument(input: {
     buffer: bytes,
     filename: input.filename,
     existingKey: input.key,
+    companyId: input.companyId ?? null,
     ip: input.ip,
     userAgent: input.userAgent,
   })

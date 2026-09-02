@@ -3,9 +3,18 @@ import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { DocumentComposer } from '@/components/DocumentComposer'
 import { getSession } from '@/server/auth/session'
+import { getCompany } from '@/server/companies/companies'
 
-export default async function ComposeDocumentPage() {
-  if (!(await getSession())) redirect('/login')
+export default async function ComposeDocumentPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ company?: string }>
+}) {
+  const session = await getSession()
+  if (!session) redirect('/login')
+
+  const { company: companyParam } = await searchParams
+  const company = companyParam ? await getCompany(session, companyParam) : null
 
   return (
     <AppShell>
@@ -17,7 +26,7 @@ export default async function ComposeDocumentPage() {
           </p>
         </div>
         <Link
-          href="/documents/new"
+          href={company ? `/documents/new?company=${company.id}` : '/documents/new'}
           className="text-sm text-muted underline-offset-4 hover:text-fg hover:underline"
         >
           חזרה
@@ -25,7 +34,7 @@ export default async function ComposeDocumentPage() {
       </div>
 
       <div className="mt-6">
-        <DocumentComposer />
+        <DocumentComposer companyId={company?.id ?? null} />
       </div>
     </AppShell>
   )

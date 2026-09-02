@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useRef, useState } from 'react'
 
-export function UploadCard() {
+export function UploadCard({ companyId }: { companyId?: string | null }) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
@@ -43,7 +43,12 @@ export function UploadCard() {
       const adopt = await fetch('/api/documents/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ step: 'adopt', key: presigned.key, filename: file.name }),
+        body: JSON.stringify({
+          step: 'adopt',
+          key: presigned.key,
+          filename: file.name,
+          ...(companyId ? { companyId } : {}),
+        }),
       })
       const data = await adopt.json().catch(() => null)
       if (!adopt.ok) {

@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { DocumentPreview } from '@/components/DocumentPreview'
 import { SaveAsTemplate } from '@/components/SaveAsTemplate'
+import { RemindButton } from '@/components/RemindButton'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Timeline } from '@/components/Timeline'
 import { ForbiddenError, getSession } from '@/server/auth/session'
@@ -27,8 +28,27 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
   const doc = await getDocumentDetail(id)
   if (!doc) notFound()
 
+  const expiryFormatter = new Intl.DateTimeFormat('he-IL', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
   return (
     <AppShell>
+      {doc.company ? (
+        <div className="mb-4">
+          <Link
+            href={`/companies/${doc.company.id}`}
+            className="text-sm text-muted underline-offset-4 hover:text-fg hover:underline"
+          >
+            → {doc.company.name}
+          </Link>
+        </div>
+      ) : null}
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="truncate text-2xl font-bold tracking-tight text-fg">{doc.title}</h1>
@@ -52,6 +72,13 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
             >
               הוספת שדות
             </Link>
+          ) : null}
+          {(doc.status === 'sent' || doc.status === 'viewed') && doc.recipient ? (
+            <RemindButton
+              documentId={doc.id}
+              hasPhone={Boolean(doc.recipient.phone)}
+              hasEmail={Boolean(doc.recipient.email)}
+            />
           ) : null}
         </div>
       </div>
@@ -99,6 +126,22 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
               <p className="mt-2 text-sm text-muted">טרם נבחר חותם.</p>
             )}
           </div>
+
+          {/* Link validity — only meaningful once the document has been sent. */}
+          {doc.expiresAt && (doc.status === 'sent' || doc.status === 'viewed') ? (
+            <div className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
+              <h2 className="text-sm font-semibold text-fg">קישור החתימה</h2>
+              <p className="mt-2 text-sm text-fg">
+                {doc.linkExpired ? 'פג בתאריך' : 'בתוקף עד'}{' '}
+                <time dateTime={new Date(doc.expiresAt).toISOString()} className="font-medium">
+                  {expiryFormatter.format(new Date(doc.expiresAt))}
+                </time>
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                החותם יכול לפתוח את הקישור שוב עד למועד זה. תזכורת נשלחת אוטומטית לפני שהמסמך נחתם.
+              </p>
+            </div>
+          ) : null}
 
           <div className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
             <h2 className="text-sm font-semibold text-fg">היסטוריית המסמך</h2>

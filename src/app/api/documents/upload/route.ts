@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireSession, UnauthorizedError } from '@/server/auth/session'
 import { buildStorageKey, MAX_FILE_BYTES } from '@/server/documents/file-validation'
+import { resolveOwnCompanyId } from '@/server/companies/companies'
 import { adoptUploadedDocument } from '@/server/documents/upload-document'
 import { CsrfError, assertSameOrigin } from '@/server/http/csrf'
 import { consume } from '@/server/http/rate-limit'
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
     }
 
     const body = (await request.json().catch(() => null)) as
-      | { step?: string; key?: string; filename?: string }
+      | { step?: string; key?: string; filename?: string; companyId?: string }
       | null
 
     if (body?.step === 'presign') {
@@ -70,10 +71,16 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: { message: 'הבקשה נדחתה.' } }, { status: 403 })
       }
 
+      const companyId = await resolveOwnCompanyId(
+        session,
+        typeof body.companyId === 'string' ? body.companyId : null,
+      )
+
       const result = await adoptUploadedDocument({
         session,
         key: body.key,
         filename: typeof body.filename === 'string' ? body.filename : 'מסמך.pdf',
+        companyId,
         ip: clientIp(request),
         userAgent: request.headers.get('user-agent'),
       })

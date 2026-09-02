@@ -42,13 +42,17 @@ function scope(session: StaffSession) {
 
 export async function listDocuments(
   session: StaffSession,
-  options: { filter?: ListFilter; search?: string } = {},
+  options: { filter?: ListFilter; search?: string; companyId?: string } = {},
 ): Promise<DocumentListItem[]> {
   const db = getDb()
   const filter = options.filter ?? 'all'
   const search = options.search?.trim()
 
   const conditions = [scope(session)]
+
+  if (options.companyId) {
+    conditions.push(eq(schema.agreements.companyId, options.companyId))
+  }
 
   if (filter !== 'all') {
     conditions.push(inArray(schema.agreements.status, FILTER_STATUSES[filter]))
@@ -90,8 +94,14 @@ export async function listDocuments(
 export type DocumentCounts = { pending: number; signed: number; drafts: number }
 
 /** The three numbers on the list header. One query, not three. */
-export async function countDocuments(session: StaffSession): Promise<DocumentCounts> {
+export async function countDocuments(
+  session: StaffSession,
+  options: { companyId?: string } = {},
+): Promise<DocumentCounts> {
   const db = getDb()
+  const where = options.companyId
+    ? and(scope(session), eq(schema.agreements.companyId, options.companyId))
+    : scope(session)
   const [row] = await db
     .select({
       pending: sql<number>`count(*) filter (where ${schema.agreements.status} in ('sent','viewed'))`,
@@ -99,7 +109,7 @@ export async function countDocuments(session: StaffSession): Promise<DocumentCou
       drafts: sql<number>`count(*) filter (where ${schema.agreements.status} = 'draft')`,
     })
     .from(schema.agreements)
-    .where(scope(session))
+    .where(where)
 
   return {
     pending: Number(row?.pending ?? 0),
@@ -123,6 +133,12 @@ export type DocumentDetail = {
   /** True when the rendered PDF came from a Word file rather than being one. */
   wasConverted: boolean
   recipient: { name: string; company: string | null; phone: string | null; email: string | null } | null
+  /** The supplier/customer this document is filed under, for a link back. */
+  company: { id: string; name: string; kind: 'supplier' | 'customer' } | null
+  /** When the signing link expires, if the document has been sent. */
+  expiresAt: Date | null
+  /** Whether that expiry is already in the past, resolved at request time. */
+  linkExpired: boolean
   timeline: { type: string; createdAt: Date }[]
 }
 
@@ -158,6 +174,18 @@ export async function getDocumentDetail(agreementId: string): Promise<DocumentDe
     .from(schema.recipients)
     .where(eq(schema.recipients.agreementId, agreementId))
     .limit(1)
+
+  const [company] = agreement.companyId
+    ? await db
+        .select({
+          id: schema.companies.id,
+          name: schema.companies.name,
+          kind: schema.companies.kind,
+        })
+        .from(schema.companies)
+        .where(eq(schema.companies.id, agreement.companyId))
+        .limit(1)
+    : []
 
   const pages = versions[0]
     ? await db
@@ -196,6 +224,9 @@ export async function getDocumentDetail(agreementId: string): Promise<DocumentDe
       version?.renderedFileKey && version.renderedFileKey !== version.sourceFileKey,
     ),
     recipient: recipient ?? null,
+    company: company ?? null,
+    expiresAt: agreement.expiresAt,
+    linkExpired: agreement.expiresAt ? agreement.expiresAt.getTime() < Date.now() : false,
     timeline,
   }
 }
