@@ -9,6 +9,7 @@ import { getSession } from '@/server/auth/session'
 import { crmObjectTypeFor, getCompany } from '@/server/companies/companies'
 import { listBusinessDocuments } from '@/server/crm/business-documents'
 import { countDocuments, listDocuments, type ListFilter } from '@/server/documents/queries'
+import { groupsForCompany } from '@/server/groups/groups'
 
 const DOC_FILTERS: { key: ListFilter; label: string }[] = [
   { key: 'all', label: 'הכול' },
@@ -47,7 +48,7 @@ export default async function CompanyPage({
     ? (query.filter as ListFilter)
     : 'all'
 
-  const [documents, counts, quotes] = await Promise.all([
+  const [documents, counts, quotes, memberOf] = await Promise.all([
     listDocuments(session, { companyId: id, filter, pageSize: 100 }),
     countDocuments(session, { companyId: id }),
     // Only when that tab is open: it is a live CRM call, not a local count.
@@ -57,6 +58,7 @@ export default async function CompanyPage({
           crmRecordId: company.crmRecordId,
         }).catch(() => [])
       : Promise.resolve([]),
+    groupsForCompany(session, id),
   ])
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
@@ -79,6 +81,23 @@ export default async function CompanyPage({
       </div>
 
       <CompanyHeader company={company} noun={noun} crmAppUrl={process.env.FIREBERRY_APP_URL ?? null} />
+
+      {/* The groups this company is in. Each is a link back to the filtered
+          list, so a chip answers "who else is in here?" in one click. */}
+      {memberOf.length > 0 ? (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted">קבוצות:</span>
+          {memberOf.map((group) => (
+            <Link
+              key={group.id}
+              href={`/${company.kind === 'supplier' ? 'suppliers' : 'customers'}?group=${group.id}`}
+              className="inline-flex min-h-8 items-center rounded-full bg-bg px-2.5 text-xs text-fg transition hover:bg-slate-200"
+            >
+              {group.name}
+            </Link>
+          ))}
+        </div>
+      ) : null}
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
         <nav className="flex gap-1 rounded-lg bg-bg p-1" aria-label="מידע על החברה">

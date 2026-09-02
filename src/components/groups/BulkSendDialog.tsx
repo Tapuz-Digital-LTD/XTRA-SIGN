@@ -131,6 +131,7 @@ export function BulkSendDialog({
 
   const ready = plan?.rows.filter((r) => r.ready) ?? []
   const blocked = plan?.rows.filter((r) => !r.ready) ?? []
+  const personalizedCount = plan?.rows[0]?.personalized.length ?? 0
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
@@ -182,6 +183,11 @@ export function BulkSendDialog({
               <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-fg">
                 ייווצרו וישלחו <strong>{ready.length} מסמכים נפרדים</strong> — אחד לכל חברה, כל אחד משויך אליה.
                 {blocked.length > 0 ? <> {blocked.length} חברות לא יישלחו.</> : null}
+                {personalizedCount > 0 ? (
+                  <div className="mt-1 text-xs text-muted">
+                    כל מסמך ימולא בנתונים של החברה שלו ({personalizedCount} שדות אישיים).
+                  </div>
+                ) : null}
               </div>
 
               <table className="mt-3 w-full text-start text-sm">
@@ -196,7 +202,16 @@ export function BulkSendDialog({
                 <tbody>
                   {plan.rows.map((row) => (
                     <tr key={row.companyId} className="border-b border-line last:border-0">
-                      <td className="max-w-[12rem] py-2"><span className="block truncate">{row.companyName}</span></td>
+                      <td className="max-w-[12rem] py-2">
+                        <span className="block truncate">{row.companyName}</span>
+                        {/* What this company's copy will actually say, so the
+                            personalization is visible before anything is sent. */}
+                        {row.personalized.length > 0 ? (
+                          <span className="mt-0.5 block truncate text-xs text-muted">
+                            {row.personalized.map((entry) => `${entry.label}: ${entry.value}`).join(' · ')}
+                          </span>
+                        ) : null}
+                      </td>
                       <td className="max-w-[8rem] py-2"><span className="block truncate text-muted">{row.contactName ?? '—'}</span></td>
                       <td className="max-w-[10rem] py-2" dir="ltr"><span className="block truncate text-muted">{row.contactPhone ?? row.contactEmail ?? '—'}</span></td>
                       <td className="py-2">

@@ -60,6 +60,11 @@ export type PlacedField = {
   placeholder: string | null
   /** System-filled at signing (a date stamped with the signing date). */
   autoFill: boolean
+  /**
+   * Where a sender field's value comes from when the document is made for a
+   * company — 'company.name', 'company.tax_id', and so on. Null means typed.
+   */
+  autoSource: string | null
 }
 
 export type PageGeometry = {

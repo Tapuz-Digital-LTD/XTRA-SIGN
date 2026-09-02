@@ -87,6 +87,7 @@ export async function renderComposedDocument(html: string): Promise<RenderedDocu
       options: null,
       placeholder: null,
       autoFill: false,
+      autoSource: null,
     })
   }
 

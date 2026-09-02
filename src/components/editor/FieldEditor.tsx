@@ -121,6 +121,7 @@ export function FieldEditor({
         options: type === 'select' ? ['אפשרות 1', 'אפשרות 2'] : null,
         placeholder: null,
         autoFill: false,
+            autoSource: null,
       },
     ])
     setSelectedId(id)

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CompanyForm } from '@/components/companies/CompanyForm'
@@ -24,6 +25,8 @@ export function CompanyList({
   kind,
   noun,
   search,
+  groups,
+  activeGroup,
   crmEnabled,
 }: {
   companies: CompanyListItem[]
@@ -31,6 +34,10 @@ export function CompanyList({
   noun: string
   /** The active server-side search term (from the URL). */
   search: string
+  /** The groups for this kind, shown as filter chips. */
+  groups: { id: string; name: string; companyCount: number }[]
+  /** The group currently filtered on, from the URL. */
+  activeGroup: string | null
   crmEnabled: boolean
 }) {
   const router = useRouter()
@@ -193,6 +200,40 @@ export function CompanyList({
         <CompanyForm kind={kind} noun={noun} crmAvailable={crmEnabled} onCancel={() => setAdding(false)} onDone={() => setAdding(false)} />
       ) : null}
 
+      {groups.length > 0 ? (
+        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" aria-label="סינון לפי קבוצה">
+          {/* Horizontal and scrollable: a long list of groups must not push the
+              table off the screen, and on a phone this is a natural swipe. */}
+          <Link
+            href={`/${kind === 'supplier' ? 'suppliers' : 'customers'}${search ? `?q=${encodeURIComponent(search)}` : ''}`}
+            className={`inline-flex min-h-9 shrink-0 items-center rounded-full px-3 text-sm transition-colors ${
+              activeGroup ? 'bg-surface text-muted hover:text-fg' : 'bg-brand text-white'
+            }`}
+          >
+            הכול
+          </Link>
+          {groups.map((group) => {
+            const params = new URLSearchParams()
+            if (search) params.set('q', search)
+            params.set('group', group.id)
+            return (
+              <Link
+                key={group.id}
+                href={`/${kind === 'supplier' ? 'suppliers' : 'customers'}?${params}`}
+                className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm transition-colors ${
+                  activeGroup === group.id ? 'bg-brand text-white' : 'bg-surface text-muted hover:text-fg'
+                }`}
+              >
+                <span className="max-w-40 truncate">{group.name}</span>
+                <span className={`text-xs tabular-nums ${activeGroup === group.id ? 'text-white/80' : 'text-muted'}`}>
+                  {group.companyCount}
+                </span>
+              </Link>
+            )
+          })}
+        </div>
+      ) : null}
+
       {crmCount > 0 ? (
         <div className="flex flex-wrap gap-1" role="tablist" aria-label="סינון לפי מקור">
           {filters.map((f) => (
@@ -220,7 +261,7 @@ export function CompanyList({
           </button>
           <span className="ms-auto flex flex-wrap gap-2">
             <AddToGroupButton companyIds={selectedList} onDone={() => setSelected(new Set())} />
-            <NewGroupButton companyIds={selectedList} label="צור קבוצה מהבחירה" />
+            <NewGroupButton companyIds={selectedList} label="צור קבוצה מהבחירה" defaultKind={kind} />
             <a
               href={`/api/companies/export?ids=${selectedList.join(',')}`}
               className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-3 text-sm text-fg transition hover:border-brand"

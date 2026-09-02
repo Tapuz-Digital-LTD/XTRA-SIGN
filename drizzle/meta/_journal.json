@@ -141,6 +141,13 @@
       "when": 1788380286702,
       "tag": "0019_colorful_carnage",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1788382247017,
+      "tag": "0020_free_inhumans",
+      "breakpoints": true
     }
   ]
 }

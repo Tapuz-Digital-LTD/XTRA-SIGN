@@ -4,17 +4,21 @@ import { CompanyList } from '@/components/companies/CompanyList'
 import { getSession } from '@/server/auth/session'
 import { listCompanies } from '@/server/companies/companies'
 import { getCrmProvider } from '@/server/crm/fireberry'
+import { listGroups } from '@/server/groups/groups'
 
 export default async function SuppliersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>
+  searchParams: Promise<{ q?: string; group?: string }>
 }) {
   const session = await getSession()
   if (!session) redirect('/login')
-  const { q } = await searchParams
+  const { q, group } = await searchParams
 
-  const companies = await listCompanies(session, 'supplier', q)
+  const [companies, groups] = await Promise.all([
+    listCompanies(session, 'supplier', q, group),
+    listGroups(session, 'supplier'),
+  ])
 
   return (
     <AppShell>
@@ -23,7 +27,7 @@ export default async function SuppliersPage({
         כל ספק במקום אחד — הפרטים שלו וכל המסמכים שנשלחו אליו לחתימה.
       </p>
       <div className="mt-6">
-        <CompanyList companies={companies} kind="supplier" search={q ?? ''} noun="ספק" crmEnabled={getCrmProvider().isConfigured()} />
+        <CompanyList companies={companies} kind="supplier" search={q ?? ''} groups={groups} activeGroup={group ?? null} noun="ספק" crmEnabled={getCrmProvider().isConfigured()} />
       </div>
     </AppShell>
   )

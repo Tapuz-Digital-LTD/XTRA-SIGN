@@ -7,14 +7,18 @@ import { useState } from 'react'
 export function NewGroupButton({
   companyIds,
   label = '+ קבוצה חדשה',
+  /** Preselected when the button sits on a suppliers or customers screen. */
+  defaultKind = null,
 }: {
   companyIds?: string[]
   label?: string
+  defaultKind?: 'supplier' | 'customer' | null
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [kind, setKind] = useState<'supplier' | 'customer'>(defaultKind ?? 'supplier')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -26,7 +30,7 @@ export function NewGroupButton({
       const response = await fetch('/api/groups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description: description || null, companyIds }),
+        body: JSON.stringify({ name, description: description || null, kind, companyIds }),
       })
       const data = await response.json().catch(() => null)
       if (!response.ok) {
@@ -76,6 +80,39 @@ export function NewGroupButton({
             className="mt-1 h-11 w-full rounded-lg border border-line bg-bg px-3 text-sm text-fg outline-none focus:border-brand"
           />
         </label>
+        <fieldset className="mt-4">
+          <legend className="text-sm text-muted">הקבוצה מיועדת ל־</legend>
+          {/* Suppliers and customers get different agreements, so a group holds
+              one or the other and the send screens stay uncluttered. */}
+          <div className="mt-1 grid grid-cols-2 gap-2">
+            {(
+              [
+                { value: 'supplier', label: 'ספקים' },
+                { value: 'customer', label: 'לקוחות' },
+              ] as const
+            ).map((option) => (
+              <label
+                key={option.value}
+                className={`flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 text-sm transition ${
+                  kind === option.value
+                    ? 'border-brand bg-blue-50 font-medium text-fg'
+                    : 'border-line bg-surface text-muted hover:border-brand'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="group-kind"
+                  value={option.value}
+                  checked={kind === option.value}
+                  onChange={() => setKind(option.value)}
+                  className="size-4"
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
         <label className="mt-3 block text-sm">
           <span className="text-muted">תיאור</span>
           <textarea

@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
 import { ForbiddenError } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
+import { isAutoSource } from '@/server/documents/personalization'
 import { clampToPage, toVariableKey, type FieldType, type PlacedField } from '@/lib/fields'
 import { authorizeAgreementAccess } from './authorization'
 
@@ -76,6 +77,7 @@ export async function saveFields(input: {
       options: parsed.options,
       placeholder: parsed.placeholder,
       autoFill: parsed.autoFill,
+      autoSource: parsed.autoSource,
       // Only a field we fill in carries a value at this stage.
       value: parsed.ownedBy === 'sender' ? parsed.value : null,
     })
@@ -142,6 +144,9 @@ function parseField(raw: unknown, pageCount: number): PlacedField | null {
     options,
     placeholder: typeof f.placeholder === 'string' ? f.placeholder.slice(0, 200) : null,
     autoFill: f.autoFill === true,
+    // Validated against the known sources: an arbitrary string here would be a
+    // silent no-op at send time rather than a rejected layout.
+    autoSource: isAutoSource(f.autoSource) ? f.autoSource : null,
   }
 }
 
@@ -167,6 +172,7 @@ export async function loadFields(versionId: string): Promise<PlacedField[]> {
     options: (row.options as string[] | null) ?? null,
     placeholder: row.placeholder,
     autoFill: row.autoFill,
+    autoSource: row.autoSource ?? null,
   }))
 }
 

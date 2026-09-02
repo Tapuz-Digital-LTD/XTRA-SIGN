@@ -698,6 +698,14 @@ export const fields = pgTable(
     placeholder: text('placeholder'),
     /** Filled by the system at signing time (a date field stamped with the signing date). */
     autoFill: boolean('auto_fill').default(false).notNull(),
+    /**
+     * Where a sender-filled field takes its value from, for a template sent to
+     * many companies at once: 'company.name', 'company.tax_id' and so on.
+     *
+     * Null means someone types it. This is what makes a bulk send produce a
+     * different document per company rather than the same PDF forty times.
+     */
+    autoSource: text('auto_source'),
     filledAt: timestamp('filled_at', { withTimezone: true }),
   },
   (t) => [index('fields_version_idx').on(t.agreementVersionId)],

@@ -215,6 +215,7 @@ export type GroupCompany = {
   contactName: string | null
   contactPhone: string | null
   contactEmail: string | null
+  address: string | null
   fromCrm: boolean
   /** Whether a bulk send could reach this company without someone filling something in. */
   readyToSend: boolean
@@ -249,6 +250,7 @@ export async function listGroupCompanies(
       contactName: schema.companies.contactName,
       contactPhone: schema.companies.contactPhone,
       contactEmail: schema.companies.contactEmail,
+      address: schema.companies.address,
       crmRecordId: schema.companies.crmRecordId,
     })
     .from(schema.companyGroups)
@@ -265,6 +267,7 @@ export async function listGroupCompanies(
     contactName: row.contactName,
     contactPhone: row.contactPhone,
     contactEmail: row.contactEmail,
+    address: row.address,
     fromCrm: Boolean(row.crmRecordId),
     // A signer needs a name, and somewhere to send the link.
     readyToSend: Boolean(row.contactName?.trim() && (row.contactPhone || row.contactEmail)),

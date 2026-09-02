@@ -6,7 +6,8 @@ import { sendAgreement } from '@/server/documents/send-agreement'
 import { log } from '@/server/log'
 import { authorizeGroup, listGroupCompanies } from '@/server/groups/groups'
 import { createDocumentFromTemplate } from '@/server/templates/templates'
-import { authorizeTemplateAccess } from '@/server/templates/templates'
+import { authorizeTemplateAccess, templateAutoFields } from '@/server/templates/templates'
+import { autoSourceLabel, personalize } from '@/server/documents/personalization'
 
 /**
  * Sending one template to every company in a group.
@@ -36,6 +37,8 @@ export type BulkPlanRow = {
   contactEmail: string | null
   ready: boolean
   reason: string | null
+  /** The company's own values for the template's auto fields, for the preview. */
+  personalized: { label: string; value: string }[]
 }
 
 export type BulkPlan = {
@@ -58,24 +61,45 @@ export async function planBulkSend(input: {
   templateId: string
 }): Promise<BulkPlan> {
   const template = await authorizeTemplateAccess(input.session, input.templateId)
-  const companies = await listGroupCompanies(input.session, input.groupId)
+  const [companies, autoFields] = await Promise.all([
+    listGroupCompanies(input.session, input.groupId),
+    templateAutoFields(input.session, input.templateId),
+  ])
+  const now = new Date()
 
-  return {
-    templateName: template.name,
-    readyCount: companies.filter((c) => c.readyToSend).length,
-    rows: companies.map((company) => ({
+  const rows: BulkPlanRow[] = companies.map((company) => {
+    const { values, missing } = personalize(autoFields, company, now)
+
+    // A company can be reachable and still not be sendable: an agreement whose
+    // "ח.פ" line comes out blank is not one to put a signature on.
+    const contactReason = !company.contactName?.trim()
+      ? 'חסר שם איש קשר'
+      : !company.contactPhone && !company.contactEmail
+        ? 'חסר טלפון או אימייל'
+        : null
+    const dataReason = missing.length
+      ? `חסר במסמך: ${missing.map((gap) => autoSourceLabel(gap.source)).join(', ')}`
+      : null
+    const reason = contactReason ?? dataReason
+
+    return {
       companyId: company.id,
       companyName: company.name,
       contactName: company.contactName,
       contactPhone: company.contactPhone,
       contactEmail: company.contactEmail,
-      ready: company.readyToSend,
-      reason: company.readyToSend
-        ? null
-        : !company.contactName?.trim()
-          ? 'חסר שם איש קשר'
-          : 'חסר טלפון או אימייל',
-    })),
+      ready: reason === null,
+      reason,
+      personalized: autoFields
+        .filter((field) => values.has(field.id))
+        .map((field) => ({ label: field.label, value: values.get(field.id)! })),
+    }
+  })
+
+  return {
+    templateName: template.name,
+    rows,
+    readyCount: rows.filter((row) => row.ready).length,
   }
 }
 

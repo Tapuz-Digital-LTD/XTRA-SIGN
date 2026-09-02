@@ -279,6 +279,8 @@ export async function listCompanies(
   session: StaffSession,
   kind: CompanyKind,
   search?: string,
+  /** Narrows to one group, for the group chips on the list screens. */
+  groupId?: string,
 ): Promise<CompanyListItem[]> {
   const db = getDb()
   const a = schema.agreements
@@ -288,6 +290,17 @@ export async function listCompanies(
     eq(schema.companies.kind, kind),
     isNull(schema.companies.deletedAt),
   ]
+  if (groupId) {
+    // An exists clause rather than a join: a company can be in several groups,
+    // and joining would return it once per membership.
+    conditions.push(
+      sql`exists (
+        select 1 from ${schema.companyGroups}
+        where ${schema.companyGroups.companyId} = ${schema.companies.id}
+          and ${schema.companyGroups.groupId} = ${groupId}
+      )`,
+    )
+  }
   const term = search?.trim()
   if (term) {
     const like = `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
