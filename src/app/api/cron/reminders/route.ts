@@ -1,8 +1,9 @@
-import { and, eq, inArray, isNull, lt } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull, lt } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { AUDIT_EVENTS } from '@/server/audit'
 import { getDb, schema } from '@/server/db'
 import { log } from '@/server/log'
+import { notify } from '@/server/notifications/notifications'
 import { InforuEmailProvider, InforuSmsProvider } from '@/server/notifications/inforu'
 
 /**
@@ -106,6 +107,37 @@ export async function GET(request: Request) {
     if (delivered) sent++
   }
 
-  log.info('reminder run complete', { candidates: pending.length, sent })
-  return NextResponse.json({ ok: true, candidates: pending.length, sent })
+  // Links that ran out since the last run. The status is left alone — the
+  // expiry is already enforced when the link is opened — but nobody was being
+  // told, so an agreement could quietly go nowhere.
+  const lapsed = await db
+    .select({
+      id: schema.agreements.id,
+      organizationId: schema.agreements.organizationId,
+      title: schema.agreements.title,
+    })
+    .from(schema.agreements)
+    .where(
+      and(
+        inArray(schema.agreements.status, ['sent', 'viewed']),
+        isNotNull(schema.agreements.expiresAt),
+        lt(schema.agreements.expiresAt, new Date()),
+      ),
+    )
+    .limit(200)
+
+  for (const row of lapsed) {
+    // Idempotent by (organization, type, document), so a daily run does not
+    // repeat the same notice every morning.
+    await notify({
+      organizationId: row.organizationId,
+      type: 'expired',
+      agreementId: row.id,
+      title: `פג תוקף קישור החתימה של "${row.title}"`,
+      body: 'ניתן ליצור גרסה חדשה ולשלוח שוב.',
+    })
+  }
+
+  log.info('reminder run complete', { candidates: pending.length, sent, lapsed: lapsed.length })
+  return NextResponse.json({ ok: true, candidates: pending.length, sent, lapsed: lapsed.length })
 }

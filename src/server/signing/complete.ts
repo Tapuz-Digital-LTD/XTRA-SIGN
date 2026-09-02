@@ -3,6 +3,7 @@ import { AUDIT_EVENTS } from '@/server/audit'
 import { getDb, schema } from '@/server/db'
 import { buildStorageKey, sha256 } from '@/server/documents/file-validation'
 import { InforuEmailProvider } from '@/server/notifications/inforu'
+import { notify } from '@/server/notifications/notifications'
 import { getStorage } from '@/server/storage/blob'
 import { buildSignedPdf } from './pdf'
 import type { SigningContext } from './session'
@@ -178,11 +179,29 @@ async function notifyAfterSigning(context: SigningContext, signedPdf: Buffer): P
   const email = new InforuEmailProvider()
 
   const [owner] = await db
-    .select({ email: schema.users.email, name: schema.users.name })
+    .select({
+      email: schema.users.email,
+      name: schema.users.name,
+      organizationId: schema.agreements.organizationId,
+      companyName: schema.companies.name,
+    })
     .from(schema.agreements)
     .innerJoin(schema.users, eq(schema.users.id, schema.agreements.ownerId))
+    .leftJoin(schema.companies, eq(schema.companies.id, schema.agreements.companyId))
     .where(eq(schema.agreements.id, context.agreementId))
     .limit(1)
+
+  // In-app first: it is the one channel that does not depend on a third party
+  // being reachable, and it is what the badge counts.
+  if (owner?.organizationId) {
+    await notify({
+      organizationId: owner.organizationId,
+      type: 'signed',
+      agreementId: context.agreementId,
+      title: `${context.recipientName} חתם על "${context.title}"`,
+      body: owner.companyName,
+    })
+  }
 
   if (context.recipientEmail) {
     await email.send({

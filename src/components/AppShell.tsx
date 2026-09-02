@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { NotificationBell } from '@/components/NotificationBell'
 
 /**
  * The primary spaces. Suppliers and customers are kept apart on purpose — a
@@ -76,6 +77,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </Link>
               ))}
             </nav>
+
+            <NotificationBell />
 
             <Link
               href="/documents/new"

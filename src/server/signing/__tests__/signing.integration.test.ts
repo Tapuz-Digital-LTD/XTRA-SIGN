@@ -123,6 +123,7 @@ afterAll(async () => {
   await db.delete(schema.agreementVersions).where(eq(schema.agreementVersions.agreementId, agreementId))
   await db.delete(schema.agreements).where(eq(schema.agreements.id, agreementId))
   await db.delete(schema.users).where(eq(schema.users.organizationId, orgId))
+  await db.delete(schema.notifications).where(eq(schema.notifications.organizationId, orgId))
   await db.delete(schema.companies).where(eq(schema.companies.organizationId, orgId))
   await db.delete(schema.organizations).where(eq(schema.organizations.id, orgId))
 })

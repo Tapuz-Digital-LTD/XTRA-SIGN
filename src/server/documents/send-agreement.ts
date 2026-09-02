@@ -3,6 +3,7 @@ import { AUDIT_EVENTS } from '@/server/audit'
 import { ForbiddenError, type StaffSession } from '@/server/auth/session'
 import { generateToken, hashToken } from '@/server/auth/tokens'
 import { getDb, schema } from '@/server/db'
+import { notify } from '@/server/notifications/notifications'
 import { InforuEmailProvider, InforuSmsProvider } from '@/server/notifications/inforu'
 import type { NotificationProvider } from '@/server/notifications/types'
 import { authorizeAgreementAccess } from './authorization'
@@ -170,6 +171,25 @@ async function deliver(input: {
       ...(result.ok ? {} : { error: result.error }),
     },
   })
+
+  if (!result.ok) {
+    // The operator has to learn about this somewhere other than the audit log:
+    // a failed send looks exactly like a signer who has not got round to it.
+    const [row] = await db
+      .select({ organizationId: schema.agreements.organizationId, title: schema.agreements.title })
+      .from(schema.agreements)
+      .where(eq(schema.agreements.id, input.agreementId))
+      .limit(1)
+    if (row) {
+      await notify({
+        organizationId: row.organizationId,
+        type: 'send_failed',
+        agreementId: input.agreementId,
+        title: `השליחה של "${row.title}" נכשלה`,
+        body: input.channel === 'sms' ? 'שליחה ב-SMS' : 'שליחה באימייל',
+      })
+    }
+  }
 
   return {
     channel: input.channel,

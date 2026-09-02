@@ -1,5 +1,6 @@
 
 import { AUDIT_EVENTS } from '@/server/audit'
+import { notify } from '@/server/notifications/notifications'
 import type { StaffSession } from '@/server/auth/session'
 import { getCompany } from '@/server/companies/companies'
 import { getDb, schema } from '@/server/db'
@@ -82,6 +83,16 @@ export async function uploadAgreementToCrm(input: {
       },
     })
     .catch(() => {})
+
+  if (!result.ok) {
+    await notify({
+      organizationId: input.session.organizationId,
+      type: 'crm_failed',
+      agreementId: agreement.id,
+      title: `ההעלאה של "${agreementTitle}" ל-Fireberry נכשלה`,
+      body: company.name,
+    })
+  }
 
   return result
 }

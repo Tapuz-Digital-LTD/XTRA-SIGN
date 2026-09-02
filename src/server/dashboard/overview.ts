@@ -32,8 +32,23 @@ export type SignedItem = {
   completedAt: Date | null
 }
 
+export type ActivityItem = {
+  agreementId: string
+  title: string
+  companyName: string | null
+  type: string
+  at: Date
+}
+
 export type DashboardOverview = {
   counts: DocumentCounts
+  /** Signed since midnight, local to the server's clock. */
+  signedToday: number
+  /** Opened by the signer and still unsigned. */
+  viewedNotSigned: number
+  /** How many documents the "needs attention" filter would return. */
+  attentionCount: number
+  recentActivity: ActivityItem[]
   companies: { suppliers: number; customers: number }
   attention: AttentionItem[]
   attentionTotal: number
@@ -71,7 +86,10 @@ export async function getDashboardOverview(session: StaffSession): Promise<Dashb
   const db = getDb()
   const now = Date.now()
 
-  const [counts, companyRow, awaiting, signed, crmRow] = await Promise.all([
+  const startOfDay = new Date(now)
+  startOfDay.setHours(0, 0, 0, 0)
+
+  const [counts, companyRow, awaiting, signed, crmRow, todayRow, viewedRow, activity] = await Promise.all([
     countDocuments(session),
 
     db
@@ -125,19 +143,70 @@ export async function getDashboardOverview(session: StaffSession): Promise<Dashb
       .where(eq(schema.crmSyncState.organizationId, session.organizationId))
       .orderBy(desc(schema.crmSyncState.lastSyncedAt))
       .limit(1),
+
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.agreements)
+      .where(
+        and(
+          scope(session),
+          latestVersionOnly(),
+          eq(schema.agreements.status, 'signed'),
+          sql`${schema.agreements.completedAt} >= ${startOfDay}`,
+        ),
+      ),
+
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.agreements)
+      .where(and(scope(session), latestVersionOnly(), eq(schema.agreements.status, 'viewed'))),
+
+    // The last things that happened, across the organization's documents.
+    db
+      .select({
+        agreementId: schema.auditEvents.agreementId,
+        type: schema.auditEvents.type,
+        at: schema.auditEvents.createdAt,
+        title: schema.agreements.title,
+        companyName: schema.companies.name,
+      })
+      .from(schema.auditEvents)
+      .innerJoin(schema.agreements, eq(schema.agreements.id, schema.auditEvents.agreementId))
+      .leftJoin(schema.companies, eq(schema.companies.id, schema.agreements.companyId))
+      .where(
+        and(
+          scope(session),
+          inArray(schema.auditEvents.type, ['sent', 'viewed', 'completed', 'canceled', 'reminder_sent']),
+        ),
+      )
+      .orderBy(desc(schema.auditEvents.createdAt))
+      .limit(8),
   ])
+
+  const mappedAttention = awaiting.map((r) => ({
+    ...r,
+    expired: r.expiresAt ? r.expiresAt.getTime() < now : false,
+    daysLeft: r.expiresAt ? Math.floor((r.expiresAt.getTime() - now) / DAY_MS) : null,
+  }))
+  const attentionTotal = mappedAttention.length
 
   return {
     counts,
+    signedToday: Number(todayRow[0]?.count ?? 0),
+    viewedNotSigned: Number(viewedRow[0]?.count ?? 0),
+    attentionCount: attentionTotal,
+    recentActivity: activity.map((row) => ({
+      agreementId: row.agreementId,
+      title: row.title,
+      companyName: row.companyName,
+      type: row.type,
+      at: row.at,
+    })),
     companies: {
       suppliers: Number(companyRow[0]?.suppliers ?? 0),
       customers: Number(companyRow[0]?.customers ?? 0),
     },
-    attention: awaiting.map((r) => ({
-      ...r,
-      expired: r.expiresAt ? r.expiresAt.getTime() < now : false,
-      daysLeft: r.expiresAt ? Math.floor((r.expiresAt.getTime() - now) / DAY_MS) : null,
-    })),
+    attention: mappedAttention,
     attentionTotal: counts.pending,
     recentlySigned: signed,
     crmLastSyncedAt: crmRow[0]?.lastSyncedAt ?? null,

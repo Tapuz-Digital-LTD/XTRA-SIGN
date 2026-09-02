@@ -10,7 +10,16 @@ import { getDashboardOverview, type AttentionItem } from '@/server/dashboard/ove
  * actually act on it, so nothing here can leave the system in a half state.
  */
 
-const dateFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short', year: 'numeric' })
+const dateFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+
+/** Audit event names in the words the screen uses. */
+const ACTIVITY_TEXT: Record<string, string> = {
+  sent: 'נשלח',
+  viewed: 'נצפה',
+  completed: 'נחתם',
+  canceled: 'בוטל',
+  reminder_sent: 'נשלחה תזכורת',
+}
 
 function Kpi({ href, label, value, hint }: { href: string; label: string; value: number; hint: string }) {
   return (
@@ -72,14 +81,9 @@ export default async function DashboardPage() {
 
       <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi href="/documents?filter=pending" label="ממתינים לחתימה" value={data.counts.pending} hint="נשלחו וטרם נחתמו" />
-        <Kpi href="/documents?filter=signed" label="נחתמו" value={data.counts.signed} hint="הסתיימו בהצלחה" />
-        <Kpi href="/documents?filter=drafts" label="טיוטות" value={data.counts.drafts} hint="עוד לא נשלחו" />
-        <Kpi
-          href="/suppliers"
-          label="ספקים ולקוחות"
-          value={data.companies.suppliers + data.companies.customers}
-          hint={`${data.companies.suppliers} ספקים · ${data.companies.customers} לקוחות`}
-        />
+        <Kpi href="/documents?filter=signed" label="נחתמו היום" value={data.signedToday} hint={`${data.counts.signed} סה״כ`} />
+        <Kpi href="/documents?filter=viewed" label="נצפו ולא נחתמו" value={data.viewedNotSigned} hint="נפתחו על ידי החותם" />
+        <Kpi href="/documents?filter=attention" label="דורשים טיפול" value={data.attentionCount} hint="ממתינים לפעולה שלך" />
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
@@ -151,6 +155,30 @@ export default async function DashboardPage() {
                         {[item.companyName, item.completedAt ? dateFormat.format(item.completedAt) : null]
                           .filter(Boolean)
                           .join(' · ')}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+
+          <Panel title="פעילות אחרונה">
+            {data.recentActivity.length === 0 ? (
+              <p className="px-4 py-8 text-center text-sm text-muted">עדיין אין פעילות.</p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {data.recentActivity.map((item, index) => (
+                  <li key={`${item.agreementId}-${index}`}>
+                    <Link
+                      href={`/documents/${item.agreementId}`}
+                      className="flex min-h-14 flex-col justify-center px-4 py-2.5 transition hover:bg-bg"
+                    >
+                      <span className="truncate text-sm text-fg">
+                        {ACTIVITY_TEXT[item.type] ?? item.type} — {item.title}
+                      </span>
+                      <span className="truncate text-xs text-muted">
+                        {[item.companyName, dateFormat.format(item.at)].filter(Boolean).join(' · ')}
                       </span>
                     </Link>
                   </li>

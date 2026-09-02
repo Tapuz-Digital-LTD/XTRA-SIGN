@@ -325,6 +325,42 @@ export const templates = pgTable(
   ],
 )
 
+/**
+ * Things that happened which someone should know about.
+ *
+ * Organization-wide rather than per-user: a small team all needs to see that a
+ * document came back signed, and routing each event to one owner would hide it
+ * from whoever is actually at the desk. Every row points at the document it is
+ * about, so an unread badge always leads somewhere.
+ */
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    /** signed | declined | expired | send_failed | crm_failed */
+    type: text('type').notNull(),
+    agreementId: uuid('agreement_id'),
+    /** Rendered when written, so a later rename does not rewrite history. */
+    title: text('title').notNull(),
+    body: text('body'),
+    readAt: timestamp('read_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('notifications_org_idx').on(t.organizationId, t.createdAt),
+    /**
+     * One notification per event per document. A reminder job or a retried
+     * write-back must not turn into a second copy of the same news.
+     */
+    uniqueIndex('notifications_event_unique')
+      .on(t.organizationId, t.type, t.agreementId)
+      .where(sql`${t.agreementId} is not null`),
+  ],
+)
+
 export const agreements = pgTable(
   'agreements',
   {
