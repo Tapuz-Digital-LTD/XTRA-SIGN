@@ -52,3 +52,6 @@ public/pdfjs/
 
 # stray screenshot artifacts from verification
 /*.png
+
+# ad-hoc debug scripts
+scripts/tmp-*
