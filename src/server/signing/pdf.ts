@@ -44,7 +44,8 @@ export type CertificateInput = {
   verificationMethod: string
   verifiedAt: Date | null
   signedAt: Date
-  renderedHash: string
+  /** SHA-256 of the clean signed document this certificate attests to. */
+  signedHash: string
   events: { type: string; at: Date }[]
 }
 
@@ -61,12 +62,17 @@ const EVENT_LABELS: Record<string, string> = {
   completed: 'החתימה הושלמה',
 }
 
+/**
+ * The clean signed document: the original, the field values, and the
+ * signature — and nothing else. No audit page, no ids, no hashes, no
+ * timestamps. This is the copy the signer downloads, so it carries none of the
+ * internal evidence; that lives in the separate certificate.
+ */
 export async function buildSignedPdf(input: {
   renderedPdf: Buffer
   fields: StampField[]
   pages: StampPage[]
   signatureImage: Buffer
-  certificate: CertificateInput
 }): Promise<Buffer> {
   const pdf = await PDFDocument.load(input.renderedPdf)
   pdf.registerFontkit(fontkit)
@@ -110,8 +116,19 @@ export async function buildSignedPdf(input: {
     })
   }
 
-  await appendCertificate(pdf, font, input.certificate)
+  return Buffer.from(await pdf.save())
+}
 
+/**
+ * The audit certificate as its own one-page PDF — internal, never handed to the
+ * signer. Built on demand from the stored evidence, and carrying the SHA-256 of
+ * the clean signed document so the two can be checked against each other.
+ */
+export async function buildCertificatePdf(cert: CertificateInput): Promise<Buffer> {
+  const pdf = await PDFDocument.create()
+  pdf.registerFontkit(fontkit)
+  const font = await pdf.embedFont(await readFile(FONT_PATH), { subset: true })
+  await appendCertificate(pdf, font, cert)
   return Buffer.from(await pdf.save())
 }
 
@@ -184,10 +201,10 @@ async function appendCertificate(
   y -= 6
   // No parentheses: a mirrored bracket pair renders on the wrong sides in an
   // RTL run, which reads as a typo on a legal document.
-  line('טביעת המסמך · SHA-256', 10, 16, muted)
+  line('טביעת המסמך החתום · SHA-256', 10, 16, muted)
   // Split so a 64-character digest fits the page width.
-  line(cert.renderedHash.slice(0, 32), 9, 13)
-  line(cert.renderedHash.slice(32), 9, 26)
+  line(cert.signedHash.slice(0, 32), 9, 13)
+  line(cert.signedHash.slice(32), 9, 26)
 
   line('היסטוריית המסמך', 12, 22)
   for (const event of cert.events) {

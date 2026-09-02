@@ -2,7 +2,6 @@ import { eq } from 'drizzle-orm'
 import { AUDIT_EVENTS } from '@/server/audit'
 import { getDb, schema } from '@/server/db'
 import { buildStorageKey, sha256 } from '@/server/documents/file-validation'
-import { maskPhone } from '@/lib/phone'
 import { InforuEmailProvider } from '@/server/notifications/inforu'
 import { getStorage } from '@/server/storage/blob'
 import { buildSignedPdf } from './pdf'
@@ -63,22 +62,14 @@ export async function completeSigning(input: {
     .from(schema.documentPages)
     .where(eq(schema.documentPages.agreementVersionId, version.id))
 
-  const [recipient] = await db
-    .select()
-    .from(schema.recipients)
-    .where(eq(schema.recipients.id, input.context.recipientId))
-    .limit(1)
-
-  const events = await db
-    .select({ type: schema.auditEvents.type, createdAt: schema.auditEvents.createdAt })
-    .from(schema.auditEvents)
-    .where(eq(schema.auditEvents.agreementId, input.context.agreementId))
-    .orderBy(schema.auditEvents.createdAt)
-
   const storage = getStorage()
   const renderedPdf = await storage.get(version.renderedFileKey)
   const signedAt = new Date()
 
+  // The clean signed document only: original + field values + signature. Every
+  // piece of evidence — ids, hashes, timestamps, the audit history — is kept out
+  // of this file and lives in the separate certificate the certificate route
+  // builds on demand for internal use.
   const signedPdf = await buildSignedPdf({
     renderedPdf,
     fields: fields.map((f) => ({
@@ -97,18 +88,6 @@ export async function completeSigning(input: {
       heightPt: p.heightPt,
     })),
     signatureImage,
-    certificate: {
-      agreementId: input.context.agreementId,
-      title: input.context.title,
-      signerName: input.context.recipientName,
-      signerEmail: input.context.recipientEmail,
-      signerPhoneMasked: maskPhone(input.context.recipientPhone),
-      verificationMethod: recipient?.verifiedVia === 'sms_otp' ? 'קוד חד-פעמי ב-SMS' : 'לא בוצע',
-      verifiedAt: recipient?.verifiedAt ?? null,
-      signedAt,
-      renderedHash: version.renderedHash ?? sha256(renderedPdf),
-      events: events.map((e) => ({ type: e.type, at: e.createdAt })),
-    },
   })
 
   const signedKey = buildStorageKey({

@@ -371,8 +371,15 @@ describe('completing the signature', () => {
     expect(signed.subarray(0, 5).toString()).toBe('%PDF-')
     // The recorded hash is the hash of what is actually stored.
     expect(sha256(signed)).toBe(version.signedHash)
-    // A certificate page was appended, so it is larger than the render.
-    expect(signed.length).toBeGreaterThan(0)
+
+    // The signed file is CLEAN: the same page count as the rendered document,
+    // with no audit page appended. The evidence lives in the certificate, not
+    // in the copy the signer downloads.
+    const rendered = await getStorage().get(version.renderedFileKey!)
+    const { PDFDocument } = await import('pdf-lib')
+    const renderedPages = (await PDFDocument.load(rendered)).getPageCount()
+    const signedPages = (await PDFDocument.load(signed)).getPageCount()
+    expect(signedPages).toBe(renderedPages)
 
     const [agreement] = await db
       .select()
@@ -395,6 +402,28 @@ describe('completing the signature', () => {
     const dump = JSON.stringify(events)
     expect(dump).not.toContain(token)
   }, 120_000)
+
+  it('builds a separate audit certificate that carries the signed hash', async () => {
+    const { buildAgreementCertificate } = await import('@/server/signing/certificate')
+
+    const result = await buildAgreementCertificate({ session, agreementId })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    // It is a real, single-page PDF, distinct from the signed document.
+    const { PDFDocument } = await import('pdf-lib')
+    const cert = await PDFDocument.load(result.pdf)
+    expect(cert.getPageCount()).toBe(1)
+    expect(result.pdf.subarray(0, 5).toString()).toBe('%PDF-')
+
+    // A document that is not signed has no certificate to build.
+    const [draft] = await db
+      .insert(schema.agreements)
+      .values({ organizationId: session.organizationId, title: 'draft', status: 'draft', ownerId: session.userId })
+      .returning({ id: schema.agreements.id })
+    expect(await buildAgreementCertificate({ session, agreementId: draft.id })).toMatchObject({ ok: false })
+    await db.delete(schema.agreements).where(eq(schema.agreements.id, draft.id))
+  }, 60_000)
 
   it('makes the link stop opening the signing flow once signed', async () => {
     const token = signingUrl.split('/').pop()!

@@ -77,6 +77,14 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
           >
             {doc.status === 'signed' ? 'הורדת מסמך חתום' : 'הורדת מסמך'}
           </a>
+          {doc.status === 'signed' ? (
+            <a
+              href={`/api/documents/${doc.id}/certificate`}
+              className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition-colors hover:bg-slate-50"
+            >
+              הורדת אישור חתימה
+            </a>
+          ) : null}
           {crmReady ? <CrmUploadButton documentId={doc.id} /> : null}
           {doc.status === 'draft' && doc.hasRendered ? (
             <Link
