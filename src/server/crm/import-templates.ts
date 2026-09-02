@@ -4,6 +4,7 @@ import { and, eq, isNotNull } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
 import { buildTemplateStorageKey, validateUpload } from '@/server/documents/file-validation'
+import { log } from '@/server/log'
 import { getStorage } from '@/server/storage/blob'
 import { AUDIT_EVENTS, recordAdminAction } from '@/server/users/admin-audit'
 import { FireberryProvider } from './fireberry'
@@ -172,7 +173,10 @@ export async function importCrmTemplates(input: {
       const inlined = await inlineAssets(html, images)
       renderedHtml = inlined.html
       pdf = await renderHtmlToPdf(renderedHtml)
-    } catch {
+    } catch (error) {
+      // The operator gets a sentence; the reason a browser would not start is
+      // only ever visible here, so it must not be swallowed.
+      log.error('template render failed', { crmTemplateId: templateId, error: String(error) })
       failed.push({ name: source.name, reason: 'ההמרה ל-PDF נכשלה' })
       continue
     }
@@ -208,7 +212,8 @@ export async function importCrmTemplates(input: {
     try {
       await storage.put(pdfKey, pdf, 'application/pdf')
       await storage.put(htmlKey, Buffer.from(renderedHtml, 'utf8'), 'text/html; charset=utf-8')
-    } catch {
+    } catch (error) {
+      log.error('template storage failed', { crmTemplateId: templateId, error: String(error) })
       failed.push({ name: source.name, reason: 'שמירת הקובץ נכשלה' })
       continue
     }

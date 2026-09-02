@@ -40,7 +40,7 @@ try {
 
   const target = list.templates.find((t: { name: string }) => t.name === 'הסכם ספקים')
   console.log(`\ntemplates listed  : ${list.templates.length}`)
-  console.log(`target            : ${target?.name} (${target?.id}) bound=${target?.boundObject} imported=${target?.imported}`)
+  console.log(`target            : ${target?.name} (${target?.id}) imported=${target?.imported}`)
   if (!target) throw new Error('הסכם ספקים not found in the CRM listing')
 
   // 2. Import — sanitize + inline + Chromium, all inside the Vercel function.
