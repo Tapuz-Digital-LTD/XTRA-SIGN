@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { RecipientForm } from '@/components/editor/RecipientForm'
 import { buildWhatsAppShareUrl } from '@/lib/whatsapp-share'
 import type { SendSummary, Channel } from '@/server/documents/send-validation'
 import { toIsraeliNationalFormat } from '@/lib/phone'
@@ -27,6 +28,8 @@ export function SendPanel({
   })
 
   const [busy, setBusy] = useState(false)
+  const hasRecipient = Boolean(summary.recipientName)
+  const [editingRecipient, setEditingRecipient] = useState(false)
   const [blockers, setBlockers] = useState<string[]>(summary.blockers)
   const [result, setResult] = useState<{ channel: string; sent: boolean }[] | null>(null)
   // Held in memory only, for the WhatsApp share on this screen. The raw token
@@ -102,17 +105,45 @@ export function SendPanel({
 
         <dl className="mt-4 flex flex-col gap-3 text-sm">
           <Row label="מסמך" value={summary.title} />
-          <Row label="נשלח אל" value={summary.recipientName ?? '—'} />
-          {summary.recipientCompany ? <Row label="חברת" value={summary.recipientCompany} /> : null}
+          <Row
+            label="נשלח אל (הנמען)"
+            value={summary.recipientName ?? 'טרם הוזנו פרטי נמען'}
+          />
+          {summary.recipientCompany ? <Row label="חברה" value={summary.recipientCompany} /> : null}
           <Row
             label="שדות למילוי"
             value={`${summary.fieldCount} שדות, ${
-              // "1 חתימות" is wrong Hebrew; singular and plural differ.
               summary.signatureCount === 1 ? 'מתוכם חתימה אחת' : `מתוכם ${summary.signatureCount} חתימות`
             }`}
           />
         </dl>
+
+        <button
+          type="button"
+          onClick={() => setEditingRecipient((v) => !v)}
+          className="mt-3 text-sm text-brand underline-offset-4 hover:underline"
+        >
+          {hasRecipient ? 'עריכת פרטי הנמען' : 'הוספת פרטי הנמען'}
+        </button>
       </div>
+
+      {editingRecipient || !hasRecipient ? (
+        <div className="rounded-[var(--radius-card)] border border-line bg-surface p-5">
+          <h3 className="text-sm font-semibold text-fg">פרטי הנמען — למי לשלוח את המסמך</h3>
+          <p className="mt-1 text-xs text-muted">שם החותם, וטלפון או אימייל שאליהם יישלח קישור החתימה.</p>
+          <div className="mt-3">
+            <RecipientForm
+              documentId={documentId}
+              initial={{
+                name: summary.recipientName ?? '',
+                company: summary.recipientCompany,
+                phone: summary.recipientPhone,
+                email: summary.recipientEmail,
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
 
       <fieldset className="rounded-[var(--radius-card)] border border-line bg-surface p-5">
         <legend className="px-1 text-base font-semibold text-fg">איך לשלוח?</legend>

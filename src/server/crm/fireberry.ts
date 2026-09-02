@@ -35,6 +35,43 @@ export class FireberryProvider implements CrmProvider {
     return objectFor(kind)
   }
 
+  /**
+   * Reads records of one object type, a page at a time. Used by the one-way
+   * import; never writes. Returns the raw rows keyed by Fireberry field name.
+   */
+  async queryRecords(input: {
+    objectType: number
+    fields: string[]
+    pageNumber: number
+    pageSize?: number
+  }): Promise<{ rows: Record<string, unknown>[]; isLastPage: boolean }> {
+    const token = process.env.FIREBERRY_API_TOKEN
+    if (!token) throw new Error('CRM is not configured')
+    const base = (process.env.FIREBERRY_API_URL ?? DEFAULT_BASE).replace(/\/+$/, '')
+
+    const response = await fetch(`${base}/query`, {
+      method: 'POST',
+      headers: { tokenid: token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        objecttype: input.objectType,
+        page_size: input.pageSize ?? 100,
+        page_number: input.pageNumber,
+        fields: input.fields.join(','),
+      }),
+    })
+    if (!response.ok) {
+      throw new Error(`Fireberry query failed (${response.status})`)
+    }
+    const body = (await response.json()) as {
+      success?: boolean
+      data?: { Data?: Record<string, unknown>[]; IsLastPage?: boolean }
+    }
+    return {
+      rows: body.data?.Data ?? [],
+      isLastPage: body.data?.IsLastPage ?? true,
+    }
+  }
+
   async uploadFile(input: {
     target: CrmUploadTarget
     filename: string

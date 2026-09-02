@@ -9,7 +9,7 @@ import type { CompanyRow } from '@/server/companies/companies'
  * A company's identity and the two actions on it — edit and remove. Kept a
  * client island so the rest of the page stays server-rendered.
  */
-export function CompanyHeader({ company, noun, crmEnabled }: { company: CompanyRow; noun: string; crmEnabled: boolean }) {
+export function CompanyHeader({ company, noun, crmAppUrl }: { company: CompanyRow; noun: string; crmAppUrl: string | null }) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -21,6 +21,7 @@ export function CompanyHeader({ company, noun, crmEnabled }: { company: CompanyR
     company.contactName ? { label: 'איש קשר', value: company.contactName } : null,
     company.contactPhone ? { label: 'טלפון', value: company.contactPhone, dir: 'ltr' as const } : null,
     company.contactEmail ? { label: 'אימייל', value: company.contactEmail, dir: 'ltr' as const } : null,
+    company.address ? { label: 'כתובת', value: company.address } : null,
   ].filter(Boolean) as { label: string; value: string; dir?: 'ltr' }[]
 
   async function remove() {
@@ -48,7 +49,6 @@ export function CompanyHeader({ company, noun, crmEnabled }: { company: CompanyR
         kind={company.kind}
         existing={company}
         noun={noun}
-        crmEnabled={crmEnabled}
         onCancel={() => setEditing(false)}
         onDone={() => {
           setEditing(false)
@@ -102,6 +102,27 @@ export function CompanyHeader({ company, noun, crmEnabled }: { company: CompanyR
         <p className="mt-4 whitespace-pre-wrap rounded-lg bg-bg p-3 text-sm text-fg">
           {company.notes}
         </p>
+      ) : null}
+
+      {company.crmRecordId ? (
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
+          <span className="font-medium text-blue-800">מחובר ל-Fireberry ✓</span>
+          {company.crmSyncedAt ? (
+            <span className="text-blue-700/80">
+              סונכרן לאחרונה: {new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(company.crmSyncedAt))}
+            </span>
+          ) : null}
+          {crmAppUrl ? (
+            <a
+              href={`${crmAppUrl}${company.crmObjectType}/${company.crmRecordId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ms-auto rounded-lg border border-blue-300 bg-white px-3 py-1 text-xs font-medium text-blue-800 hover:bg-blue-100"
+            >
+              פתח ב-CRM ↗
+            </a>
+          ) : null}
+        </div>
       ) : null}
 
       {confirming ? (

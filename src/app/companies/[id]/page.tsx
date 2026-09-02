@@ -5,7 +5,7 @@ import { CompanyHeader } from '@/components/companies/CompanyHeader'
 import { DocumentRow } from '@/components/DocumentRow'
 import { getSession } from '@/server/auth/session'
 import { getCompany } from '@/server/companies/companies'
-import { getCrmProvider } from '@/server/crm/fireberry'
+
 import { countDocuments, listDocuments, type ListFilter } from '@/server/documents/queries'
 
 const FILTERS: { key: ListFilter; label: string }[] = [
@@ -51,7 +51,7 @@ export default async function CompanyPage({
         </Link>
       </div>
 
-      <CompanyHeader company={company} noun={noun} crmEnabled={getCrmProvider().isConfigured()} />
+      <CompanyHeader company={company} noun={noun} crmAppUrl={process.env.FIREBERRY_APP_URL ?? null} />
 
       <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-fg">מסמכים</h2>

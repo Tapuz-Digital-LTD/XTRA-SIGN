@@ -332,7 +332,7 @@ export function FieldEditor({
           onClick={() => setRecipientOpen(true)}
           className="inline-flex min-h-9 items-center rounded-lg border border-line bg-white px-3 text-sm text-fg hover:bg-slate-50"
         >
-          חותם
+          פרטי הנמען
         </button>
         <button
           type="button"
@@ -523,7 +523,7 @@ export function FieldEditor({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-fg">פרטי החותם</h2>
+              <h2 className="text-sm font-semibold text-fg">פרטי הנמען — למי שולחים</h2>
               <button type="button" onClick={() => setRecipientOpen(false)} aria-label="סגירה" className="h-9 w-9 rounded-lg text-muted hover:bg-slate-100">
                 ✕
               </button>

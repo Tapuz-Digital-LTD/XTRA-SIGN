@@ -35,6 +35,8 @@ export type CompanyRow = {
   notes: string | null
   crmRecordId: string | null
   crmObjectType: number | null
+  crmSyncedAt: Date | null
+  address: string | null
   createdAt: Date
 }
 
@@ -192,6 +194,8 @@ export async function listCompanies(
       notes: schema.companies.notes,
       crmRecordId: schema.companies.crmRecordId,
       crmObjectType: schema.companies.crmObjectType,
+      crmSyncedAt: schema.companies.crmSyncedAt,
+      address: schema.companies.address,
       createdAt: schema.companies.createdAt,
     })
     .from(schema.companies)
@@ -256,6 +260,8 @@ export async function getCompany(
       notes: schema.companies.notes,
       crmRecordId: schema.companies.crmRecordId,
       crmObjectType: schema.companies.crmObjectType,
+      crmSyncedAt: schema.companies.crmSyncedAt,
+      address: schema.companies.address,
       createdAt: schema.companies.createdAt,
     })
     .from(schema.companies)

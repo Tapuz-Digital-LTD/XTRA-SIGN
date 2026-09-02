@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm'
 import {
   boolean,
   doublePrecision,
@@ -100,11 +101,28 @@ export const companies = pgTable(
      */
     crmRecordId: text('crm_record_id'),
     crmObjectType: integer('crm_object_type'),
+    address: text('address'),
+    /**
+     * Where the record first came from — 'crm' when imported from Fireberry,
+     * 'xtra' when created here. Kept for audit only: whether a record is shown
+     * as CRM-linked is decided by crmRecordId, not by this, because a local
+     * record can later be linked to the CRM.
+     */
+    source: text('source').default('xtra').notNull(),
+    crmSyncedAt: timestamp('crm_synced_at', { withTimezone: true }),
     /** Soft delete: agreements keep pointing at the company they were filed under. */
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [index('companies_org_kind_idx').on(t.organizationId, t.kind)],
+  (t) => [
+    index('companies_org_kind_idx').on(t.organizationId, t.kind),
+    // A Fireberry record maps to exactly one company. Object type is part of the
+    // key so a customer (object 1) and a supplier (object 1000) that happen to
+    // share a GUID are still distinct. Partial: local records (null id) are free.
+    uniqueIndex('companies_crm_unique')
+      .on(t.organizationId, t.crmObjectType, t.crmRecordId)
+      .where(sql`${t.crmRecordId} is not null`),
+  ],
 )
 
 export const users = pgTable(

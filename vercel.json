@@ -1,8 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-
   "buildCommand": "npm run build",
-
   "functions": {
     "src/app/api/sign/[token]/complete/route.ts": {
       "memory": 2048,
@@ -19,9 +17,12 @@
     "src/app/api/sign/[token]/file/route.ts": {
       "memory": 1024,
       "maxDuration": 30
+    },
+    "src/app/api/crm/sync/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
     }
   },
-
   "crons": [
     {
       "path": "/api/cron/reminders",
