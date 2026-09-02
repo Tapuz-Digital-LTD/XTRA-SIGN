@@ -49,3 +49,6 @@ mobile-375.png
 .data/
 .first-admin.txt
 public/pdfjs/
+
+# stray screenshot artifacts from verification
+/*.png
