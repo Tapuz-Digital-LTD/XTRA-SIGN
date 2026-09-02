@@ -50,3 +50,17 @@ describe('expandLineItems', () => {
     expect(html).toContain('11,000')
   })
 })
+
+describe('value formatting', () => {
+  it('groups money but never an identifier', () => {
+    const money = expandLineItems('<table><tr><td>{[!itemprice]}</td></tr></table>', [{ itemprice: 11000 }])
+    expect(money).toContain('11,000')
+
+    // A quote number is not an amount. "1,758" would be wrong.
+    const id = expandLineItems('<table><tr><td>{[!productname]}</td><td>{[!itemquantity]}</td></tr></table>', [
+      { productname: 'x', itemquantity: 1758 },
+    ])
+    expect(id).toContain('1758')
+    expect(id).not.toContain('1,758')
+  })
+})

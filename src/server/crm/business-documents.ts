@@ -180,7 +180,7 @@ export function expandLineItems(html: string, items: Record<string, unknown>[]):
         const key = token.trim()
         if (!ITEM_FIELDS.includes(key)) return whole // not an item field; resolved later
         const value = item[key]
-        return value == null ? '' : escapeHtml(formatValue(value))
+        return value == null ? '' : escapeHtml(formatValue(value, key))
       }),
     )
     .join('')
@@ -188,9 +188,33 @@ export function expandLineItems(html: string, items: Record<string, unknown>[]):
   return html.replace(templateRow, rendered)
 }
 
-function formatValue(value: unknown): string {
-  if (typeof value === 'number') return new Intl.NumberFormat('he-IL', { maximumFractionDigits: 2 }).format(value)
-  return String(value)
+/** Fields whose numbers are money and read better grouped. */
+const MONEY_FIELD = /(price|amount|total|sum|vat|tax|discount)/i
+
+/**
+ * Renders a CRM value the way a person expects to see it.
+ *
+ * Grouping is applied by what the field *is*, not by how large the number is:
+ * 11,000 is a price and reads better grouped, while 1758 is a quote number and
+ * "1,758" is simply wrong. An ISO timestamp becomes a date, because nobody
+ * wants to read 2024-03-07T10:54:05 on an agreement.
+ */
+function formatValue(value: unknown, field?: string): string {
+  if (typeof value === 'number') {
+    return field && MONEY_FIELD.test(field)
+      ? new Intl.NumberFormat('he-IL', { maximumFractionDigits: 2 }).format(value)
+      : String(value)
+  }
+
+  const text = String(value)
+  const iso = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?)?/.exec(text)
+  if (iso) {
+    const date = new Date(text)
+    if (!Number.isNaN(date.getTime())) {
+      return new Intl.DateTimeFormat('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date)
+    }
+  }
+  return text
 }
 
 function escapeHtml(value: string): string {
@@ -213,7 +237,7 @@ async function resolveValues(
   for (const token of tokens) {
     const direct = record[token]
     if (direct != null && String(direct).trim() !== '') {
-      values[token] = escapeHtml(formatValue(direct))
+      values[token] = escapeHtml(formatValue(direct, token))
       continue
     }
 
@@ -233,7 +257,7 @@ async function resolveValues(
           const linked = linkedCache.get(cacheKey)
           const value = linked?.[target]
           if (value != null && String(value).trim() !== '') {
-            values[token] = escapeHtml(formatValue(value))
+            values[token] = escapeHtml(formatValue(value, target))
             continue
           }
         }
