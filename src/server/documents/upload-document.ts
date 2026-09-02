@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
 import { AUDIT_EVENTS } from '@/server/audit'
+import { getCompany } from '@/server/companies/companies'
 import { getDb, schema } from '@/server/db'
 import { getStorage } from '@/server/storage/blob'
 import {
@@ -56,6 +57,22 @@ export async function uploadDocument(input: UploadDocumentInput): Promise<Upload
   if (!input.companyId) {
     return { ok: false, code: 'missing_company', message: 'יש לבחור ספק או לקוח למסמך.' }
   }
+
+  // The recipient starts from the company's own contact, so a document created
+  // for a supplier/customer arrives with "who to send to" already filled and
+  // saved — not blank, and not lost to a debounce that never fired. The user
+  // edits it if the signer is someone else. Only seeded when there is a real
+  // name to seed, because recipients.name is required.
+  const company = await getCompany(session, input.companyId)
+  const seedRecipient =
+    company && company.contactName && company.contactName.trim()
+      ? {
+          name: company.contactName.trim().slice(0, 120),
+          company: company.name,
+          phone: company.contactPhone ?? null,
+          email: company.contactEmail ?? null,
+        }
+      : null
 
   // Validate before anything is stored or written. Bytes that fail here never
   // reach the object store.
@@ -131,6 +148,10 @@ export async function uploadDocument(input: UploadDocumentInput): Promise<Upload
         },
       },
     ])
+
+    if (seedRecipient) {
+      await tx.insert(schema.recipients).values({ agreementId, ...seedRecipient })
+    }
 
     return version.id
   })

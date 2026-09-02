@@ -56,6 +56,7 @@ afterAll(async () => {
     const ags = await db.select({ id: schema.agreements.id }).from(schema.agreements).where(eq(schema.agreements.organizationId, org))
     for (const a of ags) {
       await db.delete(schema.auditEvents).where(eq(schema.auditEvents.agreementId, a.id))
+      await db.delete(schema.recipients).where(eq(schema.recipients.agreementId, a.id))
       await db.delete(schema.agreementVersions).where(eq(schema.agreementVersions.agreementId, a.id))
     }
     await db.delete(schema.agreements).where(eq(schema.agreements.organizationId, org))
@@ -105,5 +106,46 @@ describe('setDocumentCompany', () => {
     expect(result).toMatchObject({ ok: true })
     const [row] = await db.select({ companyId: schema.agreements.companyId }).from(schema.agreements).where(eq(schema.agreements.id, agreementId))
     expect(row.companyId).toBeNull()
+  })
+})
+
+describe('recipient seeding', () => {
+  it('starts the recipient from the company contact, already saved', async () => {
+    const [company] = await db
+      .insert(schema.companies)
+      .values({
+        organizationId: orgA,
+        kind: 'customer',
+        name: 'מקדונלדס בדיקה',
+        contactName: 'ישראל ישראלי',
+        contactPhone: '+972501112233',
+        contactEmail: 'israel@example.com',
+      })
+      .returning({ id: schema.companies.id })
+
+    const uploaded = await uploadDocument({ session: alice, buffer: PDF, filename: 'עם איש קשר.pdf', companyId: company.id })
+    expect(uploaded.ok).toBe(true)
+    if (!uploaded.ok) return
+
+    const [recipient] = await db.select().from(schema.recipients).where(eq(schema.recipients.agreementId, uploaded.agreementId))
+    expect(recipient).toMatchObject({
+      name: 'ישראל ישראלי',
+      company: 'מקדונלדס בדיקה',
+      phone: '+972501112233',
+      email: 'israel@example.com',
+    })
+  })
+
+  it('leaves the recipient empty when the company has no contact name', async () => {
+    const [company] = await db
+      .insert(schema.companies)
+      .values({ organizationId: orgA, kind: 'supplier', name: 'ספק בלי איש קשר' })
+      .returning({ id: schema.companies.id })
+
+    const uploaded = await uploadDocument({ session: alice, buffer: PDF, filename: 'בלי.pdf', companyId: company.id })
+    if (!uploaded.ok) throw new Error(uploaded.message)
+
+    const rows = await db.select().from(schema.recipients).where(eq(schema.recipients.agreementId, uploaded.agreementId))
+    expect(rows).toHaveLength(0)
   })
 })

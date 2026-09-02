@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toIsraeliNationalFormat } from '@/lib/phone'
 import type { EditorRecipient } from './FieldEditor'
 
@@ -30,39 +30,39 @@ export function RecipientForm({
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
+  const save = useCallback(async () => {
+    // Nothing to save until there is a name; the server rejects an empty one
+    // and an error message while someone is still typing is just noise.
+    if (!value.name.trim()) return
+    try {
+      const response = await fetch(`/api/documents/${documentId}/recipient`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(value),
+      })
+      if (!response.ok) {
+        const data = await response.json().catch(() => null)
+        setError(data?.error?.message ?? 'השמירה נכשלה.')
+        setSaved(false)
+        return
+      }
+      setError(null)
+      setSaved(true)
+    } catch {
+      setError('השמירה נכשלה. בדקו את החיבור לאינטרנט.')
+      setSaved(false)
+    }
+  }, [value, documentId])
+
   const firstRender = useRef(true)
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false
       return
     }
-    // Nothing to save until there is a name; the server rejects an empty one
-    // and an error message while someone is still typing is just noise.
-    if (!value.name.trim()) return
-
-    const timer = setTimeout(async () => {
-      try {
-        const response = await fetch(`/api/documents/${documentId}/recipient`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(value),
-        })
-        if (!response.ok) {
-          const data = await response.json().catch(() => null)
-          setError(data?.error?.message ?? 'השמירה נכשלה.')
-          setSaved(false)
-          return
-        }
-        setError(null)
-        setSaved(true)
-      } catch {
-        setError('השמירה נכשלה. בדקו את החיבור לאינטרנט.')
-        setSaved(false)
-      }
-    }, 900)
-
+    const timer = setTimeout(() => void save(), 900)
     return () => clearTimeout(timer)
-  }, [value, documentId])
+  }, [save])
 
   const field = (
     key: keyof EditorRecipient,
@@ -80,6 +80,7 @@ export function RecipientForm({
         dir={dir}
         value={value[key] ?? ''}
         onChange={(e) => setValue((v) => ({ ...v, [key]: e.target.value }))}
+        onBlur={() => void save()}
         className="min-h-11 rounded-lg border border-line bg-white px-3 text-start text-sm"
       />
     </div>
