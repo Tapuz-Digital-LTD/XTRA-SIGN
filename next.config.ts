@@ -29,7 +29,14 @@ const nextConfig: NextConfig = {
     // files it can see being imported, and these archives are opened by path at
     // runtime. Without them the function deploys perfectly and then reports
     // that /var/task/node_modules/@sparticuz/chromium/bin does not exist.
+    // Every route that renders HTML to PDF needs the browser and the font.
+    // Listing only the CRM route once meant a second renderer deployed cleanly
+    // and then failed at runtime with the bin directory missing.
     '/api/crm/**': [
+      './src/server/signing/assets/**',
+      './node_modules/@sparticuz/chromium/bin/**',
+    ],
+    '/api/companies/**': [
       './src/server/signing/assets/**',
       './node_modules/@sparticuz/chromium/bin/**',
     ],
