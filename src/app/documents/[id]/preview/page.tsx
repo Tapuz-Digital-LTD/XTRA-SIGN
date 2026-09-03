@@ -22,7 +22,9 @@ export default async function PreviewPage({ params }: { params: Promise<{ id: st
   const [doc, pages, fields] = await Promise.all([
     getDocumentDetail(id),
     loadPageGeometry(agreement.currentVersionId ?? ''),
-    loadFields(agreement.currentVersionId ?? ''),
+    // A signed file carries its values — signature included — inside the PDF;
+    // placeholder boxes drawn on top would cover the real signature.
+    agreement.status === 'signed' ? Promise.resolve([]) : loadFields(agreement.currentVersionId ?? ''),
   ])
   if (!doc || pages.length === 0) notFound()
 

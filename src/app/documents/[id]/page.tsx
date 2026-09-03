@@ -42,7 +42,13 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
 
   // The placed fields, drawn over the preview below. They are stored beside the
   // PDF until signing, so without them this screen shows an untouched file.
-  const fields = agreement.currentVersionId ? await loadFields(agreement.currentVersionId) : []
+  // Once signed, the values — signature included — are baked into the PDF the
+  // preview now serves, and drawing placeholder boxes over them would hide the
+  // real signature behind the word "חתימה".
+  const fields =
+    agreement.status !== 'signed' && agreement.currentVersionId
+      ? await loadFields(agreement.currentVersionId)
+      : []
 
   // The CRM button appears only when the whole chain is real: the CRM is
   // configured, the document is signed and filed under a company, and that

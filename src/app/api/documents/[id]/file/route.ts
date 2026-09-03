@@ -18,7 +18,15 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const session = await requireSession()
     const { id } = await context.params
 
-    const { key, agreementTitle } = await authorizeVersionFileAccess(session, id, 'rendered')
+    // Once a document is signed, THIS is the document — the signature is baked
+    // into the file. Before that, the rendered file the signer will be shown.
+    let file
+    try {
+      file = await authorizeVersionFileAccess(session, id, 'signed')
+    } catch {
+      file = await authorizeVersionFileAccess(session, id, 'rendered')
+    }
+    const { key, agreementTitle } = file
     const bytes = await getStorage().get(key)
 
     return new NextResponse(new Uint8Array(bytes), {
