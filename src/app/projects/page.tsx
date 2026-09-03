@@ -4,6 +4,7 @@ import { AppShell } from '@/components/AppShell'
 import { EmptyState } from '@/components/EmptyState'
 import { NewGroupButton } from '@/components/groups/NewGroupButton'
 import { ProjectsList } from '@/components/projects/ProjectsList'
+import { ProjectsSearch } from '@/components/projects/ProjectsSearch'
 import { getSession } from '@/server/auth/session'
 import { listProjects } from '@/server/groups/groups'
 
@@ -15,14 +16,15 @@ import { listProjects } from '@/server/groups/groups'
 export default async function ProjectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ new?: string; view?: string }>
+  searchParams: Promise<{ new?: string; view?: string; q?: string }>
 }) {
   const session = await getSession()
   if (!session) redirect('/login')
 
   const params = await searchParams
   const archived = params.view === 'archive'
-  const projects = await listProjects(session, { archived })
+  const search = params.q ?? ''
+  const projects = await listProjects(session, { archived, search })
 
   return (
     <AppShell>
@@ -36,29 +38,38 @@ export default async function ProjectsPage({
         <NewGroupButton autoOpen={params.new === '1'} />
       </div>
 
-      <nav className="mt-5 flex gap-1 border-b border-line" aria-label="סינון פרויקטים">
-        {(
-          [
-            { key: false, href: '/projects', label: 'פעילים' },
-            { key: true, href: '/projects?view=archive', label: 'ארכיון' },
-          ] as const
-        ).map((tab) => (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            aria-current={archived === tab.key ? 'page' : undefined}
-            className={`inline-flex min-h-11 items-center border-b-2 px-3 text-sm transition ${
-              archived === tab.key ? 'border-brand font-semibold text-fg' : 'border-transparent text-muted hover:text-fg'
-            }`}
-          >
-            {tab.label}
-          </Link>
-        ))}
-      </nav>
+      <div className="mt-5 flex flex-wrap items-center gap-3 border-b border-line pb-0">
+        <nav className="flex gap-1" aria-label="סינון פרויקטים">
+          {(
+            [
+              { key: false, href: '/projects', label: 'פעילים' },
+              { key: true, href: '/projects?view=archive', label: 'ארכיון' },
+            ] as const
+          ).map((tab) => (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              aria-current={archived === tab.key ? 'page' : undefined}
+              className={`inline-flex min-h-11 items-center border-b-2 px-3 text-sm transition ${
+                archived === tab.key ? 'border-brand font-semibold text-fg' : 'border-transparent text-muted hover:text-fg'
+              }`}
+            >
+              {tab.label}
+            </Link>
+          ))}
+        </nav>
+        <div className="ms-auto mb-2 flex min-w-0 flex-1 justify-end sm:flex-none">
+          <ProjectsSearch key={search} search={search} archived={archived} />
+        </div>
+      </div>
 
       <div className="mt-5">
         {projects.length === 0 ? (
-          archived ? (
+          search.trim() ? (
+            <p className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center text-sm text-muted">
+              לא נמצאו פרויקטים מתאימים. נסו חיפוש אחר.
+            </p>
+          ) : archived ? (
             <p className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center text-sm text-muted">
               אין פרויקטים בארכיון.
             </p>

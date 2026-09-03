@@ -62,8 +62,10 @@ export async function listGroups(
    */
   kind?: 'supplier' | 'customer',
   /** Archived projects are off every default list; true shows only them. */
-  options: { archived?: boolean } = {},
+  options: { archived?: boolean; search?: string } = {},
 ): Promise<GroupListItem[]> {
+  const term = options.search?.trim()
+  const like = term ? `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null
   // A join and a group-by rather than a correlated subquery: the aliasing a
   // subquery needs does not survive being interpolated, and this is the shape
   // the database is happiest with anyway.
@@ -88,6 +90,9 @@ export async function listGroups(
         isNull(schema.groups.deletedAt),
         options.archived ? isNotNull(schema.groups.archivedAt) : isNull(schema.groups.archivedAt),
         kind ? or(eq(schema.groups.kind, kind), isNull(schema.groups.kind)) : undefined,
+        like
+          ? sql`(${schema.groups.name} ilike ${like} or ${schema.groups.description} ilike ${like})`
+          : undefined,
       ),
     )
     .groupBy(
@@ -121,7 +126,7 @@ export type ProjectListItem = GroupListItem & {
  */
 export async function listProjects(
   session: StaffSession,
-  options: { archived?: boolean } = {},
+  options: { archived?: boolean; search?: string } = {},
 ): Promise<ProjectListItem[]> {
   const groups = await listGroups(session, undefined, options)
   if (groups.length === 0) return []
