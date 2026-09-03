@@ -23,6 +23,17 @@ const SNAP_PX = 6
 
 export type Guide = { orientation: 'v' | 'h'; at: number }
 
+/**
+ * Fabric 7 changed the default object origin to CENTER, so left/top mean the
+ * middle of an object unless told otherwise. Every conversion in this file
+ * treats coordinates as top-left — the way the model, the PDF and the rest of
+ * the product think — so the origin is pinned once, globally, before any
+ * object is created. Without this a drag reads back through the wrong corner
+ * and every element appears to jump half its own size.
+ */
+fabric.FabricObject.ownDefaults.originX = 'left'
+fabric.FabricObject.ownDefaults.originY = 'top'
+
 export function pageSizePx(zoom: number): { width: number; height: number } {
   return { width: mmToPx(PAGE_WIDTH_MM) * zoom, height: mmToPx(PAGE_HEIGHT_MM) * zoom }
 }

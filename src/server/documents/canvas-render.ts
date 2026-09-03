@@ -92,9 +92,13 @@ function textCss(style: TextStyle | undefined): string {
 /** The element's box, in the page's own coordinate system. */
 function frame(element: CanvasElement): string {
   const rotation = safeNumber(element.rotation, 0)
+  // x measures from the LEFT edge, exactly as the canvas editor stores it.
+  // The page's text direction is rtl, but a coordinate system that flips
+  // between the editor and the renderer would put every element — and every
+  // signature box — on the wrong side of the page.
   return [
     'position:absolute',
-    `right:${safeNumber(element.x, 0, -PAGE_WIDTH_MM, PAGE_WIDTH_MM)}mm`,
+    `left:${safeNumber(element.x, 0, -PAGE_WIDTH_MM, PAGE_WIDTH_MM)}mm`,
     `top:${safeNumber(element.y, 0, -PAGE_HEIGHT_MM, PAGE_HEIGHT_MM)}mm`,
     `width:${safeNumber(element.width, 40, 0, PAGE_WIDTH_MM)}mm`,
     `height:${safeNumber(element.height, 10, 0, PAGE_HEIGHT_MM)}mm`,
@@ -250,10 +254,7 @@ export function documentFields(document: CanvasDocument): PlacedField[] {
         ownedBy: field.binding ? 'sender' : 'signer',
         required: field.required !== false,
         page: pageIndex + 1,
-        // The page is laid out right-to-left, so x measures from the right
-        // edge; the stored fraction measures from the left like every other
-        // coordinate in the system.
-        x: 1 - (field.x + field.width) / PAGE_WIDTH_MM,
+        x: field.x / PAGE_WIDTH_MM,
         y: field.y / PAGE_HEIGHT_MM,
         width: field.width / PAGE_WIDTH_MM,
         height: field.height / PAGE_HEIGHT_MM,

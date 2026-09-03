@@ -31,8 +31,7 @@ const doc: CanvasDocument = {
 describe('canvas render', () => {
   it('places an element at the millimetres the model stores', () => {
     const html = documentToHtml(doc)
-    // Right-anchored because the page is laid out right-to-left.
-    expect(html).toContain('right:20mm')
+    expect(html).toContain('left:20mm')
     expect(html).toContain('top:20mm')
     expect(html).toContain('width:170mm')
   })
@@ -51,8 +50,7 @@ describe('canvas render', () => {
     const [field] = documentFields(doc)
     expect(field.type).toBe('signature')
     expect(field.page).toBe(1)
-    // 20mm from the right edge of a 210mm page, as a fraction from the left.
-    expect(field.x).toBeCloseTo(1 - (20 + 60) / PAGE_WIDTH_MM, 6)
+    expect(field.x).toBeCloseTo(20 / PAGE_WIDTH_MM, 6)
     expect(field.y).toBeCloseTo(250 / PAGE_HEIGHT_MM, 6)
     expect(field.width).toBeCloseTo(60 / PAGE_WIDTH_MM, 6)
   })

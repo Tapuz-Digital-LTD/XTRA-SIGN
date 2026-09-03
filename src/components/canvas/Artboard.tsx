@@ -44,6 +44,15 @@ export function Artboard({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fabricRef = useRef<fabric.Canvas | null>(null)
   const guidesRef = useRef<Guide[]>([])
+  /**
+   * Set when the canvas itself caused the model to change.
+   *
+   * Without it the redraw below tears down every object and builds it again on
+   * the very change a drag just made — so the thing under the cursor is
+   * replaced mid-gesture, which is why grabbing was unreliable and why an
+   * element appeared to jump the moment it was released.
+   */
+  const selfEdit = useRef(false)
   // Read inside Fabric's handlers, which are registered once.
   const latest = useRef({ page, zoom, onChange, onCommit, onSelect, onEditText })
   latest.current = { page, zoom, onChange, onCommit, onSelect, onEditText }
@@ -58,6 +67,9 @@ export function Artboard({
       backgroundColor: '',
     })
     fabricRef.current = canvas
+    if (process.env.NODE_ENV !== 'production') {
+      ;(window as unknown as Record<string, unknown>).__xtraCanvas = canvas
+    }
 
     const geometryOf = (object: fabric.FabricObject) => readGeometry(object, latest.current.zoom)
 
@@ -80,8 +92,17 @@ export function Artboard({
 
       const box = geometryOf(object)
       // Fabric resizes by scaling; the model stores a size, so the scale is
-      // folded back into width and height and reset.
-      object.set({ scaleX: 1, scaleY: 1, width: object.width, height: object.height })
+      // folded into the real dimensions rather than discarded — setting the
+      // unscaled width here would silently throw the resize away.
+      object.set({
+        width: (object.width ?? 0) * (object.scaleX ?? 1),
+        height: (object.height ?? 0) * (object.scaleY ?? 1),
+        scaleX: 1,
+        scaleY: 1,
+      })
+      object.setCoords()
+
+      selfEdit.current = true
       latest.current.onChange(id, box)
       guidesRef.current = []
       latest.current.onCommit()
@@ -101,7 +122,11 @@ export function Artboard({
 
     canvas.on('text:changed', (event) => {
       const object = event.target as fabric.Textbox & { xtraId?: string }
-      if (object?.xtraId) latest.current.onEditText(object.xtraId, object.text ?? '')
+      if (!object?.xtraId) return
+      // Typing is also the canvas editing itself; rebuilding here would drop
+      // the caret on every keystroke.
+      selfEdit.current = true
+      latest.current.onEditText(object.xtraId, object.text ?? '')
     })
 
     // The guides are drawn above everything, after Fabric has painted.
@@ -133,10 +158,15 @@ export function Artboard({
     }
   }, [])
 
-  // Redraw whenever the page or the zoom changes.
+  // Redraw whenever the page or the zoom changes — but never in response to a
+  // change the canvas itself just made.
   useEffect(() => {
     const canvas = fabricRef.current
     if (!canvas) return
+    if (selfEdit.current) {
+      selfEdit.current = false
+      return
+    }
     let cancelled = false
 
     async function draw() {
@@ -173,10 +203,26 @@ export function Artboard({
     }
   }, [page, zoom])
 
-  // Mirror the selection held above into the canvas.
+  // Mirror the selection held above into the canvas — but only when they
+  // actually differ. The canvas reports a click as selection:created, React
+  // re-renders, and this effect runs while the mouse is still down; calling
+  // setActiveObject on the very object being dragged cancels Fabric's
+  // in-progress transform, which made every first drag select and then
+  // silently go nowhere.
   useEffect(() => {
     const canvas = fabricRef.current
     if (!canvas) return
+
+    const activeIds = canvas
+      .getActiveObjects()
+      .map((object) => (object as { xtraId?: string }).xtraId ?? '')
+      .filter(Boolean)
+      .sort()
+    const wantedIds = [...selectedIds].sort()
+    if (activeIds.length === wantedIds.length && activeIds.every((id, i) => id === wantedIds[i])) {
+      return
+    }
+
     const wanted = new Set(selectedIds)
     const objects = canvas.getObjects().filter((object) => wanted.has((object as { xtraId?: string }).xtraId ?? ''))
 

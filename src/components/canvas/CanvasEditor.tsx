@@ -16,6 +16,7 @@ import {
   emptyDocument, findElement, mmToPx,
   type CanvasDocument, type CanvasElement,
 } from '@/lib/canvas/model'
+import { tourismShowcase } from '@/lib/canvas/showcase'
 import { apply, commit, initHistory, redo, undo, type Command, type History } from '@/lib/canvas/store'
 import { useUnsavedGuard } from '@/components/editor/useUnsavedGuard'
 
@@ -137,8 +138,13 @@ export function CanvasEditor({
     const input = window.document.createElement('input')
     input.type = 'file'
     input.accept = 'image/png,image/jpeg,image/webp'
+    // In the DOM before the click: some browsers quietly ignore a click on a
+    // detached input, which reads as the button doing nothing at all.
+    input.style.display = 'none'
+    window.document.body.appendChild(input)
     input.onchange = () => {
       const file = input.files?.[0]
+      input.remove()
       if (!file) return
       if (file.size > MAX_IMAGE_BYTES) {
         setError('התמונה גדולה מדי (עד 4MB).')
@@ -150,6 +156,7 @@ export function CanvasEditor({
       reader.onload = () => onPicked(String(reader.result))
       reader.readAsDataURL(file)
     }
+    input.oncancel = () => input.remove()
     input.click()
   }
 
@@ -286,6 +293,27 @@ export function CanvasEditor({
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Add elements */}
         <aside className="hidden w-44 shrink-0 overflow-y-auto overflow-x-hidden border-e border-line bg-surface p-2 lg:block">
+          {document.pages.length === 1 && document.pages[0].elements.length === 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                // Loads a finished design to start from, so the first document
+                // begins from craft rather than a blank page. One undo step.
+                const showcase = tourismShowcase()
+                setHistory((current) => commit(current, showcase))
+                if (!title.trim()) setTitle(showcase.title)
+                setPageIndex(0)
+                setSelectedIds([])
+                setDirty(true)
+              }}
+              className="mb-3 w-full rounded-lg border border-brand bg-blue-50 px-2 py-2.5 text-start text-xs font-medium text-fg transition hover:bg-blue-100"
+            >
+              עיצוב מוכן לדוגמה
+              <span className="mt-0.5 block text-[11px] font-normal text-muted">
+                הסכם חודש התיירות — 3 עמודים מעוצבים
+              </span>
+            </button>
+          ) : null}
           <Group title="טקסט">
             {Object.entries(TEXT_PRESETS).map(([key, make]) => (
               <Item key={key} icon={Type} label={key === 'heading' ? 'כותרת' : key === 'subheading' ? 'כותרת משנה' : 'טקסט'}
