@@ -45,6 +45,20 @@ export function publicUrl(path: string): string {
   return `${base}${path.startsWith('/') ? path : `/${path}`}`
 }
 
+/**
+ * Titles and bodies carry names typed by strangers — a lead's company name
+ * arrives from the public joining form — so nothing reaches the email HTML
+ * unescaped.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
 export async function getNotificationPrefs(organizationId: string): Promise<NotificationPrefs> {
   const [row] = await getDb()
     .select({ prefs: schema.organizations.notificationPrefs })
@@ -125,9 +139,9 @@ export async function notify(input: {
           subject: input.title,
           text: `${input.title}\n${input.body ?? ''}\n\n${link}`,
           html: `<div dir="rtl" style="font-family:Arial,sans-serif;font-size:15px;color:#111">
-            <p><strong>${input.title}</strong></p>
-            ${input.body ? `<p>${input.body}</p>` : ''}
-            <p><a href="${link}">לצפייה במערכת</a></p>
+            <p><strong>${escapeHtml(input.title)}</strong></p>
+            ${input.body ? `<p>${escapeHtml(input.body)}</p>` : ''}
+            <p><a href="${escapeHtml(link)}">לצפייה במערכת</a></p>
           </div>`,
         }),
       ),
