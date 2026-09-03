@@ -109,7 +109,13 @@ export async function presignUpload(input: {
   // The client PUTs to a URL either way, so there is one code path in the
   // browser rather than a development branch nobody exercises.
   if (!storageIsConfigured()) {
-    if (process.env.NODE_ENV === 'production') {
+    // The one sanctioned exception: running the production bundle on a
+    // developer's machine for acceptance testing, where there is no store and
+    // disk is the point. Never set on Vercel — there, a missing token stays a
+    // loud failure rather than documents quietly written to a container that
+    // vanishes on the next deploy.
+    const allowDisk = process.env.XTRA_ALLOW_DISK_STORAGE === '1'
+    if (process.env.NODE_ENV === 'production' && !allowDisk) {
       throw new Error('Blob storage is not configured: set BLOB_READ_WRITE_TOKEN, or BLOB_STORE_ID with VERCEL_OIDC_TOKEN')
     }
     return `/api/dev-blob/${input.key.split('/').map(encodeURIComponent).join('/')}`
@@ -164,7 +170,13 @@ export function getStorage(): DocumentStorage {
   if (cached) return cached
 
   if (!storageIsConfigured()) {
-    if (process.env.NODE_ENV === 'production') {
+    // The one sanctioned exception: running the production bundle on a
+    // developer's machine for acceptance testing, where there is no store and
+    // disk is the point. Never set on Vercel — there, a missing token stays a
+    // loud failure rather than documents quietly written to a container that
+    // vanishes on the next deploy.
+    const allowDisk = process.env.XTRA_ALLOW_DISK_STORAGE === '1'
+    if (process.env.NODE_ENV === 'production' && !allowDisk) {
       throw new Error('Blob storage is not configured: set BLOB_READ_WRITE_TOKEN, or BLOB_STORE_ID with VERCEL_OIDC_TOKEN')
     }
     // eslint-disable-next-line @typescript-eslint/no-require-imports
