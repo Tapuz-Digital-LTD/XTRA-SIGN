@@ -458,6 +458,12 @@ export const projectLeads = pgTable(
      * without minting a second lead. Unique per project when present.
      */
     idempotencyKey: text('idempotency_key'),
+    /**
+     * Campaign attribution, kept apart from `data` so it never shows up as a
+     * form answer: UTM fields, the landing URL, the form version. Whitelisted
+     * and capped on write — never raw query strings.
+     */
+    meta: jsonb('meta'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
     reviewedBy: uuid('reviewed_by').references(() => users.id),

@@ -32,7 +32,15 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
     }
 
     const body = (await request.json().catch(() => null)) as
-      | { values?: Record<string, unknown>; website?: unknown; embed?: unknown; referrer?: unknown }
+      | {
+          values?: Record<string, unknown>
+          website?: unknown
+          embed?: unknown
+          referrer?: unknown
+          source?: unknown
+          idempotencyKey?: unknown
+          meta?: unknown
+        }
       | null
 
     // The honeypot: a hidden "website" input. People leave it empty; bots
@@ -45,8 +53,13 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
       slug,
       values: body?.values ?? {},
       ip,
-      source: body?.embed === true ? 'embed' : 'landing',
+      // A first-party page may declare which door it is; anything unknown
+      // falls back to the hosted/embed pair.
+      source:
+        body?.source === 'tourism_landing' ? 'tourism_landing' : body?.embed === true ? 'embed' : 'landing',
       referrer: typeof body?.referrer === 'string' ? body.referrer : null,
+      idempotencyKey: typeof body?.idempotencyKey === 'string' ? body.idempotencyKey : null,
+      meta: body?.meta && typeof body.meta === 'object' ? (body.meta as Record<string, unknown>) : null,
     })
     if (!result.ok) {
       return NextResponse.json({ error: { message: result.message, fields: result.fields } }, { status: 400 })

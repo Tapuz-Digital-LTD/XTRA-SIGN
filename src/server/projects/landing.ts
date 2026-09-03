@@ -34,6 +34,12 @@ export type LandingConfig = {
    * that want to pin it down.
    */
   allowedOrigins: string[]
+  /**
+   * Storage key of a PDF the public landing offers for download ("הורד הסכם").
+   * Config, not code: swapping the file never touches the page. Only ever a
+   * storage key — the bytes are streamed through the public agreement route.
+   */
+  agreementFileKey: string | null
 }
 
 const ORIGIN_RE = /^https?:\/\/[a-z0-9.-]+(:\d+)?$/i
@@ -50,6 +56,10 @@ function cleanConfig(raw: Partial<LandingConfig> | null | undefined, projectName
       .map((o) => (typeof o === 'string' ? o.trim().replace(/\/+$/, '') : ''))
       .filter((o) => ORIGIN_RE.test(o))
       .slice(0, 20),
+    agreementFileKey:
+      typeof raw?.agreementFileKey === 'string' && raw.agreementFileKey.trim()
+        ? raw.agreementFileKey.trim().slice(0, 300)
+        : null,
   }
 }
 
@@ -139,7 +149,28 @@ export type SubmitResult =
   | { ok: true; duplicate?: boolean }
   | { ok: false; message: string; fields?: Record<string, string> }
 
-export type SubmissionSource = 'landing' | 'embed' | 'api'
+export type SubmissionSource = 'landing' | 'embed' | 'api' | 'tourism_landing'
+
+/** Attribution keys a caller may store on a lead. Anything else is dropped. */
+const META_KEYS = [
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_content',
+  'utm_term',
+  'landing_url',
+  'form_version',
+] as const
+
+function cleanMeta(raw: unknown): Record<string, string> | null {
+  if (!raw || typeof raw !== 'object') return null
+  const out: Record<string, string> = {}
+  for (const key of META_KEYS) {
+    const value = (raw as Record<string, unknown>)[key]
+    if (typeof value === 'string' && value.trim()) out[key] = value.trim().slice(0, 200)
+  }
+  return Object.keys(out).length > 0 ? out : null
+}
 
 /**
  * THE submission pipeline. The hosted page, the embed and the public API all
@@ -153,6 +184,7 @@ export async function submitLead(input: {
   source: SubmissionSource
   referrer?: string | null
   idempotencyKey?: string | null
+  meta?: Record<string, unknown> | null
 }): Promise<SubmitResult> {
   const landing = await getPublicLanding(input.slug)
   if (!landing) return { ok: false, message: 'הטופס אינו פעיל.' }
@@ -202,6 +234,7 @@ export async function submitLead(input: {
         source: input.source,
         referrer,
         idempotencyKey,
+        meta: cleanMeta(input.meta),
         ip: input.ip,
       })
       .onConflictDoNothing()

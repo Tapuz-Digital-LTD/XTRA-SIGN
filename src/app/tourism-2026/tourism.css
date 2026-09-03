@@ -1,0 +1,762 @@
+/*
+ * שבוע התיירות 2026 — standalone public landing.
+ *
+ * The Ministry reference (862×1824) is the design spec. The layout is built on
+ * a canonical 862px canvas: --u equals one reference pixel (100cqw / 862), so
+ * every measured coordinate transfers verbatim and the whole page scales
+ * proportionally down to the mobile breakpoint, where it re-stacks.
+ */
+
+.tl-page {
+  background: #ffffff;
+  min-height: 100vh;
+}
+
+.tl-root {
+  container-type: inline-size;
+  max-width: 862px;
+  margin: 0 auto;
+  background: #fff;
+  font-family: var(--font-heebo), var(--font-assistant), sans-serif;
+  --u: 0.116009cqw; /* 1 canonical px */
+  overflow-x: clip;
+  --navy: #0d2353;
+  --navy-text: #0a1d4e;
+  --turquoise: #0eaac9;
+  --orange: #f4671c;
+}
+
+@media (min-width: 903px) {
+  .tl-page {
+    padding-block: 0;
+  }
+  .tl-root {
+    box-shadow: 0 0 44px rgba(13, 38, 87, 0.14);
+  }
+}
+
+/* ---------- Hero ---------- */
+
+.tl-hero {
+  position: relative;
+  aspect-ratio: 862 / 791;
+}
+
+.tl-hero-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tl-hero-text {
+  position: absolute;
+  inset-inline: 0;
+  text-align: center;
+}
+
+.tl-hero-title {
+  top: calc(244 * var(--u));
+  font-size: calc(72 * var(--u));
+  line-height: calc(74 / 72);
+  font-weight: 800;
+  color: var(--navy);
+}
+
+.tl-title-l1 {
+  display: inline-block;
+  letter-spacing: -0.018em;
+  transform: translateX(calc(9 * var(--u)));
+}
+
+.tl-title-l2 {
+  display: inline-block;
+  letter-spacing: 0.01em;
+  transform: translateX(calc(2 * var(--u)));
+}
+
+.tl-title-dash {
+  /* An isolated dash orders by the paragraph direction, so it always lands at
+     the line's end (left, in RTL) — no invisible control characters involved. */
+  unicode-bidi: isolate;
+  margin-inline-start: calc(12 * var(--u));
+  font-size: 0.75em;
+  vertical-align: 0.09em;
+  letter-spacing: 0;
+}
+
+.tl-hero-date {
+  top: calc(398 * var(--u));
+  font-size: calc(52 * var(--u));
+  letter-spacing: 0.07em;
+  transform: translateX(calc(15 * var(--u)));
+  font-weight: 700;
+  color: var(--turquoise);
+}
+
+.tl-hero-copy {
+  top: calc(584 * var(--u));
+  font-size: calc(22 * var(--u));
+  line-height: calc(36.5 / 22);
+  font-weight: 500;
+  color: var(--navy-text);
+}
+
+.tl-hero-logo,
+.tl-hero-slogan,
+.tl-hero-photos {
+  display: none;
+}
+
+/* ---------- Navy band (benefits + form card) ---------- */
+
+.tl-band {
+  background: linear-gradient(
+    180deg,
+    #0d2657 0%,
+    #0e285c 30%,
+    #112c62 52%,
+    #15346d 70%,
+    #1d4180 85%,
+    #2f5c99 96%,
+    #3362a0 100%
+  );
+}
+
+.tl-benefits {
+  height: calc(300 * var(--u));
+  padding-top: calc(30 * var(--u));
+}
+
+.tl-benefits-heading {
+  text-align: center;
+  font-size: calc(27 * var(--u));
+  font-weight: 800;
+  color: #2fb2dc;
+}
+
+.tl-benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: calc(26 * var(--u));
+  padding-inline: calc(64 * var(--u)) calc(52 * var(--u));
+}
+
+.tl-benefit {
+  text-align: center;
+  padding-inline: calc(10 * var(--u));
+}
+
+.tl-benefit + .tl-benefit {
+  border-inline-start: 1px solid rgba(140, 190, 235, 0.35);
+}
+
+.tl-benefit-icon {
+  width: calc(70 * var(--u));
+  height: calc(70 * var(--u));
+  margin: 0 auto;
+  color: #56c1e9;
+}
+
+.tl-benefit-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.tl-benefit-title {
+  margin-top: calc(4 * var(--u));
+  font-size: calc(25 * var(--u));
+  font-weight: 700;
+  color: #56cdf2;
+}
+
+.tl-benefit-text {
+  margin-top: calc(8 * var(--u));
+  font-size: calc(18.5 * var(--u));
+  line-height: 1.35;
+  color: #f2f6fb;
+}
+
+/* ---------- Form card ---------- */
+
+.tl-card {
+  margin-inline: calc(29 * var(--u)) calc(30 * var(--u));
+  background: #fefefe;
+  border-radius: calc(28 * var(--u)) calc(28 * var(--u)) 0 0;
+  min-height: calc(577 * var(--u));
+  padding-inline: calc(32 * var(--u));
+  padding-bottom: calc(4 * var(--u));
+}
+
+.tl-card-heading {
+  padding-top: calc(44 * var(--u));
+  text-align: center;
+  font-size: calc(28 * var(--u));
+  font-weight: 700;
+  color: #0c3273;
+}
+
+.tl-card-underline {
+  width: calc(71 * var(--u));
+  height: calc(5 * var(--u));
+  border-radius: calc(3 * var(--u));
+  background: #17abcd;
+  margin: calc(11 * var(--u)) auto 0;
+}
+
+.tl-form-grid {
+  display: grid;
+  grid-template-columns: 1fr calc(214 * var(--u));
+  column-gap: calc(42 * var(--u));
+  margin-top: calc(12 * var(--u));
+  align-items: start;
+}
+
+.tl-fields {
+  display: flex;
+  flex-direction: column;
+  gap: calc(41 * var(--u));
+  margin-top: calc(52 * var(--u));
+}
+
+.tl-field-row {
+  display: grid;
+  grid-template-columns: calc(116 * var(--u)) 1fr;
+  column-gap: calc(23 * var(--u));
+  align-items: center;
+}
+
+.tl-field-row label {
+  font-size: calc(19 * var(--u));
+  font-weight: 600;
+  color: #0e2f6b;
+  text-align: end;
+}
+
+.tl-input {
+  height: calc(46 * var(--u));
+  min-height: 2.5rem;
+  border: 1px solid #e2e6ec;
+  border-radius: calc(10 * var(--u));
+  background: #fff;
+  padding-inline: calc(16 * var(--u));
+  font-size: calc(22 * var(--u));
+  font-family: inherit;
+  font-weight: 600;
+  color: #14336e;
+  width: 100%;
+}
+
+.tl-input:focus-visible {
+  outline: 2px solid #17abcd;
+  outline-offset: 1px;
+}
+
+.tl-input[aria-invalid='true'] {
+  border-color: #d64545;
+}
+
+select.tl-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7' viewBox='0 0 11 7'%3E%3Cpath d='M0 0h11L5.5 7z' fill='%23213c72'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left calc(16 * var(--u)) center;
+}
+
+.tl-field-error {
+  grid-column: 2;
+  margin-top: calc(6 * var(--u));
+  font-size: calc(16 * var(--u));
+  color: #c93a3a;
+}
+
+/* Agreement download card */
+
+.tl-agreement {
+  margin-top: calc(14 * var(--u));
+  border: calc(2 * var(--u)) solid #b5e2f0;
+  border-radius: calc(14 * var(--u));
+  background: #f2fafd;
+  padding: calc(14 * var(--u)) calc(16 * var(--u)) calc(20 * var(--u));
+  text-align: center;
+}
+
+.tl-agreement-icon {
+  width: calc(140 * var(--u));
+  margin: calc(8 * var(--u)) auto 0;
+  display: block;
+  transform: translateX(calc(7 * var(--u)));
+}
+
+.tl-agreement-text {
+  margin-top: calc(10 * var(--u));
+  font-size: calc(21.5 * var(--u));
+  line-height: 1.3;
+  font-weight: 700;
+  color: #16418c;
+}
+
+.tl-agreement-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: calc(20 * var(--u)) auto 0;
+  width: calc(176 * var(--u));
+  height: calc(53 * var(--u));
+  min-height: 2.5rem;
+  border-radius: calc(10 * var(--u));
+  background: #1fb0d3;
+  color: #fff;
+  font-size: calc(21 * var(--u));
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.tl-agreement-btn:hover {
+  background: #17a2c4;
+}
+
+.tl-agreement-note {
+  margin-top: calc(8 * var(--u));
+  font-size: calc(15 * var(--u));
+  color: #4a6296;
+}
+
+/* CTA */
+
+.tl-error {
+  margin: calc(30 * var(--u)) auto 0;
+  max-width: calc(560 * var(--u));
+  border: 1px solid #f3c1c1;
+  background: #fdf1f1;
+  border-radius: calc(12 * var(--u));
+  padding: calc(12 * var(--u)) calc(18 * var(--u));
+  font-size: calc(18 * var(--u));
+  color: #a33030;
+  text-align: center;
+}
+
+.tl-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(12 * var(--u));
+  margin: calc(56 * var(--u)) auto 0;
+  width: calc(292 * var(--u));
+  height: calc(66 * var(--u));
+  min-height: 2.75rem;
+  border-radius: calc(35 * var(--u));
+  background: var(--orange);
+  color: #fff;
+  font-size: calc(27 * var(--u));
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.tl-cta:hover {
+  background: #e35d15;
+}
+
+.tl-cta:disabled {
+  opacity: 0.75;
+  cursor: default;
+}
+
+.tl-cta:focus-visible,
+.tl-agreement-btn:focus-visible {
+  outline: 3px solid #17abcd;
+  outline-offset: 2px;
+}
+
+.tl-spinner {
+  width: calc(22 * var(--u));
+  height: calc(22 * var(--u));
+  min-width: 14px;
+  min-height: 14px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  animation: tl-spin 0.8s linear infinite;
+}
+
+@keyframes tl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-spinner {
+    animation-duration: 2s;
+  }
+}
+
+/* Success state */
+
+.tl-success {
+  padding: calc(120 * var(--u)) calc(30 * var(--u)) calc(60 * var(--u));
+  text-align: center;
+}
+
+.tl-success-badge {
+  width: calc(84 * var(--u));
+  height: calc(84 * var(--u));
+  min-width: 56px;
+  min-height: 56px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: #e3f6fb;
+  color: #0e9dbd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(40 * var(--u));
+}
+
+.tl-success-title {
+  margin-top: calc(28 * var(--u));
+  font-size: calc(32 * var(--u));
+  font-weight: 700;
+  color: #0c3273;
+}
+
+.tl-success-sub {
+  margin-top: calc(12 * var(--u));
+  font-size: calc(21 * var(--u));
+  color: #38548d;
+}
+
+/* Artwork strip */
+
+.tl-artwork {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #fff;
+}
+
+/* ---------- Step 2 dialog ---------- */
+
+.tl-dialog {
+  border: none;
+  border-radius: 20px;
+  padding: 0;
+  width: min(92vw, 430px);
+  box-shadow: 0 24px 70px rgba(7, 22, 60, 0.35);
+  font-family: var(--font-heebo), var(--font-assistant), sans-serif;
+}
+
+.tl-dialog::backdrop {
+  background: rgba(8, 20, 50, 0.55);
+}
+
+.tl-dialog-inner {
+  padding: 28px 26px 26px;
+}
+
+.tl-dialog-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #0d2353;
+  text-align: center;
+}
+
+.tl-dialog-sub {
+  margin-top: 6px;
+  font-size: 15px;
+  color: #44598c;
+  text-align: center;
+}
+
+.tl-dialog-field {
+  margin-top: 16px;
+}
+
+.tl-dialog-field label {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0e2f6b;
+  margin-bottom: 6px;
+}
+
+.tl-dialog-field .tl-input {
+  height: 48px;
+  font-size: 16px;
+  border-radius: 10px;
+  padding-inline: 14px;
+}
+
+.tl-dialog-field .tl-field-error {
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.tl-dialog-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 22px;
+  width: 100%;
+  height: 54px;
+  border-radius: 27px;
+  background: var(--orange);
+  color: #fff;
+  font-size: 19px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.tl-dialog-submit:disabled {
+  opacity: 0.75;
+}
+
+.tl-dialog-back {
+  display: block;
+  margin: 12px auto 0;
+  background: none;
+  border: none;
+  color: #44598c;
+  font-size: 15px;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: underline;
+}
+
+.tl-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.tl-honeypot {
+  position: absolute;
+  inset-inline-start: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+/* ---------- Mobile restack ---------- */
+
+@media (max-width: 639px) {
+  .tl-hero {
+    aspect-ratio: auto;
+    padding: 28px 20px 8px;
+  }
+
+  .tl-hero-bg {
+    display: none;
+  }
+
+  .tl-hero-text {
+    position: static;
+  }
+
+  .tl-hero-logo {
+    display: block;
+    width: min(62%, 250px);
+    margin: 0 auto;
+    height: auto;
+  }
+
+  .tl-hero-title {
+    margin-top: 18px;
+    font-size: clamp(30px, 8.6vw, 36px);
+    line-height: 1.18;
+  }
+
+  .tl-hero-date {
+    margin-top: 6px;
+    font-size: clamp(22px, 6.2vw, 26px);
+  }
+
+  .tl-hero-slogan {
+    display: block;
+    width: min(72%, 300px);
+    margin: 14px auto 0;
+    height: auto;
+  }
+
+  .tl-hero-copy {
+    margin-top: 16px;
+    font-size: 15px;
+    line-height: 1.7;
+    padding-inline: 6px;
+  }
+
+  .tl-hero-photos {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 22px;
+  }
+
+  .tl-hero-photos img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: 14px;
+  }
+
+  .tl-benefits {
+    height: auto;
+    padding: 26px 14px 30px;
+  }
+
+  .tl-benefits-heading {
+    font-size: 22px;
+  }
+
+  .tl-benefits-grid {
+    grid-template-columns: 1fr 1fr;
+    row-gap: 26px;
+    margin-top: 22px;
+  }
+
+  .tl-benefit {
+    border-inline-start: none !important;
+  }
+
+  .tl-benefit-icon {
+    width: 54px;
+    height: 54px;
+  }
+
+  .tl-benefit-title {
+    margin-top: 8px;
+    font-size: 17px;
+  }
+
+  .tl-benefit-text {
+    font-size: 14.5px;
+    line-height: 1.35;
+  }
+
+  .tl-card {
+    margin-inline: 14px;
+    border-radius: 22px 22px 0 0;
+    padding-inline: 18px;
+    padding-bottom: 26px;
+  }
+
+  .tl-card-heading {
+    padding-top: 26px;
+    font-size: 22px;
+  }
+
+  .tl-card-underline {
+    width: 54px;
+    height: 4px;
+    margin-top: 12px;
+  }
+
+  .tl-form-grid {
+    grid-template-columns: 1fr;
+    row-gap: 26px;
+    margin-top: 4px;
+  }
+
+  .tl-fields {
+    margin-top: 22px;
+    gap: 18px;
+  }
+
+  .tl-field-row {
+    grid-template-columns: 1fr;
+    row-gap: 7px;
+  }
+
+  .tl-field-row label {
+    font-size: 15px;
+  }
+
+  .tl-input {
+    height: 48px;
+    font-size: 16px;
+    border-radius: 10px;
+    padding-inline: 14px;
+  }
+
+  select.tl-input {
+    background-position: left 14px center;
+  }
+
+  .tl-field-error {
+    grid-column: 1;
+    font-size: 13px;
+  }
+
+  .tl-agreement {
+    margin: 0 auto;
+    max-width: 300px;
+    border-width: 1.5px;
+    border-radius: 14px;
+    padding: 14px 16px 18px;
+  }
+
+  .tl-agreement-icon {
+    width: 96px;
+  }
+
+  .tl-agreement-text {
+    font-size: 16px;
+  }
+
+  .tl-agreement-btn {
+    width: 160px;
+    height: 46px;
+    border-radius: 10px;
+    font-size: 16px;
+  }
+
+  .tl-agreement-note {
+    font-size: 13px;
+  }
+
+  .tl-error {
+    font-size: 14px;
+    border-radius: 10px;
+    padding: 10px 14px;
+  }
+
+  .tl-cta {
+    margin-top: 28px;
+    width: min(100%, 340px);
+    height: 56px;
+    border-radius: 28px;
+    font-size: 19px;
+  }
+
+  .tl-success {
+    padding: 46px 18px 30px;
+  }
+
+  .tl-success-badge {
+    width: 64px;
+    height: 64px;
+    font-size: 30px;
+  }
+
+  .tl-success-title {
+    font-size: 22px;
+  }
+
+  .tl-success-sub {
+    font-size: 15px;
+  }
+}

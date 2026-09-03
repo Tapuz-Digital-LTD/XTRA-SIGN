@@ -33,6 +33,7 @@ const SOURCE_LABELS: Record<string, string> = {
   landing: 'טופס XTRA Sign',
   embed: 'טופס מוטמע',
   api: 'API',
+  tourism_landing: 'דף שבוע התיירות',
 }
 
 const dateFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })

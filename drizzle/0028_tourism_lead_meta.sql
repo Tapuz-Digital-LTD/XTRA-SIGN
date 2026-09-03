@@ -1,0 +1,1 @@
+ALTER TABLE "project_leads" ADD COLUMN "meta" jsonb;

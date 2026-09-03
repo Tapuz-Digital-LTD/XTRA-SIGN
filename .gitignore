@@ -56,3 +56,10 @@ public/pdfjs/
 # ad-hoc debug scripts
 scripts/tmp-*
 .scratch/
+
+# tourism-2026 design workbench — generated comparisons (reference.png is the spec, committed)
+.design/tourism-2026/shot.png
+.design/tourism-2026/diff.png
+.design/tourism-2026/blend.png
+.design/tourism-2026/noscroll-*.png
+.design/tourism-2026/e2e-success.png
