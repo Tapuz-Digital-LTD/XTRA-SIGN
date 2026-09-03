@@ -91,10 +91,23 @@ export async function agreementReport(session: StaffSession, filters: ReportFilt
   }
 }
 
-/** The same rows the KPIs counted, as a workbook someone can hand onwards. */
-export async function buildReportWorkbook(session: StaffSession, filters: ReportFilters): Promise<Workbook> {
-  const rows = await getDb()
+export type ReportRow = {
+  id: string
+  title: string
+  status: (typeof schema.agreements.status.enumValues)[number]
+  sentAt: Date | null
+  completedAt: Date | null
+  companyName: string | null
+  companyKind: 'supplier' | 'customer' | null
+  crmRecordId: string | null
+  recipientName: string | null
+}
+
+/** The rows behind the KPIs — one query feeding both the screen and the file. */
+export async function reportRows(session: StaffSession, filters: ReportFilters, limit = 5000): Promise<ReportRow[]> {
+  return getDb()
     .select({
+      id: schema.agreements.id,
       title: schema.agreements.title,
       status: schema.agreements.status,
       sentAt: schema.agreements.sentAt,
@@ -112,7 +125,12 @@ export async function buildReportWorkbook(session: StaffSession, filters: Report
     .leftJoin(schema.companies, eq(schema.companies.id, schema.agreements.companyId))
     .where(and(...conditionsFor(session, filters)))
     .orderBy(sql`${schema.agreements.sentAt} desc`)
-    .limit(5000)
+    .limit(limit)
+}
+
+/** The same rows the KPIs counted, as a workbook someone can hand onwards. */
+export async function buildReportWorkbook(session: StaffSession, filters: ReportFilters): Promise<Workbook> {
+  const rows = await reportRows(session, filters)
 
   const workbook = new Workbook()
   const sheet = workbook.addWorksheet('דוח', { views: [{ rightToLeft: true }] })

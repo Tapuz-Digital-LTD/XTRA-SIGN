@@ -3,7 +3,7 @@ import { AppShell } from '@/components/AppShell'
 import { CompanyTabs } from '@/components/companies/CompanyTabs'
 import { ReportPanel } from '@/components/reports/ReportPanel'
 import { getSession } from '@/server/auth/session'
-import { agreementReport, parseReportFilters } from '@/server/reports/reports'
+import { agreementReport, parseReportFilters, reportRows } from '@/server/reports/reports'
 
 export default async function CustomerReportsPage({
   searchParams,
@@ -15,7 +15,10 @@ export default async function CustomerReportsPage({
   const params = await searchParams
 
   const filters = parseReportFilters({ kind: 'customer', ...params })
-  const kpis = await agreementReport(session, filters)
+  const [kpis, rows] = await Promise.all([
+    agreementReport(session, filters),
+    reportRows(session, filters, 100),
+  ])
 
   const query = new URLSearchParams({ kind: 'customer' })
   if (params.from) query.set('from', params.from)
@@ -29,6 +32,8 @@ export default async function CustomerReportsPage({
       <div className="mt-5">
         <ReportPanel
           kpis={kpis}
+          rows={rows}
+          rowLimit={100}
           action="/customers/reports"
           exportHref={`/api/reports/export?${query}`}
           values={params}

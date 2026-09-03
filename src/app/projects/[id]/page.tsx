@@ -12,7 +12,7 @@ import { authorizeGroup, listGroupCompanies } from '@/server/groups/groups'
 import { listDocuments } from '@/server/documents/queries'
 import { listLeads } from '@/server/projects/leads'
 import { getLandingSettings } from '@/server/projects/landing'
-import { agreementReport, parseReportFilters } from '@/server/reports/reports'
+import { agreementReport, parseReportFilters, reportRows } from '@/server/reports/reports'
 import { listTemplates } from '@/server/templates/templates'
 
 const TABS = ['suppliers', 'leads', 'agreements', 'reports', 'settings'] as const
@@ -189,7 +189,10 @@ async function ReportsTab({
   session: NonNullable<Awaited<ReturnType<typeof getSession>>>
 }) {
   const filters = parseReportFilters({ group: projectId, from, to })
-  const kpis = await agreementReport(session, filters)
+  const [kpis, rows] = await Promise.all([
+    agreementReport(session, filters),
+    reportRows(session, filters, 100),
+  ])
   const query = new URLSearchParams({ group: projectId })
   if (from) query.set('from', from)
   if (to) query.set('to', to)
@@ -197,6 +200,8 @@ async function ReportsTab({
   return (
     <ReportPanel
       kpis={kpis}
+      rows={rows}
+      rowLimit={100}
       action={`/projects/${projectId}`}
       hidden={{ tab: 'reports' }}
       values={{ from, to }}
