@@ -2,11 +2,15 @@
 
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import type { LandingSettings, LandingField } from '@/server/projects/landing'
+import { FormBuilder } from '@/components/projects/FormBuilder'
+import { PublishPanel } from '@/components/projects/PublishPanel'
+import type { LandingSettings } from '@/server/projects/landing'
+import type { FormField } from '@/server/projects/form-schema'
 
 /**
- * A project's own settings: the joining form, who hears about new leads, and
- * the project's name. Saved as a whole — one form, one button.
+ * A project's own settings: the joining form and its builder, where the form
+ * is published (hosted / embed / API), who hears about new leads, and the
+ * project's name. Saved as a whole — one form, one button.
  */
 export function ProjectSettings({
   projectId,
@@ -26,28 +30,14 @@ export function ProjectSettings({
   const [title, setTitle] = useState(landing.config.title)
   const [about, setAbout] = useState(landing.config.description)
   const [successMessage, setSuccessMessage] = useState(landing.config.successMessage)
-  const [fields, setFields] = useState<LandingField[]>(landing.config.fields)
+  const [fields, setFields] = useState<FormField[]>(landing.config.fields)
+  const [allowedOrigins, setAllowedOrigins] = useState(landing.config.allowedOrigins.join('\n'))
   const [notifyEmails, setNotifyEmails] = useState(landing.notifyEmails.join('\n'))
   const [url, setUrl] = useState(landing.url)
+  const [slug, setSlug] = useState(landing.slug)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [copied, setCopied] = useState(false)
-
-  function setRequired(key: string, required: boolean) {
-    setFields((current) => current.map((f) => (f.key === key ? { ...f, required } : f)))
-  }
-
-  function addCustomField() {
-    const label = window.prompt('שם השדה החדש (למשל: תחום עיסוק)')
-    if (!label?.trim()) return
-    const key = `custom_${Math.random().toString(36).slice(2, 8)}`
-    setFields((current) => [...current, { key, label: label.trim(), required: false }])
-  }
-
-  function removeField(key: string) {
-    if (key === 'name') return
-    setFields((current) => current.filter((f) => f.key !== key))
-  }
 
   async function save() {
     setBusy(true)
@@ -73,7 +63,16 @@ export function ProjectSettings({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           enabled,
-          config: { title, description: about, successMessage, fields },
+          config: {
+            title,
+            description: about,
+            successMessage,
+            fields,
+            allowedOrigins: allowedOrigins
+              .split(/[\n,]/)
+              .map((o) => o.trim())
+              .filter(Boolean),
+          },
           notifyEmails: notifyEmails
             .split(/[\n,]/)
             .map((e) => e.trim())
@@ -86,6 +85,8 @@ export function ProjectSettings({
         return
       }
       setUrl(data.url ?? null)
+      setSlug(data.slug ?? null)
+      if (data.config?.fields) setFields(data.config.fields)
       setMessage({ tone: 'ok', text: 'ההגדרות נשמרו.' })
       router.refresh()
     } catch {
@@ -107,7 +108,7 @@ export function ProjectSettings({
   }
 
   return (
-    <div className="flex max-w-2xl flex-col gap-6">
+    <div className="flex max-w-3xl flex-col gap-6">
       <section className="rounded-[var(--radius-card)] border border-line bg-surface p-5">
         <h2 className="text-base font-semibold text-fg">פרטי הפרויקט</h2>
         <label className="mt-3 block text-sm">
@@ -198,44 +199,38 @@ export function ProjectSettings({
           />
         </label>
 
-        <div className="mt-4">
-          <span className="text-sm text-muted">שדות הטופס</span>
-          <ul className="mt-2 flex flex-col gap-1.5">
-            {fields.map((field) => (
-              <li key={field.key} className="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-line bg-bg px-3">
-                <span className="min-w-0 truncate text-sm text-fg">{field.label}</span>
-                <span className="flex shrink-0 items-center gap-3">
-                  <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted">
-                    <input
-                      type="checkbox"
-                      checked={field.required}
-                      onChange={(e) => setRequired(field.key, e.target.checked)}
-                      className="size-4"
-                    />
-                    חובה
-                  </label>
-                  {field.key !== 'name' ? (
-                    <button
-                      type="button"
-                      onClick={() => removeField(field.key)}
-                      className="text-xs text-red-700 hover:underline"
-                    >
-                      הסרה
-                    </button>
-                  ) : null}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <button
-            type="button"
-            onClick={addCustomField}
-            className="mt-2 inline-flex min-h-9 items-center rounded-lg border border-dashed border-line bg-surface px-3 text-xs font-medium text-muted transition hover:border-brand hover:text-fg"
-          >
-            + שדה נוסף
-          </button>
+        <div className="mt-5">
+          <h3 className="text-sm font-semibold text-fg">שדות הטופס</h3>
+          <p className="mt-0.5 text-xs text-muted">
+            שדות פרטי הספק ממלאים את כרטיס הספק אוטומטית כשמאשרים ליד; שדות מותאמים נשמרים עם הליד.
+          </p>
+          <div className="mt-3">
+            <FormBuilder fields={fields} onChange={setFields} />
+          </div>
         </div>
       </section>
+
+      {slug && url ? (
+        <section className="rounded-[var(--radius-card)] border border-line bg-surface p-5">
+          <h2 className="text-base font-semibold text-fg">פרסום והטמעה</h2>
+          <p className="mt-1 text-sm text-muted">
+            אותו טופס, שלוש דרכים: הקישור שלמעלה, הטמעה באתר חיצוני, או שליחה ישירה מהאתר שלכם.
+          </p>
+          <div className="mt-3">
+            <PublishPanel
+              slug={slug}
+              url={url}
+              fields={fields}
+              allowedOrigins={allowedOrigins}
+              onOriginsChange={setAllowedOrigins}
+            />
+          </div>
+        </section>
+      ) : (
+        <p className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-4 py-3 text-sm text-muted">
+          אפשרויות ההטמעה וה-API יופיעו אחרי השמירה הראשונה של הטופס.
+        </p>
+      )}
 
       <section className="rounded-[var(--radius-card)] border border-line bg-surface p-5">
         <h2 className="text-base font-semibold text-fg">התראות על לידים חדשים</h2>

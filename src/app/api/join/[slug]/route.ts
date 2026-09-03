@@ -4,17 +4,24 @@ import { clientIp, log } from '@/server/log'
 import { submitLead } from '@/server/projects/landing'
 
 /**
- * The public submission endpoint behind a project's joining form.
+ * The submission endpoint behind our own hosted joining form (and its embed).
  *
  * Unauthenticated by design — the whole point is that a supplier who has
  * nothing but the link can fill it in. Defended accordingly: per-IP rate
- * limit, a honeypot field no person ever sees, and hard caps on every value
- * inside submitLead.
+ * limit, a honeypot field no person ever sees, a payload cap, and the shared
+ * schema validation inside submitLead.
  */
+const MAX_BODY_BYTES = 50_000
+
 export async function POST(request: Request, context: { params: Promise<{ slug: string }> }) {
   try {
     const { slug } = await context.params
     const ip = clientIp(request)
+
+    const length = Number(request.headers.get('content-length') ?? 0)
+    if (length > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: { message: 'הטופס גדול מדי.' } }, { status: 413 })
+    }
 
     const gate = await consume('leadSubmit', `${ip ?? 'unknown'}`)
     if (!gate.allowed) {
@@ -25,7 +32,7 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
     }
 
     const body = (await request.json().catch(() => null)) as
-      | { values?: Record<string, unknown>; website?: unknown }
+      | { values?: Record<string, unknown>; website?: unknown; embed?: unknown; referrer?: unknown }
       | null
 
     // The honeypot: a hidden "website" input. People leave it empty; bots
@@ -34,7 +41,13 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
       return NextResponse.json({ ok: true })
     }
 
-    const result = await submitLead({ slug, values: body?.values ?? {}, ip })
+    const result = await submitLead({
+      slug,
+      values: body?.values ?? {},
+      ip,
+      source: body?.embed === true ? 'embed' : 'landing',
+      referrer: typeof body?.referrer === 'string' ? body.referrer : null,
+    })
     if (!result.ok) {
       return NextResponse.json({ error: { message: result.message, fields: result.fields } }, { status: 400 })
     }

@@ -31,7 +31,12 @@ export type LeadItem = {
   companyId: string | null
   createdAt: Date
   reviewedAt: Date | null
+  /** 'landing' | 'embed' | 'api' — which door the submission came through. */
   source: string
+  /** The form's fields as they were when this was submitted. */
+  formSnapshot: { id: string; label: string }[] | null
+  /** The page an embedded form sat on, when known. */
+  referrer: string | null
   /** A company we already hold that looks like the same business. */
   duplicate: { id: string; name: string } | null
 }
@@ -59,6 +64,14 @@ export async function listLeads(session: StaffSession, groupId: string): Promise
               contactEmail: data.email ?? null,
             })
           : null
+      const snapshot = Array.isArray(row.formSnapshot)
+        ? (row.formSnapshot as unknown[])
+            .filter((f): f is { id: string; label: string } => {
+              const field = f as Record<string, unknown> | null
+              return !!field && typeof field.id === 'string' && typeof field.label === 'string'
+            })
+            .map((f) => ({ id: f.id, label: f.label }))
+        : null
       return {
         id: row.id,
         status: row.status as LeadItem['status'],
@@ -67,6 +80,8 @@ export async function listLeads(session: StaffSession, groupId: string): Promise
         createdAt: row.createdAt,
         reviewedAt: row.reviewedAt,
         source: row.source,
+        formSnapshot: snapshot,
+        referrer: row.referrer,
         duplicate,
       }
     }),

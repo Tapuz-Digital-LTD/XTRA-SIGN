@@ -6,18 +6,41 @@ export const dynamic = 'force-dynamic'
 /**
  * A project's public joining page. No login, no navigation, nothing about the
  * rest of the system — just the form the project chose to show.
+ *
+ * With ?embed=1 the same page renders bare, for the iframe the embed snippet
+ * plants on an external site: no hero, no footer, minimal padding — the host
+ * page owns the surroundings.
  */
-export default async function JoinPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params
+export default async function JoinPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>
+  searchParams: Promise<{ embed?: string }>
+}) {
+  const [{ slug }, query] = await Promise.all([params, searchParams])
+  const embed = query.embed === '1'
   const landing = await getPublicLanding(slug)
 
   if (!landing) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-bg px-4">
+      <main className={embed ? 'bg-bg p-2' : 'flex min-h-dvh items-center justify-center bg-bg px-4'}>
         <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-8 text-center">
           <p className="text-lg font-semibold text-fg">הטופס אינו זמין</p>
           <p className="mt-2 text-sm text-muted">ייתכן שהקישור שגוי או שהטופס נסגר. אפשר לפנות למי ששלח לכם אותו.</p>
         </div>
+      </main>
+    )
+  }
+
+  if (embed) {
+    return (
+      <main className="bg-bg p-1">
+        <h1 className="px-1 pb-2 text-lg font-bold tracking-tight text-fg">{landing.config.title}</h1>
+        {landing.config.description ? (
+          <p className="whitespace-pre-line px-1 pb-3 text-sm text-muted">{landing.config.description}</p>
+        ) : null}
+        <JoinForm slug={slug} config={landing.config} embed />
       </main>
     )
   }

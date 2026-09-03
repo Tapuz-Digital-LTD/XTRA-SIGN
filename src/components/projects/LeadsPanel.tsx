@@ -24,6 +24,17 @@ const FIELD_LABELS: Record<string, string> = {
   city: 'עיר',
 }
 
+/** In the words the form used when THIS lead was submitted. */
+function labelFor(lead: LeadItem, key: string): string {
+  return lead.formSnapshot?.find((f) => f.id === key)?.label ?? FIELD_LABELS[key] ?? key
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  landing: 'טופס XTRA Sign',
+  embed: 'טופס מוטמע',
+  api: 'API',
+}
+
 const dateFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
 export function LeadsPanel({ projectId, leads }: { projectId: string; leads: LeadItem[] }) {
@@ -102,7 +113,7 @@ export function LeadsPanel({ projectId, leads }: { projectId: string; leads: Lea
                       .filter(([key]) => key !== 'name')
                       .map(([key, value]) => (
                         <div key={key} className="flex gap-2">
-                          <dt className="shrink-0 text-muted">{FIELD_LABELS[key] ?? key}:</dt>
+                          <dt className="shrink-0 text-muted">{labelFor(lead, key)}:</dt>
                           <dd className="min-w-0 truncate text-fg" dir={key === 'phone' || key === 'email' ? 'ltr' : undefined}>
                             {value}
                           </dd>
@@ -110,7 +121,13 @@ export function LeadsPanel({ projectId, leads }: { projectId: string; leads: Lea
                       ))}
                   </dl>
                   <p className="mt-2 text-xs text-muted">
-                    התקבל {dateFormat.format(new Date(lead.createdAt))} · טופס הצטרפות
+                    התקבל {dateFormat.format(new Date(lead.createdAt))} · {SOURCE_LABELS[lead.source] ?? lead.source}
+                    {lead.referrer ? (
+                      <>
+                        {' · '}
+                        <span dir="ltr" className="break-all">{lead.referrer.replace(/^https?:\/\//, '').slice(0, 60)}</span>
+                      </>
+                    ) : null}
                   </p>
                   {lead.duplicate ? (
                     <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -252,7 +269,7 @@ function EditLeadDialog({
         {[...keys, ...extraKeys].map((key) => (
           <label key={key} className="mt-3 block text-sm">
             <span className="text-muted">
-              {FIELD_LABELS[key] ?? key}
+              {labelFor(lead, key)}
               {key === 'name' ? <span className="text-red-700"> *</span> : null}
             </span>
             <input

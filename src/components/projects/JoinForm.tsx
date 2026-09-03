@@ -1,20 +1,40 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { FormRenderer, type FormValues } from '@/components/projects/FormRenderer'
 import type { LandingConfig } from '@/server/projects/landing'
 
 /**
  * The public joining form. One column, big targets, no login — a supplier
  * standing in a parking lot with a phone must be able to finish it.
+ *
+ * In embed mode the same form runs inside an iframe on someone else's site:
+ * it reports its height so the host page never shows an inner scrollbar, and
+ * announces a successful submission so the host can react.
  */
-export function JoinForm({ slug, config }: { slug: string; config: LandingConfig }) {
-  const [values, setValues] = useState<Record<string, string>>({})
+export function JoinForm({ slug, config, embed = false }: { slug: string; config: LandingConfig; embed?: boolean }) {
+  const [values, setValues] = useState<FormValues>({})
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
   // The honeypot: hidden from people, irresistible to bots.
   const [website, setWebsite] = useState('')
+
+  // Height reporting for the embed wrapper. The message carries a size and
+  // nothing else, so broadcasting it is harmless.
+  useEffect(() => {
+    if (!embed || typeof window === 'undefined' || window.parent === window) return
+    const post = () =>
+      window.parent.postMessage(
+        { type: 'xtra-form:height', height: document.documentElement.scrollHeight },
+        '*',
+      )
+    post()
+    const observer = new ResizeObserver(post)
+    observer.observe(document.documentElement)
+    return () => observer.disconnect()
+  }, [embed])
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
@@ -25,7 +45,13 @@ export function JoinForm({ slug, config }: { slug: string; config: LandingConfig
       const response = await fetch(`/api/join/${slug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values, website }),
+        body: JSON.stringify({
+          values,
+          website,
+          embed,
+          // Inside the iframe, document.referrer is the page hosting the embed.
+          referrer: embed ? document.referrer : null,
+        }),
       })
       const data = await response.json().catch(() => null)
       if (!response.ok) {
@@ -34,6 +60,9 @@ export function JoinForm({ slug, config }: { slug: string; config: LandingConfig
         return
       }
       setDone(true)
+      if (embed && window.parent !== window) {
+        window.parent.postMessage({ type: 'xtra-form:submitted' }, '*')
+      }
     } catch {
       setError('השליחה נכשלה. בדקו את החיבור לאינטרנט ונסו שוב.')
     } finally {
@@ -47,38 +76,27 @@ export function JoinForm({ slug, config }: { slug: string; config: LandingConfig
         <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-green-100 text-2xl text-green-700" aria-hidden="true">
           ✓
         </div>
-        <p className="mt-4 text-lg font-semibold text-fg">{config.successMessage}</p>
+        <p role="status" className="mt-4 text-lg font-semibold text-fg">{config.successMessage}</p>
       </div>
     )
   }
 
   return (
-    <form onSubmit={submit} className="rounded-2xl border border-line bg-surface p-5 sm:p-8">
-      {config.fields.map((field) => {
-        const ltr = field.key === 'phone' || field.key === 'email' || field.key === 'taxId'
-        return (
-          <label key={field.key} className="mb-4 block text-sm">
-            <span className="font-medium text-fg">
-              {field.label}
-              {field.required ? <span className="text-red-700"> *</span> : null}
-            </span>
-            <input
-              value={values[field.key] ?? ''}
-              onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
-              required={field.required}
-              type={field.key === 'email' ? 'email' : field.key === 'phone' ? 'tel' : 'text'}
-              inputMode={field.key === 'phone' ? 'tel' : field.key === 'taxId' ? 'numeric' : undefined}
-              dir={ltr ? 'ltr' : undefined}
-              className="mt-1.5 h-12 w-full rounded-xl border border-line bg-bg px-3.5 text-base text-fg outline-none focus:border-brand"
-            />
-            {fieldErrors[field.key] ? (
-              <span role="alert" className="mt-1 block text-xs text-red-700">
-                {fieldErrors[field.key]}
-              </span>
-            ) : null}
-          </label>
-        )
-      })}
+    <form onSubmit={submit} className="rounded-2xl border border-line bg-surface p-5 sm:p-8" noValidate>
+      <FormRenderer
+        fields={config.fields}
+        values={values}
+        errors={fieldErrors}
+        onChange={(id, value) => {
+          setValues((v) => ({ ...v, [id]: value }))
+          setFieldErrors((current) => {
+            if (!current[id]) return current
+            const next = { ...current }
+            delete next[id]
+            return next
+          })
+        }}
+      />
 
       {/* Never shown; a value here means a script filled the form. */}
       <input

@@ -183,6 +183,13 @@
       "when": 1788430387487,
       "tag": "0025_curly_killer_shrike",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1788440793604,
+      "tag": "0026_nice_wallop",
+      "breakpoints": true
     }
   ]
 }

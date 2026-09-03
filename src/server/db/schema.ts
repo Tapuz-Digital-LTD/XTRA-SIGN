@@ -437,14 +437,31 @@ export const projectLeads = pgTable(
     data: jsonb('data').notNull(),
     /** The supplier created on approval, so the lead always leads somewhere. */
     companyId: uuid('company_id').references(() => companies.id),
-    /** 'landing' today; kept so an imported or manual lead can say so later. */
+    /** Which door the submission came through: 'landing' | 'embed' | 'api'. */
     source: text('source').default('landing').notNull(),
     ip: text('ip'),
+    /**
+     * The form's fields as they were at the moment of submission. The form
+     * changes; the lead must stay readable as it was asked, forever.
+     */
+    formSnapshot: jsonb('form_snapshot'),
+    /** The page an embedded form sat on. Display only, capped, never trusted. */
+    referrer: text('referrer'),
+    /**
+     * A caller-supplied key so an API integration can retry a submission
+     * without minting a second lead. Unique per project when present.
+     */
+    idempotencyKey: text('idempotency_key'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
     reviewedBy: uuid('reviewed_by').references(() => users.id),
   },
-  (t) => [index('project_leads_group_idx').on(t.groupId, t.status, t.createdAt)],
+  (t) => [
+    index('project_leads_group_idx').on(t.groupId, t.status, t.createdAt),
+    uniqueIndex('project_leads_idempotency_unique')
+      .on(t.groupId, t.idempotencyKey)
+      .where(sql`${t.idempotencyKey} is not null`),
+  ],
 )
 
 /** Membership. A company may belong to any number of groups. */

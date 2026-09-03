@@ -107,6 +107,33 @@ const nextConfig: NextConfig = {
         source: '/api/:path*',
         headers: [{ key: 'Cache-Control', value: 'private, no-store, max-age=0' }],
       },
+      {
+        /**
+         * The public joining form is the one page other sites are MEANT to
+         * frame — that is what the embed snippet does. It is unauthenticated
+         * and its only action is creating a lead, so framing it risks nothing
+         * a visit to the page itself does not. Everything else keeps 'none'.
+         *
+         * X-Frame-Options has no allow-everyone value; browsers that see the
+         * CSP frame-ancestors directive ignore X-Frame-Options entirely, and
+         * the non-standard value below reads as invalid (= no restriction)
+         * for anything old enough to lack CSP2.
+         */
+        source: '/join/:path*',
+        headers: [
+          { key: 'Content-Security-Policy', value: buildCsp({ isProd, frameAncestors: '*' }) },
+          { key: 'X-Frame-Options', value: 'ALLOWALL' },
+        ],
+      },
+      {
+        // The embed loader is fetched by <script> tags on other origins;
+        // same-origin CORP would block every one of them.
+        source: '/embed.js',
+        headers: [
+          { key: 'Cross-Origin-Resource-Policy', value: 'cross-origin' },
+          { key: 'Cache-Control', value: 'public, max-age=3600' },
+        ],
+      },
     ]
   },
 }

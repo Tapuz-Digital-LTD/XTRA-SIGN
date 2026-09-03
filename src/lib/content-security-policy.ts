@@ -78,7 +78,7 @@ export function isConnectableUploadUrl(url: string): boolean {
  * carries no credential of ours — the URL is signed, scoped to a single
  * pathname, limited to `put`, and expires in two minutes.
  */
-export function buildCsp(options: { isProd: boolean }): string {
+export function buildCsp(options: { isProd: boolean; frameAncestors?: string }): string {
   const { isProd } = options
 
   return [
@@ -94,7 +94,10 @@ export function buildCsp(options: { isProd: boolean }): string {
     // Storage is private and signed download URLs are followed by a redirect the
     // browser makes itself, so no third-party origin needs to be submittable to.
     "form-action 'self'",
-    "frame-ancestors 'none'",
+    // 'none' everywhere except the one surface that is MADE to be framed:
+    // /join, the public joining form, which the embed snippet mounts in an
+    // iframe on other people's sites.
+    `frame-ancestors ${options.frameAncestors ?? "'none'"}`,
     "base-uri 'none'",
     "object-src 'none'",
     ...(isProd ? ['upgrade-insecure-requests'] : []),
