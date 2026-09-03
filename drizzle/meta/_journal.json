@@ -176,6 +176,13 @@
       "when": 1788389027236,
       "tag": "0024_ancient_violations",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1788430387487,
+      "tag": "0025_curly_killer_shrike",
+      "breakpoints": true
     }
   ]
 }

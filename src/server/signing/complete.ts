@@ -4,7 +4,6 @@ import { getDb, schema } from '@/server/db'
 import { buildStorageKey, sha256 } from '@/server/documents/file-validation'
 import { InforuEmailProvider } from '@/server/notifications/inforu'
 import { notify } from '@/server/notifications/notifications'
-import { writeBackSignedDocument } from '@/server/crm/writeback'
 import { getStorage } from '@/server/storage/blob'
 import { buildSignedPdf } from './pdf'
 import type { SigningContext } from './session'
@@ -166,10 +165,8 @@ export async function completeSigning(input: {
   // not roll back a completed signature.
   await notifyAfterSigning(input.context, signedPdf).catch(() => {})
 
-  // Back to the CRM record this document came from, if it came from one. The
-  // signature is already final; a failure here is recorded, not raised.
-  await writeBackSignedDocument(input.context.agreementId).catch(() => {})
-
+  // Nothing is pushed to the CRM here: uploading the signed PDF to Fireberry
+  // is a button the user presses, never an automatic side effect of a signature.
   return { ok: true }
 }
 

@@ -7,9 +7,9 @@ import { useState } from 'react'
  * Sends the signed PDF back to the Fireberry record it came from, and marks
  * that record as agreed.
  *
- * Shown once a document is signed and came from a CRM record. It happens
- * automatically on signing; this is the retry for when Fireberry was
- * unreachable at that moment, and the way to see that it succeeded.
+ * Shown once a document is signed and came from a CRM record. Nothing reaches
+ * the CRM until this button is pressed — uploading is a decision the user
+ * makes, never a side effect of a signature.
  */
 export function CrmWritebackButton({
   documentId,
@@ -49,7 +49,7 @@ export function CrmWritebackButton({
   return (
     <div className="flex flex-col gap-1">
       {state === 'failed' ? (
-        <p className="text-xs text-red-700">ההעלאה האוטומטית ל-Fireberry נכשלה.</p>
+        <p className="text-xs text-red-700">ההעלאה ל-Fireberry נכשלה.</p>
       ) : null}
       <button
         type="button"
@@ -57,7 +57,7 @@ export function CrmWritebackButton({
         onClick={() => void send()}
         className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition hover:border-brand disabled:opacity-50"
       >
-        {busy ? 'מעלה…' : state === 'failed' ? 'נסה שוב להעלות ל-Fireberry' : 'העלאה ל-Fireberry וסימון כנחתם'}
+        {busy ? 'מעלה…' : state === 'failed' ? 'נסה שוב להעלות ל-Fireberry' : 'העלה ל-Fireberry'}
       </button>
       {error ? <p role="alert" className="text-xs text-red-700">{error}</p> : null}
     </div>

@@ -11,8 +11,9 @@ import { usePathname } from 'next/navigation'
  * reachable only by typing the URL.
  */
 const TABS = [
-  { href: '/settings/organization', label: 'פרטי הארגון ומיתוג' },
+  { href: '/settings/organization', label: 'פרטי הארגון' },
   { href: '/settings/users', label: 'משתמשים' },
+  { href: '/settings/notifications', label: 'התראות' },
 ]
 
 export function SettingsNav() {

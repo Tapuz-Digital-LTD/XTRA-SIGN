@@ -1,5 +1,6 @@
 'use client'
 
+import { Bell } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
@@ -12,6 +13,7 @@ const ICON: Record<string, string> = {
   expired: '⏱',
   send_failed: '!',
   crm_failed: '!',
+  new_lead: '+',
 }
 
 const TONE: Record<string, string> = {
@@ -20,6 +22,7 @@ const TONE: Record<string, string> = {
   expired: 'text-amber-700',
   send_failed: 'text-red-700',
   crm_failed: 'text-red-700',
+  new_lead: 'text-brand',
 }
 
 /**
@@ -88,7 +91,7 @@ export function NotificationBell() {
         aria-expanded={open}
         className="relative inline-flex size-11 items-center justify-center rounded-lg text-muted transition hover:bg-slate-100 hover:text-fg"
       >
-        <span aria-hidden="true" className="text-lg">🔔</span>
+        <Bell aria-hidden="true" className="size-5" strokeWidth={1.75} />
         {unread > 0 ? (
           <span className="absolute end-1.5 top-1.5 inline-flex min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">
             {unread > 9 ? '9+' : unread}
@@ -113,6 +116,7 @@ export function NotificationBell() {
             ) : (
               <ul className="divide-y divide-line">
                 {items.map((item) => {
+                  const href = item.link ?? (item.agreementId ? `/documents/${item.agreementId}` : null)
                   const body = (
                     <>
                       <span className={`mt-0.5 shrink-0 ${TONE[item.type] ?? 'text-muted'}`} aria-hidden="true">
@@ -130,9 +134,9 @@ export function NotificationBell() {
                   )
                   return (
                     <li key={item.id}>
-                      {item.agreementId ? (
+                      {href ? (
                         <Link
-                          href={`/documents/${item.agreementId}`}
+                          href={href}
                           onClick={() => setOpen(false)}
                           className="flex gap-2 px-3 py-3 transition hover:bg-bg"
                         >

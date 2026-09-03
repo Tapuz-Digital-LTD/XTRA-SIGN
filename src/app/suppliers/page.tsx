@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { CompanyList } from '@/components/companies/CompanyList'
+import { CompanyTabs } from '@/components/companies/CompanyTabs'
 import { getSession } from '@/server/auth/session'
 import { listCompanies } from '@/server/companies/companies'
 import { getCrmProvider } from '@/server/crm/fireberry'
@@ -26,7 +27,8 @@ export default async function SuppliersPage({
       <p className="mt-1 text-sm text-muted">
         כל ספק במקום אחד — הפרטים שלו וכל המסמכים שנשלחו אליו לחתימה.
       </p>
-      <div className="mt-6">
+      <CompanyTabs base="/suppliers" active="list" listLabel="ספקים" />
+      <div className="mt-5">
         <CompanyList companies={companies} kind="supplier" search={q ?? ''} groups={groups} activeGroup={group ?? null} noun="ספק" crmEnabled={getCrmProvider().isConfigured()} />
       </div>
     </AppShell>

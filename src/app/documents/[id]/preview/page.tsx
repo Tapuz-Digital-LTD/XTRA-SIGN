@@ -1,6 +1,4 @@
 import { notFound, redirect } from 'next/navigation'
-import { Suspense } from 'react'
-import { XtraAi } from '@/components/ai/XtraAi'
 import { PreviewViewer } from '@/components/PreviewViewer'
 import { ForbiddenError, getSession } from '@/server/auth/session'
 import { authorizeAgreementAccess } from '@/server/documents/authorization'
@@ -32,12 +30,5 @@ export default async function PreviewPage({ params }: { params: Promise<{ id: st
   // document page. Back goes where it makes sense.
   const backHref = agreement.status === 'draft' ? `/documents/${id}/edit` : `/documents/${id}`
 
-  return (
-    <>
-      <PreviewViewer documentId={id} title={doc.title} pages={pages} fields={fields} backHref={backHref} />
-      <Suspense fallback={null}>
-        <XtraAi />
-      </Suspense>
-    </>
-  )
+  return <PreviewViewer documentId={id} title={doc.title} pages={pages} fields={fields} backHref={backHref} />
 }

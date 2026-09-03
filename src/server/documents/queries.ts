@@ -48,15 +48,17 @@ export type ListFilter =
   | 'pending'
   | 'viewed'
   | 'signed'
+  | 'expired'
   | 'canceled'
   | 'attention'
 
-const FILTER_STATUSES: Record<'pending' | 'signed' | 'drafts' | 'viewed' | 'canceled', AgreementStatus[]> = {
+const FILTER_STATUSES: Record<'pending' | 'signed' | 'drafts' | 'viewed' | 'expired' | 'canceled', AgreementStatus[]> = {
   pending: ['sent', 'viewed'],
   viewed: ['viewed'],
   signed: ['signed'],
   drafts: ['draft'],
-  canceled: ['canceled', 'declined', 'expired'],
+  expired: ['expired'],
+  canceled: ['canceled', 'declined'],
 }
 
 /**
@@ -96,6 +98,8 @@ export async function listDocuments(
     filter?: ListFilter
     search?: string
     companyId?: string
+    /** Only agreements a bulk send of this project produced. */
+    groupId?: string
     page?: number
     pageSize?: number
     /** Show superseded versions as their own rows. Off by default. */
@@ -121,6 +125,15 @@ export async function listDocuments(
 
   if (options.companyId) {
     conditions.push(eq(schema.agreements.companyId, options.companyId))
+  }
+
+  if (options.groupId) {
+    conditions.push(sql`exists (
+      select 1 from ${schema.bulkBatchItems} bi
+      join ${schema.bulkBatches} bb on bb.id = bi.batch_id
+      where bi.agreement_id = ${schema.agreements.id}
+        and bb.group_id = ${options.groupId}
+    )`)
   }
 
   if (filter !== 'all' && filter !== 'attention') {

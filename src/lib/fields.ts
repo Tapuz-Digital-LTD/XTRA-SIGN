@@ -28,6 +28,12 @@ export const FIELD_TYPES: {
   { type: 'phone', label: 'טלפון', icon: '☎', defaultWidth: 0.2, defaultHeight: 0.035 },
 ]
 
+/**
+ * The types offered for NEW fields. number/select left the palette in Simple
+ * V1 — documents that already carry them keep rendering via FIELD_TYPES.
+ */
+export const PALETTE_TYPES = FIELD_TYPES.filter((f) => f.type !== 'number' && f.type !== 'select')
+
 export const FIELD_LABELS: Record<FieldType, string> = Object.fromEntries(
   FIELD_TYPES.map((f) => [f.type, f.label]),
 ) as Record<FieldType, string>

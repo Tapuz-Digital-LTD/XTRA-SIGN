@@ -10,6 +10,7 @@ const TABS: { key: ListFilter; label: string }[] = [
   { key: 'pending', label: 'ממתינים לחתימה' },
   { key: 'viewed', label: 'נצפו' },
   { key: 'signed', label: 'נחתמו' },
+  { key: 'expired', label: 'פגו' },
   { key: 'canceled', label: 'בוטלו' },
   { key: 'attention', label: 'דורשים טיפול' },
 ]
@@ -40,7 +41,7 @@ export function InboxControls({ filter, search, attentionCount }: { filter: List
       else query.delete('q')
     }
     query.delete('page') // a new filter or term starts at the first page
-    router.push(`/documents${query.toString() ? `?${query}` : ''}`)
+    router.push(`/agreements${query.toString() ? `?${query}` : ''}`)
   }
 
   return (

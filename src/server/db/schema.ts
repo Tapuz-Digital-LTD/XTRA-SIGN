@@ -88,6 +88,13 @@ export const organizations = pgTable('organizations', {
   brandAccent: text('brand_accent'),
   brandFont: text('brand_font'),
   footerText: text('footer_text'),
+  /**
+   * Where event emails go and which events send them, as
+   * `{ emails: string[], events: Record<string, boolean> }`. In a column
+   * rather than a table because there is one organization per row and the
+   * whole object is read and written together from one settings screen.
+   */
+  notificationPrefs: jsonb('notification_prefs'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
 
@@ -385,8 +392,59 @@ export const groups = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     /** Soft: batches and agreements keep pointing at the group they came from. */
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    /**
+     * Projects (the UX name for a group since Simple V1) can open a public
+     * joining form. The slug is the public address — random, not guessable
+     * from the name, because the form must be shareable without exposing
+     * anything else about the organization.
+     */
+    landingEnabled: boolean('landing_enabled').default(false).notNull(),
+    landingSlug: text('landing_slug'),
+    /** Title, description, success message and the form's field list. */
+    landingConfig: jsonb('landing_config'),
+    /** Extra addresses this project notifies about new leads, beyond the org's. */
+    notifyEmails: jsonb('notify_emails'),
   },
-  (t) => [index('groups_org_idx').on(t.organizationId)],
+  (t) => [
+    index('groups_org_idx').on(t.organizationId),
+    uniqueIndex('groups_landing_slug_unique')
+      .on(t.landingSlug)
+      .where(sql`${t.landingSlug} is not null`),
+  ],
+)
+
+/**
+ * A submission from a project's public joining form.
+ *
+ * Deliberately not a company: whoever filled the form is unvetted, and the
+ * suppliers list must stay a list someone decided on. A lead becomes a
+ * supplier only when a person approves it — that is the whole point of the
+ * table existing separately.
+ */
+export const projectLeads = pgTable(
+  'project_leads',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    /** new | approved | rejected */
+    status: text('status').default('new').notNull(),
+    /** What was submitted, exactly as submitted: name, taxId, contact… */
+    data: jsonb('data').notNull(),
+    /** The supplier created on approval, so the lead always leads somewhere. */
+    companyId: uuid('company_id').references(() => companies.id),
+    /** 'landing' today; kept so an imported or manual lead can say so later. */
+    source: text('source').default('landing').notNull(),
+    ip: text('ip'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    reviewedBy: uuid('reviewed_by').references(() => users.id),
+  },
+  (t) => [index('project_leads_group_idx').on(t.groupId, t.status, t.createdAt)],
 )
 
 /** Membership. A company may belong to any number of groups. */
@@ -474,9 +532,11 @@ export const notifications = pgTable(
     organizationId: uuid('organization_id')
       .notNull()
       .references(() => organizations.id),
-    /** signed | declined | expired | send_failed | crm_failed */
+    /** signed | declined | expired | send_failed | crm_failed | new_lead */
     type: text('type').notNull(),
     agreementId: uuid('agreement_id'),
+    /** Where clicking the notification goes when it is not about an agreement. */
+    link: text('link'),
     /** Rendered when written, so a later rename does not rewrite history. */
     title: text('title').notNull(),
     body: text('body'),

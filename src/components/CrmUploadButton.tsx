@@ -31,14 +31,14 @@ export function CrmUploadButton({ documentId, alreadyUploaded }: { documentId: s
       })
       const data = await response.json().catch(() => null)
       if (!response.ok) {
-        setError(data?.error?.message ?? 'ההעלאה ל-CRM נכשלה.')
+        setError(data?.error?.message ?? 'ההעלאה ל-Fireberry נכשלה.')
         return
       }
       setDone(true)
       router.refresh()
       setTimeout(() => setDone(false), 4000)
     } catch {
-      setError('ההעלאה ל-CRM נכשלה. בדקו את החיבור לאינטרנט.')
+      setError('ההעלאה ל-Fireberry נכשלה. בדקו את החיבור לאינטרנט.')
     } finally {
       setBusy(false)
     }
@@ -52,7 +52,7 @@ export function CrmUploadButton({ documentId, alreadyUploaded }: { documentId: s
         disabled={busy}
         className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition-colors hover:bg-slate-50 disabled:opacity-60"
       >
-        {busy ? 'מעלה…' : done ? '✓ הועלה ל-CRM' : confirming ? 'להעלות שוב?' : alreadyUploaded ? 'הועלה ל-CRM ✓ · העלאה חוזרת' : 'העלה ל-CRM'}
+        {busy ? 'מעלה…' : done ? '✓ הועלה ל-Fireberry' : confirming ? 'להעלות שוב?' : alreadyUploaded ? 'הועלה ל-Fireberry ✓ · העלאה חוזרת' : 'העלה ל-Fireberry'}
       </button>
       {confirming && !busy ? (
         <span className="text-xs text-muted">כבר הועלה. לחצו שוב כדי להעלות עותק נוסף.</span>

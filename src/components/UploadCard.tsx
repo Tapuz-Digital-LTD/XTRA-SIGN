@@ -69,9 +69,11 @@ export function UploadCard({ companyId }: { companyId?: string | null }) {
   }
 
   return (
-    <div className="rounded-[var(--radius-card)] border border-line bg-surface p-6">
-      <h2 className="text-base font-semibold text-fg">העלאת מסמך</h2>
-      <p className="mt-1 text-sm text-muted">העלאת קובץ PDF קיים</p>
+    <div className="rounded-[var(--radius-card)] border border-brand bg-surface p-6">
+      <h2 className="text-base font-semibold text-fg">העלאת PDF</h2>
+      <p className="mt-1 text-sm text-muted">
+        מכינים את המסמך ב-Word, ב-Canva או בכל מערכת אחרת, מייצאים כ-PDF — ומעלים אותו כאן.
+      </p>
 
       <input
         ref={inputRef}

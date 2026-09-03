@@ -70,7 +70,7 @@ export function AddCompaniesDialog({ groupId }: { groupId: string }) {
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
       <div className="flex max-h-[85dvh] w-full max-w-lg flex-col rounded-t-2xl bg-surface sm:rounded-2xl">
         <div className="flex min-h-14 items-center justify-between border-b border-line px-4">
-          <h2 className="text-base font-semibold text-fg">הוספת חברות לקבוצה</h2>
+          <h2 className="text-base font-semibold text-fg">הוספת ספקים לפרויקט</h2>
           <button type="button" onClick={() => setOpen(false)} aria-label="סגירה" className="min-h-11 min-w-11 rounded-lg text-muted hover:bg-bg">✕</button>
         </div>
 

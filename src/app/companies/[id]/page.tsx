@@ -24,7 +24,7 @@ type Tab = 'details' | 'documents' | 'crm'
  * A company as a place to work from, not just a record to look at.
  *
  * Three tabs, because the three questions are different: who they are, what has
- * been signed with them, and what the CRM holds. "מסמך חדש" starts from here
+ * been signed with them, and what the CRM holds. "שלח מסמך לחתימה" starts here
  * with the company already chosen, so the wizard's first step is skipped.
  */
 export default async function CompanyPage({
@@ -63,7 +63,7 @@ export default async function CompanyPage({
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
     { key: 'details', label: 'פרטים' },
-    { key: 'documents', label: 'מסמכים', badge: counts.pending + counts.signed + counts.drafts },
+    { key: 'documents', label: 'הסכמים', badge: counts.pending + counts.signed + counts.drafts },
     ...(company.crmRecordId ? [{ key: 'crm' as Tab, label: 'Fireberry' }] : []),
   ]
 
@@ -82,15 +82,15 @@ export default async function CompanyPage({
 
       <CompanyHeader company={company} noun={noun} crmAppUrl={process.env.FIREBERRY_APP_URL ?? null} />
 
-      {/* The groups this company is in. Each is a link back to the filtered
-          list, so a chip answers "who else is in here?" in one click. */}
+      {/* The projects this company is in. Each is a link into the project,
+          so a chip answers "who else is in here?" in one click. */}
       {memberOf.length > 0 ? (
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-muted">קבוצות:</span>
+          <span className="text-xs text-muted">פרויקטים:</span>
           {memberOf.map((group) => (
             <Link
               key={group.id}
-              href={`/${company.kind === 'supplier' ? 'suppliers' : 'customers'}?group=${group.id}`}
+              href={`/projects/${group.id}`}
               className="inline-flex min-h-8 items-center rounded-full bg-bg px-2.5 text-xs text-fg transition hover:bg-slate-200"
             >
               {group.name}
@@ -121,7 +121,7 @@ export default async function CompanyPage({
           href={`/documents/new?company=${company.id}`}
           className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90"
         >
-          + מסמך חדש
+          שלח מסמך לחתימה
         </Link>
       </div>
 
@@ -152,7 +152,7 @@ export default async function CompanyPage({
 
       {tab === 'documents' ? (
         <>
-          <nav className="mt-4 flex flex-wrap gap-1" aria-label="סינון מסמכים">
+          <nav className="mt-4 flex flex-wrap gap-1" aria-label="סינון הסכמים">
             {DOC_FILTERS.map((f) => (
               <Link
                 key={f.key}
@@ -171,14 +171,14 @@ export default async function CompanyPage({
             {documents.items.length === 0 ? (
               <div className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center">
                 <p className="text-sm font-medium text-fg">
-                  {filter === 'all' ? `עדיין אין מסמכים ל${company.name}` : 'אין מסמכים בסטטוס הזה'}
+                  {filter === 'all' ? `עדיין אין הסכמים ל${company.name}` : 'אין הסכמים בסטטוס הזה'}
                 </p>
                 <p className="mt-1 text-sm text-muted">כל מסמך שייווצר עבור החברה הזו יופיע כאן.</p>
                 <Link
                   href={`/documents/new?company=${company.id}`}
                   className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90"
                 >
-                  + מסמך חדש
+                  שלח מסמך לחתימה
                 </Link>
               </div>
             ) : (

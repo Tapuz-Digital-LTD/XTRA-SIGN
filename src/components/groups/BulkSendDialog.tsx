@@ -153,7 +153,7 @@ export function BulkSendDialog({
               </p>
             ) : (
               <>
-                <p className="text-sm text-muted">בחרו את התבנית שתישלח לכל חברה בקבוצה.</p>
+                <p className="text-sm text-muted">בחרו את התבנית שתישלח לכל ספק ברשימה.</p>
                 <ul className="mt-3 divide-y divide-line">
                   {templates.map((template) => (
                     <li key={template.id}>

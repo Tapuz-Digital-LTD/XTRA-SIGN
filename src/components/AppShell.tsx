@@ -3,8 +3,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Suspense } from 'react'
-import { XtraAi } from '@/components/ai/XtraAi'
 import { NotificationBell } from '@/components/NotificationBell'
 
 /**
@@ -12,18 +10,21 @@ import { NotificationBell } from '@/components/NotificationBell'
  * document is reached through the company it concerns, not from one flat list.
  */
 const NAV = [
-  { href: '/', label: 'לוח בקרה' },
-  { href: '/documents', label: 'מסמכים' },
+  { href: '/', label: 'בית' },
   { href: '/suppliers', label: 'ספקים' },
   { href: '/customers', label: 'לקוחות' },
-  { href: '/groups', label: 'קבוצות' },
+  { href: '/projects', label: 'פרויקטים' },
+  { href: '/agreements', label: 'הסכמים' },
   { href: '/templates', label: 'תבניות' },
   { href: '/settings', label: 'הגדרות' },
 ]
 
 /** True for the section the user is in — exact for the dashboard, prefix elsewhere. */
 function isActive(pathname: string, href: string): boolean {
-  return href === '/' ? pathname === '/' : pathname.startsWith(href)
+  if (href === '/') return pathname === '/'
+  // Document pages live under /documents but belong to the agreements space.
+  if (href === '/agreements') return pathname.startsWith('/agreements') || pathname.startsWith('/documents')
+  return pathname.startsWith(href)
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -87,15 +88,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               href="/documents/new"
               className="inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-lg bg-brand px-4 text-sm font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)]"
             >
-              <span aria-hidden="true" className="me-1">
-                +
-              </span>
-              מסמך חדש
+              שלח מסמך לחתימה
             </Link>
           </div>
 
-          {/* Mobile nav: its own row, so every target keeps its full height. */}
-          <nav className="flex gap-1 pb-2 sm:hidden" aria-label="ניווט ראשי">
+          {/* Mobile nav: its own row, so every target keeps its full height.
+              Scrolls sideways when seven labels outgrow a narrow screen. */}
+          <nav className="flex gap-1 overflow-x-auto pb-2 sm:hidden" aria-label="ניווט ראשי">
             {NAV.map((item) => (
               <Link
                 key={item.href}
@@ -113,12 +112,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">{children}</main>
-
-      {/* Available from every screen, and aware of which one it is opened on.
-          Suspense because it reads the query string. */}
-      <Suspense fallback={null}>
-        <XtraAi />
-      </Suspense>
     </div>
   )
 }

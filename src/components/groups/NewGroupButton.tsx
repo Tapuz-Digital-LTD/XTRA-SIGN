@@ -3,19 +3,22 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-/** Creates a group, optionally seeded from a selection elsewhere. */
+/** Creates a project, optionally seeded from a selection elsewhere. */
 export function NewGroupButton({
   companyIds,
-  label = '+ קבוצה חדשה',
+  label = '+ פרויקט חדש',
   /** Preselected when the button sits on a suppliers or customers screen. */
   defaultKind = null,
+  /** Opens the dialog on mount — for the home screen's "new project" action. */
+  autoOpen = false,
 }: {
   companyIds?: string[]
   label?: string
   defaultKind?: 'supplier' | 'customer' | null
+  autoOpen?: boolean
 }) {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(autoOpen)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [kind, setKind] = useState<'supplier' | 'customer'>(defaultKind ?? 'supplier')
@@ -37,7 +40,7 @@ export function NewGroupButton({
         setError(data?.error?.message ?? 'היצירה נכשלה.')
         return
       }
-      router.push(`/groups/${data.id}`)
+      router.push(`/projects/${data.id}`)
     } catch {
       setError('היצירה נכשלה. נסו שוב.')
     } finally {
@@ -60,28 +63,28 @@ export function NewGroupButton({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
       <form onSubmit={submit} className="w-full max-w-md rounded-t-2xl bg-surface p-5 sm:rounded-2xl">
-        <h2 className="text-base font-semibold text-fg">קבוצה חדשה</h2>
+        <h2 className="text-base font-semibold text-fg">פרויקט חדש</h2>
         {companyIds?.length ? (
           <p className="mt-1 text-sm text-muted">
-            {companyIds.length === 1 ? 'חברה אחת תיכלל' : `${companyIds.length} חברות ייכללו`} בקבוצה.
+            {companyIds.length === 1 ? 'חברה אחת תיכלל' : `${companyIds.length} חברות ייכללו`} בפרויקט.
           </p>
         ) : null}
 
         <label className="mt-4 block text-sm">
           <span className="text-muted">
-            שם הקבוצה <span className="text-red-700">*</span>
+            שם הפרויקט <span className="text-red-700">*</span>
           </span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
             autoFocus
-            placeholder="למשל: ספקי פסח 2026"
+            placeholder="למשל: חודש התיירות 2026"
             className="mt-1 h-11 w-full rounded-lg border border-line bg-bg px-3 text-sm text-fg outline-none focus:border-brand"
           />
         </label>
         <fieldset className="mt-4">
-          <legend className="text-sm text-muted">הקבוצה מיועדת ל־</legend>
+          <legend className="text-sm text-muted">הפרויקט מיועד ל־</legend>
           {/* Suppliers and customers get different agreements, so a group holds
               one or the other and the send screens stay uncluttered. */}
           <div className="mt-1 grid grid-cols-2 gap-2">
@@ -131,7 +134,7 @@ export function NewGroupButton({
             disabled={busy || !name.trim()}
             className="min-h-11 flex-1 rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
           >
-            {busy ? 'יוצר…' : 'יצירת קבוצה'}
+            {busy ? 'יוצר…' : 'יצירת פרויקט'}
           </button>
           <button
             type="button"

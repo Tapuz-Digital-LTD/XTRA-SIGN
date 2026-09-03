@@ -51,7 +51,7 @@ export function AddToGroupButton({ companyIds, onDone }: { companyIds: string[];
         }}
         className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-3 text-sm text-fg transition hover:border-brand"
       >
-        הוספה לקבוצה
+        הוספה לפרויקט
       </button>
     )
   }
@@ -60,13 +60,13 @@ export function AddToGroupButton({ companyIds, onDone }: { companyIds: string[];
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
       <div className="flex max-h-[80dvh] w-full max-w-sm flex-col rounded-t-2xl bg-surface sm:rounded-2xl">
         <div className="flex min-h-14 items-center justify-between border-b border-line px-4">
-          <h2 className="text-base font-semibold text-fg">הוספת {companyIds.length} חברות לקבוצה</h2>
+          <h2 className="text-base font-semibold text-fg">הוספת {companyIds.length} חברות לפרויקט</h2>
           <button type="button" onClick={() => setOpen(false)} aria-label="סגירה" className="min-h-11 min-w-11 rounded-lg text-muted hover:bg-bg">✕</button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
           {message ? <p role="status" className="px-4 py-3 text-sm text-fg">{message}</p> : null}
           {groups.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-muted">אין קבוצות עדיין.</p>
+            <p className="px-4 py-8 text-center text-sm text-muted">אין פרויקטים עדיין.</p>
           ) : (
             <ul className="divide-y divide-line">
               {groups.map((group) => (

@@ -219,6 +219,12 @@ export type GroupCompany = {
   fromCrm: boolean
   /** Whether a bulk send could reach this company without someone filling something in. */
   readyToSend: boolean
+  /**
+   * What last happened to this company in THIS project: the newest agreement a
+   * batch of this project produced for it, or the failure that produced none.
+   * Null means nothing was ever sent from here.
+   */
+  lastSend: { agreementId: string | null; status: string; at: Date } | null
 }
 
 export async function listGroupCompanies(
@@ -241,23 +247,52 @@ export async function listGroupCompanies(
     )
   }
 
-  const rows = await getDb()
-    .select({
-      id: schema.companies.id,
-      name: schema.companies.name,
-      kind: schema.companies.kind,
-      taxId: schema.companies.taxId,
-      contactName: schema.companies.contactName,
-      contactPhone: schema.companies.contactPhone,
-      contactEmail: schema.companies.contactEmail,
-      address: schema.companies.address,
-      crmRecordId: schema.companies.crmRecordId,
+  const [rows, sends] = await Promise.all([
+    getDb()
+      .select({
+        id: schema.companies.id,
+        name: schema.companies.name,
+        kind: schema.companies.kind,
+        taxId: schema.companies.taxId,
+        contactName: schema.companies.contactName,
+        contactPhone: schema.companies.contactPhone,
+        contactEmail: schema.companies.contactEmail,
+        address: schema.companies.address,
+        crmRecordId: schema.companies.crmRecordId,
+      })
+      .from(schema.companyGroups)
+      .innerJoin(schema.companies, eq(schema.companies.id, schema.companyGroups.companyId))
+      .where(and(...conditions))
+      .orderBy(schema.companies.name)
+      .limit(1000),
+
+    // Every batch row this project ever produced, newest last so the reduce
+    // below keeps the latest word per company.
+    getDb()
+      .select({
+        companyId: schema.bulkBatchItems.companyId,
+        itemStatus: schema.bulkBatchItems.status,
+        agreementId: schema.bulkBatchItems.agreementId,
+        updatedAt: schema.bulkBatchItems.updatedAt,
+        agreementStatus: schema.agreements.status,
+      })
+      .from(schema.bulkBatchItems)
+      .innerJoin(schema.bulkBatches, eq(schema.bulkBatches.id, schema.bulkBatchItems.batchId))
+      .leftJoin(schema.agreements, eq(schema.agreements.id, schema.bulkBatchItems.agreementId))
+      .where(eq(schema.bulkBatches.groupId, group.id))
+      .orderBy(schema.bulkBatchItems.updatedAt),
+  ])
+
+  const lastSendByCompany = new Map<string, GroupCompany['lastSend']>()
+  for (const send of sends) {
+    lastSendByCompany.set(send.companyId, {
+      agreementId: send.agreementId,
+      // The agreement's own status once one exists; before that, the batch
+      // row's word ('failed' being the one worth showing).
+      status: send.agreementStatus ?? send.itemStatus,
+      at: send.updatedAt,
     })
-    .from(schema.companyGroups)
-    .innerJoin(schema.companies, eq(schema.companies.id, schema.companyGroups.companyId))
-    .where(and(...conditions))
-    .orderBy(schema.companies.name)
-    .limit(1000)
+  }
 
   return rows.map((row) => ({
     id: row.id,
@@ -271,6 +306,7 @@ export async function listGroupCompanies(
     fromCrm: Boolean(row.crmRecordId),
     // A signer needs a name, and somewhere to send the link.
     readyToSend: Boolean(row.contactName?.trim() && (row.contactPhone || row.contactEmail)),
+    lastSend: lastSendByCompany.get(row.id) ?? null,
   }))
 }
 

@@ -40,6 +40,9 @@ export const LIMITS = {
   // A model call is expensive and a runaway client could make many. Generous
   // enough for a real conversation, low enough to bound a bad afternoon.
   aiTurn: { limit: 40, windowMs: 5 * 60_000 },
+  // The public joining form. Per IP: a hall full of suppliers on one office
+  // network still fits, a script does not.
+  leadSubmit: { limit: 10, windowMs: 15 * 60_000 },
 } as const satisfies Record<string, LimitRule>
 
 export type LimitName = keyof typeof LIMITS

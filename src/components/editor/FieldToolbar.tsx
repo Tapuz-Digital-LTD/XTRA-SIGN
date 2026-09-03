@@ -1,6 +1,6 @@
 'use client'
 
-import { FIELD_TYPES, type FieldType } from '@/lib/fields'
+import { PALETTE_TYPES, type FieldType } from '@/lib/fields'
 
 /**
  * The field palette.
@@ -36,7 +36,7 @@ export function FieldToolbar({
         </p>
 
         <ul className="-mx-1 mt-2 flex snap-x gap-1.5 overflow-x-auto px-1 pb-1 lg:mx-0 lg:mt-3 lg:flex-col lg:overflow-visible lg:px-0">
-          {FIELD_TYPES.map((spec) => (
+          {PALETTE_TYPES.map((spec) => (
             <li key={spec.type} className="snap-start">
               <button
                 type="button"

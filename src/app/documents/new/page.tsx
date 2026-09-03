@@ -61,28 +61,13 @@ export default async function NewDocumentPage({
         </p>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        {/* The canvas is where documents are made now. The older writer stays
-            reachable for anyone mid-way through one, but it is no longer the
-            way a new document starts. */}
-        <div className="rounded-[var(--radius-card)] border border-brand bg-surface p-6">
-          <h2 className="text-base font-semibold text-fg">יצירה ועיצוב מאפס</h2>
-          <p className="mt-1 text-sm text-muted">
-            עמודי A4 שאפשר לעצב בחופשיות — טקסט, לוגו, תמונות, טבלאות ושדות
-            חתימה, בדיוק במקום שבו תשימו אותם.
-          </p>
-          <Link
-            href={`/documents/new/design?company=${company.id}`}
-            className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90"
-          >
-            פתיחת העורך
-          </Link>
-        </div>
-
+      <div className="mt-6 grid gap-4">
+        {/* XTRA Sign signs documents; it does not write them. The document is
+            prepared elsewhere (Word, Canva, the CRM) and arrives as a PDF. */}
         <UploadCard companyId={company.id} />
 
-        <div className="rounded-[var(--radius-card)] border border-line bg-surface p-6 sm:col-span-2">
-          <h2 className="text-base font-semibold text-fg">📋 מתבנית XTRA Sign</h2>
+        <div className="rounded-[var(--radius-card)] border border-line bg-surface p-6">
+          <h2 className="text-base font-semibold text-fg">תבנית XTRA Sign</h2>
           {templates.length === 0 ? (
             <p className="mt-1 text-sm text-muted">
               עדיין אין תבניות שמורות. שומרים מסמך כתבנית מעמוד המסמך, ומכאן ואילך הוא זמין לשימוש חוזר.
@@ -116,8 +101,8 @@ export default async function NewDocumentPage({
         </div>
 
         {company.crmRecordId ? (
-          <div className="rounded-[var(--radius-card)] border border-line bg-surface p-6 sm:col-span-2">
-            <h2 className="text-base font-semibold text-fg">🔗 מסמך קיים מ-Fireberry</h2>
+          <div className="rounded-[var(--radius-card)] border border-line bg-surface p-6">
+            <h2 className="text-base font-semibold text-fg">מסמך מ-Fireberry</h2>
             <p className="mt-1 text-sm text-muted">
               הצעת מחיר קיימת של {company.name} עם כל השורות שבה, או קובץ שכבר מצורף לרשומה.
               הייבוא אינו משנה דבר ב-CRM.

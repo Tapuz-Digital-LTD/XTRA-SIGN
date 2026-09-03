@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   FIELD_TYPES,
+  PALETTE_TYPES,
   clampToPage,
   type FieldType,
   type PageGeometry,
@@ -554,7 +555,7 @@ export function FieldEditor({
           >
             <p className="px-1 pb-2 text-xs text-muted">גררו למסמך, או בחרו ולחצו על המקום הרצוי.</p>
             <ul className="grid grid-cols-2 gap-1.5">
-              {FIELD_TYPES.map((spec) => (
+              {PALETTE_TYPES.map((spec) => (
                 <li key={spec.type}>
                   <button
                     type="button"

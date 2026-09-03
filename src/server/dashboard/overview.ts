@@ -1,7 +1,8 @@
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
-import { countDocuments, type DocumentCounts } from '@/server/documents/queries'
+import { countDocuments, listDocuments, type DocumentCounts } from '@/server/documents/queries'
+import { countNewLeads } from '@/server/projects/leads'
 
 /**
  * The numbers and short lists behind the home screen.
@@ -48,6 +49,10 @@ export type DashboardOverview = {
   viewedNotSigned: number
   /** How many documents the "needs attention" filter would return. */
   attentionCount: number
+  /** Open documents whose signing link lapses within the next week. */
+  expiringSoon: number
+  /** Landing-page submissions nobody has reviewed yet. */
+  newLeads: number
   recentActivity: ActivityItem[]
   companies: { suppliers: number; customers: number }
   attention: AttentionItem[]
@@ -89,7 +94,7 @@ export async function getDashboardOverview(session: StaffSession): Promise<Dashb
   const startOfDay = new Date(now)
   startOfDay.setHours(0, 0, 0, 0)
 
-  const [counts, companyRow, awaiting, signed, crmRow, todayRow, viewedRow, activity] = await Promise.all([
+  const [counts, companyRow, awaiting, signed, crmRow, todayRow, viewedRow, expiringRow, activity, attentionResult, newLeads] = await Promise.all([
     countDocuments(session),
 
     db
@@ -161,6 +166,18 @@ export async function getDashboardOverview(session: StaffSession): Promise<Dashb
       .from(schema.agreements)
       .where(and(scope(session), latestVersionOnly(), eq(schema.agreements.status, 'viewed'))),
 
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.agreements)
+      .where(
+        and(
+          scope(session),
+          latestVersionOnly(),
+          inArray(schema.agreements.status, ['sent', 'viewed']),
+          sql`${schema.agreements.expiresAt} between now() and now() + interval '7 days'`,
+        ),
+      ),
+
     // The last things that happened, across the organization's documents.
     db
       .select({
@@ -181,6 +198,11 @@ export async function getDashboardOverview(session: StaffSession): Promise<Dashb
       )
       .orderBy(desc(schema.auditEvents.createdAt))
       .limit(8),
+
+    // Only the total; the badge needs a true number, not one capped by a list.
+    listDocuments(session, { filter: 'attention', pageSize: 1 }),
+
+    countNewLeads(session.organizationId),
   ])
 
   const mappedAttention = awaiting.map((r) => ({
@@ -194,7 +216,9 @@ export async function getDashboardOverview(session: StaffSession): Promise<Dashb
     counts,
     signedToday: Number(todayRow[0]?.count ?? 0),
     viewedNotSigned: Number(viewedRow[0]?.count ?? 0),
-    attentionCount: attentionTotal,
+    attentionCount: attentionResult.total,
+    expiringSoon: Number(expiringRow[0]?.count ?? 0),
+    newLeads,
     recentActivity: activity.map((row) => ({
       agreementId: row.agreementId,
       title: row.title,

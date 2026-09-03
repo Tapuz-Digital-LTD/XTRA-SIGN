@@ -201,7 +201,7 @@ export function CompanyList({
       ) : null}
 
       {groups.length > 0 ? (
-        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" aria-label="סינון לפי קבוצה">
+        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" aria-label="סינון לפי פרויקט">
           {/* Horizontal and scrollable: a long list of groups must not push the
               table off the screen, and on a phone this is a natural swipe. */}
           <Link
@@ -261,7 +261,7 @@ export function CompanyList({
           </button>
           <span className="ms-auto flex flex-wrap gap-2">
             <AddToGroupButton companyIds={selectedList} onDone={() => setSelected(new Set())} />
-            <NewGroupButton companyIds={selectedList} label="צור קבוצה מהבחירה" defaultKind={kind} />
+            <NewGroupButton companyIds={selectedList} label="צור פרויקט מהבחירה" defaultKind={kind} />
             <a
               href={`/api/companies/export?ids=${selectedList.join(',')}`}
               className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-3 text-sm text-fg transition hover:border-brand"
@@ -286,72 +286,119 @@ export function CompanyList({
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-[var(--radius-card)] border border-line bg-surface">
-          <table className="w-full min-w-[44rem] table-fixed text-start text-sm">
-            <thead>
-              <tr className="border-b border-line text-xs text-muted">
-                <th className="w-px px-3 py-3">
-                  <input
-                    type="checkbox"
-                    className="size-4"
-                    checked={allVisibleSelected}
-                    onChange={toggleAllVisible}
-                    aria-label={`בחירת כל ${filtered.length} השורות המוצגות`}
-                  />
-                </th>
-                <th className="w-[26%] px-4 py-3 text-start font-medium">{noun === 'ספק' ? 'ספק' : 'לקוח'}</th>
-                <th className="w-[13%] px-4 py-3 text-start font-medium">ח.פ / ע.מ</th>
-                <th className="w-[20%] px-4 py-3 text-start font-medium">איש קשר</th>
-                <th className="w-[9%] px-3 py-3 text-center font-medium">מסמכים</th>
-                <th className="w-[9%] px-3 py-3 text-center font-medium">ממתינים</th>
-                <th className="w-[10%] px-4 py-3 text-start font-medium">מקור</th>
-                <th className="w-[13%] px-4 py-3 text-start font-medium">פעילות</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((company) => (
-                <tr
-                  key={company.id}
-                  onClick={() => router.push(`/companies/${company.id}`)}
-                  className="cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-bg"
-                >
-                  <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+        <>
+          {/* Phones get cards; an eight-column table on 375px is not a screen. */}
+          <ul className="flex flex-col gap-2 sm:hidden">
+            {filtered.map((company) => (
+              <li key={company.id} className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <label className="flex min-w-0 items-start gap-3" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
-                      className="size-4"
+                      className="mt-1 size-4"
                       checked={selected.has(company.id)}
                       onChange={() => toggleOne(company.id)}
                       aria-label={`בחירת ${company.name}`}
                     />
-                  </td>
-                  {/* Each cell clips its own text: in a fixed-layout table an
-                      unclipped long name spills over the next column. */}
-                  <td className="truncate px-4 py-3 font-medium text-fg" title={company.name}>{company.name}</td>
-                  <td className="truncate px-4 py-3 text-muted" dir="ltr">{company.taxId ?? '—'}</td>
-                  <td className="truncate px-4 py-3 text-muted">{company.contactName ?? '—'}</td>
-                  <td className="px-3 py-3 text-center text-fg">{company.documentCount}</td>
-                  <td className="px-3 py-3 text-center">
-                    {company.pendingCount > 0 ? (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">{company.pendingCount}</span>
-                    ) : (
-                      <span className="text-muted">0</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {company.crmRecordId ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">CRM</span>
-                    ) : (
-                      <span className="inline-block max-w-full truncate rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">XTRA Sign</span>
-                    )}
-                  </td>
-                  <td className="truncate px-4 py-3 text-xs text-muted">
-                    {company.lastActivityAt ? formatter.format(company.lastActivityAt) : '—'}
-                  </td>
+                    <span className="min-w-0">
+                      <Link href={`/companies/${company.id}`} className="block truncate font-medium text-fg hover:underline">
+                        {company.name}
+                      </Link>
+                      <span className="mt-0.5 block truncate text-xs text-muted">
+                        {[company.contactName, company.contactPhone].filter(Boolean).join(' · ') || '—'}
+                      </span>
+                    </span>
+                  </label>
+                  {company.crmRecordId ? (
+                    <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">CRM</span>
+                  ) : (
+                    <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">XTRA Sign</span>
+                  )}
+                </div>
+                <div className="mt-2 flex gap-4 text-xs text-muted">
+                  {company.taxId ? <span dir="ltr">{company.taxId}</span> : null}
+                  <span>
+                    ממתינים: <strong className="text-fg">{company.pendingCount}</strong>
+                  </span>
+                  <span>
+                    נחתמו: <strong className="text-fg">{company.signedCount}</strong>
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <div className="hidden overflow-x-auto rounded-[var(--radius-card)] border border-line bg-surface sm:block">
+            <table className="w-full min-w-[46rem] table-fixed text-start text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs text-muted">
+                  <th className="w-px px-3 py-3">
+                    <input
+                      type="checkbox"
+                      className="size-4"
+                      checked={allVisibleSelected}
+                      onChange={toggleAllVisible}
+                      aria-label={`בחירת כל ${filtered.length} השורות המוצגות`}
+                    />
+                  </th>
+                  <th className="w-[24%] px-4 py-3 text-start font-medium">{noun === 'ספק' ? 'ספק' : 'לקוח'}</th>
+                  <th className="w-[11%] px-4 py-3 text-start font-medium">ח.פ / ע.מ</th>
+                  <th className="w-[16%] px-4 py-3 text-start font-medium">איש קשר</th>
+                  <th className="w-[13%] px-4 py-3 text-start font-medium">טלפון</th>
+                  <th className="w-[10%] px-4 py-3 text-start font-medium">מקור</th>
+                  <th className="w-[9%] px-3 py-3 text-center font-medium">ממתינים</th>
+                  <th className="w-[9%] px-3 py-3 text-center font-medium">נחתמו</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map((company) => (
+                  <tr
+                    key={company.id}
+                    onClick={() => router.push(`/companies/${company.id}`)}
+                    className="cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-bg"
+                  >
+                    <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        className="size-4"
+                        checked={selected.has(company.id)}
+                        onChange={() => toggleOne(company.id)}
+                        aria-label={`בחירת ${company.name}`}
+                      />
+                    </td>
+                    {/* Each cell clips its own text: in a fixed-layout table an
+                        unclipped long name spills over the next column. */}
+                    <td className="truncate px-4 py-3 font-medium text-fg" title={company.name}>{company.name}</td>
+                    <td className="truncate px-4 py-3 text-muted" dir="ltr">{company.taxId ?? '—'}</td>
+                    <td className="truncate px-4 py-3 text-muted">{company.contactName ?? '—'}</td>
+                    <td className="truncate px-4 py-3 text-muted" dir="ltr">{company.contactPhone ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      {company.crmRecordId ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">CRM</span>
+                      ) : (
+                        <span className="inline-block max-w-full truncate rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">XTRA Sign</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {company.pendingCount > 0 ? (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">{company.pendingCount}</span>
+                      ) : (
+                        <span className="text-muted">0</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {company.signedCount > 0 ? (
+                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">{company.signedCount}</span>
+                      ) : (
+                        <span className="text-muted">0</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   )

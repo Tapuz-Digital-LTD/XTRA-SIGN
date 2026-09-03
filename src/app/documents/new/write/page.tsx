@@ -1,33 +1,11 @@
-import { notFound, redirect } from 'next/navigation'
-import { Suspense } from 'react'
-import { XtraAi } from '@/components/ai/XtraAi'
-import { UnifiedComposer } from '@/components/composer/UnifiedComposer'
-import { getSession } from '@/server/auth/session'
-import { getCompany } from '@/server/companies/companies'
+import { redirect } from 'next/navigation'
 
-/** Writing a document from scratch: content, layout and fields in one screen. */
-export default async function WritePage({
+/** The in-app writer left the product: documents are prepared elsewhere and arrive as PDFs. */
+export default async function NewWritePage({
   searchParams,
 }: {
   searchParams: Promise<{ company?: string }>
 }) {
-  const session = await getSession()
-  if (!session) redirect('/login')
-
-  const { company: companyId } = await searchParams
-  if (!companyId) redirect('/documents/new')
-
-  const company = await getCompany(session, companyId)
-  if (!company) notFound()
-
-  return (
-    <>
-      <UnifiedComposer companyId={company.id} companyName={company.name} />
-      {/* The composer has no AppShell, so the assistant is mounted here to keep
-          it available on every internal screen. */}
-      <Suspense fallback={null}>
-        <XtraAi />
-      </Suspense>
-    </>
-  )
+  const params = await searchParams
+  redirect(params.company ? `/documents/new?company=${params.company}` : '/documents/new')
 }

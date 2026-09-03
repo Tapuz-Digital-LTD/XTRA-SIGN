@@ -164,7 +164,7 @@ export function ExcelImportDialog({ groupId, groupName }: { groupId?: string; gr
                         {row.status === 'new' ? (
                           <span className="text-green-800">✅ תיווצר</span>
                         ) : row.status === 'existing' ? (
-                          <span className="text-slate-700">⚠ כבר קיימת — נשתמש בקיימת{groupId ? ' ונוסיף לקבוצה' : ''}</span>
+                          <span className="text-slate-700">⚠ כבר קיימת — נשתמש בקיימת{groupId ? ' ונוסיף לפרויקט' : ''}</span>
                         ) : (
                           <span className="text-red-800">❌ {row.message}</span>
                         )}
