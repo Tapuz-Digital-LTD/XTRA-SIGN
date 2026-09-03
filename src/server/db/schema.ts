@@ -393,6 +393,12 @@ export const groups = pgTable(
     /** Soft: batches and agreements keep pointing at the group they came from. */
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     /**
+     * Archived: off the main screen, nothing else. The project, its suppliers,
+     * leads and agreements all stay exactly as they are, and one click brings
+     * it back. Never a deletion.
+     */
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    /**
      * Projects (the UX name for a group since Simple V1) can open a public
      * joining form. The slug is the public address — random, not guessable
      * from the name, because the form must be shareable without exposing

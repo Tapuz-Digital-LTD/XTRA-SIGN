@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
 import { ForbiddenError, type StaffSession } from '@/server/auth/session'
 import type { CompanyKind } from '@/server/companies/companies'
 import { getDb, schema } from '@/server/db'
@@ -61,6 +61,8 @@ export async function listGroups(
    * filtering must keep them rather than hide work already organised.
    */
   kind?: 'supplier' | 'customer',
+  /** Archived projects are off every default list; true shows only them. */
+  options: { archived?: boolean } = {},
 ): Promise<GroupListItem[]> {
   // A join and a group-by rather than a correlated subquery: the aliasing a
   // subquery needs does not survive being interpolated, and this is the shape
@@ -84,6 +86,7 @@ export async function listGroups(
       and(
         eq(schema.groups.organizationId, session.organizationId),
         isNull(schema.groups.deletedAt),
+        options.archived ? isNotNull(schema.groups.archivedAt) : isNull(schema.groups.archivedAt),
         kind ? or(eq(schema.groups.kind, kind), isNull(schema.groups.kind)) : undefined,
       ),
     )
@@ -101,6 +104,76 @@ export async function listGroups(
     kind: (row.kind as 'supplier' | 'customer' | null) ?? null,
     companyCount: Number(row.companyCount),
   }))
+}
+
+export type ProjectListItem = GroupListItem & {
+  /** Suppliers whose latest send from this project ended signed. */
+  signed: number
+  /** Suppliers whose latest send is still waiting (sent/viewed). */
+  pending: number
+  lastActivityAt: Date | null
+}
+
+/**
+ * The projects screen's list: each project with what a glance needs — how many
+ * suppliers, how the sending is going, and when anything last moved. Counts
+ * are per supplier (the latest word per company), matching the tracking tab.
+ */
+export async function listProjects(
+  session: StaffSession,
+  options: { archived?: boolean } = {},
+): Promise<ProjectListItem[]> {
+  const groups = await listGroups(session, undefined, options)
+  if (groups.length === 0) return []
+
+  const stats = await getDb().execute(sql`
+    select group_id,
+      count(*) filter (where status = 'signed') as signed,
+      count(*) filter (where status in ('sent', 'viewed')) as pending,
+      max(updated_at) as last_activity
+    from (
+      select distinct on (bb.group_id, bi.company_id)
+        bb.group_id, bi.company_id,
+        coalesce(a.status::text, bi.status) as status,
+        bi.updated_at
+      from ${schema.bulkBatchItems} bi
+      join ${schema.bulkBatches} bb on bb.id = bi.batch_id
+      left join ${schema.agreements} a on a.id = bi.agreement_id
+      where bb.organization_id = ${session.organizationId}
+      order by bb.group_id, bi.company_id, bi.updated_at desc
+    ) latest
+    group by group_id
+  `)
+
+  const byGroup = new Map<string, { signed: number; pending: number; lastActivityAt: Date | null }>()
+  for (const row of stats.rows as { group_id: string; signed: string; pending: string; last_activity: Date | null }[]) {
+    byGroup.set(row.group_id, {
+      signed: Number(row.signed),
+      pending: Number(row.pending),
+      lastActivityAt: row.last_activity ? new Date(row.last_activity) : null,
+    })
+  }
+
+  return groups.map((group) => ({
+    ...group,
+    signed: byGroup.get(group.id)?.signed ?? 0,
+    pending: byGroup.get(group.id)?.pending ?? 0,
+    lastActivityAt: byGroup.get(group.id)?.lastActivityAt ?? null,
+  }))
+}
+
+/** Off the main screen; nothing is deleted and one click brings it back. */
+export async function setProjectArchived(
+  session: StaffSession,
+  groupId: string,
+  archived: boolean,
+): Promise<{ ok: true }> {
+  const group = await authorizeGroup(session, groupId)
+  await getDb()
+    .update(schema.groups)
+    .set({ archivedAt: archived ? new Date() : null })
+    .where(eq(schema.groups.id, group.id))
+  return { ok: true }
 }
 
 export async function createGroup(input: {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireSession } from '@/server/auth/session'
-import { addCompanies, deleteGroup, removeCompanies, renameGroup } from '@/server/groups/groups'
+import { addCompanies, deleteGroup, removeCompanies, renameGroup, setProjectArchived } from '@/server/groups/groups'
 import { assertSameOrigin } from '@/server/http/csrf'
 import { templateFailure } from '@/server/http/template-errors'
 
@@ -23,6 +23,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
     if (body?.action === 'remove') {
       return NextResponse.json(await removeCompanies({ session, groupId: id, companyIds }))
+    }
+    if (body?.action === 'archive') {
+      return NextResponse.json(await setProjectArchived(session, id, true))
+    }
+    if (body?.action === 'unarchive') {
+      return NextResponse.json(await setProjectArchived(session, id, false))
     }
     if (body?.action === 'rename') {
       const result = await renameGroup({

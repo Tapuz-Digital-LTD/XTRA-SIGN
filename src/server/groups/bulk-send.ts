@@ -1,10 +1,12 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
 import { saveRecipient } from '@/server/documents/save-fields'
-import { sendAgreement } from '@/server/documents/send-agreement'
+import { resendAgreement, sendAgreement } from '@/server/documents/send-agreement'
+import type { Channel } from '@/server/documents/send-validation'
 import { log } from '@/server/log'
 import { authorizeGroup, listGroupCompanies } from '@/server/groups/groups'
+import { isUuid } from '@/server/documents/authorization'
 import { createDocumentFromTemplate } from '@/server/templates/templates'
 import { authorizeTemplateAccess, templateAutoFields } from '@/server/templates/templates'
 import { autoSourceLabel, personalize } from '@/server/documents/personalization'
@@ -346,4 +348,71 @@ export async function listBatches(session: StaffSession, groupId: string): Promi
   }
 
   return summaries.reverse()
+}
+
+export type BulkRemindResult = {
+  requested: number
+  /** How many of the requested suppliers hold an agreement a reminder can reach. */
+  eligible: number
+  sent: number
+  failed: number
+}
+
+/**
+ * A reminder to the ticked suppliers — and only to the ones a reminder can
+ * legally reach: their latest agreement from this project is still waiting
+ * (sent/viewed). Everyone else is counted out, never guessed at.
+ */
+export async function bulkRemind(input: {
+  session: StaffSession
+  groupId: string
+  companyIds: string[]
+}): Promise<BulkRemindResult> {
+  const group = await authorizeGroup(input.session, input.groupId)
+  const requestedIds = [...new Set(input.companyIds)].filter(isUuid).slice(0, 200)
+  if (requestedIds.length === 0) return { requested: 0, eligible: 0, sent: 0, failed: 0 }
+  // node-postgres wants a Postgres array literal; a JS array binds as a scalar.
+  const idArray = `{${requestedIds.join(',')}}`
+
+  // The latest agreement per requested supplier, from THIS project's sends.
+  const latest = await getDb().execute(sql`
+    select distinct on (bi.company_id) bi.company_id, bi.agreement_id, a.status::text as status
+    from ${schema.bulkBatchItems} bi
+    join ${schema.bulkBatches} bb on bb.id = bi.batch_id
+    left join ${schema.agreements} a on a.id = bi.agreement_id
+    where bb.group_id = ${group.id}
+      and bi.company_id = any(${idArray}::uuid[])
+    order by bi.company_id, bi.updated_at desc
+  `)
+
+  const eligible = (latest.rows as { company_id: string; agreement_id: string | null; status: string | null }[])
+    .filter((row) => row.agreement_id && (row.status === 'sent' || row.status === 'viewed'))
+
+  let sent = 0
+  let failed = 0
+  for (const row of eligible) {
+    const [recipient] = await getDb()
+      .select({ phone: schema.recipients.phone, email: schema.recipients.email })
+      .from(schema.recipients)
+      .where(eq(schema.recipients.agreementId, row.agreement_id!))
+      .limit(1)
+    const channels: Channel[] = [
+      ...(recipient?.phone ? (['sms'] as const) : []),
+      ...(recipient?.email ? (['email'] as const) : []),
+    ]
+    if (channels.length === 0) {
+      failed++
+      continue
+    }
+    try {
+      const result = await resendAgreement({ session: input.session, agreementId: row.agreement_id!, channels })
+      if (result.ok) sent++
+      else failed++
+    } catch (error) {
+      log.error('bulk remind failed', { agreementId: row.agreement_id, error: String(error) })
+      failed++
+    }
+  }
+
+  return { requested: requestedIds.length, eligible: eligible.length, sent, failed }
 }

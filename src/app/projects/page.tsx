@@ -3,23 +3,26 @@ import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { EmptyState } from '@/components/EmptyState'
 import { NewGroupButton } from '@/components/groups/NewGroupButton'
+import { ProjectsList } from '@/components/projects/ProjectsList'
 import { getSession } from '@/server/auth/session'
-import { listGroups } from '@/server/groups/groups'
+import { listProjects } from '@/server/groups/groups'
 
 /**
- * Projects: an activity with its own suppliers, sends and tracking — "חודש
- * התיירות 2026". A project is a list somebody decided on, not a saved search,
- * so it does not change under you between one send and the next.
+ * Projects: an activity with its own suppliers, sends and tracking. A plain
+ * list, not a dashboard — a project is a collection of suppliers, leads and
+ * agreements around one activity, and that is the whole concept.
  */
 export default async function ProjectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ new?: string }>
+  searchParams: Promise<{ new?: string; view?: string }>
 }) {
   const session = await getSession()
   if (!session) redirect('/login')
 
-  const [projects, params] = await Promise.all([listGroups(session), searchParams])
+  const params = await searchParams
+  const archived = params.view === 'archive'
+  const projects = await listProjects(session, { archived })
 
   return (
     <AppShell>
@@ -27,46 +30,59 @@ export default async function ProjectsPage({
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-fg">פרויקטים</h1>
           <p className="mt-1 text-sm text-muted">
-            פעילות עם ספקים משלה — הוספה ידנית, ייבוא מ-Excel או טופס הצטרפות, שליחה מרוכזת ומעקב.
+            פעילות עם ספקים משלה — הוספה, טופס הצטרפות, שליחה מרוכזת ומעקב.
           </p>
         </div>
         <NewGroupButton autoOpen={params.new === '1'} />
       </div>
 
-      <div className="mt-6">
+      <nav className="mt-5 flex gap-1 border-b border-line" aria-label="סינון פרויקטים">
+        {(
+          [
+            { key: false, href: '/projects', label: 'פעילים' },
+            { key: true, href: '/projects?view=archive', label: 'ארכיון' },
+          ] as const
+        ).map((tab) => (
+          <Link
+            key={tab.href}
+            href={tab.href}
+            aria-current={archived === tab.key ? 'page' : undefined}
+            className={`inline-flex min-h-11 items-center border-b-2 px-3 text-sm transition ${
+              archived === tab.key ? 'border-brand font-semibold text-fg' : 'border-transparent text-muted hover:text-fg'
+            }`}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </nav>
+
+      <div className="mt-5">
         {projects.length === 0 ? (
-          <EmptyState
-            title="עדיין אין פרויקטים"
-            description="פרויקט הוא פעילות עם רשימת ספקים משלה — למשל ״חודש התיירות 2026״. מוסיפים ספקים, שולחים הסכם לכולם ועוקבים מי חתם."
-            actionIcon="+"
-            actionLabel="פרויקט חדש"
-            actionHref="/projects?new=1"
-          />
+          archived ? (
+            <p className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center text-sm text-muted">
+              אין פרויקטים בארכיון.
+            </p>
+          ) : (
+            <EmptyState
+              title="עדיין אין פרויקטים"
+              description="פרויקט הוא פעילות עם רשימת ספקים משלה — למשל ״חודש התיירות 2026״. מוסיפים ספקים, שולחים הסכם ועוקבים מי חתם."
+              actionIcon="+"
+              actionLabel="פרויקט חדש"
+              actionHref="/projects?new=1"
+            />
+          )
         ) : (
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => (
-              <li key={project.id}>
-                <Link
-                  href={`/projects/${project.id}`}
-                  className="flex min-h-28 flex-col justify-between rounded-[var(--radius-card)] border border-line bg-surface p-4 transition hover:border-brand hover:shadow-sm"
-                >
-                  <span>
-                    <span className="block font-semibold text-fg">{project.name}</span>
-                    {project.description ? (
-                      <span className="mt-1 block line-clamp-2 text-sm text-muted">{project.description}</span>
-                    ) : null}
-                  </span>
-                  <span className="mt-3 text-sm text-muted">
-                    {project.companyCount === 0
-                      ? 'אין ספקים עדיין'
-                      : project.companyCount === 1
-                        ? 'ספק אחד'
-                        : `${project.companyCount} ספקים`}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <ProjectsList
+            projects={projects.map((p) => ({
+              id: p.id,
+              name: p.name,
+              companyCount: p.companyCount,
+              signed: p.signed,
+              pending: p.pending,
+              lastActivityAt: p.lastActivityAt ? p.lastActivityAt.toISOString() : null,
+              archived,
+            }))}
+          />
         )}
       </div>
     </AppShell>

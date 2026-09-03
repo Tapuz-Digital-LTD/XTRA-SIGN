@@ -71,6 +71,7 @@ export function GroupWorkspace({
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState(search)
   const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
 
   const allVisibleSelected = companies.length > 0 && companies.every((c) => selected.has(c.id))
   const selectedList = useMemo(() => [...selected], [selected])
@@ -104,6 +105,44 @@ export function GroupWorkspace({
       })
       setSelected(new Set())
       router.refresh()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // A reminder only reaches a supplier whose latest send is still waiting.
+  const remindable = useMemo(
+    () =>
+      selectedList.filter((id) => {
+        const company = companies.find((c) => c.id === id)
+        return company?.lastSend && ['sent', 'viewed'].includes(company.lastSend.status)
+      }),
+    [selectedList, companies],
+  )
+
+  async function remindSelected() {
+    if (!window.confirm(`לשלוח תזכורת ל-${remindable.length} ספקים שממתינים לחתימה?`)) return
+    setBusy(true)
+    setNotice(null)
+    try {
+      const response = await fetch(`/api/groups/${groupId}/remind`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyIds: remindable }),
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok) {
+        setNotice({ tone: 'error', text: data?.error?.message ?? 'שליחת התזכורות נכשלה.' })
+        return
+      }
+      setNotice({
+        tone: 'ok',
+        text: `נשלחו ${data.sent} תזכורות${data.failed > 0 ? ` · ${data.failed} נכשלו` : ''}`,
+      })
+      setSelected(new Set())
+      router.refresh()
+    } catch {
+      setNotice({ tone: 'error', text: 'שליחת התזכורות נכשלה. נסו שוב.' })
     } finally {
       setBusy(false)
     }
@@ -143,8 +182,6 @@ export function GroupWorkspace({
         >
           ייצוא ל-Excel
         </a>
-        <BulkSendDialog groupId={groupId} groupName={groupName} templates={templates} variant="primary" />
-
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -162,20 +199,49 @@ export function GroupWorkspace({
         </form>
       </div>
 
+      {notice ? (
+        <p
+          role={notice.tone === 'error' ? 'alert' : 'status'}
+          className={`rounded-lg px-4 py-3 text-sm ${
+            notice.tone === 'error'
+              ? 'border border-red-200 bg-red-50 text-red-800'
+              : 'border border-green-200 bg-green-50 text-green-800'
+          }`}
+        >
+          {notice.text}
+        </p>
+      ) : null}
+
+      {/* Bulk actions exist only for a selection. With nothing ticked there is
+          no button that even looks like it might write to everyone. */}
+      {selected.size === 0 && companies.length > 0 ? (
+        <p className="text-xs text-muted">סמנו ספקים כדי לבצע פעולה קבוצתית — שליחת הסכם, תזכורת או ייצוא.</p>
+      ) : null}
+
       {selected.size > 0 ? (
-        <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-lg border border-brand bg-blue-50 px-4 py-3">
-          <span className="text-sm font-semibold text-fg">נבחרו {selected.size}</span>
-          <button
-            type="button"
-            onClick={() => setSelected(new Set())}
-            className="text-xs text-brand underline-offset-4 hover:underline"
-          >
-            ניקוי הבחירה
-          </button>
-          <span className="ms-auto flex flex-wrap gap-2">
-            {/* Sending to the ticked rows — one supplier or forty — rather than
-                to the whole project. The project is a way to organise, not a
-                commitment to write to everyone in it. */}
+        <div className="sticky top-2 z-20 rounded-lg border border-brand bg-blue-50 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="text-sm font-semibold text-fg">
+              {selected.size === 1 ? 'ספק אחד נבחר' : `${selected.size} ספקים נבחרו`}
+            </span>
+            {!allVisibleSelected ? (
+              <button
+                type="button"
+                onClick={toggleAllVisible}
+                className="text-xs text-brand underline-offset-4 hover:underline"
+              >
+                בחירת כל {companies.length} המוצגים
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setSelected(new Set())}
+              className="text-xs text-brand underline-offset-4 hover:underline"
+            >
+              נקה בחירה
+            </button>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <BulkSendDialog
               key={selectedList.join(',')}
               groupId={groupId}
@@ -183,13 +249,21 @@ export function GroupWorkspace({
               templates={templates}
               restrictTo={selectedList}
               variant="primary"
-              label={selected.size === 1 ? 'שליחה לנבחר' : `שליחה ל-${selected.size} הנבחרים`}
+              label={`שלח הסכם ל-${selected.size}`}
             />
+            <button
+              type="button"
+              disabled={busy || remindable.length === 0}
+              onClick={() => void remindSelected()}
+              className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-3 text-sm font-medium text-fg transition hover:border-brand disabled:opacity-50"
+            >
+              שלח תזכורת ל-{remindable.length}
+            </button>
             <a
               href={`/api/companies/export?ids=${selectedList.join(',')}`}
               className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-3 text-sm text-fg transition hover:border-brand"
             >
-              ייצוא הנבחרים
+              ייצוא {selected.size} ל-Excel
             </a>
             <button
               type="button"
@@ -199,7 +273,12 @@ export function GroupWorkspace({
             >
               הוצאה מהפרויקט
             </button>
-          </span>
+          </div>
+          {remindable.length < selected.size ? (
+            <p className="mt-1.5 text-xs text-muted">
+              {remindable.length} מתוך {selected.size} יכולים לקבל תזכורת — תזכורת נשלחת רק למי שהסכם ממתין אצלו לחתימה.
+            </p>
+          ) : null}
         </div>
       ) : null}
 

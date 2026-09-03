@@ -3,27 +3,29 @@ import { AppShell } from '@/components/AppShell'
 import { CompanyTabs } from '@/components/companies/CompanyTabs'
 import { ReportPanel } from '@/components/reports/ReportPanel'
 import { getSession } from '@/server/auth/session'
-import { agreementReport, parseReportFilters, reportRows } from '@/server/reports/reports'
+import { agreementReport, parseReportFilters, reportRows, signedOverTime } from '@/server/reports/reports'
 
 export default async function SupplierReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; source?: string }>
+  searchParams: Promise<{ from?: string; to?: string; source?: string; status?: string }>
 }) {
   const session = await getSession()
   if (!session) redirect('/login')
   const params = await searchParams
 
   const filters = parseReportFilters({ kind: 'supplier', ...params })
-  const [kpis, rows] = await Promise.all([
+  const [kpis, rows, series] = await Promise.all([
     agreementReport(session, filters),
     reportRows(session, filters, 100),
+    signedOverTime(session, filters),
   ])
 
   const query = new URLSearchParams({ kind: 'supplier' })
   if (params.from) query.set('from', params.from)
   if (params.to) query.set('to', params.to)
   if (params.source) query.set('source', params.source)
+  if (filters.status) query.set('status', filters.status)
 
   return (
     <AppShell>
@@ -34,6 +36,7 @@ export default async function SupplierReportsPage({
           kpis={kpis}
           rows={rows}
           rowLimit={100}
+          series={series}
           action="/suppliers/reports"
           exportHref={`/api/reports/export?${query}`}
           values={params}

@@ -12,7 +12,7 @@ import { authorizeGroup, listGroupCompanies } from '@/server/groups/groups'
 import { listDocuments } from '@/server/documents/queries'
 import { listLeads } from '@/server/projects/leads'
 import { getLandingSettings } from '@/server/projects/landing'
-import { agreementReport, parseReportFilters, reportRows } from '@/server/reports/reports'
+import { agreementReport, parseReportFilters, reportRows, signedOverTime } from '@/server/reports/reports'
 import { listTemplates } from '@/server/templates/templates'
 
 const TABS = ['suppliers', 'leads', 'agreements', 'reports', 'settings'] as const
@@ -33,7 +33,7 @@ export default async function ProjectPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ tab?: string; q?: string; from?: string; to?: string }>
+  searchParams: Promise<{ tab?: string; q?: string; from?: string; to?: string; status?: string }>
 }) {
   const session = await getSession()
   if (!session) redirect('/login')
@@ -70,9 +70,13 @@ export default async function ProjectPage({
 
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-fg">{project.name}</h1>
+        {/* One quiet line, not a dashboard: how many, how it's going. */}
         <p className="mt-1 text-sm text-muted">
           {companies.length === 1 ? 'ספק אחד' : `${companies.length} ספקים`}
-          {project.description ? ` · ${project.description}` : ''}
+          {' · '}
+          {companies.filter((c) => c.lastSend?.status === 'signed').length} חתמו
+          {' · '}
+          {companies.filter((c) => c.lastSend && ['sent', 'viewed'].includes(c.lastSend.status)).length} ממתינים
         </p>
       </div>
 
@@ -100,7 +104,7 @@ export default async function ProjectPage({
         {tab === 'suppliers' ? <SuppliersTab projectId={id} projectName={project.name} companies={companies} search={query.q ?? ''} session={session} /> : null}
         {tab === 'leads' ? <LeadsPanel projectId={id} leads={leads} /> : null}
         {tab === 'agreements' ? <AgreementsTab projectId={id} session={session} /> : null}
-        {tab === 'reports' ? <ReportsTab projectId={id} from={query.from} to={query.to} session={session} /> : null}
+        {tab === 'reports' ? <ReportsTab projectId={id} from={query.from} to={query.to} status={query.status} session={session} /> : null}
         {tab === 'settings' ? (
           <ProjectSettings
             projectId={id}
@@ -181,30 +185,35 @@ async function ReportsTab({
   projectId,
   from,
   to,
+  status,
   session,
 }: {
   projectId: string
   from?: string
   to?: string
+  status?: string
   session: NonNullable<Awaited<ReturnType<typeof getSession>>>
 }) {
-  const filters = parseReportFilters({ group: projectId, from, to })
-  const [kpis, rows] = await Promise.all([
+  const filters = parseReportFilters({ group: projectId, from, to, status })
+  const [kpis, rows, series] = await Promise.all([
     agreementReport(session, filters),
     reportRows(session, filters, 100),
+    signedOverTime(session, filters),
   ])
   const query = new URLSearchParams({ group: projectId })
   if (from) query.set('from', from)
   if (to) query.set('to', to)
+  if (filters.status) query.set('status', filters.status)
 
   return (
     <ReportPanel
       kpis={kpis}
       rows={rows}
       rowLimit={100}
+      series={series}
       action={`/projects/${projectId}`}
       hidden={{ tab: 'reports' }}
-      values={{ from, to }}
+      values={{ from, to, status }}
       exportHref={`/api/reports/export?${query}`}
     />
   )

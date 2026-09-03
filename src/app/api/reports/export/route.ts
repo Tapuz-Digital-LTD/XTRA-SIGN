@@ -13,6 +13,7 @@ export async function GET(request: Request) {
       kind: url.searchParams.get('kind') ?? undefined,
       group: url.searchParams.get('group') ?? undefined,
       source: url.searchParams.get('source') ?? undefined,
+      status: url.searchParams.get('status') ?? undefined,
       from: url.searchParams.get('from') ?? undefined,
       to: url.searchParams.get('to') ?? undefined,
     })

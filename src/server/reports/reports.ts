@@ -20,9 +20,21 @@ export type ReportFilters = {
   groupId?: string
   /** Restrict by where the company came from. */
   source?: 'crm' | 'xtra'
+  /**
+   * Narrows the ROWS and the export to one state; the KPI tiles keep showing
+   * the whole range — they are already a per-status breakdown.
+   */
+  status?: 'signed' | 'pending' | 'expired' | 'canceled'
   /** Sent-date range, inclusive. */
   from?: Date
   to?: Date
+}
+
+const STATUS_SETS: Record<NonNullable<ReportFilters['status']>, string[]> = {
+  signed: ['signed'],
+  pending: ['sent', 'viewed'],
+  expired: ['expired'],
+  canceled: ['canceled', 'declined'],
 }
 
 export type ReportKpis = {
@@ -103,6 +115,32 @@ export type ReportRow = {
   recipientName: string | null
 }
 
+/** Signed agreements bucketed by week — the "progress over time" chart's data. */
+export async function signedOverTime(
+  session: StaffSession,
+  filters: ReportFilters,
+): Promise<{ week: Date; signed: number }[]> {
+  const from = filters.from ?? new Date(Date.now() - 12 * 7 * 24 * 60 * 60 * 1000)
+  const rows = await getDb()
+    .select({
+      week: sql<Date>`date_trunc('week', ${schema.agreements.completedAt})`,
+      signed: sql<number>`count(*)`,
+    })
+    .from(schema.agreements)
+    .leftJoin(schema.companies, eq(schema.companies.id, schema.agreements.companyId))
+    .where(
+      and(
+        ...conditionsFor(session, { ...filters, status: undefined, from: undefined, to: undefined }),
+        eq(schema.agreements.status, 'signed'),
+        sql`${schema.agreements.completedAt} >= ${from}`,
+        filters.to ? sql`${schema.agreements.completedAt} <= ${filters.to}` : sql`true`,
+      ),
+    )
+    .groupBy(sql`date_trunc('week', ${schema.agreements.completedAt})`)
+    .orderBy(sql`date_trunc('week', ${schema.agreements.completedAt})`)
+  return rows.map((r) => ({ week: new Date(r.week), signed: Number(r.signed) }))
+}
+
 /** The rows behind the KPIs — one query feeding both the screen and the file. */
 export async function reportRows(session: StaffSession, filters: ReportFilters, limit = 5000): Promise<ReportRow[]> {
   return getDb()
@@ -123,7 +161,14 @@ export async function reportRows(session: StaffSession, filters: ReportFilters, 
     })
     .from(schema.agreements)
     .leftJoin(schema.companies, eq(schema.companies.id, schema.agreements.companyId))
-    .where(and(...conditionsFor(session, filters)))
+    .where(
+      and(
+        ...conditionsFor(session, filters),
+        filters.status
+          ? sql`${schema.agreements.status} in ${sql.raw(`('${STATUS_SETS[filters.status].join("','")}')`)}`
+          : sql`true`,
+      ),
+    )
     .orderBy(sql`${schema.agreements.sentAt} desc`)
     .limit(limit)
 }
@@ -167,6 +212,7 @@ export function parseReportFilters(params: {
   kind?: string
   group?: string
   source?: string
+  status?: string
   from?: string
   to?: string
 }): ReportFilters {
@@ -179,6 +225,10 @@ export function parseReportFilters(params: {
     kind: params.kind === 'supplier' || params.kind === 'customer' ? params.kind : undefined,
     groupId: params.group && /^[0-9a-f-]{36}$/i.test(params.group) ? params.group : undefined,
     source: params.source === 'crm' || params.source === 'xtra' ? params.source : undefined,
+    status:
+      params.status === 'signed' || params.status === 'pending' || params.status === 'expired' || params.status === 'canceled'
+        ? params.status
+        : undefined,
     from: day(params.from, false),
     to: day(params.to, true),
   }
