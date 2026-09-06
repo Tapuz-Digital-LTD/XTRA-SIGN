@@ -45,8 +45,9 @@ async function main() {
       await page.keyboard.press('Escape')
       // the drawer
       const row = width < 768 ? (await page.$$('[aria-labelledby="rp-registrations"] li button'))[0] : (await page.$$('[aria-labelledby="rp-registrations"] tbody tr td:nth-child(2)'))[0]
-      await row.evaluate((el) => el.scrollIntoView({ block: 'center' }))
-      await row.click()
+      const rowEl = row as import('puppeteer-core').ElementHandle<Element>
+      await rowEl.evaluate((el: Element) => el.scrollIntoView({ block: 'center' }))
+      await rowEl.click()
       await page.waitForFunction(() => document.querySelector('[role="dialog"]')?.textContent?.includes('פעילות'), { timeout: 15000 })
       const drawerNoScroll = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)
       await page.screenshot({ path: `${OUT}/drawer-${width}.png` })

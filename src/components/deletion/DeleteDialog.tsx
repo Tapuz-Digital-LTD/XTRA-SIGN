@@ -16,15 +16,7 @@ import type { DeletionImpact, DeletionMode, EntityType } from '@/server/deletion
 
 export type Noun = 'ספק' | 'לקוח' | 'פרויקט' | 'תבנית' | 'הסכם' | 'הרשמה' | 'התראה'
 
-export function DeleteDialog({
-  type,
-  id,
-  noun,
-  isAdmin,
-  open,
-  onClose,
-  onDone,
-}: {
+type DialogProps = {
   type: EntityType
   id: string
   noun: Noun
@@ -33,9 +25,17 @@ export function DeleteDialog({
   onClose: () => void
   /** Called after a successful action, with what happened. */
   onDone: (result: { action: DeletionMode | 'request'; message: string }) => void
-}) {
+}
+
+/** Each opening is a fresh conversation: the body is keyed on the record. */
+export function DeleteDialog(props: DialogProps) {
+  if (!props.open) return null
+  return <DeleteDialogBody key={`${props.type}:${props.id}`} {...props} />
+}
+
+function DeleteDialogBody({ type, id, noun, isAdmin, open, onClose, onDone }: DialogProps) {
   const [impact, setImpact] = useState<DeletionImpact | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [stage, setStage] = useState<'main' | 'protected'>('main')
@@ -44,11 +44,6 @@ export function DeleteDialog({
 
   useEffect(() => {
     if (!open) return
-    setImpact(null)
-    setError(null)
-    setStage('main')
-    setAcknowledged(false)
-    setLoading(true)
     const controller = new AbortController()
     fetch(`/api/deletion?type=${type}&id=${id}`, { signal: controller.signal })
       .then(async (response) => {

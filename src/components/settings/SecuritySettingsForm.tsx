@@ -223,7 +223,7 @@ export function SecuritySettingsForm({ initial }: { initial: CaptchaAdminView })
           {message.text}
         </p>
       ) : null}
-      {needsTest ? <p className="text-xs text-muted">לפני הפעלה עם פרטים חדשים יש להריץ "בדיקת חיבור" מוצלחת.</p> : null}
+      {needsTest ? <p className="text-xs text-muted">לפני הפעלה עם פרטים חדשים יש להריץ &quot;בדיקת חיבור&quot; מוצלחת.</p> : null}
 
       <div>
         <button

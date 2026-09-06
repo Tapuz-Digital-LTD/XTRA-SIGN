@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import type { ProjectReport, RegistrationRow } from '@/server/reports/project-report'
 import { RegistrationsTable } from './RegistrationsTable'
 
@@ -225,8 +225,8 @@ function CountUp({ value, reduced }: { value: number; reduced: boolean }) {
   const [shown, setShown] = useState(reduced ? value : 0)
   useEffect(() => {
     if (reduced) {
-      setShown(value)
-      return
+      const frame = requestAnimationFrame(() => setShown(value))
+      return () => cancelAnimationFrame(frame)
     }
     const start = performance.now()
     const duration = 700
@@ -368,16 +368,17 @@ function Donut({ slices, reduced }: { slices: ProjectReportData['statuses']; red
   const grown = useGrow(reduced)
   const R = 42
   const C = 2 * Math.PI * R
-  let offset = 0
+  // Where each slice starts along the ring, computed once rather than mutated while drawing.
+  const starts = slices.reduce<number[]>((acc, s, i) => [...acc, (acc[i - 1] ?? 0) + (i > 0 ? (slices[i - 1].count / Math.max(1, total)) * C : 0)], [])
   if (total === 0) return <p className="mt-6 text-center text-sm text-muted">עדיין אין הסכמים בטווח שנבחר.</p>
   return (
     <div className="mt-3 flex flex-col items-center gap-4 sm:flex-row">
       <svg viewBox="0 0 120 120" className="size-40 shrink-0" role="img" aria-label="סטטוס ההסכמים">
         <circle cx={60} cy={60} r={R} fill="none" stroke="currentColor" strokeOpacity={0.06} strokeWidth={16} />
-        {slices.map((s) => {
+        {slices.map((s, i) => {
           const frac = s.count / total
           const dash = grown ? frac * C : 0
-          const el = (
+          return (
             <circle
               key={s.key}
               cx={60}
@@ -387,13 +388,11 @@ function Donut({ slices, reduced }: { slices: ProjectReportData['statuses']; red
               stroke={STATUS_COLORS[s.key] ?? '#94a3b8'}
               strokeWidth={16}
               strokeDasharray={`${dash} ${C - dash}`}
-              strokeDashoffset={-offset}
+              strokeDashoffset={-(starts[i] ?? 0)}
               transform="rotate(-90 60 60)"
               style={{ transition: 'stroke-dasharray 800ms ease-out' }}
             />
           )
-          offset += frac * C
-          return el
         })}
         <text x={60} y={56} textAnchor="middle" fontSize={20} fontWeight={700} fill="currentColor">
           {number.format(total)}
@@ -465,16 +464,14 @@ function pct(value: number | null): string {
   return value === null || value > 100 ? '—' : `${number.format(value)}%`
 }
 
+const MOTION_QUERY = '(prefers-reduced-motion: reduce)'
+function subscribeMotion(onChange: () => void) {
+  const mq = window.matchMedia(MOTION_QUERY)
+  mq.addEventListener('change', onChange)
+  return () => mq.removeEventListener('change', onChange)
+}
 function useReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false)
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    setReduced(mq.matches)
-    const onChange = () => setReduced(mq.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-  return reduced
+  return useSyncExternalStore(subscribeMotion, () => window.matchMedia(MOTION_QUERY).matches, () => false)
 }
 
 /** False on first paint, true a frame later — so a CSS transition has somewhere to go. */
@@ -482,12 +479,9 @@ function useGrow(reduced: boolean): boolean {
   const [grown, setGrown] = useState(false)
   useEffect(() => {
     if (grown) return
-    if (reduced) {
-      setGrown(true)
-      return
-    }
+    // One frame later either way: a transition needs a "before" to leave from.
     const frame = requestAnimationFrame(() => setGrown(true))
     return () => cancelAnimationFrame(frame)
   }, [reduced, grown])
-  return grown
+  return grown || reduced
 }
