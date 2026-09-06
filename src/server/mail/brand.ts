@@ -11,11 +11,19 @@ import { publicBaseUrl } from '@/server/http/public-url'
 export type EmailBrand = {
   name: string
   logoUrl?: string | null
+  /** The accent: buttons, links. */
   color?: string | null
+  /** The header's own background when the logo needs a plain one (a red logo on white). */
+  headerBackground?: string | null
   supportEmail?: string | null
 }
 
-export const DEFAULT_BRAND: EmailBrand = { name: 'XTRA Sign', logoUrl: null, color: '#1d4ed8', supportEmail: null }
+/** XTRA's red wordmark on a white header; red for the buttons. */
+export const DEFAULT_BRAND: EmailBrand = { name: 'XTRA Sign', logoUrl: null, color: '#cb3e45', headerBackground: '#ffffff', supportEmail: null }
+
+function defaultBrand(name?: string | null, supportEmail?: string | null): EmailBrand {
+  return { ...DEFAULT_BRAND, name: name ?? DEFAULT_BRAND.name, logoUrl: `${publicBaseUrl()}/xtra-logo.png`, supportEmail: supportEmail ?? null }
+}
 
 export async function brandFor(input: { organizationId: string; skin?: string | null }): Promise<EmailBrand> {
   const skin = skinByKey(input.skin)
@@ -26,5 +34,5 @@ export async function brandFor(input: { organizationId: string; skin?: string | 
     .limit(1)
   if (skin) return { name: skin.label, logoUrl: `${publicBaseUrl()}${skin.assetsPath}/email-logo.png`, color: skin.brandColor, supportEmail: org?.email ?? null }
   if (org?.logoUrl || org?.brandPrimary) return { name: org.name, logoUrl: org.logoUrl, color: org.brandPrimary ?? DEFAULT_BRAND.color, supportEmail: org.email }
-  return { ...DEFAULT_BRAND, name: org?.name ?? DEFAULT_BRAND.name, supportEmail: org?.email ?? null }
+  return defaultBrand(org?.name, org?.email)
 }

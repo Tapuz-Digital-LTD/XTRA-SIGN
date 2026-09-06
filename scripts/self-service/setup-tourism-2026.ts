@@ -2,7 +2,9 @@ import { readFileSync } from 'node:fs'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { StaffSession } from '../../src/server/auth/session'
 import { getDb, schema } from '../../src/server/db'
-import { createGroup } from '../../src/server/groups/groups'
+import { createGroup, updateCampaign } from '../../src/server/groups/groups'
+import { saveProjectNotificationSettings } from '../../src/server/projects/notification-settings'
+import { ensurePublicSlug } from '../../src/server/projects/public-slug'
 import { publicBaseUrl } from '../../src/server/http/public-url'
 import { findSelfServiceProjectBySkin, getSelfServiceConfig, saveSelfServiceConfig } from '../../src/server/projects/self-service'
 import { createTemplateFromPdf } from '../../src/server/templates/templates'
@@ -32,6 +34,10 @@ const OWNER_EMAIL = process.env.SELF_SERVICE_OWNER_EMAIL ?? 'tomer@xtra.co.il'
  * The original stays in .design/ untouched, for traceability.
  */
 const PDF = '.design/tourism-2026/agreement-digital.pdf'
+/** The public address; the skin key and the slug are the same word on purpose. */
+const PUBLIC_SLUG = process.env.PUBLIC_SLUG ?? 'tourism-2026'
+/** Who hears about registrations and signatures. Comma-separated; unset = leave as is. */
+const NOTIFY_EMAILS = process.env.NOTIFY_EMAILS?.split(',').map((e) => e.trim()).filter(Boolean)
 
 async function main() {
   const db = getDb()
@@ -69,6 +75,7 @@ async function main() {
       name: PROJECT_NAME,
       description: 'קמפיין משרד התיירות — הרשמה וחתימה עצמאית מעמוד הקול הקורא. XTRA Sign בלבד, ללא Fireberry.',
       kind: 'supplier',
+      campaignKind: 'public',
     })
     if (!created.ok) throw new Error(created.message)
     groupId = created.id
@@ -117,6 +124,22 @@ async function main() {
     thankYouText: current.thankYouText,
   })
   if (!saved.ok) throw new Error(saved.message)
+
+  // ── Campaign kind, owner, agreement ────────────────────────────────────
+  const campaign = await updateCampaign(session, groupId, { campaignKind: 'public', ownerUserId: owner.id, defaultTemplateId: templateId })
+  if (!campaign.ok) throw new Error(campaign.message)
+
+  // ── Public address ─────────────────────────────────────────────────────
+  const slug = await ensurePublicSlug(session, groupId, PUBLIC_SLUG)
+  if (slug !== PUBLIC_SLUG) console.warn(`public slug is "${slug}", not "${PUBLIC_SLUG}" — already taken?`)
+
+  // ── Who gets told ──────────────────────────────────────────────────────
+  if (NOTIFY_EMAILS?.length) {
+    const notified = await saveProjectNotificationSettings(session, groupId, { emails: NOTIFY_EMAILS, events: { new_registration: true, signed: true, send_failed: true } })
+    if (!notified.ok) throw new Error(notified.message)
+    console.log(`notifications → ${notified.settings.emails.join(', ')}`)
+  }
+  console.log(`public page: ${publicBaseUrl()}/${slug}`)
   console.log(`self-service on: ${publicBaseUrl()}/${(await findSelfServiceProjectBySkin('tourism-2026'))?.publicSlug}`)
   process.exit(0)
 }

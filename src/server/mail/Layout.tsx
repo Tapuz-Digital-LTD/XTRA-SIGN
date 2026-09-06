@@ -56,7 +56,7 @@ export function Layout({
       <Body style={styles.body}>
         <Container style={styles.container}>
           <Section style={styles.card}>
-            <Section style={{ ...styles.header, backgroundColor: color }}>
+            <Section style={{ ...styles.header, backgroundColor: b.headerBackground ?? color, borderBottom: b.headerBackground ? '1px solid #e5e7eb' : undefined }}>
               {b.logoUrl ? (
                 <Img src={b.logoUrl} alt={b.name} height={44} style={{ display: 'inline-block', height: '44px', width: 'auto', maxWidth: '220px' }} />
               ) : (
