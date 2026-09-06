@@ -19,7 +19,7 @@ import { selfServiceOf } from '@/server/projects/self-service'
  * rows and the Excel file.
  */
 
-export type StatusFilter = 'signed' | 'pending' | 'expired' | 'failed'
+export type StatusFilter = 'signed' | 'pending' | 'expired' | 'failed' | 'attention' | 'registered'
 
 export type ProjectReportFilters = {
   from?: Date
@@ -27,6 +27,8 @@ export type ProjectReportFilters = {
   status?: StatusFilter
   /** A traffic-source key from `classifySource`. */
   source?: string
+  /** Free text over the business name, contact, tax id, phone, email. */
+  q?: string
 }
 
 export type Kpi = { value: number; previous: number | null }
@@ -80,6 +82,10 @@ const STATUS_SETS: Record<StatusFilter, SQL> = {
   pending: sql`a.status in ('sent', 'viewed')`,
   expired: sql`a.status = 'expired'`,
   failed: sql`(${schema.projectLeads.status} = 'failed' or a.status in ('canceled', 'declined'))`,
+  /** A person must act: a lead waiting for approval. */
+  attention: sql`${schema.projectLeads.status} = 'new'`,
+  /** Registered, no agreement (yet): saved for handling, approved, or in progress. */
+  registered: sql`(a.id is null and ${schema.projectLeads.status} <> 'failed')`,
 }
 
 const STATUS_LABELS: Record<string, { label: string; tone: RegistrationRow['statusTone'] }> = {
@@ -92,8 +98,9 @@ const STATUS_LABELS: Record<string, { label: string; tone: RegistrationRow['stat
   declined: { label: 'סורב', tone: 'bad' },
   failed: { label: 'שליחה נכשלה', tone: 'bad' },
   pending: { label: 'בתהליך', tone: 'wait' },
-  new: { label: 'ליד חדש', tone: 'wait' },
+  new: { label: 'דורש טיפול', tone: 'wait' },
   approved: { label: 'אושר', tone: 'ok' },
+  converted: { label: 'נרשם', tone: 'ok' },
   rejected: { label: 'נדחה', tone: 'muted' },
 }
 
@@ -132,7 +139,7 @@ export async function projectReport(session: StaffSession, projectId: string, fi
     counts(group.id, range, filters.source),
     previous ? counts(group.id, previous, filters.source) : null,
     registrationRows(group.id, filters, rowLimit),
-    registrationCount(group.id, filters),
+    countRegistrations(group.id, filters),
   ])
 
   const kpi = (key: keyof typeof current): Kpi => ({ value: current[key], previous: before ? before[key] : null })
@@ -416,16 +423,23 @@ function rowConditions(groupId: string, filters: ProjectReportFilters): SQL {
     within(sql`${schema.projectLeads.createdAt}`, { from: filters.from, to: filters.to }),
     sourceMatch(filters.source, leadUtmSource, leadReferrer),
     filters.status ? STATUS_SETS[filters.status] : sql`true`,
+    filters.q
+      ? sql`(${schema.projectLeads.data}->>'name' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'businessName' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'contactName' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'taxId' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'phone' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'email' ilike ${'%' + filters.q + '%'})`
+      : sql`true`,
   )!
 }
 
-async function registrationCount(groupId: string, filters: ProjectReportFilters): Promise<number> {
+async function countRegistrations(groupId: string, filters: ProjectReportFilters): Promise<number> {
   const [row] = await getDb()
     .select({ n: sql<number>`count(*)` })
     .from(schema.projectLeads)
     .leftJoin(sql`${schema.agreements} a`, sql`a.id = ${schema.projectLeads.agreementId}`)
     .where(rowConditions(groupId, filters))
   return Number(row?.n ?? 0)
+}
+
+export async function registrationCount(groupId: string, filters: ProjectReportFilters): Promise<number> {
+  return countRegistrations(groupId, filters)
 }
 
 export async function registrationRows(groupId: string, filters: ProjectReportFilters, limit: number): Promise<RegistrationRow[]> {
@@ -521,7 +535,7 @@ export async function buildProjectWorkbook(session: StaffSession, projectId: str
 
 
 /** The query-string filters the project report and its export share. */
-export function parseProjectReportFilters(params: { from?: string; to?: string; status?: string; source?: string; range?: string }): ProjectReportFilters {
+export function parseProjectReportFilters(params: { from?: string; to?: string; status?: string; source?: string; range?: string; q?: string }): ProjectReportFilters {
   const day = (value: string | undefined, endOfDay: boolean): Date | undefined => {
     if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined
     const date = new Date(`${value}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}+03:00`)
@@ -538,7 +552,8 @@ export function parseProjectReportFilters(params: { from?: string; to?: string; 
       to = undefined
     }
   }
-  const status = (['signed', 'pending', 'expired', 'failed'] as const).find((s) => s === params.status)
+  const status = (['signed', 'pending', 'expired', 'failed', 'attention', 'registered'] as const).find((s) => s === params.status)
   const source = params.source && /^[a-z0-9:._-]{1,80}$/i.test(params.source) ? params.source : undefined
-  return { from, to, status, source }
+  const q = typeof params.q === 'string' && params.q.trim() ? params.q.trim().slice(0, 80) : undefined
+  return { from, to, status, source, q }
 }

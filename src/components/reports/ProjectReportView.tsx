@@ -99,7 +99,7 @@ export function ProjectReportView({
         ) : null}
       </div>
 
-      <RegistrationsTable report={report} projectId={projectId} />
+      <RegistrationsTable rows={report.registrations} total={report.registrationTotal} projectId={projectId} />
     </div>
   )
 }

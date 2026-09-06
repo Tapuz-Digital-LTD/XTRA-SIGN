@@ -7,6 +7,7 @@ import { RowMenu, type RowMenuItem } from '@/components/deletion/RowMenu'
 import { Drawer } from '@/components/ui/Drawer'
 import type { ActionPlan, ActionResult, RegistrationAction, RegistrationDetail } from '@/server/reports/registration-actions'
 import type { ProjectReportData } from './ProjectReportView'
+import { EditLeadDialog } from '@/components/projects/LeadsPanel'
 
 /**
  * Registrations as a summary you can act on: five columns, a status chip,
@@ -54,9 +55,22 @@ const TIMELINE_LABELS: Record<string, string> = {
 
 type Pending = { action: RegistrationAction; ids: string[]; plan: ActionPlan | null; channels: ('sms' | 'email')[] }
 
-export function RegistrationsTable({ projectId, report }: { projectId: string; report: ProjectReportData }) {
+export function RegistrationsTable({
+  projectId,
+  rows,
+  total,
+  title = 'הרשמות בקמפיין',
+  audienceNoun = 'ספק',
+}: {
+  projectId: string
+  rows: Row[]
+  total: number
+  title?: string
+  /** What an approved lead becomes: ספק or לקוח. */
+  audienceNoun?: 'ספק' | 'לקוח'
+}) {
   const router = useRouter()
-  const rows = report.registrations
+  const [editing, setEditing] = useState<Row | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [openId, setOpenId] = useState<string | null>(null)
   const [pending, setPending] = useState<Pending | null>(null)
@@ -67,6 +81,19 @@ export function RegistrationsTable({ projectId, report }: { projectId: string; r
   const canRemind = (r: Row) => status(r) === 'sent' || status(r) === 'viewed'
   const isSigned = (r: Row) => status(r) === 'signed'
   const failed = (r: Row) => r.registrationStatus === 'failed'
+  const needsPerson = (r: Row) => r.registrationStatus === 'new'
+
+  async function leadAction(r: Row, action: 'approve' | 'reject') {
+    if (action === 'reject' && !window.confirm('לדחות את ההרשמה? הפרטים יישמרו אך לא ייווצר ' + audienceNoun + '.')) return
+    const response = await fetch(`/api/projects/${projectId}/leads`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, leadId: r.id }) })
+    const data = await response.json().catch(() => null)
+    if (!response.ok) {
+      setNotice({ tone: 'error', text: data?.error?.message ?? 'הפעולה נכשלה.' })
+      return
+    }
+    setNotice({ tone: 'ok', text: action === 'approve' ? `ההרשמה אושרה ו${audienceNoun === 'ספק' ? 'הספק נוצר' : 'הלקוח נוצר'}.` : 'ההרשמה נדחתה.' })
+    router.refresh()
+  }
 
   async function share(r: Row, via: 'whatsapp' | 'copy') {
     const response = await fetch(`/api/projects/${projectId}/registrations/${r.id}/share-link`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ via }) })
@@ -121,6 +148,9 @@ export function RegistrationsTable({ projectId, report }: { projectId: string; r
 
   const menuFor = (r: Row): (RowMenuItem | null)[] => [
     { label: 'פתח פרטים', onSelect: () => setOpenId(r.id) },
+    needsPerson(r) ? { label: `אשר והפוך ל${audienceNoun}`, onSelect: () => void leadAction(r, 'approve') } : null,
+    needsPerson(r) ? { label: 'ערוך פרטים', onSelect: () => setEditing(r) } : null,
+    needsPerson(r) ? { label: 'דחה', danger: true, onSelect: () => void leadAction(r, 'reject') } : null,
     r.companyId ? { label: 'פתח ספק', onSelect: () => router.push(`/companies/${r.companyId}`) } : null,
     r.agreement ? { label: isSigned(r) ? 'צפייה בהסכם' : 'פתח הסכם', onSelect: () => router.push(`/documents/${r.agreement!.id}`) } : null,
     isSigned(r) && r.agreement ? { label: 'הורדת המסמך החתום', onSelect: () => window.open(`/api/documents/${r.agreement!.id}/download`, '_blank') } : null,
@@ -135,7 +165,11 @@ export function RegistrationsTable({ projectId, report }: { projectId: string; r
   ]
 
   const quick = (r: Row) =>
-    canRemind(r) ? (
+    needsPerson(r) ? (
+      <button type="button" onClick={() => void leadAction(r, 'approve')} className={buttonClass}>
+        אשר
+      </button>
+    ) : canRemind(r) ? (
       <button type="button" onClick={() => ask('remind', [r.id])} className={buttonClass}>
         שלח תזכורת
       </button>
@@ -162,9 +196,9 @@ export function RegistrationsTable({ projectId, report }: { projectId: string; r
   return (
     <section className="min-w-0 rounded-[var(--radius-card)] border border-line bg-surface p-5" aria-labelledby="rp-registrations">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="rp-registrations" className="text-sm font-semibold text-fg">הרשמות בקמפיין</h2>
+        <h2 id="rp-registrations" className="text-sm font-semibold text-fg">{title}</h2>
         <p className="text-xs text-muted">
-          {report.registrationTotal > rows.length ? `מוצגות ${rows.length} מתוך ${number.format(report.registrationTotal)} — הקובץ המלא בייצוא` : `${number.format(rows.length)} הרשמות`}
+          {total > rows.length ? `מוצגות ${rows.length} מתוך ${number.format(total)} — הקובץ המלא בייצוא` : `${number.format(rows.length)} הרשמות`}
         </p>
       </div>
 
@@ -265,6 +299,18 @@ export function RegistrationsTable({ projectId, report }: { projectId: string; r
       )}
 
       <RegistrationDrawer projectId={projectId} id={openId} onClose={() => setOpenId(null)} onAct={(action, id) => ask(action, [id])} onShare={(id, via) => { const r = rows.find((x) => x.id === id); if (r) void share(r, via) }} />
+      {editing ? (
+        <EditLeadDialog
+          projectId={projectId}
+          leadId={editing.id}
+          initial={{ name: editing.businessName, taxId: editing.taxId, contactName: editing.contactName, phone: editing.phone, email: editing.email }}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null)
+            router.refresh()
+          }}
+        />
+      ) : null}
 
       {pending ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 sm:items-center sm:p-4" onClick={() => setPending(null)}>

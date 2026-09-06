@@ -3,7 +3,6 @@ import { notFound, redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { DocumentsTable } from '@/components/documents/DocumentsTable'
 import { GroupWorkspace } from '@/components/groups/GroupWorkspace'
-import { LeadsPanel } from '@/components/projects/LeadsPanel'
 import { ProjectSettings } from '@/components/projects/ProjectSettings'
 import { ForbiddenError, getSession } from '@/server/auth/session'
 import { listBatches } from '@/server/groups/bulk-send'
@@ -15,7 +14,8 @@ import { getSelfServiceConfig } from '@/server/projects/self-service'
 import { listUsers } from '@/server/users/users'
 import type { StaffSession } from '@/server/auth/session'
 import { publicBaseUrl } from '@/server/http/public-url'
-import { parseProjectReportFilters, projectReport, type ProjectReport } from '@/server/reports/project-report'
+import { parseProjectReportFilters, projectReport, registrationCount, registrationRows, type ProjectReport, type RegistrationRow } from '@/server/reports/project-report'
+import { RegistrationsTable } from '@/components/reports/RegistrationsTable'
 import { ProjectReportView, type ProjectReportData } from '@/components/reports/ProjectReportView'
 import { missingRoles } from '@/lib/agreement-roles'
 import { isCampaignKind, kindLabel, LEGACY_TABS, TAB_LABELS, TABS_BY_KIND, type CampaignKind, type CampaignTab } from '@/lib/campaigns'
@@ -114,7 +114,7 @@ export default async function ProjectPage({
         {tab === 'overview' ? <CampaignOverview project={{ id, name: project.name, campaignKind, publicUrl: campaignKind === 'public' ? await publicAddress(session, id) : null }} companies={companies} leads={leads} /> : null}
         {tab === 'audience' ? <SuppliersTab projectId={id} projectName={project.name} companies={companies} search={query.q ?? ''} session={session} /> : null}
         {tab === 'distributions' ? <DistributionsTab projectId={id} /> : null}
-        {tab === 'registrations' ? <LeadsPanel projectId={id} leads={leads} /> : null}
+        {tab === 'registrations' ? <RegistrationsTab projectId={id} query={query} session={session} audienceNoun={project.kind === 'customer' ? 'לקוח' : 'ספק'} /> : null}
         {tab === 'agreements' ? <AgreementsTab projectId={id} session={session} /> : null}
         {tab === 'reports' ? <ReportsTab projectId={id} query={query} session={session} /> : null}
         {tab === 'settings' ? (
@@ -239,17 +239,71 @@ async function ReportsTab({
 
 /** Dates as ISO strings: the report screen is a client component. */
 function serializeReport(report: ProjectReport): ProjectReportData {
-  return {
-    ...report,
-    trafficSince: report.trafficSince?.toISOString() ?? null,
-    registrations: report.registrations.map((r) => ({
-      ...r,
-      createdAt: r.createdAt.toISOString(),
-      agreement: r.agreement
-        ? { ...r.agreement, sentAt: r.agreement.sentAt?.toISOString() ?? null, completedAt: r.agreement.completedAt?.toISOString() ?? null }
-        : null,
-    })),
-  }
+  return { ...report, trafficSince: report.trafficSince?.toISOString() ?? null, registrations: serializeRows(report.registrations) }
+}
+
+function serializeRows(rows: RegistrationRow[]): ProjectReportData['registrations'] {
+  return rows.map((r) => ({
+    ...r,
+    createdAt: r.createdAt.toISOString(),
+    agreement: r.agreement ? { ...r.agreement, sentAt: r.agreement.sentAt?.toISOString() ?? null, completedAt: r.agreement.completedAt?.toISOString() ?? null } : null,
+  }))
+}
+
+/**
+ * "הרשמות": everyone who came through the public door, at once — the same
+ * table the report uses, with the drawer and the actions. A registration a
+ * person must still approve is one row among them, marked "דורש טיפול";
+ * there is no separate idea of a lead in the campaign's language.
+ */
+async function RegistrationsTab({
+  projectId,
+  query,
+  session,
+  audienceNoun,
+}: {
+  projectId: string
+  query: Record<string, string | undefined>
+  session: StaffSession
+  audienceNoun: 'ספק' | 'לקוח'
+}) {
+  const filters = parseProjectReportFilters({ status: query.status, q: query.q })
+  const [rows, total, attention] = await Promise.all([
+    registrationRows(projectId, filters, 200),
+    registrationCount(projectId, filters),
+    registrationCount(projectId, { status: 'attention' }),
+  ])
+  void session
+  const field = 'min-h-11 rounded-lg border border-line bg-surface px-3 text-sm text-fg outline-none focus:border-brand'
+  return (
+    <div className="flex flex-col gap-4">
+      <form method="get" action={`/projects/${projectId}`} className="flex flex-wrap items-end gap-2">
+        <input type="hidden" name="tab" value="registrations" />
+        <input type="search" name="q" defaultValue={query.q ?? ''} placeholder="חיפוש לפי עסק, איש קשר, ח.פ., טלפון או אימייל" aria-label="חיפוש בהרשמות" className={`${field} min-w-0 flex-1`} />
+        <select name="status" defaultValue={query.status ?? ''} aria-label="סטטוס" className={field}>
+          <option value="">כל ההרשמות</option>
+          {attention > 0 ? <option value="attention">דורש טיפול ({attention})</option> : null}
+          <option value="registered">נרשמו</option>
+          <option value="pending">ממתינים לחתימה</option>
+          <option value="signed">נחתמו</option>
+          <option value="expired">פג תוקף</option>
+          <option value="failed">נכשלו / נדחו</option>
+        </select>
+        <button type="submit" className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg hover:border-brand">
+          הצגה
+        </button>
+      </form>
+      {attention > 0 && query.status !== 'attention' ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          {attention === 1 ? 'הרשמה אחת דורשת טיפול' : `${attention} הרשמות דורשות טיפול`} —{' '}
+          <Link href={`/projects/${projectId}?tab=registrations&status=attention`} className="underline">
+            הצגה
+          </Link>
+        </p>
+      ) : null}
+      <RegistrationsTable rows={serializeRows(rows)} total={total} projectId={projectId} title="הרשמות" audienceNoun={audienceNoun} />
+    </div>
+  )
 }
 
 /** Dates as ISO strings: the settings screen is a client component. */

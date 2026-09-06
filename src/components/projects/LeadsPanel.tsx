@@ -245,7 +245,7 @@ export function LeadsPanel({ projectId, leads }: { projectId: string; leads: Lea
       ) : null}
 
       {editing ? (
-        <EditLeadDialog
+        <LeadEditForm
           lead={editing}
           busy={busyId === editing.id}
           onClose={() => setEditing(null)}
@@ -273,7 +273,7 @@ export function LeadsPanel({ projectId, leads }: { projectId: string; leads: Lea
   )
 }
 
-function EditLeadDialog({
+function LeadEditForm({
   lead,
   busy,
   onClose,
@@ -331,5 +331,53 @@ function EditLeadDialog({
         </div>
       </form>
     </div>
+  )
+}
+
+/**
+ * The same edit form, opened from the registrations table by id: it posts
+ * the change and tells the caller when it is saved.
+ */
+export function EditLeadDialog({
+  projectId,
+  leadId,
+  initial,
+  onClose,
+  onSaved,
+}: {
+  projectId: string
+  leadId: string
+  initial: Record<string, string | null | undefined>
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const data = Object.fromEntries(Object.entries(initial).filter(([, v]) => typeof v === 'string' && v)) as Record<string, string>
+  const lead = { id: leadId, status: 'new', data, companyId: null, agreementId: null, source: 'landing', createdAt: new Date(), formSnapshot: null, reviewedAt: null } as unknown as LeadItem
+  async function save(values: Record<string, string>) {
+    setBusy(true)
+    setError(null)
+    try {
+      const response = await fetch(`/api/projects/${projectId}/leads`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update', leadId, values }) })
+      const body = await response.json().catch(() => null)
+      if (!response.ok) {
+        setError(body?.error?.message ?? 'השמירה נכשלה.')
+        return
+      }
+      onSaved()
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <>
+      <LeadEditForm lead={lead} busy={busy} onClose={onClose} onSave={(values) => void save(values)} />
+      {error ? (
+        <p role="alert" className="fixed inset-x-0 bottom-4 z-[60] mx-auto w-fit rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
+          {error}
+        </p>
+      ) : null}
+    </>
   )
 }
