@@ -59,7 +59,12 @@ export async function saveFields(input: {
     const parsed = parseField(raw, pageCount)
     if (!parsed) return { ok: false, message: 'נתונים לא תקינים.' }
 
-    const variableKey = toVariableKey(parsed.label, usedKeys)
+    // A key the field brought with it (a fillable PDF's own name) is kept;
+    // anything else is derived from the label as always. Either way unique.
+    const variableKey =
+      parsed.variableKey && !usedKeys.includes(parsed.variableKey)
+        ? parsed.variableKey
+        : toVariableKey(parsed.label, usedKeys)
     usedKeys.push(variableKey)
 
     rows.push({
@@ -147,6 +152,8 @@ function parseField(raw: unknown, pageCount: number): PlacedField | null {
     // Validated against the known sources: an arbitrary string here would be a
     // silent no-op at send time rather than a rejected layout.
     autoSource: isAutoSource(f.autoSource) ? f.autoSource : null,
+    variableKey:
+      typeof f.variableKey === 'string' && /^[a-z0-9_]{1,40}$/.test(f.variableKey) ? f.variableKey : null,
   }
 }
 
@@ -173,6 +180,7 @@ export async function loadFields(versionId: string): Promise<PlacedField[]> {
     placeholder: row.placeholder,
     autoFill: row.autoFill,
     autoSource: row.autoSource ?? null,
+    variableKey: row.variableKey ?? null,
   }))
 }
 

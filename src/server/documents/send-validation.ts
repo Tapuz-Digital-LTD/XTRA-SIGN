@@ -92,9 +92,10 @@ export async function buildSendSummary(
   }
 
   // Anything we promised to fill in must actually be filled in — the signer
-  // cannot complete a field marked as ours.
+  // cannot complete a field marked as ours. A date the system stamps at
+  // signing is ours too, and is empty by design until then.
   const ourEmpty = fields.filter(
-    (f) => f.ownedBy === 'sender' && f.required && !f.value?.trim() && f.type !== 'checkbox',
+    (f) => f.ownedBy === 'sender' && f.required && !f.autoFill && !f.value?.trim() && f.type !== 'checkbox',
   )
   for (const field of ourEmpty) {
     blockers.push(`שדה "${field.label}" מסומן כשדה שאנחנו ממלאים, אך נותר ריק.`)
