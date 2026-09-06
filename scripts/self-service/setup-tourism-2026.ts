@@ -135,7 +135,7 @@ async function main() {
 
   // ── Who gets told ──────────────────────────────────────────────────────
   if (NOTIFY_EMAILS?.length) {
-    const notified = await saveProjectNotificationSettings(session, groupId, { emails: NOTIFY_EMAILS, events: { new_registration: true, signed: true, send_failed: true } })
+    const notified = await saveProjectNotificationSettings(session, groupId, { emails: NOTIFY_EMAILS, events: { new_registration: true, signed: true, send_failed: true, unsigned_digest: true, expiring_digest: true } })
     if (!notified.ok) throw new Error(notified.message)
     console.log(`notifications → ${notified.settings.emails.join(', ')}`)
   }
