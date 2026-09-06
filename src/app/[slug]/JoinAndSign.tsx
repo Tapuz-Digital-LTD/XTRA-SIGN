@@ -11,6 +11,7 @@ import {
 } from '@/lib/self-service-registration'
 import { AgreementSystemNote, AgreementText } from './AgreementText'
 import { track, visitId } from './track'
+import { OtpInput } from '@/components/ui/OtpInput'
 import { useCaptcha } from '@/components/captcha/useCaptcha'
 import { CAPTCHA_ACTIONS, type CaptchaPublicConfig } from '@/lib/captcha'
 
@@ -83,7 +84,6 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
   const [cooldown, setCooldown] = useState(0)
   const idempotencyKey = useRef<string | null>(null)
   const otpPanelRef = useRef<HTMLDivElement>(null)
-  const codeRef = useRef<HTMLInputElement>(null)
   const signatureRef = useRef<HTMLDivElement>(null)
   const startedRef = useRef(false)
   const { getToken } = useCaptcha(captcha)
@@ -109,7 +109,6 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
   useEffect(() => {
     if (step !== 'otp') return
     otpPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    setTimeout(() => codeRef.current?.focus(), 350)
   }, [step])
 
   function setField(field: RegistrationField, value: string) {
@@ -245,7 +244,6 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
     const supplied = code.trim()
     if (!/^\d{6}$/.test(supplied)) {
       setMessage('יש להזין את 6 הספרות שנשלחו אליך.')
-      codeRef.current?.focus()
       return
     }
     setBusy(true)
@@ -259,7 +257,6 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
       const data = await response.json().catch(() => null)
       if (!response.ok) {
         setMessage(errorMessage(data, 'קוד שגוי. נסו שנית.'))
-        codeRef.current?.select()
         return
       }
       await complete(token)
@@ -393,28 +390,10 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
               סביבת בדיקה — לא נשלח SMS. הקוד: <strong dir="ltr">{devCode}</strong>
             </p>
           ) : null}
-          <label htmlFor="tj-code" className="tj-label">
-            קוד בן 6 ספרות
-          </label>
-          <input
-            id="tj-code"
-            ref={codeRef}
-            className="tj-code"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            pattern="[0-9]*"
-            maxLength={6}
-            dir="ltr"
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                void verify()
-              }
-            }}
-            disabled={busy || step === 'finishing'}
-          />
+          <p className="tj-label">קוד בן 6 ספרות</p>
+          <div className="tj-code">
+            <OtpInput id="tj-code" label="קוד אימות" value={code} onChange={setCode} onComplete={() => void verify()} disabled={busy || step === 'finishing'} invalid={Boolean(message)} />
+          </div>
           {message ? (
             <p role="alert" className="tj-alert">
               {message}

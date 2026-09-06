@@ -508,19 +508,9 @@
 }
 
 .tj-code {
+  /* The shared six-box input sits here; only the spacing is the campaign's. */
   display: block;
-  width: 100%;
-  min-height: 64px;
   margin: 8px 0 14px;
-  border-radius: 14px;
-  border: 1.5px solid var(--tl-line);
-  font: inherit;
-  font-size: 30px;
-  font-weight: 700;
-  letter-spacing: 0.35em;
-  text-align: center;
-  color: var(--tl-navy);
-  outline: none;
 }
 
 .tj-code:focus-visible {

@@ -3,6 +3,7 @@ import { maskPhone, normalizeIsraeliPhone, toIsraeliNationalFormat } from '@/lib
 import { getDb, schema } from '@/server/db'
 import { consume } from '@/server/http/rate-limit'
 import { InforuSmsProvider, logOnlyMode } from '@/server/notifications/inforu'
+import { otpSmsText } from '@/server/notifications/otp-sms'
 import { AUDIT_EVENTS, recordAdminAction } from '@/server/users/admin-audit'
 import { createSession } from './session'
 import { generateOtpCode, hashToken, safeEqualHex } from './tokens'
@@ -183,7 +184,7 @@ export async function requestLoginCode(
   const sent = national
     ? await new InforuSmsProvider().send({
         to: national,
-        text: `קוד הכניסה שלך ל-XTRA SIGN הוא: ${code}`,
+        text: otpSmsText('קוד הכניסה שלך ל-XTRA SIGN הוא:', code),
         recipientName: user.name,
       })
     : { ok: false as const }
