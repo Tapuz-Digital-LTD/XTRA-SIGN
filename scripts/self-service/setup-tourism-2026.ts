@@ -106,6 +106,11 @@ async function main() {
   }
   if (templateId) {
     console.log(`template exists: ${templateId}`)
+  } else if (process.env.SKIP_TEMPLATE === '1') {
+    // Storage is not reachable from here (a Vercel OIDC token scoped to
+    // development cannot write the production store); the PDF goes in
+    // through the deployed app instead, and a later run picks it up by name.
+    console.log('template: skipped (SKIP_TEMPLATE=1) — upload it through the app, then run again')
   } else {
     const created = await createTemplateFromPdf({ session, buffer: readFileSync(PDF), name: TEMPLATE_NAME })
     if (!created.ok) throw new Error(created.message)
@@ -113,20 +118,22 @@ async function main() {
     console.log(`template created: ${templateId} (${created.fieldCount} fields from the PDF)`)
   }
 
-  // ── Self-service settings ──────────────────────────────────────────────
-  const saved = await saveSelfServiceConfig(session, groupId, {
-    enabled: true,
-    skin: 'tourism-2026',
-    templateId,
-    ownerUserId: owner.id,
-    linkTtlDays: current.linkTtlDays,
-    thankYouTitle: current.thankYouTitle,
-    thankYouText: current.thankYouText,
-  })
-  if (!saved.ok) throw new Error(saved.message)
+  // ── Self-service settings (only once there is an agreement to sign) ────
+  if (templateId) {
+    const saved = await saveSelfServiceConfig(session, groupId, {
+      enabled: true,
+      skin: 'tourism-2026',
+      templateId,
+      ownerUserId: owner.id,
+      linkTtlDays: current.linkTtlDays,
+      thankYouTitle: current.thankYouTitle,
+      thankYouText: current.thankYouText,
+    })
+    if (!saved.ok) throw new Error(saved.message)
+  }
 
   // ── Campaign kind, owner, agreement ────────────────────────────────────
-  const campaign = await updateCampaign(session, groupId, { campaignKind: 'public', ownerUserId: owner.id, defaultTemplateId: templateId })
+  const campaign = await updateCampaign(session, groupId, { campaignKind: 'public', ownerUserId: owner.id, defaultTemplateId: templateId ?? undefined })
   if (!campaign.ok) throw new Error(campaign.message)
 
   // ── Public address ─────────────────────────────────────────────────────
