@@ -138,10 +138,6 @@ export default async function TourismCallPage({
           <Link href={joinHref} className="tl-cta" aria-label="מכאן מצטרפים — להצטרפות לחודש התיירות הישראלית">
             <img src="/tourism-2026/signpost.webp" alt="" width={420} height={260} />
           </Link>
-          <Link href={joinHref} className="tl-cta-button">
-            <span>מכאן מצטרפים</span>
-            <span aria-hidden="true">←</span>
-          </Link>
         </div>
       </div>
       <FloatingCta href={joinHref} watch=".tl-cta" />

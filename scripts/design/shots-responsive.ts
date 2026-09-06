@@ -28,17 +28,26 @@ const REPORT_SCRIPT = `(() => {
     if (!own && !leafTags.includes(el.tagName)) continue
     const style = getComputedStyle(el)
     if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) continue
-    const r = el.getBoundingClientRect()
-    if (r.width <= 2 || r.height <= 2) continue
-    boxes.push({ el, tag: el.tagName.toLowerCase(), cls: String(el.className || '').split(' ')[0], text: (el.textContent || '').trim().slice(0, 30), left: r.left + scrollX, top: r.top + scrollY, right: r.right + scrollX, bottom: r.bottom + scrollY })
+    // An inline element that wraps is several line boxes, not one tall
+    // rectangle; judging it by its bounding box would flag every paragraph.
+    const rects = style.display === 'inline' ? Array.from(el.getClientRects()) : [el.getBoundingClientRect()]
+    for (const r of rects) {
+      if (r.width <= 2 || r.height <= 2) continue
+      boxes.push({ el, tag: el.tagName.toLowerCase(), cls: String(el.className || '').split(' ')[0], text: (el.textContent || '').trim().slice(0, 30), left: r.left + scrollX, top: r.top + scrollY, right: r.right + scrollX, bottom: r.bottom + scrollY })
+    }
   }
   const overflow = boxes.filter((b) => b.right > vw + 1 || b.left < -1).map((b) => b.tag + '.' + b.cls + ' "' + b.text + '" x' + Math.round(b.left) + '–' + Math.round(b.right))
   const overlaps = []
   for (let i = 0; i < boxes.length; i++) {
     for (let j = i + 1; j < boxes.length; j++) {
       const a = boxes[i], b = boxes[j]
-      if (a.el.contains(b.el) || b.el.contains(a.el)) continue
+      if (a.el === b.el || a.el.contains(b.el) || b.el.contains(a.el)) continue
       if (a.el.closest('.tl-float, .tl-stage-band, .tl-band') || b.el.closest('.tl-float, .tl-stage-band, .tl-band')) continue
+      // Composed artwork (character, signpost, the crops beside them) and the
+      // signature pad's hint are layered on purpose.
+      if (a.el.closest('.tl-stage') && b.el.closest('.tl-stage')) continue
+      if (a.el.closest('.tl-stage') || b.el.closest('.tl-stage')) { if ((a.el.closest('.tl-stage') ? b : a).el.closest('.tl-closing-script, .tl-closing-bold')) continue }
+      if (a.el.closest('.tj-pad-frame') && b.el.closest('.tj-pad-frame')) continue
       const w = Math.min(a.right, b.right) - Math.max(a.left, b.left)
       const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)
       if (w > 3 && h > 3) overlaps.push(a.tag + '.' + a.cls + ' "' + a.text + '" ↔ ' + b.tag + '.' + b.cls + ' "' + b.text + '" (' + Math.round(w) + '×' + Math.round(h) + ')')

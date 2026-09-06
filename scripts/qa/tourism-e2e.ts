@@ -59,7 +59,7 @@ async function main() {
   await page.goto(`${BASE}/tourism-2026?utm_source=e2e&utm_campaign=local`, { waitUntil: 'networkidle0', timeout: 60000 })
   const ctaHref = await page.$eval('a.tl-cta', (a) => (a as HTMLAnchorElement).getAttribute('href'))
   check('Page 1 CTA carries the campaign query to the joining page', ctaHref === '/tourism-2026/join?utm_source=e2e&utm_campaign=local', String(ctaHref))
-  await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 60000 }), page.click(WIDTH < 860 ? 'a.tl-cta-button' : 'a.tl-cta')])
+  await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 60000 }), page.click('a.tl-cta')])
   check('landed on /tourism-2026/join', page.url().includes('/tourism-2026/join'), page.url())
 
   // ── Details ────────────────────────────────────────────────────────────

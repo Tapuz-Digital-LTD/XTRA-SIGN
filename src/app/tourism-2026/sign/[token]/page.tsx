@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
-import { maskPhone } from '@/lib/phone'
+import { maskPhone, toIsraeliNationalFormat } from '@/lib/phone'
 import type { RegistrationValues } from '@/lib/self-service-registration'
 import { AUDIT_EVENTS } from '@/server/audit'
 import { getDb, schema } from '@/server/db'
@@ -40,8 +40,11 @@ export default async function ResumeSigningPage({ params }: { params: Promise<{ 
     .from(schema.agreements)
     .where(eq(schema.agreements.id, context.agreementId))
     .limit(1)
-  const values = (agreement?.mergeSnapshot as { values?: RegistrationValues } | null)?.values
-  if (!values) return <Expired />
+  const snapshot = (agreement?.mergeSnapshot as { values?: RegistrationValues } | null)?.values
+  if (!snapshot) return <Expired />
+  // Shown, not edited: the phone reads as a person writes it, not as E.164.
+  const national = toIsraeliNationalFormat(snapshot.phone)
+  const values: RegistrationValues = { ...snapshot, phone: national ? `${national.slice(0, 3)}-${national.slice(3)}` : snapshot.phone }
 
   // First open marks the document as viewed, as the standard signer page does.
   if (context.status === 'sent') {

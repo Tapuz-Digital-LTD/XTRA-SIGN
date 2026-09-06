@@ -42,8 +42,7 @@
   overflow: clip;
 }
 
-.tl-cta:focus-visible,
-.tl-cta-button:focus-visible {
+.tl-cta:focus-visible {
   outline: 3px solid #fff;
   outline-offset: 4px;
 }
@@ -159,13 +158,14 @@
     display: block;
   }
 
-  .tl-list li img {
+  .tl-list li > img {
     position: absolute;
     width: 5.75%;
     pointer-events: auto;
   }
 
-  .tl-list li span {
+  /* The text box only — its inner lines stay in flow, one under the other. */
+  .tl-list li > span {
     position: absolute;
     display: block;
     pointer-events: auto;
@@ -178,9 +178,9 @@
 
   .tl-conditions li:nth-child(1) img { left: 90.5%; top: 34.375%; }
   .tl-conditions li:nth-child(1) span { left: 55.1%; top: 34.75%; width: 34.1%; }
-  .tl-conditions li:nth-child(2) img { left: 90.5%; top: 40.3%; }
+  .tl-conditions li:nth-child(2) img { left: 90.5%; top: 40.5%; }
   .tl-conditions li:nth-child(2) span { left: 55.1%; top: 40.8%; width: 34.1%; }
-  .tl-conditions li:nth-child(3) img { left: 90.5%; top: 46.1%; }
+  .tl-conditions li:nth-child(3) img { left: 90.5%; top: 46.5%; }
   .tl-conditions li:nth-child(3) span { left: 57.9%; top: 46.6%; width: 31.3%; }
 
   .tl-title-benefits {
@@ -194,7 +194,7 @@
   .tl-benefits li:nth-child(1) span { left: 58.6%; top: 58.2%; width: 30.6%; }
   .tl-benefits li:nth-child(2) img { left: 52.5%; top: 57.6%; width: 5.5%; }
   .tl-benefits li:nth-child(2) span { left: 36.5%; top: 58.7%; width: 15.3%; }
-  .tl-benefits li:nth-child(3) img { left: 90.5%; top: 63.4%; }
+  .tl-benefits li:nth-child(3) img { left: 90.5%; top: 63.9%; }
   .tl-benefits li:nth-child(3) span { left: 49.2%; top: 64.6%; width: 40%; line-height: 1.7cqw; }
 
   .tl-closing-script {
@@ -243,9 +243,6 @@
     filter: brightness(1.06) drop-shadow(0 10px 18px rgba(0, 0, 0, 0.35));
   }
 
-  .tl-cta-button {
-    display: none;
-  }
 }
 
 /* On screens wider than the canvas the character's cut left edge would show
@@ -314,11 +311,11 @@
     align-items: center;
   }
 
-  .tl-list li img {
+  .tl-list li > img {
     width: 52px;
   }
 
-  .tl-list li span {
+  .tl-list li > span {
     font-size: 17px;
     line-height: 1.45;
     font-weight: 500;
@@ -372,24 +369,6 @@
     display: block;
   }
 
-  .tl-cta-button {
-    position: absolute;
-    right: 6%;
-    top: 34%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    min-height: 56px;
-    padding: 0 26px;
-    border-radius: 999px;
-    background: var(--tl-cyan);
-    color: var(--tl-ink);
-    font-size: 20px;
-    font-weight: 800;
-    text-decoration: none;
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
-  }
 }
 
 @media (max-width: 859.98px) and (min-width: 600px) {
@@ -400,13 +379,6 @@
     --tl-char: 0.5;
     width: calc(100% + 64px);
     margin: 8px -32px 0;
-  }
-  .tl-cta-button {
-    right: 10%;
-    top: 40%;
-    min-height: 64px;
-    font-size: 22px;
-    padding: 0 34px;
   }
   .tl-body,
   .tl-list li span {
