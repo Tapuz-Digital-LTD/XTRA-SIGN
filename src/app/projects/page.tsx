@@ -84,6 +84,7 @@ export default async function ProjectsPage({
           )
         ) : (
           <ProjectsList
+            isAdmin={session.isAdmin}
             projects={projects.map((p) => ({
               id: p.id,
               name: p.name,

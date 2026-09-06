@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import type { AgreementStatus } from '@/lib/status'
+import { DeleteDialog } from '@/components/deletion/DeleteDialog'
 
 type Action = { label: string; run: () => unknown; danger?: boolean }
 
@@ -18,14 +19,17 @@ export function RowActions({
   status,
   companyId,
   hasCompany,
+  isAdmin = false,
 }: {
   documentId: string
   status: AgreementStatus
   companyId: string | null
   hasCompany: boolean
+  isAdmin?: boolean
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [removing, setRemoving] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -90,14 +94,7 @@ export function RowActions({
           { label: 'שליחה', run: go(`/documents/${documentId}/send`) },
           duplicate,
           link,
-          {
-            label: 'מחיקה',
-            danger: true,
-            run: () => {
-              if (!window.confirm('למחוק את הטיוטה? הפעולה אינה ניתנת לביטול.')) return
-              void call(`/api/documents/${documentId}`, { method: 'DELETE' }, () => router.refresh())
-            },
-          },
+          { label: 'מחיקה', danger: true, run: () => { setOpen(false); setRemoving(true) } },
         ]
       : status === 'sent' || status === 'viewed'
         ? [
@@ -108,6 +105,7 @@ export function RowActions({
                 void call(`/api/documents/${documentId}/remind`, { method: 'POST' }, () => router.refresh()),
             },
             { label: 'ביטול המסמך', danger: true, run: lifecycle('cancel', 'לבטל את המסמך? קישור החתימה יפסיק לעבוד.') },
+            { label: 'ביטול והסרה מהרשימה', danger: true, run: () => { setOpen(false); setRemoving(true) } },
             link,
           ]
         : status === 'signed'
@@ -119,13 +117,26 @@ export function RowActions({
               link,
               duplicate,
               newVersion,
+              { label: isAdmin ? 'ארכיון / מחיקה מוגנת' : 'העברה לארכיון', run: () => { setOpen(false); setRemoving(true) } },
             ]
-          : [view, duplicate, newVersion, link]
+          : [view, duplicate, newVersion, link, { label: 'העברה לארכיון', run: () => { setOpen(false); setRemoving(true) } }]
 
   const available = actions.filter((a): a is Action => a !== null)
 
   return (
     <div ref={ref} className="relative">
+      <DeleteDialog
+        type="agreement"
+        id={documentId}
+        noun="הסכם"
+        isAdmin={isAdmin}
+        open={removing}
+        onClose={() => setRemoving(false)}
+        onDone={() => {
+          setRemoving(false)
+          router.refresh()
+        }}
+      />
       <button
         type="button"
         onClick={(e) => {

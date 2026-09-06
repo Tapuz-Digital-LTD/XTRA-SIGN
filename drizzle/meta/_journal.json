@@ -211,6 +211,20 @@
       "when": 1788694982351,
       "tag": "0029_project_public_slugs",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1788696200567,
+      "tag": "0030_campaign_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1788696814180,
+      "tag": "0031_archive_and_protected_delete",
+      "breakpoints": true
     }
   ]
 }

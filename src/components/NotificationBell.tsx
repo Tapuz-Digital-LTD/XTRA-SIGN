@@ -14,6 +14,7 @@ const ICON: Record<string, string> = {
   send_failed: '!',
   crm_failed: '!',
   new_lead: '+',
+  deletion_request: '⌫',
 }
 
 const TONE: Record<string, string> = {
@@ -23,6 +24,7 @@ const TONE: Record<string, string> = {
   send_failed: 'text-red-700',
   crm_failed: 'text-red-700',
   new_lead: 'text-brand',
+  deletion_request: 'text-amber-700',
 }
 
 /**
@@ -72,6 +74,17 @@ export function NotificationBell() {
     return () => document.removeEventListener('mousedown', close)
   }, [open])
 
+  async function remove(id: string) {
+    await fetch(`/api/notifications?id=${id}`, { method: 'DELETE' })
+    setItems((current) => current.filter((i) => i.id !== id))
+    setUnread((n) => Math.max(0, n - (items.find((i) => i.id === id && !i.readAt) ? 1 : 0)))
+  }
+
+  async function clearRead() {
+    await fetch('/api/notifications?read=1', { method: 'DELETE' })
+    setItems((current) => current.filter((i) => !i.readAt))
+  }
+
   async function markAll() {
     await fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
     setUnread(0)
@@ -103,11 +116,18 @@ export function NotificationBell() {
         <div className="absolute end-0 z-40 mt-1 w-80 overflow-hidden rounded-lg border border-line bg-surface shadow-lg">
           <div className="flex min-h-12 items-center justify-between gap-2 border-b border-line px-3">
             <span className="text-sm font-semibold text-fg">התראות</span>
-            {unread > 0 ? (
-              <button type="button" onClick={() => void markAll()} className="text-xs text-brand hover:underline">
-                סימון הכול כנקרא
-              </button>
-            ) : null}
+            <span className="flex items-center gap-3">
+              {items.some((i) => i.readAt) ? (
+                <button type="button" onClick={() => void clearRead()} className="text-xs text-muted hover:underline">
+                  ניקוי שנקראו
+                </button>
+              ) : null}
+              {unread > 0 ? (
+                <button type="button" onClick={() => void markAll()} className="text-xs text-brand hover:underline">
+                  סימון הכול כנקרא
+                </button>
+              ) : null}
+            </span>
           </div>
 
           <div className="max-h-96 overflow-y-auto">
@@ -133,18 +153,26 @@ export function NotificationBell() {
                     </>
                   )
                   return (
-                    <li key={item.id}>
+                    <li key={item.id} className="group relative">
                       {href ? (
                         <Link
                           href={href}
                           onClick={() => setOpen(false)}
-                          className="flex gap-2 px-3 py-3 transition hover:bg-bg"
+                          className="flex gap-2 px-3 py-3 pe-10 transition hover:bg-bg"
                         >
                           {body}
                         </Link>
                       ) : (
-                        <div className="flex gap-2 px-3 py-3">{body}</div>
+                        <div className="flex gap-2 px-3 py-3 pe-10">{body}</div>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => void remove(item.id)}
+                        aria-label="מחיקת ההתראה"
+                        className="absolute end-2 top-2 inline-flex size-8 items-center justify-center rounded-lg text-muted opacity-60 transition hover:bg-slate-100 hover:text-fg hover:opacity-100"
+                      >
+                        ✕
+                      </button>
                     </li>
                   )
                 })}

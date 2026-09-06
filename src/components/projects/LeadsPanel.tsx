@@ -1,5 +1,6 @@
 'use client'
 
+import { DeleteDialog } from '@/components/deletion/DeleteDialog'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -38,6 +39,7 @@ const SOURCE_LABELS: Record<string, string> = {
 const dateFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
 export function LeadsPanel({ projectId, leads }: { projectId: string; leads: LeadItem[] }) {
+  const [removing, setRemoving] = useState<string | null>(null)
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -181,6 +183,14 @@ export function LeadsPanel({ projectId, leads }: { projectId: string; leads: Lea
                     >
                       דחה
                     </button>
+                    <button
+                      type="button"
+                      disabled={busyId === lead.id}
+                      onClick={() => setRemoving(lead.id)}
+                      className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm text-red-700 transition hover:border-red-400 disabled:opacity-50"
+                    >
+                      מחיקה
+                    </button>
                   </div>
                 )}
               </div>
@@ -242,6 +252,20 @@ export function LeadsPanel({ projectId, leads }: { projectId: string; leads: Lea
           onSave={async (values) => {
             const data = await act(editing.id, { action: 'update', values })
             if (data?.ok) setEditing(null)
+          }}
+        />
+      ) : null}
+      {removing ? (
+        <DeleteDialog
+          type="lead"
+          id={removing}
+          noun="הרשמה"
+          isAdmin={false}
+          open
+          onClose={() => setRemoving(null)}
+          onDone={() => {
+            setRemoving(null)
+            router.refresh()
           }}
         />
       ) : null}

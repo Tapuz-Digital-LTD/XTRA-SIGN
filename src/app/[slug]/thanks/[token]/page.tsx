@@ -6,6 +6,7 @@ import { getDb, schema } from '@/server/db'
 import { selfServiceOriginOf } from '@/server/self-service/agreement-skin'
 import { resolveSigningToken } from '@/server/signing/session'
 import { CampaignFrame, CampaignNotice } from '../../CampaignFrame'
+import { CampaignTracker } from '../../CampaignTracker'
 import { ThanksView } from '../../ThanksView'
 import { campaignProject, type SearchParams } from '../../resolve'
 
@@ -64,9 +65,12 @@ export default async function ThanksPage({
         projectName={project.projectName}
         signerName={context.recipientName}
         downloadHref={`/api/sign/${token}/download`}
+        formId={project.formId}
+        token={token}
         emailed={Boolean(emailed)}
         email={context.recipientEmail}
       />
+      <CampaignTracker formId={project.formId} event="thank_you_viewed" token={token} />
     </CampaignFrame>
   )
 }

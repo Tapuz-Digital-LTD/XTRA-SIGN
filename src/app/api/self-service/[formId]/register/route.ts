@@ -1,4 +1,5 @@
 import { after, NextResponse } from 'next/server'
+import { VISIT_ID_RE } from '@/lib/campaign-events'
 import { generateToken } from '@/server/auth/tokens'
 import { consume } from '@/server/http/rate-limit'
 import { clientIp, log } from '@/server/log'
@@ -42,6 +43,7 @@ export async function POST(request: Request, context: { params: Promise<{ formId
           idempotencyKey?: unknown
           referrer?: unknown
           meta?: unknown
+          visitId?: unknown
         }
       | null
     if (!body || typeof body !== 'object') {
@@ -66,6 +68,7 @@ export async function POST(request: Request, context: { params: Promise<{ formId
       ip,
       referrer: typeof body.referrer === 'string' ? body.referrer : null,
       meta: body.meta && typeof body.meta === 'object' ? (body.meta as Record<string, unknown>) : null,
+      visitId: typeof body.visitId === 'string' && VISIT_ID_RE.test(body.visitId) ? body.visitId : null,
     })
 
     if (!result.ok) {

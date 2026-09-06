@@ -30,7 +30,7 @@ function statusChip(project: ProjectRow) {
   return <span className="whitespace-nowrap rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">הושלם</span>
 }
 
-export function ProjectsList({ projects }: { projects: ProjectRow[] }) {
+export function ProjectsList({ projects, isAdmin }: { projects: ProjectRow[]; isAdmin: boolean }) {
   const router = useRouter()
 
   return (
@@ -53,7 +53,7 @@ export function ProjectsList({ projects }: { projects: ProjectRow[] }) {
                 {project.lastActivityAt ? ` · ${dateFormat.format(new Date(project.lastActivityAt))}` : ''}
               </span>
             </span>
-            <ProjectRowMenu projectId={project.id} archived={project.archived} />
+            <ProjectRowMenu projectId={project.id} archived={project.archived} isAdmin={isAdmin} />
           </li>
         ))}
       </ul>
@@ -101,7 +101,7 @@ export function ProjectsList({ projects }: { projects: ProjectRow[] }) {
                 </td>
                 <td className="px-4 py-3">{statusChip(project)}</td>
                 <td className="px-2 py-3">
-                  <ProjectRowMenu projectId={project.id} archived={project.archived} />
+                  <ProjectRowMenu projectId={project.id} archived={project.archived} isAdmin={isAdmin} />
                 </td>
               </tr>
             ))}

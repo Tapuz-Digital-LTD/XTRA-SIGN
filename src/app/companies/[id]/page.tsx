@@ -32,7 +32,7 @@ export default async function CompanyPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ filter?: string; tab?: string }>
+  searchParams: Promise<{ filter?: string; tab?: string; edit?: string }>
 }) {
   const session = await getSession()
   if (!session) redirect('/login')
@@ -80,7 +80,7 @@ export default async function CompanyPage({
         </Link>
       </div>
 
-      <CompanyHeader company={company} noun={noun} crmAppUrl={process.env.FIREBERRY_APP_URL ?? null} />
+      <CompanyHeader company={company} noun={noun} crmAppUrl={process.env.FIREBERRY_APP_URL ?? null} isAdmin={session.isAdmin} startEditing={query.edit === '1'} />
 
       {/* The projects this company is in. Each is a link into the project,
           so a chip answers "who else is in here?" in one click. */}
@@ -182,7 +182,7 @@ export default async function CompanyPage({
                 </Link>
               </div>
             ) : (
-              <DocumentsTable documents={documents.items} now={documents.now} />
+              <DocumentsTable documents={documents.items} now={documents.now} isAdmin={session.isAdmin} />
             )}
           </div>
         </>

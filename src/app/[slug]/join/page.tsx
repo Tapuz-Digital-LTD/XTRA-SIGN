@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { CampaignFrame } from '../CampaignFrame'
+import { CampaignTracker } from '../CampaignTracker'
 import { JoinAndSign } from '../JoinAndSign'
 import { campaignProject, type SearchParams } from '../resolve'
 
@@ -24,6 +25,7 @@ export default async function JoinPage({
   return (
     <CampaignFrame slug={slug} title="הצטרפות וחתימה">
       <JoinAndSign mode="new" slug={slug} formId={project.formId} projectName={project.projectName} />
+      <CampaignTracker formId={project.formId} event="page_view" />
     </CampaignFrame>
   )
 }

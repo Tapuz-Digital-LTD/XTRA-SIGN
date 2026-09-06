@@ -148,6 +148,13 @@ export const companies = pgTable(
     crmSyncedAt: timestamp('crm_synced_at', { withTimezone: true }),
     /** Soft delete: agreements keep pointing at the company they were filed under. */
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    /**
+     * Out of the active lists but not gone: the record, its agreements and
+     * their signed files stay exactly as they are. Archiving is how a record
+     * with signed history is tidied away; deleting is reserved for records
+     * with nothing behind them.
+     */
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
@@ -516,6 +523,50 @@ export const projectPublicSlugs = pgTable(
   ],
 )
 
+/**
+ * What happened on a project's campaign pages, one row per event.
+ *
+ * First-party and deliberately small: a page view, a click on the join
+ * button, a form begun, a signature begun, a thank-you page seen, a signed
+ * copy downloaded. Each carries an opaque visit id the browser minted for
+ * itself — no fingerprint, no IP kept — plus the address it arrived at and
+ * the campaign tags it came with, so "where did they come from" can be
+ * answered without a third-party tracker. Registrations and signatures are
+ * counted from their own tables, never from here; an event is a trace of
+ * behaviour, not a ledger.
+ */
+export const campaignEvents = pgTable(
+  'campaign_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    type: text('type').notNull(),
+    /** Opaque per-browser id, minted client-side. */
+    visitId: text('visit_id').notNull(),
+    requestedSlug: text('requested_slug'),
+    canonicalSlug: text('canonical_slug'),
+    path: text('path'),
+    /** utm_source / utm_medium / utm_campaign / utm_content / utm_term, capped. */
+    utm: jsonb('utm'),
+    /** The referring host, not the full URL. */
+    referrer: text('referrer'),
+    registrationId: uuid('registration_id'),
+    agreementId: uuid('agreement_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('campaign_events_group_type_time_idx').on(t.groupId, t.type, t.createdAt),
+    index('campaign_events_group_visit_idx').on(t.groupId, t.visitId),
+    index('campaign_events_registration_idx').on(t.registrationId),
+    index('campaign_events_agreement_idx').on(t.agreementId),
+  ],
+)
+
 /** Membership. A company may belong to any number of groups. */
 export const companyGroups = pgTable(
   'company_groups',
@@ -672,6 +723,18 @@ export const agreements = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     sentAt: timestamp('sent_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),
+    /**
+     * Hidden from the active lists; everything about it — versions, signed
+     * file, signatures, audit — stays. A signed agreement is never deleted
+     * through the product; archiving is how it leaves the way.
+     */
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    /**
+     * Protected removal by an admin: the record leaves every screen but the
+     * row, its signed file and its audit trail remain, and the action itself
+     * is in the admin audit.
+     */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
   },
   (t) => [

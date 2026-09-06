@@ -10,6 +10,7 @@ import {
   type RegistrationValues,
 } from '@/lib/self-service-registration'
 import { AgreementSystemNote, AgreementText } from './AgreementText'
+import { track, visitId } from './track'
 
 /**
  * Page 2 — join, read, sign.
@@ -81,6 +82,19 @@ export function JoinAndSign({ mode, slug, formId, projectName, token: initialTok
   const otpPanelRef = useRef<HTMLDivElement>(null)
   const codeRef = useRef<HTMLInputElement>(null)
   const signatureRef = useRef<HTMLDivElement>(null)
+  const startedRef = useRef(false)
+
+  // Funnel traces: the first keystroke, the first time the code panel opens.
+  useEffect(() => {
+    if (mode !== 'new' || startedRef.current) return
+    if (Object.values(values).some((v) => v.trim())) {
+      startedRef.current = true
+      track(formId, 'registration_started')
+    }
+  }, [values, mode, formId])
+  useEffect(() => {
+    if (step === 'otp') track(formId, 'signing_started', { token: token ?? undefined })
+  }, [step, formId, token])
 
   useEffect(() => {
     if (cooldown <= 0) return
@@ -158,6 +172,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, token: initialTok
           idempotencyKey: idempotencyKey.current,
           referrer: document.referrer || null,
           meta,
+          visitId: visitId(),
         }),
       })
       const data = await response.json().catch(() => null)

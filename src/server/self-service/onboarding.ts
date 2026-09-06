@@ -20,6 +20,8 @@ import { log } from '@/server/log'
 import { InforuEmailProvider, InforuSmsProvider } from '@/server/notifications/inforu'
 import { notify } from '@/server/notifications/notifications'
 import { findSelfServiceProjectByFormId, type SelfServiceProject } from '@/server/projects/self-service'
+import { linkVisitToRegistration, recordCampaignEvent } from '@/server/analytics/campaign-events'
+import { referrerHost, utmFrom } from '@/lib/campaign-events'
 import { sendOtp } from '@/server/signing/otp'
 import { resolveSigningToken, type SigningContext } from '@/server/signing/session'
 import { createDocumentFromTemplate } from '@/server/templates/templates'
@@ -53,6 +55,8 @@ export type RegistrationInput = {
   ip: string | null
   referrer: string | null
   meta: Record<string, unknown> | null
+  /** The browser's opaque visit id, for the campaign funnel. */
+  visitId?: string | null
 }
 
 export type OtpOutcome = { sent: boolean; devCode?: string; message?: string }
@@ -188,6 +192,20 @@ export async function startSelfServiceSigning(input: RegistrationInput): Promise
 
     // ── The agreement exists and is sendable. Nothing below may lose it. ────
     await markRegistration(registration.id, { status: 'converted', companyId: supplier.id, agreementId })
+    if (input.visitId) {
+      await recordCampaignEvent({
+        organizationId: project.organizationId,
+        groupId: project.groupId,
+        type: 'registration_completed',
+        visitId: input.visitId,
+        canonicalSlug: project.publicSlug,
+        utm: utmFrom((input.meta ?? {}) as Record<string, string | undefined>),
+        referrer: referrerHost(input.referrer),
+        registrationId: registration.id,
+        agreementId,
+      })
+      await linkVisitToRegistration(project.groupId, input.visitId, registration.id, agreementId)
+    }
 
     const context = await resolveSigningToken(issued.token)
     const otp = context ? await ensureOtp(context) : { sent: false, message: 'לא הצלחנו לשלוח קוד אימות.' }

@@ -1,3 +1,6 @@
+'use client'
+
+import { track } from './track'
 /**
  * The thank-you screen: a drawn checkmark, a little confetti in the
  * campaign's colours, the download. CSS only, and still with
@@ -21,12 +24,16 @@ export function ThanksView({
   downloadHref,
   emailed,
   email,
+  formId,
+  token,
 }: {
   title: string
   text: string
   projectName: string
   signerName: string
   downloadHref: string
+  formId: string
+  token: string
   emailed: boolean
   email: string | null
 }) {
@@ -61,7 +68,7 @@ export function ThanksView({
         </p>
         {text ? <p className="tj-lead">{text}</p> : null}
 
-        <a href={downloadHref} className="tj-primary tj-inline-link">
+        <a href={downloadHref} onClick={() => track(formId, 'signed_document_downloaded', { token })} className="tj-primary tj-inline-link">
           הורדת ההסכם החתום
         </a>
 

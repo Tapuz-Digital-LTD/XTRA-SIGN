@@ -5,7 +5,6 @@ import { DocumentsTable } from '@/components/documents/DocumentsTable'
 import { GroupWorkspace } from '@/components/groups/GroupWorkspace'
 import { LeadsPanel } from '@/components/projects/LeadsPanel'
 import { ProjectSettings } from '@/components/projects/ProjectSettings'
-import { ReportPanel } from '@/components/reports/ReportPanel'
 import { ForbiddenError, getSession } from '@/server/auth/session'
 import { listBatches } from '@/server/groups/bulk-send'
 import { authorizeGroup, listGroupCompanies } from '@/server/groups/groups'
@@ -14,9 +13,10 @@ import { listLeads } from '@/server/projects/leads'
 import { getLandingSettings } from '@/server/projects/landing'
 import { getSelfServiceConfig } from '@/server/projects/self-service'
 import { listUsers } from '@/server/users/users'
-import { agreementReport, parseReportFilters, reportRows, signedOverTime } from '@/server/reports/reports'
 import type { StaffSession } from '@/server/auth/session'
 import { publicBaseUrl } from '@/server/http/public-url'
+import { parseProjectReportFilters, projectReport, type ProjectReport } from '@/server/reports/project-report'
+import { ProjectReportView, type ProjectReportData } from '@/components/reports/ProjectReportView'
 import { missingRoles } from '@/lib/agreement-roles'
 import type { PlacedField } from '@/lib/fields'
 import { getPublicSlugSettings } from '@/server/projects/public-slug'
@@ -111,7 +111,7 @@ export default async function ProjectPage({
         {tab === 'suppliers' ? <SuppliersTab projectId={id} projectName={project.name} companies={companies} search={query.q ?? ''} session={session} /> : null}
         {tab === 'leads' ? <LeadsPanel projectId={id} leads={leads} /> : null}
         {tab === 'agreements' ? <AgreementsTab projectId={id} session={session} /> : null}
-        {tab === 'reports' ? <ReportsTab projectId={id} from={query.from} to={query.to} status={query.status} session={session} /> : null}
+        {tab === 'reports' ? <ReportsTab projectId={id} query={query} session={session} /> : null}
         {tab === 'settings' ? (
           <ProjectSettings
             projectId={id}
@@ -125,6 +125,7 @@ export default async function ProjectPage({
             // Listing users is an admin power; everyone else sees the owner read-only.
             owners={session.isAdmin ? (await listUsers(session)).filter((u) => !u.disabled).map((u) => ({ id: u.id, name: u.name, email: u.email })) : []}
             currentUserId={session.userId}
+            isAdmin={session.isAdmin}
           />
         ) : null}
       </div>
@@ -192,45 +193,46 @@ async function AgreementsTab({
       </p>
     )
   }
-  return <DocumentsTable documents={result.items} now={result.now} />
+  return <DocumentsTable documents={result.items} now={result.now} isAdmin={session.isAdmin} />
 }
 
 async function ReportsTab({
   projectId,
-  from,
-  to,
-  status,
+  query,
   session,
 }: {
   projectId: string
-  from?: string
-  to?: string
-  status?: string
+  query: Record<string, string | undefined>
   session: NonNullable<Awaited<ReturnType<typeof getSession>>>
 }) {
-  const filters = parseReportFilters({ group: projectId, from, to, status })
-  const [kpis, rows, series] = await Promise.all([
-    agreementReport(session, filters),
-    reportRows(session, filters, 100),
-    signedOverTime(session, filters),
-  ])
-  const query = new URLSearchParams({ group: projectId })
-  if (from) query.set('from', from)
-  if (to) query.set('to', to)
-  if (filters.status) query.set('status', filters.status)
+  const filters = parseProjectReportFilters({ from: query.from, to: query.to, status: query.status, source: query.source, range: query.range })
+  const report = await projectReport(session, projectId, filters, 200)
+  const params = new URLSearchParams()
+  for (const key of ['from', 'to', 'status', 'source', 'range'] as const) if (query[key]) params.set(key, query[key]!)
 
   return (
-    <ReportPanel
-      kpis={kpis}
-      rows={rows}
-      rowLimit={100}
-      series={series}
-      action={`/projects/${projectId}`}
-      hidden={{ tab: 'reports' }}
-      values={{ from, to, status }}
-      exportHref={`/api/reports/export?${query}`}
+    <ProjectReportView
+      projectId={projectId}
+      report={serializeReport(report)}
+      values={{ from: query.from, to: query.to, status: query.status, source: query.source, range: query.range }}
+      exportHref={`/api/projects/${projectId}/report/export?${params}`}
     />
   )
+}
+
+/** Dates as ISO strings: the report screen is a client component. */
+function serializeReport(report: ProjectReport): ProjectReportData {
+  return {
+    ...report,
+    trafficSince: report.trafficSince?.toISOString() ?? null,
+    registrations: report.registrations.map((r) => ({
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+      agreement: r.agreement
+        ? { ...r.agreement, sentAt: r.agreement.sentAt?.toISOString() ?? null, completedAt: r.agreement.completedAt?.toISOString() ?? null }
+        : null,
+    })),
+  }
 }
 
 /** Dates as ISO strings: the settings screen is a client component. */

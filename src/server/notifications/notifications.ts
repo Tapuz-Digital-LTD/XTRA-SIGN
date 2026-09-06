@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
 import { publicBaseUrl } from '@/server/http/public-url'
@@ -14,7 +14,7 @@ import { InforuEmailProvider } from './inforu'
  * a re-run reminder cannot produce a second copy of the same news.
  */
 
-export type NotificationType = 'signed' | 'declined' | 'expired' | 'send_failed' | 'crm_failed' | 'new_lead'
+export type NotificationType = 'signed' | 'declined' | 'expired' | 'send_failed' | 'crm_failed' | 'new_lead' | 'deletion_request'
 
 export type NotificationItem = {
   id: string
@@ -39,7 +39,7 @@ export type NotificationPrefs = {
 
 /** Signed / new lead / failures are news someone waits for — those mail at once.
  *  "Unsigned for days" and "about to expire" arrive as the daily digest instead. */
-const IMMEDIATE_EMAIL_TYPES = new Set<NotificationType>(['signed', 'new_lead', 'send_failed', 'crm_failed'])
+const IMMEDIATE_EMAIL_TYPES = new Set<NotificationType>(['signed', 'new_lead', 'send_failed', 'crm_failed', 'deletion_request'])
 
 export function publicUrl(path: string): string {
   return `${publicBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`
@@ -190,6 +190,21 @@ export async function listNotifications(
 }
 
 /** Marks one as read, or all of them. Scoped to the caller's organization. */
+/** Notifications are not records; a person may throw them away. */
+export async function deleteNotification(session: StaffSession, id: string): Promise<void> {
+  await getDb()
+    .delete(schema.notifications)
+    .where(and(eq(schema.notifications.id, id), eq(schema.notifications.organizationId, session.organizationId)))
+}
+
+export async function clearReadNotifications(session: StaffSession): Promise<number> {
+  const rows = await getDb()
+    .delete(schema.notifications)
+    .where(and(eq(schema.notifications.organizationId, session.organizationId), isNotNull(schema.notifications.readAt)))
+    .returning({ id: schema.notifications.id })
+  return rows.length
+}
+
 export async function markRead(session: StaffSession, id?: string): Promise<void> {
   const db = getDb()
   const where = id

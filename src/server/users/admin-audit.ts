@@ -18,6 +18,11 @@ export const AUDIT_EVENTS = {
   LOGIN_FAILED: 'login_failed',
   TEMPLATE_IMPORTED: 'template_imported',
   COMPANY_LINKED_TO_CRM: 'company_linked_to_crm',
+  RECORD_DELETED: 'record_deleted',
+  RECORD_ARCHIVED: 'record_archived',
+  RECORD_RESTORED: 'record_restored',
+  RECORD_PROTECTED_DELETE: 'record_protected_delete',
+  DELETION_REQUESTED: 'deletion_requested',
 } as const
 
 export type AdminAuditType = (typeof AUDIT_EVENTS)[keyof typeof AUDIT_EVENTS]

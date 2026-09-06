@@ -1,4 +1,5 @@
-import Link from 'next/link'
+import { CampaignTracker } from './CampaignTracker'
+import { CtaLink } from './CtaLink'
 import { FloatingCta } from './FloatingCta'
 import { campaignProject, type SearchParams } from './resolve'
 
@@ -63,7 +64,7 @@ export default async function TourismCallPage({
   searchParams: Promise<SearchParams>
 }) {
   const [{ slug }, query] = await Promise.all([params, searchParams])
-  await campaignProject(slug, '', query)
+  const project = await campaignProject(slug, '', query)
   const carried = new URLSearchParams()
   for (const key of UTM_KEYS) {
     const value = query[key]
@@ -141,12 +142,13 @@ export default async function TourismCallPage({
         <div className="tl-stage">
           <div className="tl-stage-band" aria-hidden="true" />
           <img src="/tourism-2026/character.webp" alt="" className="tl-character" width={600} height={1390} loading="lazy" />
-          <Link href={joinHref} className="tl-cta" aria-label="מכאן מצטרפים — להצטרפות לחודש התיירות הישראלית">
+          <CtaLink formId={project.formId} href={joinHref} className="tl-cta" aria-label="מכאן מצטרפים — להצטרפות לחודש התיירות הישראלית">
             <img src="/tourism-2026/signpost.webp" alt="" width={420} height={260} />
-          </Link>
+          </CtaLink>
         </div>
       </div>
-      <FloatingCta href={joinHref} watch=".tl-cta" />
+      <FloatingCta href={joinHref} watch=".tl-cta" formId={project.formId} />
+      <CampaignTracker formId={project.formId} event="page_view" />
     </main>
   )
 }

@@ -82,7 +82,7 @@ export async function listGroups(
     .leftJoin(schema.companyGroups, eq(schema.companyGroups.groupId, schema.groups.id))
     .leftJoin(
       schema.companies,
-      and(eq(schema.companies.id, schema.companyGroups.companyId), isNull(schema.companies.deletedAt)),
+      and(eq(schema.companies.id, schema.companyGroups.companyId), isNull(schema.companies.deletedAt), isNull(schema.companies.archivedAt)),
     )
     .where(
       and(

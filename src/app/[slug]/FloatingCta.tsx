@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { track } from './track'
 import { useEffect, useState } from 'react'
 
 /**
@@ -12,7 +13,7 @@ import { useEffect, useState } from 'react'
  * button twice, and it never covers anything: the page keeps bottom room for
  * it (tourism.css, .tl-page).
  */
-export function FloatingCta({ href, watch }: { href: string; watch: string }) {
+export function FloatingCta({ href, watch, formId }: { href: string; watch: string; formId: string }) {
   const [hidden, setHidden] = useState(false)
 
   useEffect(() => {
@@ -27,7 +28,7 @@ export function FloatingCta({ href, watch }: { href: string; watch: string }) {
   }, [watch])
 
   return (
-    <Link href={href} className={`tl-float${hidden ? ' tl-float-hidden' : ''}`} aria-hidden={hidden} tabIndex={hidden ? -1 : 0}>
+    <Link href={href} onClick={() => track(formId, 'join_cta_clicked')} className={`tl-float${hidden ? ' tl-float-hidden' : ''}`} aria-hidden={hidden} tabIndex={hidden ? -1 : 0}>
       <span>מכאן מצטרפים</span>
       <span aria-hidden="true" className="tl-float-arrow">
         ←

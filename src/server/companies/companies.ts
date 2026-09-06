@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm'
+import { and, desc, eq, ilike, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
 import { validateCompanyFields, type CompanyFieldErrors } from '@/lib/company-validation'
 import { normalizeIsraeliPhone } from '@/lib/phone'
 import type { StaffSession } from '@/server/auth/session'
@@ -38,6 +38,7 @@ export type CompanyRow = {
   crmObjectType: number | null
   crmSyncedAt: Date | null
   address: string | null
+  archivedAt: Date | null
   createdAt: Date
 }
 
@@ -238,6 +239,7 @@ export async function searchCompanies(
   const conditions = [
     eq(schema.companies.organizationId, session.organizationId),
     isNull(schema.companies.deletedAt),
+    isNull(schema.companies.archivedAt),
   ]
   if (kind) conditions.push(eq(schema.companies.kind, kind))
   if (term) {
@@ -281,6 +283,8 @@ export async function listCompanies(
   search?: string,
   /** Narrows to one group, for the group chips on the list screens. */
   groupId?: string,
+  /** The archive instead of the active list. */
+  archived = false,
 ): Promise<CompanyListItem[]> {
   const db = getDb()
   const a = schema.agreements
@@ -289,6 +293,7 @@ export async function listCompanies(
     eq(schema.companies.organizationId, session.organizationId),
     eq(schema.companies.kind, kind),
     isNull(schema.companies.deletedAt),
+    archived ? isNotNull(schema.companies.archivedAt) : isNull(schema.companies.archivedAt),
   ]
   if (groupId) {
     // An exists clause rather than a join: a company can be in several groups,
@@ -327,6 +332,7 @@ export async function listCompanies(
       crmRecordId: schema.companies.crmRecordId,
       crmObjectType: schema.companies.crmObjectType,
       crmSyncedAt: schema.companies.crmSyncedAt,
+      archivedAt: schema.companies.archivedAt,
       address: schema.companies.address,
       createdAt: schema.companies.createdAt,
     })
@@ -407,6 +413,7 @@ export async function getCompany(
       crmRecordId: schema.companies.crmRecordId,
       crmObjectType: schema.companies.crmObjectType,
       crmSyncedAt: schema.companies.crmSyncedAt,
+      archivedAt: schema.companies.archivedAt,
       address: schema.companies.address,
       createdAt: schema.companies.createdAt,
     })

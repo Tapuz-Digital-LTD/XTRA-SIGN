@@ -22,7 +22,7 @@ const SOURCE_TEXT: Record<string, string> = {
  * rows, not a table squeezed into a horizontal scroller, because a phone
  * scrolling sideways to reveal the status column is how a document gets lost.
  */
-export function DocumentsTable({ documents, now }: { documents: DocumentListItem[]; now: number }) {
+export function DocumentsTable({ documents, now, isAdmin = false }: { documents: DocumentListItem[]; now: number; isAdmin?: boolean }) {
   const router = useRouter()
   const open = (id: string) => router.push(`/documents/${id}`)
   const at = new Date(now)
@@ -48,6 +48,7 @@ export function DocumentsTable({ documents, now }: { documents: DocumentListItem
                 </span>
               </Link>
               <RowActions
+                isAdmin={isAdmin}
                 documentId={doc.id}
                 status={doc.status}
                 companyId={doc.company?.id ?? null}
@@ -126,6 +127,7 @@ export function DocumentsTable({ documents, now }: { documents: DocumentListItem
                 </td>
                 <td className="px-2 py-3" onClick={(e) => e.stopPropagation()}>
                   <RowActions
+                    isAdmin={isAdmin}
                     documentId={doc.id}
                     status={doc.status}
                     companyId={doc.company?.id ?? null}

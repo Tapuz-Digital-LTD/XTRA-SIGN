@@ -112,6 +112,18 @@ export class UnauthorizedError extends Error {
   }
 }
 
+/** Admin-only actions throw this; routes map it to 403. */
+export class NotAdminError extends Error {
+  status = 403
+  constructor() {
+    super('admin required')
+  }
+}
+
+export function requireAdmin(session: StaffSession): void {
+  if (!session.isAdmin) throw new NotAdminError()
+}
+
 export class ForbiddenError extends Error {
   readonly status = 403
   constructor() {

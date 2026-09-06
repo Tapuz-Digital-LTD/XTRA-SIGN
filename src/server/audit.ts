@@ -34,6 +34,10 @@ export const AUDIT_EVENTS = {
   CRM_UPLOADED: 'crm_uploaded',
   /** The document was filed under a supplier or customer. */
   COMPANY_LINKED: 'company_linked',
+  /** Removal family: out of the lists, out of every screen, back again. */
+  ARCHIVED: 'archived',
+  RESTORED: 'restored',
+  REMOVED: 'removed',
 } as const
 
 export type AuditEventType = (typeof AUDIT_EVENTS)[keyof typeof AUDIT_EVENTS]

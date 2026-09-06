@@ -1,5 +1,6 @@
 'use client'
 
+import { DeleteDialog } from '@/components/deletion/DeleteDialog'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { FormBuilder } from '@/components/projects/FormBuilder'
@@ -30,6 +31,7 @@ export function ProjectSettings({
   agreement,
   owners,
   currentUserId,
+  isAdmin,
 }: {
   projectId: string
   projectName: string
@@ -41,6 +43,7 @@ export function ProjectSettings({
   agreement: ActiveAgreement | null
   owners: OwnerOption[]
   currentUserId: string
+  isAdmin: boolean
 }) {
   const router = useRouter()
   const [name, setName] = useState(projectName)
@@ -115,16 +118,7 @@ export function ProjectSettings({
     }
   }
 
-  async function remove() {
-    if (!window.confirm('למחוק את הפרויקט? הספקים וההסכמים עצמם יישארו במערכת.')) return
-    setBusy(true)
-    try {
-      await fetch(`/api/groups/${projectId}`, { method: 'DELETE' })
-      router.push('/projects')
-    } finally {
-      setBusy(false)
-    }
-  }
+  const [removing, setRemoving] = useState(false)
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
@@ -300,12 +294,29 @@ export function ProjectSettings({
         <button
           type="button"
           disabled={busy}
-          onClick={() => void remove()}
+          onClick={() => setRemoving(true)}
           className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm text-red-700 transition hover:border-red-400 disabled:opacity-50"
         >
           מחיקת הפרויקט
         </button>
       </div>
+      <DeleteDialog
+        type="project"
+        id={projectId}
+        noun="פרויקט"
+        isAdmin={isAdmin}
+        open={removing}
+        onClose={() => setRemoving(false)}
+        onDone={(result) => {
+          setRemoving(false)
+          if (result.action === 'request' || result.action === 'restore') {
+            setMessage({ tone: 'ok', text: result.message })
+            return
+          }
+          router.push('/projects')
+          router.refresh()
+        }}
+      />
     </div>
   )
 }

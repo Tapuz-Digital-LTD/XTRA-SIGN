@@ -228,7 +228,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
           <div className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
             <h2 className="text-sm font-semibold text-fg">פעולות</h2>
             <div className="mt-3">
-              <DocumentActions documentId={doc.id} status={doc.status} />
+              <DocumentActions documentId={doc.id} status={doc.status} isAdmin={session.isAdmin} />
             </div>
           </div>
 
