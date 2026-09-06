@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Heebo } from 'next/font/google'
 import './tourism.css'
+import './campaign.css'
 
 /**
  * The Ministry of Tourism campaign pages: call-for-suppliers, joining and

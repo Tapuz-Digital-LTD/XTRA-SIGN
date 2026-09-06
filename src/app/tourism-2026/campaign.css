@@ -1,0 +1,610 @@
+/*
+ * Pages 2 and 3 of the campaign: joining + signing, and thank-you.
+ * Same tokens as tourism.css (defined on .tl-root); a light reading surface
+ * under a navy header, because a person reads a contract on white.
+ */
+
+.tj-page {
+  min-height: 100dvh;
+  background: #eef3f8;
+  color: var(--tl-ink);
+  display: flex;
+  flex-direction: column;
+}
+
+.tj-header {
+  background: var(--tl-navy);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  padding-top: max(14px, env(safe-area-inset-top));
+}
+
+.tj-header-logo img {
+  width: 150px;
+}
+
+.tj-header-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--tl-text-soft);
+}
+
+.tj-content {
+  flex: 1;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+}
+
+.tj-footer {
+  height: 18px;
+  background: var(--tl-navy);
+  position: relative;
+  overflow: hidden;
+}
+
+.tj-footer-band {
+  position: absolute;
+  inset: 8px 0 0;
+  background: var(--tl-pink);
+}
+
+.tj-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tj-card {
+  background: var(--tl-surface);
+  border-radius: 18px;
+  padding: 20px;
+  border: 0;
+  margin: 0;
+  min-inline-size: 0;
+  box-shadow: 0 1px 2px rgba(12, 50, 87, 0.06), 0 8px 24px rgba(12, 50, 87, 0.06);
+}
+
+.tj-card legend {
+  padding: 0;
+}
+
+.tj-center {
+  text-align: center;
+}
+
+.tj-h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--tl-navy);
+}
+
+.tj-h2 {
+  margin: 0 0 12px;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--tl-navy);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tj-h2::before {
+  content: '';
+  width: 6px;
+  height: 22px;
+  border-radius: 3px;
+  background: var(--tl-cyan);
+  flex: 0 0 auto;
+}
+
+.tj-lead {
+  margin: 8px 0 0;
+  font-size: 17px;
+  line-height: 1.55;
+  color: #2b4a68;
+}
+
+.tj-hint {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #5b7590;
+}
+
+.tj-field + .tj-field {
+  margin-top: 14px;
+}
+
+.tj-label {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--tl-navy);
+  margin-bottom: 6px;
+}
+
+.tj-input {
+  display: block;
+  width: 100%;
+  min-height: 50px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--tl-line);
+  background: #fff;
+  color: var(--tl-ink);
+  font: inherit;
+  font-size: 17px;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.tj-input:focus-visible {
+  border-color: var(--tl-cyan);
+  box-shadow: 0 0 0 4px rgba(69, 178, 237, 0.25);
+}
+
+.tj-input[dir='ltr'] {
+  text-align: left;
+}
+
+.tj-input-error {
+  border-color: var(--tl-error);
+}
+
+.tj-input-locked {
+  background: #f3f6fa;
+  color: #34506b;
+}
+
+.tj-error {
+  margin: 6px 0 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--tl-error);
+}
+
+.tj-alert {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #fff1f4;
+  border: 1px solid #f5c2d0;
+  color: #9b1c3a;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.tj-devcode {
+  margin: 10px 0 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fff7e0;
+  border: 1px dashed #e4c05a;
+  color: #6b4d00;
+  font-size: 14px;
+}
+
+.tj-primary,
+.tj-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 24px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 19px;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 150ms ease, filter 150ms ease, opacity 150ms ease;
+}
+
+.tj-primary {
+  background: var(--tl-cyan);
+  color: var(--tl-navy);
+  border: 0;
+  box-shadow: 0 8px 20px rgba(69, 178, 237, 0.35);
+}
+
+.tj-primary:hover {
+  filter: brightness(1.05);
+}
+
+.tj-primary:active {
+  transform: translateY(1px);
+}
+
+.tj-primary:disabled,
+.tj-secondary:disabled {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
+}
+
+.tj-secondary {
+  background: transparent;
+  color: var(--tl-navy);
+  border: 1.5px solid var(--tl-line);
+  font-weight: 600;
+  font-size: 16px;
+  margin-top: 10px;
+}
+
+.tj-primary:focus-visible,
+.tj-secondary:focus-visible,
+.tj-pad-clear:focus-visible,
+.tj-header-logo:focus-visible {
+  outline: 3px solid var(--tl-navy);
+  outline-offset: 3px;
+}
+
+.tj-inline-link {
+  margin-top: 20px;
+  width: auto;
+  min-width: 260px;
+}
+
+.tj-sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  margin: 4px -16px -40px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(238, 243, 248, 1) 70%, rgba(238, 243, 248, 0));
+}
+
+/* ── The agreement ─────────────────────────────────────────────────────── */
+
+.tj-agreement {
+  margin-top: 12px;
+  padding: 18px 18px 8px;
+  border-radius: 14px;
+  background: #fbfcfe;
+  border: 1px solid var(--tl-line);
+  font-size: 16px;
+  line-height: 1.7;
+  color: #1c3550;
+}
+
+.tj-agreement-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--tl-navy);
+  text-align: center;
+}
+
+.tj-agreement-subtitle {
+  margin: 4px 0 16px;
+  text-align: center;
+  font-weight: 600;
+  color: var(--tl-cyan-deep);
+}
+
+.tj-agreement h3 {
+  margin: 18px 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--tl-navy);
+  padding-inline-start: 10px;
+  border-inline-start: 4px solid var(--tl-cyan);
+}
+
+.tj-agreement p {
+  margin: 0 0 8px;
+}
+
+.tj-agreement ul {
+  margin: 0 0 8px;
+  padding-inline-start: 22px;
+}
+
+.tj-agreement li {
+  margin: 0 0 4px;
+}
+
+.tj-agreement li::marker {
+  color: var(--tl-cyan);
+}
+
+.tj-coupon {
+  display: inline-block;
+  padding: 2px 12px;
+  border-radius: 8px;
+  background: #ffe6f1;
+  color: #c2185b;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.tj-declarations {
+  list-style: none;
+  padding-inline-start: 0 !important;
+}
+
+.tj-declarations li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.tj-check {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin-top: 3px;
+  border-radius: 5px;
+  background: #e7f6ee;
+  color: var(--tl-ok);
+  font-weight: 800;
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tj-agreement-footnote {
+  margin: 16px 0 6px;
+  font-size: 13px;
+  color: #6f8299;
+  text-align: center;
+}
+
+/* ── Signature ─────────────────────────────────────────────────────────── */
+
+.tj-pad-frame {
+  position: relative;
+  margin-top: 12px;
+  border-radius: 14px;
+  border: 2px dashed #9fc2dd;
+  background: #fff;
+  height: 200px;
+  overflow: hidden;
+}
+
+.tj-pad {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.tj-pad-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9db2c6;
+  font-size: 16px;
+  pointer-events: none;
+}
+
+.tj-pad-line {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 44px;
+  border-bottom: 1px solid #cfdceb;
+  pointer-events: none;
+}
+
+.tj-pad-clear {
+  margin-top: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  color: #5b7590;
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.tj-pad-clear:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.tj-locked {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.tj-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 14px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #1c3550;
+  cursor: pointer;
+}
+
+.tj-consent input {
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  flex: 0 0 auto;
+  accent-color: var(--tl-cyan-deep);
+}
+
+/* Visually gone without leaving the layout (an off-screen offset in RTL
+   widens the scrollable area). */
+.tj-honeypot {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── OTP ───────────────────────────────────────────────────────────────── */
+
+.tj-otp {
+  border: 2px solid var(--tl-cyan);
+  scroll-margin-top: 16px;
+}
+
+.tj-code {
+  display: block;
+  width: 100%;
+  min-height: 64px;
+  margin: 8px 0 14px;
+  border-radius: 14px;
+  border: 1.5px solid var(--tl-line);
+  font: inherit;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.35em;
+  text-align: center;
+  color: var(--tl-navy);
+  outline: none;
+}
+
+.tj-code:focus-visible {
+  border-color: var(--tl-cyan);
+  box-shadow: 0 0 0 4px rgba(69, 178, 237, 0.25);
+}
+
+.tj-otp .tj-alert {
+  margin-bottom: 12px;
+}
+
+/* ── Thank-you ─────────────────────────────────────────────────────────── */
+
+.tj-thanks {
+  position: relative;
+  overflow: hidden;
+  padding-top: 32px;
+}
+
+.tj-big-check,
+.tj-big-info {
+  margin: 0 0 8px;
+  font-size: 44px;
+  color: var(--tl-cyan-deep);
+  line-height: 1;
+}
+
+.tj-thanks-note {
+  margin-top: 18px;
+}
+
+.tj-checkmark {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 16px;
+  display: block;
+}
+
+.tj-checkmark-circle {
+  fill: none;
+  stroke: var(--tl-cyan);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-dasharray: 330;
+  stroke-dashoffset: 330;
+  animation: tj-draw 700ms ease-out forwards;
+}
+
+.tj-checkmark-path {
+  fill: none;
+  stroke: var(--tl-navy);
+  stroke-width: 9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 80;
+  stroke-dashoffset: 80;
+  animation: tj-draw 450ms ease-out 550ms forwards;
+}
+
+@keyframes tj-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.tj-confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.tj-confetti span {
+  position: absolute;
+  top: -20px;
+  opacity: 0;
+  animation-name: tj-fall;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+}
+
+@keyframes tj-fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(420px) rotate(540deg);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tj-checkmark-circle,
+  .tj-checkmark-path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .tj-confetti {
+    display: none;
+  }
+  .tj-primary,
+  .tj-secondary,
+  .tj-input {
+    transition: none;
+  }
+}
+
+@media (min-width: 600px) {
+  .tj-content {
+    padding: 28px 24px 56px;
+  }
+  .tj-card {
+    padding: 26px 28px;
+  }
+  .tj-h1 {
+    font-size: 30px;
+  }
+  .tj-sticky {
+    margin: 4px -24px -56px;
+    padding: 14px 24px;
+  }
+  .tj-primary {
+    width: auto;
+    min-width: 320px;
+  }
+  .tj-sticky .tj-primary {
+    display: flex;
+    margin: 0 auto;
+  }
+}

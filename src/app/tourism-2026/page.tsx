@@ -48,7 +48,22 @@ function Lines({ lines }: { lines: string[] }) {
   )
 }
 
-export default function TourismCallPage() {
+/** Campaign attribution travels from the ad to the joining page on the link. */
+const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'] as const
+
+export default async function TourismCallPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const query = await searchParams
+  const carried = new URLSearchParams()
+  for (const key of UTM_KEYS) {
+    const value = query[key]
+    if (typeof value === 'string' && value.trim()) carried.set(key, value.trim().slice(0, 200))
+  }
+  const joinHref = carried.size > 0 ? `/tourism-2026/join?${carried}` : '/tourism-2026/join'
+
   return (
     <main className="tl-page">
       <div className="tl-canvas">
@@ -119,10 +134,10 @@ export default function TourismCallPage() {
         <div className="tl-stage">
           <div className="tl-stage-band" aria-hidden="true" />
           <img src="/tourism-2026/character.webp" alt="" className="tl-character" width={600} height={1390} loading="lazy" />
-          <Link href="/tourism-2026/join" className="tl-cta" aria-label="מכאן מצטרפים — להצטרפות לחודש התיירות הישראלית">
+          <Link href={joinHref} className="tl-cta" aria-label="מכאן מצטרפים — להצטרפות לחודש התיירות הישראלית">
             <img src="/tourism-2026/signpost.webp" alt="" width={420} height={260} />
           </Link>
-          <Link href="/tourism-2026/join" className="tl-cta-button">
+          <Link href={joinHref} className="tl-cta-button">
             <span>מכאן מצטרפים</span>
             <span aria-hidden="true">←</span>
           </Link>
