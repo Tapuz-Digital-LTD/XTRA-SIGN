@@ -372,6 +372,31 @@ export async function listGroupCompanies(
     })
   }
 
+  // Agreements the project's self-service flow created (ADR 0001) never went
+  // through a batch; they carry the project on their snapshot instead. The
+  // newest word per company wins, whichever door it came through.
+  const selfService = await getDb()
+    .select({
+      companyId: schema.agreements.companyId,
+      agreementId: schema.agreements.id,
+      status: schema.agreements.status,
+      at: schema.agreements.createdAt,
+    })
+    .from(schema.agreements)
+    .where(
+      and(
+        eq(schema.agreements.organizationId, session.organizationId),
+        sql`${schema.agreements.mergeSnapshot}->'selfService'->>'projectId' = ${group.id}`,
+      ),
+    )
+    .orderBy(schema.agreements.createdAt)
+  for (const row of selfService) {
+    if (!row.companyId) continue
+    const current = lastSendByCompany.get(row.companyId)
+    if (current && current.at > row.at) continue
+    lastSendByCompany.set(row.companyId, { agreementId: row.agreementId, status: row.status, at: row.at })
+  }
+
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
