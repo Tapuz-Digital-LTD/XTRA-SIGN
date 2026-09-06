@@ -640,6 +640,68 @@ export const messageSends = pgTable(
   ],
 )
 
+/**
+ * A distribution: one send of one message to a chosen audience. A campaign
+ * may have many, or none — the campaign is the thing being run, the
+ * distribution is one push of it out the door.
+ */
+export const distributions = pgTable(
+  'distributions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    name: text('name').notNull(),
+    /** draft | sending | sent | failed */
+    status: text('status').default('draft').notNull(),
+    /** ('sms' | 'email')[] */
+    channels: jsonb('channels').notNull(),
+    /** campaign_link | url */
+    contentKind: text('content_kind').default('campaign_link').notNull(),
+    contentUrl: text('content_url'),
+    /** { sms?: string; email?: { subject, body, cta } } */
+    message: jsonb('message'),
+    /** What was chosen, kept so a report can say who this went to. */
+    audience: jsonb('audience'),
+    scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    stats: jsonb('stats'),
+  },
+  (t) => [index('distributions_group_idx').on(t.groupId, t.createdAt)],
+)
+
+/** One row per person a distribution went to, with what happened per channel. */
+export const distributionRecipients = pgTable(
+  'distribution_recipients',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    distributionId: uuid('distribution_id')
+      .notNull()
+      .references(() => distributions.id, { onDelete: 'cascade' }),
+    companyId: uuid('company_id').references(() => companies.id),
+    name: text('name').notNull(),
+    phone: text('phone'),
+    email: text('email'),
+    /** pending | sent | failed | skipped */
+    status: text('status').default('pending').notNull(),
+    /** { sms?: { ok, id, error }, email?: { ok, id, error } } */
+    results: jsonb('results'),
+    error: text('error'),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('distribution_recipients_distribution_idx').on(t.distributionId),
+    index('distribution_recipients_phone_idx').on(t.phone, t.sentAt),
+    index('distribution_recipients_email_idx').on(t.email, t.sentAt),
+  ],
+)
+
 /** Membership. A company may belong to any number of groups. */
 export const companyGroups = pgTable(
   'company_groups',

@@ -78,6 +78,69 @@ export const LINK_VARIABLES = new Set<string>(VARIABLE_CATALOG.filter((v) => v.l
 
 export type MessageEvent = 'invitation' | 'reminder' | 'signed_confirmation' | 'registration_completed'
 
+/** The events a campaign may reword, by its kind; OTP is not among them on purpose. */
+export const EVENTS_BY_KIND: Record<'public' | 'signature', MessageEvent[]> = {
+  public: ['registration_completed', 'invitation', 'reminder', 'signed_confirmation'],
+  signature: ['invitation', 'reminder', 'signed_confirmation'],
+}
+
+export const EVENT_LABELS: Record<MessageEvent, { label: string; blurb: string; channels: ('sms' | 'email')[] }> = {
+  invitation: { label: 'הזמנה לחתימה', blurb: 'נשלחת עם קישור החתימה כשמסמך יוצא לחותם.', channels: ['sms', 'email'] },
+  reminder: { label: 'תזכורת לחתימה', blurb: 'נשלחת ידנית או אוטומטית למי שעוד לא חתם, עם קישור חדש.', channels: ['sms', 'email'] },
+  signed_confirmation: { label: 'לאחר חתימה', blurb: 'אישור לחותם עם כפתור מאובטח להורדת המסמך החתום.', channels: ['email'] },
+  registration_completed: { label: 'הרשמה הושלמה', blurb: 'למי שנרשם דרך העמוד הציבורי, עם הקישור לחתימה.', channels: ['sms', 'email'] },
+}
+
+/** A campaign's overrides: event → the fields it changed. Blank fields fall back to the default. */
+export type MessageOverrides = Partial<Record<MessageEvent, Partial<MessageTemplate>>>
+
+export function cleanOverrides(raw: unknown): MessageOverrides {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  const out: MessageOverrides = {}
+  for (const event of Object.keys(DEFAULT_MESSAGES) as MessageEvent[]) {
+    const o = r[event]
+    if (!o || typeof o !== 'object') continue
+    const t = o as { sms?: unknown; email?: { subject?: unknown; body?: unknown; cta?: unknown } }
+    const sms = typeof t.sms === 'string' ? t.sms.trim().slice(0, 1000) : undefined
+    const email = t.email && typeof t.email === 'object'
+      ? {
+          subject: typeof t.email.subject === 'string' ? t.email.subject.trim().slice(0, 200) : '',
+          body: typeof t.email.body === 'string' ? t.email.body.trim().slice(0, 5000) : '',
+          cta: typeof t.email.cta === 'string' ? t.email.cta.trim().slice(0, 60) : '',
+        }
+      : undefined
+    const hasEmail = email && (email.subject || email.body || email.cta)
+    if (sms || hasEmail) out[event] = { ...(sms ? { sms } : {}), ...(hasEmail ? { email } : {}) }
+  }
+  return out
+}
+
+/** Sample values for previews — obviously samples, so a test is never mistaken for the real thing. */
+export const SAMPLE_VARIABLES: Variables = {
+  signer_name: 'ישראל ישראלי',
+  first_name: 'ישראל',
+  last_name: 'ישראלי',
+  phone: '052-1234567',
+  email: 'israel@example.co.il',
+  company_name: 'מלון הדוגמה בע"מ',
+  company_number: '515123456',
+  contact_name: 'ישראל ישראלי',
+  campaign_name: 'הקמפיין שלכם',
+  campaign_url: 'https://example.invalid/campaign',
+  campaign_start: '01/11/2026',
+  campaign_end: '30/11/2026',
+  document_name: 'הסכם השתתפות (דוגמה)',
+  signing_link: 'https://example.invalid/sign/sample',
+  expires_at: '06/10/2026',
+  signed_document_link: 'https://example.invalid/api/sign/sample/download',
+  signed_at: '06/09/2026',
+  organization_name: 'הארגון שלכם',
+  organization_phone: '03-1234567',
+  organization_email: 'office@example.co.il',
+  organization_website: 'https://example.co.il',
+  distribution_name: 'הפצה ראשונה',
+}
+
 export type MessageTemplate = {
   sms?: string
   email?: { subject: string; body: string; cta?: string }
