@@ -1,0 +1,418 @@
+/*
+ * חודש התיירות הישראלית 2026 — campaign pages.
+ *
+ * Tokens come from the Ministry's artwork: navy field, pink band, cyan sign.
+ * Page 1 is laid out on a 1600-unit canvas in the artwork's own coordinates
+ * (see scripts/design/extract-tourism-assets.ts for the crop boxes); every
+ * percentage below is a pixel of the artwork divided by 1600, and every cqw
+ * is a pixel divided by 16.
+ */
+
+.tl-root {
+  --tl-navy: #0c3257;
+  --tl-pink: #ff95c5;
+  --tl-cyan: #45b2ed;
+  --tl-cyan-deep: #2f9ad6;
+  --tl-ink: #0c3257;
+  --tl-text: #eef2f6;
+  --tl-text-soft: #c7dff0;
+  --tl-surface: #ffffff;
+  --tl-line: #d5dfe8;
+  --tl-error: #d63c5e;
+  --tl-ok: #1f9d6a;
+  /* The band's top edge: y = 1434 + 0.0968·x in artwork pixels. */
+  --tl-band-angle: 5.53deg;
+  font-family: var(--font-heebo), 'Heebo', 'Assistant', system-ui, sans-serif;
+  color: var(--tl-text);
+  background: var(--tl-navy);
+  min-height: 100dvh;
+  overflow-x: clip;
+}
+
+.tl-root img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.tl-page {
+  background: var(--tl-navy);
+  min-height: 100dvh;
+  /* The band is rotated past the canvas; nothing outside the page scrolls. */
+  overflow: clip;
+}
+
+.tl-cta:focus-visible,
+.tl-cta-button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 4px;
+}
+
+/* ── Desktop: the canvas ──────────────────────────────────────────────── */
+
+.tl-canvas {
+  position: relative;
+  width: min(100%, 1600px);
+  margin: 0 auto;
+  container-type: inline-size;
+}
+
+@media (min-width: 860px) {
+  .tl-canvas {
+    aspect-ratio: 1 / 1;
+  }
+
+  .tl-canvas > * {
+    position: absolute;
+    margin: 0;
+  }
+
+  /* The artwork breaks its copy where it breaks it. */
+  .tl-line {
+    display: block;
+    white-space: nowrap;
+  }
+
+  /* The pink band, continued to the viewport edges at the artwork's slope.
+     Origin half a viewport to the left, raised by the slope over that
+     distance, then rotated — so the edge passes through (0, 1434). */
+  .tl-band {
+    left: -50vw;
+    top: calc(89.625% - 0.0968 * 50vw);
+    width: 300vw;
+    height: 100vh;
+    transform: rotate(var(--tl-band-angle));
+    transform-origin: 0 0;
+    background: var(--tl-pink);
+    z-index: 0;
+  }
+
+  .tl-stage-band {
+    display: none;
+  }
+
+  .tl-logo {
+    left: 4.375%;
+    top: 3.875%;
+    width: 23.75%;
+    z-index: 2;
+  }
+
+  .tl-headline {
+    left: 37.5%;
+    top: 3.875%;
+    width: 59.0625%;
+    z-index: 2;
+  }
+
+  .tl-body {
+    left: 38%;
+    top: 19.45%;
+    width: 57.3%;
+    font-size: 1.5625cqw;
+    line-height: 2.125cqw;
+    font-weight: 400;
+    text-align: right;
+    z-index: 2;
+  }
+
+  .tl-title-conditions {
+    left: 68.125%;
+    top: 26.25%;
+    width: 28.125%;
+    z-index: 2;
+  }
+
+  .tl-sub {
+    left: 40%;
+    top: 31.55%;
+    width: 55.2%;
+    font-size: 1.625cqw;
+    line-height: 2.125cqw;
+    color: var(--tl-text-soft);
+    text-align: right;
+    white-space: nowrap;
+    z-index: 2;
+  }
+
+  .tl-list {
+    list-style: none;
+    padding: 0;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* Each row: icon box and text box in artwork pixels. `li` spans the canvas
+     so the children's percentages stay canvas-relative. */
+  .tl-list li {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: auto;
+    display: block;
+  }
+
+  .tl-list li img {
+    position: absolute;
+    width: 5.75%;
+  }
+
+  .tl-list li span {
+    position: absolute;
+    display: block;
+    font-size: 1.75cqw;
+    line-height: 2.25cqw;
+    font-weight: 500;
+    text-align: right;
+    color: #f6f8fb;
+  }
+
+  .tl-conditions li:nth-child(1) img { left: 90.5%; top: 34.375%; }
+  .tl-conditions li:nth-child(1) span { left: 55.1%; top: 34.75%; width: 34.1%; }
+  .tl-conditions li:nth-child(2) img { left: 90.5%; top: 40.3%; }
+  .tl-conditions li:nth-child(2) span { left: 55.1%; top: 40.8%; width: 34.1%; }
+  .tl-conditions li:nth-child(3) img { left: 90.5%; top: 46.1%; }
+  .tl-conditions li:nth-child(3) span { left: 57.9%; top: 46.6%; width: 31.3%; }
+
+  .tl-title-benefits {
+    left: 65.6%;
+    top: 53.1%;
+    width: 30.6%;
+    z-index: 2;
+  }
+
+  .tl-benefits li:nth-child(1) img { left: 90.5%; top: 57.6%; }
+  .tl-benefits li:nth-child(1) span { left: 58.6%; top: 58.2%; width: 30.6%; }
+  .tl-benefits li:nth-child(2) img { left: 52.5%; top: 57.6%; width: 5.5%; }
+  .tl-benefits li:nth-child(2) span { left: 36.5%; top: 58.7%; width: 15.3%; }
+  .tl-benefits li:nth-child(3) img { left: 90.5%; top: 63.4%; }
+  .tl-benefits li:nth-child(3) span { left: 49.2%; top: 64.6%; width: 40%; line-height: 1.7cqw; }
+
+  .tl-closing-script {
+    left: 33.1%;
+    top: 70.9%;
+    width: 63.4%;
+    z-index: 2;
+  }
+
+  .tl-closing-bold {
+    left: 43.75%;
+    top: 75.9%;
+    width: 53.1%;
+    z-index: 2;
+  }
+
+  /* The character and the signpost, exactly where the artwork has them. */
+  .tl-stage {
+    left: 0;
+    top: 13.125%;
+    width: 56.25%;
+    height: 86.875%;
+    z-index: 1;
+  }
+
+  .tl-character {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 66.667%;
+  }
+
+  .tl-cta {
+    position: absolute;
+    left: 52.2%;
+    top: 81.3%;
+    width: 46.7%;
+    display: block;
+    border-radius: 14px;
+    transition: transform 180ms ease, filter 180ms ease;
+  }
+
+  .tl-cta:hover,
+  .tl-cta:focus-visible {
+    transform: translateY(-3px) scale(1.02);
+    filter: brightness(1.06) drop-shadow(0 10px 18px rgba(0, 0, 0, 0.35));
+  }
+
+  .tl-cta-button {
+    display: none;
+  }
+}
+
+/* On screens wider than the canvas the character's cut left edge would show
+   as a hard line in open navy; it fades into the field instead. */
+@media (min-width: 1601px) {
+  .tl-character {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 12%);
+    mask-image: linear-gradient(to right, transparent, #000 12%);
+  }
+}
+
+/* ── Mobile and tablet: reading order ─────────────────────────────────── */
+
+@media (max-width: 859.98px) {
+  .tl-canvas {
+    padding: 20px 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .tl-band {
+    display: none;
+  }
+
+  .tl-logo {
+    width: min(46%, 220px);
+    align-self: flex-start;
+  }
+
+  .tl-headline {
+    margin: 4px 0 0;
+  }
+
+  .tl-body {
+    margin: 0;
+    font-size: 17px;
+    line-height: 1.55;
+  }
+
+  .tl-title {
+    margin: 12px 0 0;
+    width: min(72%, 360px);
+  }
+
+  .tl-sub {
+    margin: -4px 0 0;
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--tl-text-soft);
+  }
+
+  .tl-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .tl-list li {
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    gap: 14px;
+    align-items: center;
+  }
+
+  .tl-list li img {
+    width: 52px;
+  }
+
+  .tl-list li span {
+    font-size: 17px;
+    line-height: 1.45;
+    font-weight: 500;
+  }
+
+  .tl-closing-script {
+    margin: 10px 0 0;
+  }
+
+  .tl-closing-bold {
+    margin: 0;
+  }
+
+  /* The character, the signpost and the band, in the artwork's arrangement.
+     --tl-char is the character's width as a fraction of the stage; the
+     signpost and the band follow it (signpost: 78.3% in, 70% wide, at 81.3%
+     of the character's height; band edge at 88.2% of it, same slope). The
+     open field to the right of the character holds the real button. */
+  .tl-stage {
+    --tl-char: 0.6667;
+    position: relative;
+    width: calc(100% + 40px);
+    margin: 8px -20px 0;
+    aspect-ratio: 1 / calc(2.3167 * var(--tl-char));
+    overflow: hidden;
+  }
+
+  .tl-stage-band {
+    position: absolute;
+    left: 0;
+    top: 88.2%;
+    width: 300%;
+    height: 100%;
+    transform: rotate(var(--tl-band-angle));
+    transform-origin: 0 0;
+    background: var(--tl-pink);
+  }
+
+  .tl-character {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: calc(100% * var(--tl-char));
+  }
+
+  .tl-cta {
+    position: absolute;
+    left: calc(78.3% * var(--tl-char));
+    top: 81.3%;
+    width: calc(70% * var(--tl-char));
+    display: block;
+  }
+
+  .tl-cta-button {
+    position: absolute;
+    right: 6%;
+    top: 34%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: 56px;
+    padding: 0 26px;
+    border-radius: 999px;
+    background: var(--tl-cyan);
+    color: var(--tl-ink);
+    font-size: 20px;
+    font-weight: 800;
+    text-decoration: none;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+  }
+}
+
+@media (max-width: 859.98px) and (min-width: 600px) {
+  .tl-canvas {
+    padding: 28px 32px 0;
+  }
+  .tl-stage {
+    --tl-char: 0.5;
+    width: calc(100% + 64px);
+    margin: 8px -32px 0;
+  }
+  .tl-cta-button {
+    right: 10%;
+    top: 40%;
+    min-height: 64px;
+    font-size: 22px;
+    padding: 0 34px;
+  }
+  .tl-body,
+  .tl-list li span {
+    font-size: 19px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-cta {
+    transition: none;
+  }
+}
