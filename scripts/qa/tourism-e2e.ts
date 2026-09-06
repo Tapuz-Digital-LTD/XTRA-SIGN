@@ -3,16 +3,20 @@ import puppeteer from 'puppeteer-core'
 import { extractPdfText } from '../../src/server/crm/__tests__/pdf-text'
 
 /**
- * The whole public journey in a real browser against a dev server with
- * log-only notifications: Page 1 → join → sign with the pointer → the code
- * shown by the dev panel → thank-you → download, then the database.
+ * The whole public journey in a real browser against a server with log-only
+ * notifications: Page 1 → join → sign with the pointer → the code shown by
+ * the dev panel → thank-you → download, then the database.
  *
  *   E2E_BASE=http://localhost:3057 E2E_DB=postgres://xtra:xtra@localhost:5433/xtra_sign \
  *     npx tsx scripts/qa/tourism-e2e.ts
+ *
+ * Against a protected Vercel preview, pass E2E_SHARE_URL (a share link that
+ * sets the access cookie) and E2E_DB pointing at the preview database.
  */
 
 const BASE = process.env.E2E_BASE ?? 'http://localhost:3057'
 const DB = process.env.E2E_DB ?? 'postgres://xtra:xtra@localhost:5433/xtra_sign'
+const SHARE = process.env.E2E_SHARE_URL ?? ''
 const WIDTH = Number(process.env.E2E_WIDTH ?? 390)
 const OUT = process.env.SHOT_OUT ?? '.design/tourism-2026'
 
@@ -39,17 +43,23 @@ async function main() {
     if (r.url().includes('/api/')) console.log(`  ↳ ${r.request().method()} ${r.url().replace(BASE, '')} ${r.status()}`)
   })
   page.on('console', (m) => {
-    if (m.type() === 'error') console.log('  browser:', m.text())
+    if (m.type() === 'error' && !m.text().includes('401')) console.log('  browser:', m.text())
   })
   // Pointer input is driven through the mouse API, so no touch emulation: the
   // pad listens to pointer events either way.
   await page.setViewport({ width: WIDTH, height: 844, deviceScaleFactor: 2 })
 
+  if (SHARE) {
+    // A protected preview: the share link sets the access cookie for this browser.
+    await page.goto(SHARE, { waitUntil: 'networkidle0', timeout: 60000 })
+    check('share link opened the protected preview', page.url().startsWith(BASE), page.url())
+  }
+
   // ── Page 1 → Page 2 ────────────────────────────────────────────────────
-  await page.goto(`${BASE}/tourism-2026?utm_source=e2e&utm_campaign=local`, { waitUntil: 'networkidle0' })
+  await page.goto(`${BASE}/tourism-2026?utm_source=e2e&utm_campaign=local`, { waitUntil: 'networkidle0', timeout: 60000 })
   const ctaHref = await page.$eval('a.tl-cta', (a) => (a as HTMLAnchorElement).getAttribute('href'))
   check('Page 1 CTA carries the campaign query to the joining page', ctaHref === '/tourism-2026/join?utm_source=e2e&utm_campaign=local', String(ctaHref))
-  await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle0' }), page.click(WIDTH < 860 ? 'a.tl-cta-button' : 'a.tl-cta')])
+  await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 60000 }), page.click(WIDTH < 860 ? 'a.tl-cta-button' : 'a.tl-cta')])
   check('landed on /tourism-2026/join', page.url().includes('/tourism-2026/join'), page.url())
 
   // ── Details ────────────────────────────────────────────────────────────
@@ -87,7 +97,7 @@ async function main() {
   // Double click: one registration.
   await page.click('.tj-sticky button[type=submit]')
   await page.click('.tj-sticky button[type=submit]').catch(() => {})
-  await page.waitForSelector('#tj-code', { timeout: 20000 })
+  await page.waitForSelector('#tj-code', { timeout: 60000 })
   check('OTP panel shown', true)
   await page.screenshot({ path: `${OUT}/e2e-${WIDTH}-otp.png`, fullPage: true })
 
@@ -97,7 +107,7 @@ async function main() {
   // Wrong code first.
   await page.type('#tj-code', '000000')
   await page.click('.tj-otp .tj-primary')
-  await page.waitForFunction(() => document.querySelector('.tj-otp .tj-alert')?.textContent?.includes('שגוי'), { timeout: 10000 })
+  await page.waitForFunction(() => document.querySelector('.tj-otp .tj-alert')?.textContent?.includes('שגוי'), { timeout: 15000 })
   check('wrong code refused', true)
   await page.focus('#tj-code')
   for (let i = 0; i < 6; i++) await page.keyboard.press('Backspace')
@@ -106,7 +116,7 @@ async function main() {
   // waitForNavigation does not see.
   await page.click('.tj-otp .tj-primary')
   try {
-    await page.waitForFunction(() => location.pathname.startsWith('/tourism-2026/thanks/'), { timeout: 60000 })
+    await page.waitForFunction(() => location.pathname.startsWith('/tourism-2026/thanks/'), { timeout: 90000 })
   } catch (error) {
     await page.screenshot({ path: `${OUT}/e2e-${WIDTH}-fail.png`, fullPage: true })
     const alert = await page.$eval('.tj-otp .tj-alert', (el) => el.textContent).catch(() => null)
@@ -119,18 +129,30 @@ async function main() {
 
   const downloadHref = await page.$eval('a.tj-primary', (a) => (a as HTMLAnchorElement).href)
   const token = page.url().split('/').pop()!
-  await browser.close()
 
-  // ── Download ───────────────────────────────────────────────────────────
-  const response = await fetch(downloadHref, { redirect: 'follow' })
-  check('download answers 200', response.status === 200, String(response.status))
-  const bytes = Buffer.from(await response.arrayBuffer())
+  // ── Download (from inside the page, so a protected preview's cookie applies)
+  const downloaded = await page.evaluate(async (href: string) => {
+    const response = await fetch(href)
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    let binary = ''
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+    return { status: response.status, base64: btoa(binary) }
+  }, downloadHref)
+  check('download answers 200', downloaded.status === 200, String(downloaded.status))
+  const bytes = Buffer.from(downloaded.base64, 'base64')
   check('download is a PDF', bytes.subarray(0, 5).toString() === '%PDF-')
   const text = await extractPdfText(bytes)
   check('signed PDF carries the tax id', text.includes(taxId))
   check('signed PDF carries the phone', text.includes(`${phone.slice(0, 3)}-${phone.slice(3)}`))
   check('signed PDF carries the email', text.includes(`e2e-${stamp}@example.com`))
   check('signed PDF keeps the legal copy', text.includes('XTRA25'))
+
+  // ── Returning through the links after signing ──────────────────────────
+  await page.goto(`${BASE}/tourism-2026/sign/${token}`, { waitUntil: 'networkidle0', timeout: 60000 })
+  check('signed link lands on the thank-you page', page.url().includes('/tourism-2026/thanks/'), page.url())
+  await page.goto(`${BASE}/sign/${token}`, { waitUntil: 'networkidle0', timeout: 60000 })
+  check('/sign/[token] hands over to the campaign', page.url().includes('/tourism-2026/'), page.url())
+  await browser.close()
 
   // ── Database ───────────────────────────────────────────────────────────
   const [supplier] = await sql`select id, kind, contact_phone, contact_email from companies where tax_id = ${taxId} and deleted_at is null`
@@ -146,12 +168,6 @@ async function main() {
   check('audit trail: sent, otp, signature, completed', ['sent', 'otp_sent', 'otp_verified', 'signature_applied', 'completed'].every((t) => types.includes(t)), types.join(','))
   const [signature] = await sql`select method from signatures s join agreement_versions v on v.id = s.agreement_version_id where v.agreement_id = ${agreements[0]?.id ?? '00000000-0000-0000-0000-000000000000'}`
   check('signature recorded as drawn', signature?.method === 'drawn')
-
-  // ── Returning through the link after signing ───────────────────────────
-  const again = await fetch(`${BASE}/tourism-2026/sign/${token}`, { redirect: 'manual' })
-  check('signed link redirects to thank-you', again.status === 307 || again.status === 302, String(again.status))
-  const legacy = await fetch(`${BASE}/sign/${token}`, { redirect: 'manual' })
-  check('/sign/[token] hands over to the campaign', (legacy.status === 307 || legacy.status === 302) && (legacy.headers.get('location') ?? '').includes('/tourism-2026/'), String(legacy.headers.get('location')))
 
   console.log(failures === 0 ? '\nALL GREEN' : `\n${failures} FAILED`)
   await sql.end()
