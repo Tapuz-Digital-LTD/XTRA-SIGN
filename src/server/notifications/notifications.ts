@@ -18,7 +18,7 @@ import { projectNotificationSettings, type ProjectEventKey } from '@/server/proj
  * a re-run reminder cannot produce a second copy of the same news.
  */
 
-export type NotificationType = 'signed' | 'declined' | 'expired' | 'send_failed' | 'crm_failed' | 'new_lead' | 'deletion_request'
+export type NotificationType = 'signed' | 'declined' | 'expired' | 'send_failed' | 'crm_failed' | 'new_lead' | 'deletion_request' | 'security_alert'
 
 export type NotificationItem = {
   id: string
@@ -43,7 +43,7 @@ export type NotificationPrefs = {
 
 /** Signed / new lead / failures are news someone waits for — those mail at once.
  *  "Unsigned for days" and "about to expire" arrive as the daily digest instead. */
-const IMMEDIATE_EMAIL_TYPES = new Set<NotificationType>(['signed', 'new_lead', 'send_failed', 'crm_failed', 'deletion_request'])
+const IMMEDIATE_EMAIL_TYPES = new Set<NotificationType>(['signed', 'new_lead', 'send_failed', 'crm_failed', 'deletion_request', 'security_alert'])
 
 /** Which project switch governs each event the project's addresses may hear about. */
 const PROJECT_EVENT_FOR: Partial<Record<NotificationType, ProjectEventKey>> = {

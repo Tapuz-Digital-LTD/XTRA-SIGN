@@ -1,5 +1,7 @@
 'use client'
 
+import { useCaptcha } from '@/components/captcha/useCaptcha'
+import { CAPTCHA_ACTIONS, type CaptchaPublicConfig } from '@/lib/captcha'
 import { useEffect, useState } from 'react'
 import { FormRenderer, type FormValues } from '@/components/projects/FormRenderer'
 import type { LandingConfig } from '@/server/projects/landing'
@@ -12,7 +14,8 @@ import type { LandingConfig } from '@/server/projects/landing'
  * it reports its height so the host page never shows an inner scrollbar, and
  * announces a successful submission so the host can react.
  */
-export function JoinForm({ slug, config, embed = false }: { slug: string; config: LandingConfig; embed?: boolean }) {
+export function JoinForm({ slug, config, embed = false, captcha }: { slug: string; config: LandingConfig; embed?: boolean; captcha?: CaptchaPublicConfig | null }) {
+  const { getToken } = useCaptcha(captcha)
   const [values, setValues] = useState<FormValues>({})
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
@@ -42,6 +45,7 @@ export function JoinForm({ slug, config, embed = false }: { slug: string; config
     setError(null)
     setFieldErrors({})
     try {
+      const captchaToken = (await getToken(CAPTCHA_ACTIONS.PUBLIC_FORM_SUBMIT)) ?? ''
       const response = await fetch(`/api/join/${slug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -49,6 +53,7 @@ export function JoinForm({ slug, config, embed = false }: { slug: string; config
           values,
           website,
           embed,
+          captchaToken,
           // Inside the iframe, document.referrer is the page hosting the embed.
           referrer: embed ? document.referrer : null,
         }),

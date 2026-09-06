@@ -15,6 +15,7 @@ const TABS = [
   { href: '/settings/users', label: 'משתמשים' },
   { href: '/settings/notifications', label: 'התראות' },
   { href: '/settings/emails', label: 'תבניות מייל' },
+  { href: '/settings/security', label: 'אבטחה' },
 ]
 
 export function SettingsNav() {

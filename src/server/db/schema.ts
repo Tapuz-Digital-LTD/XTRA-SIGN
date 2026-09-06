@@ -574,6 +574,19 @@ export const campaignEvents = pgTable(
   ],
 )
 
+/**
+ * System-wide settings an admin changes from the product, never from a
+ * deploy: one row per key, the whole value replaced at once. Secrets inside
+ * a value are stored encrypted (see server/security/secrets.ts) and are
+ * never read back to a screen.
+ */
+export const systemSettings = pgTable('system_settings', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedBy: uuid('updated_by').references(() => users.id),
+})
+
 /** Membership. A company may belong to any number of groups. */
 export const companyGroups = pgTable(
   'company_groups',

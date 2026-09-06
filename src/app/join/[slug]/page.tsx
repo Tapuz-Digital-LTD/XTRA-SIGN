@@ -1,4 +1,6 @@
 import { JoinForm } from '@/components/projects/JoinForm'
+import { CAPTCHA_ACTIONS } from '@/lib/captcha'
+import { captchaPublicConfig } from '@/server/security/captcha'
 import { getPublicLanding } from '@/server/projects/landing'
 
 export const dynamic = 'force-dynamic'
@@ -21,6 +23,7 @@ export default async function JoinPage({
   const [{ slug }, query] = await Promise.all([params, searchParams])
   const embed = query.embed === '1'
   const landing = await getPublicLanding(slug)
+  const captcha = await captchaPublicConfig(CAPTCHA_ACTIONS.PUBLIC_FORM_SUBMIT)
 
   if (!landing) {
     return (
@@ -40,7 +43,7 @@ export default async function JoinPage({
         {landing.config.description ? (
           <p className="whitespace-pre-line px-1 pb-3 text-sm text-muted">{landing.config.description}</p>
         ) : null}
-        <JoinForm slug={slug} config={landing.config} embed />
+        <JoinForm slug={slug} config={landing.config} embed captcha={captcha} />
       </main>
     )
   }
@@ -59,7 +62,7 @@ export default async function JoinPage({
         ) : null}
 
         <div className="mt-6">
-          <JoinForm slug={slug} config={landing.config} />
+          <JoinForm slug={slug} config={landing.config} captcha={captcha} />
         </div>
 
         <p className="mt-8 text-center text-xs text-muted">

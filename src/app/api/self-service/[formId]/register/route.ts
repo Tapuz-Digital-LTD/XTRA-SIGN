@@ -1,5 +1,7 @@
 import { after, NextResponse } from 'next/server'
 import { VISIT_ID_RE } from '@/lib/campaign-events'
+import { CAPTCHA_ACTIONS } from '@/lib/captcha'
+import { verifyCaptcha } from '@/server/security/captcha'
 import { generateToken } from '@/server/auth/tokens'
 import { consume } from '@/server/http/rate-limit'
 import { clientIp, log } from '@/server/log'
@@ -60,6 +62,9 @@ export async function POST(request: Request, context: { params: Promise<{ formId
     if (typeof body.idempotencyKey !== 'string' || !/^[A-Za-z0-9_-]{8,200}$/.test(body.idempotencyKey)) {
       return NextResponse.json({ error: { message: 'נתונים לא תקינים.' } }, { status: 400 })
     }
+
+    const captcha = await verifyCaptcha({ action: CAPTCHA_ACTIONS.CAMPAIGN_REGISTRATION, token: (body as { captchaToken?: unknown }).captchaToken, ip, userAgent: request.headers.get('user-agent') })
+    if (!captcha.ok) return NextResponse.json({ error: { message: captcha.message } }, { status: 400 })
 
     const result = await startSelfServiceSigning({
       formId,

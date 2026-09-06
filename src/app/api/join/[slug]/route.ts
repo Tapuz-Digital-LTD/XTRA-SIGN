@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { consume } from '@/server/http/rate-limit'
 import { clientIp, log } from '@/server/log'
 import { submitLead } from '@/server/projects/landing'
+import { CAPTCHA_ACTIONS } from '@/lib/captcha'
+import { verifyCaptcha } from '@/server/security/captcha'
 
 /**
  * The submission endpoint behind our own hosted joining form (and its embed).
@@ -40,6 +42,9 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
     if (typeof body?.website === 'string' && body.website.trim() !== '') {
       return NextResponse.json({ ok: true })
     }
+
+    const captcha = await verifyCaptcha({ action: CAPTCHA_ACTIONS.PUBLIC_FORM_SUBMIT, token: (body as { captchaToken?: unknown } | null)?.captchaToken, ip, userAgent: request.headers.get('user-agent') })
+    if (!captcha.ok) return NextResponse.json({ error: { message: captcha.message } }, { status: 400 })
 
     const result = await submitLead({
       slug,

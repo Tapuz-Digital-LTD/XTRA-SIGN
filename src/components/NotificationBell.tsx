@@ -15,6 +15,7 @@ const ICON: Record<string, string> = {
   crm_failed: '!',
   new_lead: '+',
   deletion_request: '⌫',
+  security_alert: '!',
 }
 
 const TONE: Record<string, string> = {
@@ -25,6 +26,7 @@ const TONE: Record<string, string> = {
   crm_failed: 'text-red-700',
   new_lead: 'text-brand',
   deletion_request: 'text-amber-700',
+  security_alert: 'text-red-700',
 }
 
 /**

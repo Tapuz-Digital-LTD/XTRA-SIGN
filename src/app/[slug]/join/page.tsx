@@ -3,6 +3,8 @@ import { CampaignFrame } from '../CampaignFrame'
 import { CampaignTracker } from '../CampaignTracker'
 import { JoinAndSign } from '../JoinAndSign'
 import { campaignProject, type SearchParams } from '../resolve'
+import { CAPTCHA_ACTIONS } from '@/lib/captcha'
+import { captchaPublicConfig } from '@/server/security/captcha'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +26,7 @@ export default async function JoinPage({
 
   return (
     <CampaignFrame slug={slug} title="הצטרפות וחתימה">
-      <JoinAndSign mode="new" slug={slug} formId={project.formId} projectName={project.projectName} />
+      <JoinAndSign mode="new" slug={slug} formId={project.formId} projectName={project.projectName} captcha={await captchaPublicConfig(CAPTCHA_ACTIONS.CAMPAIGN_REGISTRATION)} />
       <CampaignTracker formId={project.formId} event="page_view" />
     </CampaignFrame>
   )

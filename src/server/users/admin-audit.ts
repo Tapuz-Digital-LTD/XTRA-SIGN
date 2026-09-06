@@ -23,6 +23,7 @@ export const AUDIT_EVENTS = {
   RECORD_RESTORED: 'record_restored',
   RECORD_PROTECTED_DELETE: 'record_protected_delete',
   DELETION_REQUESTED: 'deletion_requested',
+  SECURITY_SETTINGS_CHANGED: 'security_settings_changed',
 } as const
 
 export type AdminAuditType = (typeof AUDIT_EVENTS)[keyof typeof AUDIT_EVENTS]

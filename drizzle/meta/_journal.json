@@ -232,6 +232,13 @@
       "when": 1788698083782,
       "tag": "0032_project_notification_config",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1788699597797,
+      "tag": "0033_system_settings",
+      "breakpoints": true
     }
   ]
 }

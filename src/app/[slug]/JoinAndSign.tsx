@@ -11,6 +11,8 @@ import {
 } from '@/lib/self-service-registration'
 import { AgreementSystemNote, AgreementText } from './AgreementText'
 import { track, visitId } from './track'
+import { useCaptcha } from '@/components/captcha/useCaptcha'
+import { CAPTCHA_ACTIONS, type CaptchaPublicConfig } from '@/lib/captcha'
 
 /**
  * Page 2 — join, read, sign.
@@ -40,6 +42,7 @@ type Props = {
   /** The project's stable form id — what the register API is addressed by. */
   formId: string
   projectName: string
+  captcha?: CaptchaPublicConfig | null
   token?: string
   values?: RegistrationValues
   verified?: boolean
@@ -62,7 +65,7 @@ function errorMessage(data: unknown, fallback: string): string {
   return typeof message === 'string' && message ? message : fallback
 }
 
-export function JoinAndSign({ mode, slug, formId, projectName, token: initialToken, values: locked, verified = false, maskedPhone: initialMasked }: Props) {
+export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: initialToken, values: locked, verified = false, maskedPhone: initialMasked }: Props) {
   const router = useRouter()
   const [values, setValues] = useState<FormValues>(() => (locked ? { ...locked } : emptyValues()))
   const [errors, setErrors] = useState<Partial<Record<RegistrationField, string>>>({})
@@ -83,6 +86,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, token: initialTok
   const codeRef = useRef<HTMLInputElement>(null)
   const signatureRef = useRef<HTMLDivElement>(null)
   const startedRef = useRef(false)
+  const { getToken } = useCaptcha(captcha)
 
   // Funnel traces: the first keystroke, the first time the code panel opens.
   useEffect(() => {
@@ -173,6 +177,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, token: initialTok
           referrer: document.referrer || null,
           meta,
           visitId: visitId(),
+          captchaToken: (await getToken(CAPTCHA_ACTIONS.CAMPAIGN_REGISTRATION)) ?? '',
         }),
       })
       const data = await response.json().catch(() => null)

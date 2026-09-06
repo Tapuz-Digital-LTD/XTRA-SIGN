@@ -2,7 +2,7 @@
 
 import { DeleteDialog } from '@/components/deletion/DeleteDialog'
 import { NotificationSettings } from '@/components/projects/NotificationSettings'
-import type { ProjectNotificationSettings } from '@/server/projects/notification-settings'
+import type { ProjectNotificationSettings } from '@/lib/project-notifications'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { FormBuilder } from '@/components/projects/FormBuilder'

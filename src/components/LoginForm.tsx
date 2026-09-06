@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useCaptcha } from '@/components/captcha/useCaptcha'
+import { CAPTCHA_ACTIONS, type CaptchaPublicConfig } from '@/lib/captcha'
 import { useRouter } from 'next/navigation'
 
 /**
@@ -9,7 +11,8 @@ import { useRouter } from 'next/navigation'
  * The number stays in this component's state rather than in the URL, so it does
  * not end up in browser history or in a referrer.
  */
-export function LoginForm() {
+export function LoginForm({ captcha }: { captcha?: CaptchaPublicConfig | null }) {
+  const { getToken } = useCaptcha(captcha)
   const router = useRouter()
   const [phone, setPhone] = useState('')
   const [sent, setSent] = useState(false)
@@ -43,7 +46,8 @@ export function LoginForm() {
     setBusy(true)
     setError(null)
     try {
-      const { ok, data } = await post({ step: 'request', phone })
+      const captchaToken = (await getToken(CAPTCHA_ACTIONS.LOGIN_OTP)) ?? ''
+      const { ok, data } = await post({ step: 'request', phone, captchaToken })
       if (!ok) {
         setError(data?.error?.message ?? 'שליחת הקוד נכשלה.')
         return

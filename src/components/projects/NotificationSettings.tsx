@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { PROJECT_EVENTS, type ProjectNotificationSettings } from '@/server/projects/notification-settings'
+import { PROJECT_EVENTS, type ProjectNotificationSettings } from '@/lib/project-notifications'
 
 /**
  * "התראות" — where the project's news goes and which news, plus the one
