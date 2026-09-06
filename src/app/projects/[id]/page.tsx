@@ -12,6 +12,8 @@ import { authorizeGroup, listGroupCompanies } from '@/server/groups/groups'
 import { listDocuments } from '@/server/documents/queries'
 import { listLeads } from '@/server/projects/leads'
 import { getLandingSettings } from '@/server/projects/landing'
+import { getSelfServiceConfig } from '@/server/projects/self-service'
+import { listUsers } from '@/server/users/users'
 import { agreementReport, parseReportFilters, reportRows, signedOverTime } from '@/server/reports/reports'
 import { listTemplates } from '@/server/templates/templates'
 
@@ -111,6 +113,11 @@ export default async function ProjectPage({
             projectName={project.name}
             projectDescription={project.description}
             landing={await getLandingSettings(session, id)}
+            selfService={await getSelfServiceConfig(session, id)}
+            templates={(await listTemplates(session)).map((t) => ({ id: t.id, name: t.name, fieldCount: t.fieldCount }))}
+            // Listing users is an admin power; everyone else sees the owner read-only.
+            owners={session.isAdmin ? (await listUsers(session)).filter((u) => !u.disabled).map((u) => ({ id: u.id, name: u.name, email: u.email })) : []}
+            currentUserId={session.userId}
           />
         ) : null}
       </div>

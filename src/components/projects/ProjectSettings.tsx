@@ -4,8 +4,14 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { FormBuilder } from '@/components/projects/FormBuilder'
 import { PublishPanel } from '@/components/projects/PublishPanel'
+import {
+  SelfServiceSettings,
+  type OwnerOption,
+  type TemplateOption,
+} from '@/components/projects/SelfServiceSettings'
 import type { LandingSettings } from '@/server/projects/landing'
 import type { FormField } from '@/server/projects/form-schema'
+import type { SelfServiceConfig } from '@/server/projects/self-service'
 
 /**
  * A project's own settings: the joining form and its builder, where the form
@@ -17,11 +23,19 @@ export function ProjectSettings({
   projectName,
   projectDescription,
   landing,
+  selfService,
+  templates,
+  owners,
+  currentUserId,
 }: {
   projectId: string
   projectName: string
   projectDescription: string | null
   landing: LandingSettings
+  selfService: SelfServiceConfig
+  templates: TemplateOption[]
+  owners: OwnerOption[]
+  currentUserId: string
 }) {
   const router = useRouter()
   const [name, setName] = useState(projectName)
@@ -130,12 +144,21 @@ export function ProjectSettings({
         </label>
       </section>
 
+      <SelfServiceSettings
+        projectId={projectId}
+        config={selfService}
+        templates={templates}
+        owners={owners}
+        currentUserId={currentUserId}
+      />
+
       <section className="rounded-[var(--radius-card)] border border-line bg-surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-fg">טופס הצטרפות לספקים</h2>
             <p className="mt-1 text-sm text-muted">
               דף ציבורי שבו ספק משאיר פרטים. כל פנייה הופכת לליד שממתין לאישור שלכם.
+              {selfService.enabled ? ' כל עוד ההרשמה העצמאית פעילה, הטופס הזה אינו מוצג.' : ''}
             </p>
           </div>
           <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium text-fg">

@@ -24,11 +24,21 @@ export type LeadData = {
   [key: string]: string | undefined
 }
 
+export type LeadStatus = 'new' | 'approved' | 'rejected' | 'pending' | 'converted' | 'failed'
+
 export type LeadItem = {
   id: string
-  status: 'new' | 'approved' | 'rejected'
+  /**
+   * new/approved/rejected for a lead a person handles; pending/converted/
+   * failed for a self-service registration (ADR 0001), which never waits.
+   */
+  status: LeadStatus
   data: LeadData
   companyId: string | null
+  /** The agreement a self-service registration became. */
+  agreementId: string | null
+  /** Campaign attribution: utm_* and the landing URL. */
+  meta: Record<string, string> | null
   createdAt: Date
   reviewedAt: Date | null
   /** 'landing' | 'embed' | 'api' — which door the submission came through. */
@@ -77,6 +87,8 @@ export async function listLeads(session: StaffSession, groupId: string): Promise
         status: row.status as LeadItem['status'],
         data,
         companyId: row.companyId,
+        agreementId: row.agreementId,
+        meta: row.meta && typeof row.meta === 'object' ? (row.meta as Record<string, string>) : null,
         createdAt: row.createdAt,
         reviewedAt: row.reviewedAt,
         source: row.source,

@@ -437,7 +437,7 @@ export const projectLeads = pgTable(
     groupId: uuid('group_id')
       .notNull()
       .references(() => groups.id),
-    /** new | approved | rejected */
+    /** new | approved | rejected — or, for self-service registrations, pending | converted | failed */
     status: text('status').default('new').notNull(),
     /** What was submitted, exactly as submitted: name, taxId, contact… */
     data: jsonb('data').notNull(),
@@ -458,6 +458,17 @@ export const projectLeads = pgTable(
      * without minting a second lead. Unique per project when present.
      */
     idempotencyKey: text('idempotency_key'),
+    /**
+     * Campaign attribution, kept apart from `data` so it never shows up as a
+     * form answer: UTM fields, the landing URL, the form version. Whitelisted
+     * and capped on write — never raw query strings.
+     */
+    meta: jsonb('meta'),
+    /**
+     * The agreement a self-service registration turned into (ADR 0001). Null
+     * for a regular lead, which waits for a person and never has one.
+     */
+    agreementId: uuid('agreement_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
     reviewedBy: uuid('reviewed_by').references(() => users.id),

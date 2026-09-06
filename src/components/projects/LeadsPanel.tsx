@@ -211,6 +211,18 @@ export function LeadsPanel({ projectId, leads }: { projectId: string; leads: Lea
                   <Link href={`/companies/${lead.companyId}`} className="whitespace-nowrap rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 hover:underline">
                     אושר · לספק
                   </Link>
+                ) : lead.status === 'converted' && lead.agreementId ? (
+                  <Link href={`/documents/${lead.agreementId}`} className="whitespace-nowrap rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 hover:underline">
+                    הרשמה עצמאית · להסכם
+                  </Link>
+                ) : lead.status === 'pending' ? (
+                  <span className="whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                    הרשמה בעיבוד
+                  </span>
+                ) : lead.status === 'failed' ? (
+                  <span className="whitespace-nowrap rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
+                    הרשמה נכשלה
+                  </span>
                 ) : (
                   <span className="whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
                     נדחה

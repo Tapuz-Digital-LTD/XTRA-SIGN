@@ -13,37 +13,88 @@ import { buildSendSummary, type Channel } from './send-validation'
 /**
  * Sends a document for signature.
  *
- * Order matters: the token and the status change are committed before any
- * message goes out. A delivery that fails leaves a live, resendable request; a
+ * Two halves, deliberately separable: ISSUING the link (token + status
+ * change, one transaction) and DELIVERING it (SMS/email, third-party calls
+ * that can hang). Order matters: the token is committed before any message
+ * goes out. A delivery that fails leaves a live, resendable request; a
  * message that goes out before the token exists would carry a dead link.
+ *
+ * `sendAgreement` is the two halves back to back — the ordinary send. The
+ * self-service flow issues first, answers the browser, and delivers after
+ * the response (ADR 0001).
  */
 
 const SIGNING_LINK_TTL_DAYS = 30
 
+export type Delivery = { channel: Channel; sent: boolean; error?: string }
+
 export type SendResult =
+  | { ok: true; signingUrl: string; deliveries: Delivery[] }
+  | { ok: false; blockers: string[] }
+
+export type IssueResult =
   | {
       ok: true
+      token: string
       signingUrl: string
-      deliveries: { channel: Channel; sent: boolean; error?: string }[]
+      expiresAt: Date
+      recipient: { id: string; name: string; phone: string | null; email: string | null }
+      title: string
     }
   | { ok: false; blockers: string[] }
+
+/** The words that carry a signing link. Overridable per campaign. */
+export type LinkCopy = {
+  sms: (name: string, url: string) => string
+  email: (name: string, title: string, url: string) => { subject: string; text: string; html: string }
+}
+
+export const DEFAULT_LINK_COPY: LinkCopy = {
+  sms: (name, url) => `שלום ${name}, מחכה לך מסמך לחתימה מ-XTRA: ${url}`,
+  email: (name, title, url) => ({
+    subject: `מסמך לחתימה: ${title}`,
+    text: `שלום ${name}, מחכה לך מסמך לחתימה: ${url}`,
+    html: emailHtml(name, title, url),
+  }),
+}
 
 export async function sendAgreement(input: {
   session: StaffSession
   agreementId: string
   channels: Channel[]
 }): Promise<SendResult> {
+  const issued = await issueSigningLink(input)
+  if (!issued.ok) return issued
+
+  const deliveries = await deliverSigningLink({
+    agreementId: input.agreementId,
+    recipient: issued.recipient,
+    channels: input.channels,
+    signingUrl: issued.signingUrl,
+    documentTitle: issued.title,
+    actor: input.session.email,
+  })
+
+  return { ok: true, signingUrl: issued.signingUrl, deliveries }
+}
+
+/**
+ * Mints the signing link and moves the document to "sent", without telling
+ * anyone yet. 32 bytes of CSPRNG; only the hash is stored, so a database dump
+ * is not a set of working signing links.
+ */
+export async function issueSigningLink(input: {
+  session: StaffSession
+  agreementId: string
+  channels: Channel[]
+  ttlDays?: number
+}): Promise<IssueResult> {
   const agreement = await authorizeAgreementAccess(input.session, input.agreementId)
   if (agreement.status !== 'draft') {
     return { ok: false, blockers: ['המסמך כבר נשלח.'] }
   }
 
-  const summary = await buildSendSummary(
-    agreement.id,
-    agreement.currentVersionId,
-    input.channels,
-    true,
-  )
+  const summary = await buildSendSummary(agreement.id, agreement.currentVersionId, input.channels, true)
   if (!summary.canSend) return { ok: false, blockers: summary.blockers }
 
   const db = getDb()
@@ -56,10 +107,9 @@ export async function sendAgreement(input: {
 
   if (!recipient) throw new ForbiddenError()
 
-  // 32 bytes of CSPRNG. Only the hash is stored, so a database dump is not a
-  // set of working signing links.
   const token = generateToken()
-  const expiresAt = new Date(Date.now() + SIGNING_LINK_TTL_DAYS * 24 * 60 * 60 * 1000)
+  const ttlDays = input.ttlDays && input.ttlDays > 0 ? input.ttlDays : SIGNING_LINK_TTL_DAYS
+  const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000)
 
   await db.transaction(async (tx) => {
     await tx.insert(schema.signingTokens).values({
@@ -83,25 +133,64 @@ export async function sendAgreement(input: {
     })
   })
 
-  const signingUrl = buildSigningUrl(token)
+  return {
+    ok: true,
+    token,
+    signingUrl: buildSigningUrl(token),
+    expiresAt,
+    recipient: { id: recipient.id, name: recipient.name, phone: recipient.phone, email: recipient.email },
+    title: agreement.title,
+  }
+}
 
-  const deliveries: { channel: Channel; sent: boolean; error?: string }[] = []
+/**
+ * A second, equally valid link for the same recipient.
+ *
+ * The raw token of the first link was never stored, so a flow that needs to
+ * hand the same signer a link again — a registration replayed after a double
+ * click — mints another one rather than rotating the first, which would kill
+ * a link the signer may be holding in the other hand.
+ */
+export async function mintAdditionalSigningLink(
+  recipientId: string,
+  expiresAt: Date,
+): Promise<{ token: string; signingUrl: string }> {
+  const token = generateToken()
+  await getDb().insert(schema.signingTokens).values({
+    recipientId,
+    tokenHash: hashToken(token),
+    expiresAt,
+  })
+  return { token, signingUrl: buildSigningUrl(token) }
+}
+
+/** Every channel, each recorded as its own Delivery. */
+export async function deliverSigningLink(input: {
+  agreementId: string
+  recipient: { id: string; name: string; phone: string | null; email: string | null }
+  channels: Channel[]
+  signingUrl: string
+  documentTitle: string
+  actor: string
+  copy?: LinkCopy
+}): Promise<Delivery[]> {
+  const deliveries: Delivery[] = []
   for (const channel of input.channels) {
     deliveries.push(
       await deliver({
         channel,
-        agreementId: agreement.id,
-        recipientId: recipient.id,
-        recipientName: recipient.name,
-        to: channel === 'sms' ? (recipient.phone ?? '') : (recipient.email ?? ''),
-        documentTitle: agreement.title,
-        signingUrl,
-        actor: input.session.email,
+        agreementId: input.agreementId,
+        recipientId: input.recipient.id,
+        recipientName: input.recipient.name,
+        to: channel === 'sms' ? (input.recipient.phone ?? '') : (input.recipient.email ?? ''),
+        documentTitle: input.documentTitle,
+        signingUrl: input.signingUrl,
+        actor: input.actor,
+        copy: input.copy ?? DEFAULT_LINK_COPY,
       }),
     )
   }
-
-  return { ok: true, signingUrl, deliveries }
+  return deliveries
 }
 
 export function buildSigningUrl(token: string): string {
@@ -121,7 +210,8 @@ async function deliver(input: {
   documentTitle: string
   signingUrl: string
   actor: string
-}) {
+  copy: LinkCopy
+}): Promise<Delivery> {
   const db = getDb()
   const provider: NotificationProvider =
     input.channel === 'sms' ? new InforuSmsProvider() : new InforuEmailProvider()
@@ -130,14 +220,12 @@ async function deliver(input: {
     input.channel === 'sms'
       ? {
           to: input.to,
-          text: `שלום ${input.recipientName}, מחכה לך מסמך לחתימה מ-XTRA: ${input.signingUrl}`,
+          text: input.copy.sms(input.recipientName, input.signingUrl),
           recipientName: input.recipientName,
         }
       : {
           to: input.to,
-          subject: `מסמך לחתימה: ${input.documentTitle}`,
-          text: `שלום ${input.recipientName}, מחכה לך מסמך לחתימה: ${input.signingUrl}`,
-          html: emailHtml(input.recipientName, input.documentTitle, input.signingUrl),
+          ...input.copy.email(input.recipientName, input.documentTitle, input.signingUrl),
           recipientName: input.recipientName,
         }
 
@@ -259,18 +347,14 @@ export async function resendAgreement(input: {
 
   const signingUrl = buildSigningUrl(token)
 
-  for (const channel of input.channels) {
-    await deliver({
-      channel,
-      agreementId: agreement.id,
-      recipientId: recipient.id,
-      recipientName: recipient.name,
-      to: channel === 'sms' ? (recipient.phone ?? '') : (recipient.email ?? ''),
-      documentTitle: agreement.title,
-      signingUrl,
-      actor: input.session.email,
-    })
-  }
+  await deliverSigningLink({
+    agreementId: agreement.id,
+    recipient: { id: recipient.id, name: recipient.name, phone: recipient.phone, email: recipient.email },
+    channels: input.channels,
+    signingUrl,
+    documentTitle: agreement.title,
+    actor: input.session.email,
+  })
 
   await db.insert(schema.auditEvents).values({
     agreementId: agreement.id,
