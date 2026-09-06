@@ -1,0 +1,8 @@
+{
+  "taxId": "513088912",
+  "business": "XTRA בדיקת מערכת",
+  "startedAt": "2026-09-06T15:21:28.912Z",
+  "updatedAt": "2026-09-06T15:21:36.124Z",
+  "otpRequestedAt": "2026-09-06T15:21:36.124Z",
+  "waitingFor": "/private/tmp/claude-501/-Users-macbookpro-dev-xtra-sign/d84c6f07-f66b-44a5-8ca9-6bd5b84d8740/scratchpad/otp-code.txt"
+}

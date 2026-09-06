@@ -94,7 +94,8 @@ async function main() {
     // A configured template under another name is an earlier edition of the
     // agreement; the current edition replaces it on the project (the old
     // template stays, and documents made from it keep their copy).
-    if (!template || template.name !== TEMPLATE_NAME) templateId = null
+    // With SKIP_TEMPLATE=1 whatever the app has bound (uploaded by hand) is the agreement.
+    if (!template || (template.name !== TEMPLATE_NAME && process.env.SKIP_TEMPLATE !== '1')) templateId = null
   }
   if (!templateId) {
     const [byName] = await db

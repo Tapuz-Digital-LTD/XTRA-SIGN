@@ -31,7 +31,7 @@ async function main() {
   await page.click('button[type="submit"]')
   await page.waitForFunction(() => document.querySelector('h1')?.textContent?.includes('הזינו את הקוד'), { timeout: 60000 })
   console.log(`>>> code requested; waiting for ${CODE_FILE} …`)
-  const deadline = Date.now() + 270_000
+  const deadline = Date.now() + Number(process.env.WAIT_MS ?? 270_000)
   let code = ''
   while (Date.now() < deadline) {
     if (existsSync(CODE_FILE)) {
@@ -47,10 +47,12 @@ async function main() {
   await page.click('input[autocomplete="one-time-code"]')
   await page.keyboard.sendCharacter(code)
   await page.waitForFunction(() => location.pathname !== '/login', { timeout: 60000 })
-  const cookie = (await page.cookies()).find((c) => c.name === 'xtra_sign_session')
-  if (!cookie) throw new Error('no session cookie after login')
-  writeFileSync(COOKIE_FILE, cookie.value, { mode: 0o600 })
-  console.log(`logged in as the owner; session cookie saved (${cookie.value.length} chars)`)
+  // The cookie carries a __Host-/__Secure- prefix on https; match by the name's core.
+  const all = await page.cookies()
+  const cookie = all.find((c) => c.name.includes('xtra_sign_session')) ?? all.find((c) => /session/i.test(c.name))
+  if (!cookie) throw new Error(`no session cookie after login (saw: ${all.map((c) => c.name).join(', ') || 'none'})`)
+  writeFileSync(COOKIE_FILE, `${cookie.name}=${cookie.value}`, { mode: 0o600 })
+  console.log(`logged in as the owner; session cookie "${cookie.name}" saved`)
   await browser.close()
 }
 
