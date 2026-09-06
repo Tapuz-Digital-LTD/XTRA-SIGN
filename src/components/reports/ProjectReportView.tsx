@@ -2,8 +2,8 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { formatDuration } from '@/lib/format-duration'
 import type { ProjectReport, RegistrationRow } from '@/server/reports/project-report'
+import { RegistrationsTable } from './RegistrationsTable'
 
 /**
  * The project's report, top to bottom: the numbers, the funnel, three
@@ -99,7 +99,7 @@ export function ProjectReportView({
         ) : null}
       </div>
 
-      <Registrations report={report} projectId={projectId} />
+      <RegistrationsTable report={report} projectId={projectId} />
     </div>
   )
 }
@@ -456,99 +456,6 @@ function Sources({ sources, reduced }: { sources: ProjectReportData['sources']; 
         </tbody>
       </table>
     </div>
-  )
-}
-
-// ── registrations ─────────────────────────────────────────────────────────
-
-const TONE: Record<RegistrationRow['statusTone'], string> = {
-  ok: 'bg-green-50 text-green-800',
-  wait: 'bg-amber-50 text-amber-800',
-  muted: 'bg-line text-muted',
-  bad: 'bg-red-50 text-red-800',
-}
-
-function Registrations({ report, projectId }: { report: ProjectReportData; projectId: string }) {
-  const rows = report.registrations
-  const hrefOf = (r: ProjectReportData['registrations'][number]) =>
-    r.agreement ? `/documents/${r.agreement.id}` : r.companyId ? `/companies/${r.companyId}` : `/projects/${projectId}?tab=leads`
-  return (
-    <section className={`${card} min-w-0 p-5`} aria-labelledby="rp-registrations">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="rp-registrations" className="text-sm font-semibold text-fg">הרשמות בפרויקט</h2>
-        <p className="text-xs text-muted">
-          {report.registrationTotal > rows.length ? `מוצגות ${rows.length} מתוך ${number.format(report.registrationTotal)} — הקובץ המלא בייצוא` : `${number.format(rows.length)} הרשמות`}
-        </p>
-      </div>
-      {rows.length === 0 ? (
-        <p className="mt-6 text-center text-sm text-muted">אין הרשמות בטווח ובסינון שנבחרו.</p>
-      ) : (
-        <>
-          {/* phones: one card per registration */}
-          <ul className="mt-3 flex flex-col gap-2 md:hidden">
-            {rows.map((r) => (
-              <li key={r.id}>
-                <Link href={hrefOf(r)} className="block rounded-lg border border-line bg-bg p-3 transition hover:border-brand">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="min-w-0 truncate text-sm font-medium text-fg">{r.businessName || '—'}</span>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${TONE[r.statusTone]}`}>{r.statusLabel}</span>
-                  </div>
-                  <p className="mt-1 text-xs text-muted">
-                    {dateTime.format(new Date(r.createdAt))} · {r.contactName || '—'} · {r.source.label}
-                  </p>
-                  <p className="mt-1 text-xs text-muted" dir="ltr">
-                    {r.phone}
-                    {r.email ? ` · ${r.email}` : ''}
-                  </p>
-                  {r.secondsToSign !== null ? <p className="mt-1 text-xs text-muted">מהרשמה לחתימה: {formatDuration(r.secondsToSign)}</p> : null}
-                </Link>
-              </li>
-            ))}
-          </ul>
-          {/* wider screens: the table */}
-          <div className="mt-3 hidden overflow-x-auto md:block">
-            <table className="w-full min-w-[1100px] text-sm">
-              <thead>
-                <tr className="text-xs text-muted">
-                  {['תאריך הרשמה', 'שם העסק', 'ח.פ.', 'איש קשר', 'טלפון', 'אימייל', 'מקור', 'קמפיין', 'סטטוס', 'נשלח', 'נחתם', 'זמן עד חתימה'].map((h) => (
-                    <th key={h} className="whitespace-nowrap py-2 pe-3 text-start font-medium">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id} className="border-t border-line hover:bg-bg">
-                    <td className="whitespace-nowrap py-2 pe-3 tabular-nums text-muted">{dateTime.format(new Date(r.createdAt))}</td>
-                    <td className="py-2 pe-3">
-                      <Link href={hrefOf(r)} className="font-medium text-fg hover:underline">
-                        {r.businessName || '—'}
-                      </Link>
-                    </td>
-                    <td className="py-2 pe-3 tabular-nums text-fg">{r.taxId}</td>
-                    <td className="py-2 pe-3 text-fg">{r.contactName}</td>
-                    <td className="whitespace-nowrap py-2 pe-3 tabular-nums text-fg" dir="ltr">{r.phone}</td>
-                    <td className="py-2 pe-3 text-fg" dir="ltr">{r.email}</td>
-                    <td className="py-2 pe-3 text-fg">
-                      {r.source.label}
-                      {r.source.medium ? <span className="text-xs text-muted"> / {r.source.medium}</span> : null}
-                    </td>
-                    <td className="py-2 pe-3 text-muted">{r.campaign ?? '—'}</td>
-                    <td className="py-2 pe-3">
-                      <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${TONE[r.statusTone]}`}>{r.statusLabel}</span>
-                    </td>
-                    <td className="whitespace-nowrap py-2 pe-3 tabular-nums text-muted">{r.agreement?.sentAt ? dateTime.format(new Date(r.agreement.sentAt)) : '—'}</td>
-                    <td className="whitespace-nowrap py-2 pe-3 tabular-nums text-muted">{r.agreement?.completedAt ? dateTime.format(new Date(r.agreement.completedAt)) : '—'}</td>
-                    <td className="whitespace-nowrap py-2 tabular-nums text-muted">{r.secondsToSign === null ? '—' : formatDuration(r.secondsToSign)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-    </section>
   )
 }
 

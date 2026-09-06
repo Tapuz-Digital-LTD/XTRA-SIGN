@@ -6,7 +6,9 @@ import { getDb, schema } from '@/server/db'
 import { DEFAULT_MESSAGES, renderTemplate } from '@/lib/message-template'
 import { brandFor, DEFAULT_BRAND, type EmailBrand } from '@/server/mail/brand'
 import { renderEmail } from '@/server/mail/render'
-import { InvitationEmail } from '@/server/mail/templates'
+import { InvitationEmail, ReminderEmail } from '@/server/mail/templates'
+import { originFromSnapshot } from '@/server/self-service/agreement-skin'
+import { signingLinkCopy } from '@/server/self-service/copy'
 import { publicBaseUrl } from '@/server/http/public-url'
 import { notify } from '@/server/notifications/notifications'
 import { InforuEmailProvider, InforuSmsProvider } from '@/server/notifications/inforu'
@@ -75,6 +77,27 @@ export const DEFAULT_LINK_COPY: LinkCopy = {
           { label: 'נשלח על ידי', value: ctx.organizationName },
           ...(ctx.expiresAt ? [{ label: 'בתוקף עד', value: formatDay(ctx.expiresAt) }] : []),
         ],
+        organizationName: ctx.organizationName,
+      }),
+    )
+  },
+}
+
+/** "Still waiting for you": the reminder wording, with the fresh link. */
+export const REMINDER_LINK_COPY: LinkCopy = {
+  sms: (name, url) => renderTemplate(DEFAULT_MESSAGES.reminder.sms!, { signer_name: name, signing_link: url }).text,
+  email: async (name, title, url, ctx) => {
+    const t = DEFAULT_MESSAGES.reminder.email!
+    const vars = { signer_name: name, document_name: title, signing_link: url, organization_name: ctx.organizationName }
+    return renderEmail(
+      renderTemplate(t.subject, vars).text,
+      ReminderEmail({
+        brand: ctx.brand,
+        title: 'תזכורת: המסמך עדיין ממתין לחתימתך',
+        body: renderTemplate(t.body, vars).text,
+        cta: 'להמשך חתימה',
+        signingUrl: url,
+        facts: [{ label: 'מסמך', value: title }, { label: 'נשלח על ידי', value: ctx.organizationName }],
         organizationName: ctx.organizationName,
       }),
     )
@@ -336,6 +359,8 @@ export async function resendAgreement(input: {
   session: StaffSession
   agreementId: string
   channels: Channel[]
+  /** A reminder says "still waiting"; a resend repeats the original invitation. */
+  kind?: 'reminder' | 'resend'
 }): Promise<{ ok: boolean; message?: string }> {
   const agreement = await authorizeAgreementAccess(input.session, input.agreementId)
   if (!['sent', 'viewed'].includes(agreement.status)) {
@@ -373,6 +398,13 @@ export async function resendAgreement(input: {
 
   const signingUrl = buildSigningUrl(token)
 
+  const kind = input.kind ?? 'reminder'
+  // A campaign's agreement keeps the campaign's invitation words on a resend.
+  const [snapshotRow] = await db.select({ mergeSnapshot: schema.agreements.mergeSnapshot }).from(schema.agreements).where(eq(schema.agreements.id, agreement.id)).limit(1)
+  const origin = originFromSnapshot(snapshotRow?.mergeSnapshot)
+  const campaignCopy = origin
+    ? signingLinkCopy({ projectName: (await db.select({ name: schema.groups.name }).from(schema.groups).where(eq(schema.groups.id, origin.projectId)).limit(1))[0]?.name ?? agreement.title }, origin.skin)
+    : null
   await deliverSigningLink({
     agreementId: agreement.id,
     recipient: { id: recipient.id, name: recipient.name, phone: recipient.phone, email: recipient.email },
@@ -380,14 +412,15 @@ export async function resendAgreement(input: {
     signingUrl,
     documentTitle: agreement.title,
     actor: input.session.email,
+    copy: kind === 'reminder' ? REMINDER_LINK_COPY : (campaignCopy ?? DEFAULT_LINK_COPY),
   })
 
   await db.insert(schema.auditEvents).values({
     agreementId: agreement.id,
     recipientId: recipient.id,
-    type: AUDIT_EVENTS.REMINDER_SENT,
+    type: kind === 'reminder' ? AUDIT_EVENTS.REMINDER_SENT : AUDIT_EVENTS.SENT,
     actor: input.session.email,
-    metadata: { channels: input.channels },
+    metadata: { channels: input.channels, kind },
   })
 
   return { ok: true }
