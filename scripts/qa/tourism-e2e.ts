@@ -130,16 +130,19 @@ async function main() {
   const downloadHref = await page.$eval('a.tj-primary', (a) => (a as HTMLAnchorElement).href)
   const token = page.url().split('/').pop()!
 
-  // ── Download (from inside the page, so a protected preview's cookie applies)
-  const downloaded = await page.evaluate(async (href: string) => {
-    const response = await fetch(href)
-    const bytes = new Uint8Array(await response.arrayBuffer())
-    let binary = ''
-    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
-    return { status: response.status, base64: btoa(binary) }
-  }, downloadHref)
+  // ── Download: the same two hops a click makes — our route (with the
+  // browser's cookies, so a protected preview lets us in), then the
+  // short-lived storage URL it redirects to. Not fetched from inside the page:
+  // the page's CSP only lets script talk to our own origin, and a click is a
+  // navigation, which the CSP does not govern.
+  const cookieHeader = (await page.cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+  const hop = await fetch(downloadHref, { headers: { cookie: cookieHeader }, redirect: 'manual' })
+  const location = hop.headers.get('location')
+  check('download route redirects to a signed storage URL', hop.status === 302 && Boolean(location), `${hop.status} ${location ? new URL(location).host : ''}`)
+  const file = location ? await fetch(location) : hop
+  const downloaded = { status: file.status, bytes: Buffer.from(await file.arrayBuffer()) }
   check('download answers 200', downloaded.status === 200, String(downloaded.status))
-  const bytes = Buffer.from(downloaded.base64, 'base64')
+  const bytes = downloaded.bytes
   check('download is a PDF', bytes.subarray(0, 5).toString() === '%PDF-')
   const text = await extractPdfText(bytes)
   check('signed PDF carries the tax id', text.includes(taxId))
