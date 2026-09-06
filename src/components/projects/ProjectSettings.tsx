@@ -2,6 +2,7 @@
 
 import { DeleteDialog } from '@/components/deletion/DeleteDialog'
 import { NotificationSettings } from '@/components/projects/NotificationSettings'
+import { CampaignSettings, type CampaignSettingsValue } from '@/components/projects/CampaignSettings'
 import type { ProjectNotificationSettings } from '@/lib/project-notifications'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -35,6 +36,9 @@ export function ProjectSettings({
   currentUserId,
   isAdmin,
   notifications,
+  campaign,
+  templates,
+  setup,
 }: {
   projectId: string
   projectName: string
@@ -48,6 +52,10 @@ export function ProjectSettings({
   currentUserId: string
   isAdmin: boolean
   notifications: ProjectNotificationSettings
+  campaign: CampaignSettingsValue
+  templates: { id: string; name: string }[]
+  /** What the wizard asked to finish here, if anything. */
+  setup?: string
 }) {
   const router = useRouter()
   const [name, setName] = useState(projectName)
@@ -121,6 +129,20 @@ export function ProjectSettings({
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
+      {setup ? (
+        <p role="status" className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          {setup === 'self-service'
+            ? 'הקמפיין נוצר. כדי להפעיל הרשמה וחתימה אוטומטית: להגדיר את ההסכם לחתימה ואת הבעלים בכרטיס "הרשמה וחתימה עצמאית" למטה, ולחבר עמוד קמפיין (על ידי צוות הפיתוח) או להשתמש בטופס הציבורי.'
+            : setup === 'embed'
+              ? 'הקמפיין נוצר והטופס הציבורי פעיל. קוד ההטמעה נמצא בכרטיס "טופס ההצטרפות" למטה.'
+              : setup === 'api'
+                ? 'הקמפיין נוצר והטופס הציבורי פעיל. פרטי ה-API להגשת הרשמות נמצאים בכרטיס "טופס ההצטרפות" למטה.'
+                : setup === 'custom-page'
+                  ? 'הקמפיין נוצר. דף קמפיין מותאם אישית אינו נבנה בתוך XTRA Sign — לעיצוב ופיתוח דף ייעודי יש לפנות למפתח, שיחבר אותו לקמפיין הזה.'
+                  : 'הקמפיין נוצר והטופס הציבורי פעיל. הכתובת לשיתוף נמצאת בכרטיס "טופס ההצטרפות" למטה.'}
+        </p>
+      ) : null}
+      <CampaignSettings projectId={projectId} value={campaign} owners={owners} templates={templates} />
       <section className="rounded-[var(--radius-card)] border border-line bg-surface p-5">
         <h2 className="text-base font-semibold text-fg">פרטי הפרויקט</h2>
         <label className="mt-3 block text-sm">

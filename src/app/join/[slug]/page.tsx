@@ -1,5 +1,6 @@
 import { JoinForm } from '@/components/projects/JoinForm'
 import { CAPTCHA_ACTIONS } from '@/lib/captcha'
+import { REGISTRATIONS_CLOSED_MESSAGE } from '@/lib/campaigns'
 import { captchaPublicConfig } from '@/server/security/captcha'
 import { getPublicLanding } from '@/server/projects/landing'
 
@@ -31,6 +32,18 @@ export default async function JoinPage({
         <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-8 text-center">
           <p className="text-lg font-semibold text-fg">הטופס אינו זמין</p>
           <p className="mt-2 text-sm text-muted">ייתכן שהקישור שגוי או שהטופס נסגר. אפשר לפנות למי ששלח לכם אותו.</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (!landing.registrationsOpen) {
+    return (
+      <main className={embed ? 'bg-bg p-2' : 'flex min-h-dvh items-center justify-center bg-bg px-4'}>
+        <div className="mx-auto w-full max-w-md rounded-2xl border border-line bg-surface p-8 text-center">
+          <p className="text-3xl" aria-hidden="true">✓</p>
+          <h1 className="mt-2 text-xl font-bold tracking-tight text-fg">{landing.config.title}</h1>
+          <p className="mt-2 text-sm text-muted">{REGISTRATIONS_CLOSED_MESSAGE}</p>
         </div>
       </main>
     )

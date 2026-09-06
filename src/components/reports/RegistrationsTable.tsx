@@ -128,6 +128,7 @@ export function RegistrationsTable({ projectId, report }: { projectId: string; r
     isSigned(r) ? { label: 'שתף קישור מאובטח', onSelect: () => void share(r, 'whatsapp') } : null,
     canRemind(r) ? { label: 'שלח תזכורת', onSelect: () => ask('remind', [r.id]) } : null,
     canRemind(r) ? { label: 'שלח שוב', onSelect: () => ask('resend', [r.id]) } : null,
+    status(r) === 'expired' ? { label: 'חדש קישור לחתימה', onSelect: () => ask('renew', [r.id]) } : null,
     canRemind(r) ? { label: 'שתף ב-WhatsApp', onSelect: () => void share(r, 'whatsapp') } : null,
     canRemind(r) || isSigned(r) ? { label: 'העתק קישור', onSelect: () => void share(r, 'copy') } : null,
     failed(r) && r.companyId ? { label: 'ערוך פרטי קשר', onSelect: () => router.push(`/companies/${r.companyId}?edit=1`) } : null,
@@ -269,7 +270,7 @@ export function RegistrationsTable({ projectId, report }: { projectId: string; r
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 sm:items-center sm:p-4" onClick={() => setPending(null)}>
           <div role="dialog" aria-modal="true" aria-labelledby="ra-title" className="w-full max-w-md rounded-t-2xl bg-surface p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 id="ra-title" className="text-base font-semibold text-fg">
-              {pending.action === 'remind' ? 'שליחת תזכורת' : pending.action === 'resend' ? 'שליחה חוזרת' : 'שליחת עותק חתום'}
+              {pending.action === 'remind' ? 'שליחת תזכורת' : pending.action === 'resend' ? 'שליחה חוזרת' : pending.action === 'renew' ? 'חידוש קישור לחתימה' : 'שליחת עותק חתום'}
             </h3>
             <p className="mt-2 text-sm text-fg">{pending.plan ? pending.plan.summary : 'בודק מי מתאים לפעולה…'}</p>
             {pending.plan && pending.plan.eligible.length > 0 && pending.action !== 'send_signed_copy' ? (
@@ -288,7 +289,7 @@ export function RegistrationsTable({ projectId, report }: { projectId: string; r
               </div>
             ) : null}
             <p className="mt-2 text-xs text-muted">
-              {pending.action === 'remind' ? 'נוסח התזכורת של הקמפיין, עם קישור חתימה אישי חדש.' : pending.action === 'resend' ? 'ההודעה המקורית נשלחת שוב, עם קישור חתימה אישי חדש.' : 'אישור החתימה עם כפתור מאובטח להורדת המסמך.'}
+              {pending.action === 'remind' ? 'נוסח התזכורת של הקמפיין, עם קישור חתימה אישי חדש.' : pending.action === 'resend' ? 'ההודעה המקורית נשלחת שוב, עם קישור חתימה אישי חדש.' : pending.action === 'renew' ? 'קישור חדש עם תוקף חדש לפי הגדרות הקמפיין; המסמך חוזר להמתין לחתימה. נרשם ב-Audit.' : 'אישור החתימה עם כפתור מאובטח להורדת המסמך.'}
             </p>
             <div className="mt-4 flex flex-wrap justify-end gap-2">
               <button type="button" onClick={() => setPending(null)} className={buttonClass}>
@@ -361,6 +362,7 @@ function RegistrationDrawer({
             <div className="flex flex-wrap gap-2">
               {detail.actions.includes('remind') ? <button type="button" onClick={() => onAct('remind', detail.id)} className={primaryClass}>שלח תזכורת</button> : null}
               {detail.actions.includes('resend') ? <button type="button" onClick={() => onAct('resend', detail.id)} className={buttonClass}>שלח שוב</button> : null}
+              {detail.actions.includes('renew') ? <button type="button" onClick={() => onAct('renew', detail.id)} className={primaryClass}>חדש קישור לחתימה</button> : null}
               {detail.actions.includes('send_signed_copy') ? <button type="button" onClick={() => onAct('send_signed_copy', detail.id)} className={buttonClass}>שלח עותק במייל</button> : null}
               {detail.shareable ? <button type="button" onClick={() => onShare(detail.id, 'whatsapp')} className={buttonClass}>שתף ב-WhatsApp</button> : null}
               {detail.shareable ? <button type="button" onClick={() => onShare(detail.id, 'copy')} className={buttonClass}>העתק קישור</button> : null}

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
-import { CampaignFrame } from '../CampaignFrame'
+import { CampaignFrame, CampaignNotice } from '../CampaignFrame'
+import { REGISTRATIONS_CLOSED_MESSAGE } from '@/lib/campaigns'
 import { CampaignTracker } from '../CampaignTracker'
 import { JoinAndSign } from '../JoinAndSign'
 import { campaignProject, type SearchParams } from '../resolve'
@@ -23,6 +24,14 @@ export default async function JoinPage({
 }) {
   const [{ slug }, query] = await Promise.all([params, searchParams])
   const project = await campaignProject(slug, '/join', query)
+
+  if (!project.registrationsOpen) {
+    return (
+      <CampaignFrame slug={slug} title="הצטרפות וחתימה">
+        <CampaignNotice slug={slug} title={REGISTRATIONS_CLOSED_MESSAGE} text="תודה על ההתעניינות. הסכמים שכבר נוצרו ממשיכים להיות תקפים לפי הקישור שנשלח." />
+      </CampaignFrame>
+    )
+  }
 
   return (
     <CampaignFrame slug={slug} title="הצטרפות וחתימה">

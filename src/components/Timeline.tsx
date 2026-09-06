@@ -20,6 +20,7 @@ const LABELS: Record<string, string> = {
   canceled: 'בוטל',
   expired: 'פג תוקף',
   reminder_sent: 'נשלחה תזכורת',
+  link_renewed: 'קישור החתימה חודש',
   new_version_created: 'נוצרה גרסה חדשה',
   saved_as_template: 'נשמר כתבנית',
   crm_uploaded: 'הועלה ל-CRM',

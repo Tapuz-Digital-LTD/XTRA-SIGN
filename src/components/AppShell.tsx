@@ -15,7 +15,7 @@ const NAV = [
   { href: '/', label: 'בית' },
   { href: '/suppliers', label: 'ספקים' },
   { href: '/customers', label: 'לקוחות' },
-  { href: '/projects', label: 'פרויקטים' },
+  { href: '/projects', label: 'קמפיינים' },
   { href: '/agreements', label: 'הסכמים' },
   { href: '/templates', label: 'תבניות' },
   { href: '/settings', label: 'הגדרות' },

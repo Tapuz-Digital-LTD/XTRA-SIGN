@@ -16,6 +16,7 @@ const EVENT_TEXT: Record<string, string> = {
   viewed: 'נצפה',
   otp_verified: 'אומת',
   archived: 'בארכיון',
+  link_renewed: 'הקישור חודש',
   restored: 'הוחזר',
   removed: 'הוסר',
   signature_applied: 'נחתם',

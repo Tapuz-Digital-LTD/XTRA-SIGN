@@ -18,21 +18,15 @@ import { publicBaseUrl } from '@/server/http/public-url'
 import { parseProjectReportFilters, projectReport, type ProjectReport } from '@/server/reports/project-report'
 import { ProjectReportView, type ProjectReportData } from '@/components/reports/ProjectReportView'
 import { missingRoles } from '@/lib/agreement-roles'
+import { isCampaignKind, kindLabel, LEGACY_TABS, TAB_LABELS, TABS_BY_KIND, type CampaignKind, type CampaignTab } from '@/lib/campaigns'
+import { CampaignOverview } from '@/components/projects/CampaignOverview'
+import { DistributionsTab } from '@/components/projects/DistributionsTab'
 import type { PlacedField } from '@/lib/fields'
 import { getProjectNotificationSettings } from '@/server/projects/notification-settings'
 import { getPublicSlugSettings } from '@/server/projects/public-slug'
 import { authorizeTemplateAccess, listTemplates, templateRoles } from '@/server/templates/templates'
 
-const TABS = ['suppliers', 'leads', 'agreements', 'reports', 'settings'] as const
-type Tab = (typeof TABS)[number]
-
-const TAB_LABELS: Record<Tab, string> = {
-  suppliers: 'ספקים',
-  leads: 'לידים',
-  agreements: 'הסכמים',
-  reports: 'דוחות',
-  settings: 'הגדרות',
-}
+type Tab = CampaignTab
 
 const dateFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -41,14 +35,13 @@ export default async function ProjectPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ tab?: string; q?: string; from?: string; to?: string; status?: string }>
+  searchParams: Promise<{ tab?: string; q?: string; from?: string; to?: string; status?: string; source?: string; range?: string; setup?: string }>
 }) {
   const session = await getSession()
   if (!session) redirect('/login')
 
   const { id } = await params
   const query = await searchParams
-  const tab: Tab = (TABS as readonly string[]).includes(query.tab ?? '') ? (query.tab as Tab) : 'suppliers'
 
   let project
   try {
@@ -57,34 +50,43 @@ export default async function ProjectPage({
     if (error instanceof ForbiddenError) notFound()
     throw error
   }
+  const campaignKind: CampaignKind = isCampaignKind(project.campaignKind) ? project.campaignKind : 'signature'
+  const TABS = TABS_BY_KIND[campaignKind]
+  const requested = LEGACY_TABS[query.tab ?? ''] ?? query.tab
+  const tab: Tab = (TABS as readonly string[]).includes(requested ?? '') ? (requested as Tab) : 'overview'
 
   // Every render needs the members (the header counts them) and the lead count
   // (the tab badge); the rest is fetched only for the open tab.
   const [companies, leads] = await Promise.all([
-    listGroupCompanies(session, id, tab === 'suppliers' ? query.q : undefined),
+    listGroupCompanies(session, id, tab === 'audience' ? query.q : undefined),
     listLeads(session, id),
   ])
   const newLeadCount = leads.filter((l) => l.status === 'new').length
 
-  const href = (next: Tab) => `/projects/${id}${next === 'suppliers' ? '' : `?tab=${next}`}`
+  const href = (next: Tab) => `/projects/${id}${next === 'overview' ? '' : `?tab=${next}`}`
 
   return (
     <AppShell>
       <div className="mb-4">
         <Link href="/projects" className="text-sm text-muted underline-offset-4 hover:text-fg hover:underline">
-          → לכל הפרויקטים
+          → לכל הקמפיינים
         </Link>
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-fg">{project.name}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-fg">{project.name}</h1>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${campaignKind === 'public' ? 'bg-violet-50 text-violet-800' : 'bg-blue-50 text-blue-800'}`}>{kindLabel(campaignKind)}</span>
+          {project.archivedAt ? <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">בארכיון</span> : null}
+        </div>
         {/* One quiet line, not a dashboard: how many, how it's going. */}
         <p className="mt-1 text-sm text-muted">
-          {companies.length === 1 ? 'ספק אחד' : `${companies.length} ספקים`}
+          {companies.length === 1 ? 'נמען אחד' : `${companies.length} נמענים`}
           {' · '}
           {companies.filter((c) => c.lastSend?.status === 'signed').length} חתמו
           {' · '}
           {companies.filter((c) => c.lastSend && ['sent', 'viewed'].includes(c.lastSend.status)).length} ממתינים
+          {project.startsAt || project.endsAt ? ` · ${project.startsAt ? dateFormat.format(project.startsAt) : '…'} – ${project.endsAt ? dateFormat.format(project.endsAt) : '…'}` : ''}
         </p>
       </div>
 
@@ -101,7 +103,7 @@ export default async function ProjectPage({
             }`}
           >
             {TAB_LABELS[key]}
-            {key === 'leads' && newLeadCount > 0 ? (
+            {key === 'registrations' && newLeadCount > 0 ? (
               <span className="rounded-full bg-blue-100 px-1.5 text-xs font-medium text-blue-800">{newLeadCount}</span>
             ) : null}
           </Link>
@@ -109,8 +111,10 @@ export default async function ProjectPage({
       </nav>
 
       <div className="mt-5">
-        {tab === 'suppliers' ? <SuppliersTab projectId={id} projectName={project.name} companies={companies} search={query.q ?? ''} session={session} /> : null}
-        {tab === 'leads' ? <LeadsPanel projectId={id} leads={leads} /> : null}
+        {tab === 'overview' ? <CampaignOverview project={{ id, name: project.name, campaignKind, publicUrl: campaignKind === 'public' ? await publicAddress(session, id) : null }} companies={companies} leads={leads} /> : null}
+        {tab === 'audience' ? <SuppliersTab projectId={id} projectName={project.name} companies={companies} search={query.q ?? ''} session={session} /> : null}
+        {tab === 'distributions' ? <DistributionsTab projectId={id} /> : null}
+        {tab === 'registrations' ? <LeadsPanel projectId={id} leads={leads} /> : null}
         {tab === 'agreements' ? <AgreementsTab projectId={id} session={session} /> : null}
         {tab === 'reports' ? <ReportsTab projectId={id} query={query} session={session} /> : null}
         {tab === 'settings' ? (
@@ -128,6 +132,17 @@ export default async function ProjectPage({
             currentUserId={session.userId}
             isAdmin={session.isAdmin}
             notifications={await getProjectNotificationSettings(session, id)}
+            campaign={{
+              campaignKind,
+              startsAt: project.startsAt?.toISOString() ?? null,
+              endsAt: project.endsAt?.toISOString() ?? null,
+              registrationsAfterEnd: project.registrationsAfterEnd,
+              linkTtlDays: project.linkTtlDays,
+              ownerUserId: project.ownerUserId ?? null,
+              defaultTemplateId: project.defaultTemplateId ?? null,
+            }}
+            templates={(await listTemplates(session)).map((t) => ({ id: t.id, name: t.name }))}
+            setup={query.setup}
           />
         ) : null}
       </div>
@@ -254,4 +269,11 @@ async function activeAgreement(session: StaffSession, templateId: string | null)
   } catch {
     return null
   }
+}
+
+/** The public address of a public campaign, for the overview's "פתח עמוד". */
+async function publicAddress(session: StaffSession, id: string): Promise<string | null> {
+  const [landing, slug] = await Promise.all([getLandingSettings(session, id), getPublicSlugSettings(session, id)])
+  if (slug.current) return `${publicBaseUrl()}/${slug.current}`
+  return landing.url
 }

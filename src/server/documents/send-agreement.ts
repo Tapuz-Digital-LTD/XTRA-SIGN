@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { AUDIT_EVENTS } from '@/server/audit'
 import { ForbiddenError, type StaffSession } from '@/server/auth/session'
 import { generateToken, hashToken } from '@/server/auth/tokens'
@@ -174,7 +174,7 @@ export async function issueSigningLink(input: {
   if (!recipient) throw new ForbiddenError()
 
   const token = generateToken()
-  const ttlDays = input.ttlDays && input.ttlDays > 0 ? input.ttlDays : SIGNING_LINK_TTL_DAYS
+  const ttlDays = input.ttlDays && input.ttlDays > 0 ? input.ttlDays : await ttlDaysFor(agreement.id)
   const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000)
 
   await db.transaction(async (tx) => {
@@ -353,6 +353,69 @@ async function deliver(input: {
 }
 
 /** Inline styles only: every mail client strips a stylesheet. */
+
+/**
+ * How long a signing link lives: the campaign's setting when the agreement
+ * belongs to one (through a bulk send or a self-service registration), the
+ * system default otherwise.
+ */
+export async function ttlDaysFor(agreementId: string): Promise<number> {
+  const db = getDb()
+  const [viaBatch] = await db
+    .select({ ttl: schema.groups.linkTtlDays })
+    .from(schema.bulkBatchItems)
+    .innerJoin(schema.bulkBatches, eq(schema.bulkBatches.id, schema.bulkBatchItems.batchId))
+    .innerJoin(schema.groups, eq(schema.groups.id, schema.bulkBatches.groupId))
+    .where(eq(schema.bulkBatchItems.agreementId, agreementId))
+    .limit(1)
+  if (viaBatch?.ttl) return viaBatch.ttl
+  const [viaLead] = await db
+    .select({ ttl: schema.groups.linkTtlDays })
+    .from(schema.projectLeads)
+    .innerJoin(schema.groups, eq(schema.groups.id, schema.projectLeads.groupId))
+    .where(eq(schema.projectLeads.agreementId, agreementId))
+    .limit(1)
+  return viaLead?.ttl ?? SIGNING_LINK_TTL_DAYS
+}
+
+/**
+ * Gives an expired (or expiring) link new life: a fresh token, a fresh
+ * lifetime from the campaign, the agreement back to "sent", the invitation
+ * sent again. A deliberate action with its own audit row — reminders and
+ * resends never quietly extend anything.
+ */
+export async function renewSigningLink(input: {
+  session: StaffSession
+  agreementId: string
+  channels: Channel[]
+}): Promise<{ ok: boolean; message?: string; expiresAt?: Date }> {
+  const agreement = await authorizeAgreementAccess(input.session, input.agreementId)
+  if (!['sent', 'viewed', 'expired'].includes(agreement.status)) return { ok: false, message: 'ניתן לחדש קישור רק למסמך שממתין לחתימה או שפג תוקפו.' }
+  const db = getDb()
+  const [recipient] = await db.select().from(schema.recipients).where(eq(schema.recipients.agreementId, agreement.id)).limit(1)
+  if (!recipient) return { ok: false, message: 'לא נמצא חותם.' }
+  const ttlDays = await ttlDaysFor(agreement.id)
+  const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000)
+  const token = generateToken()
+  const [existing] = await db.select().from(schema.signingTokens).where(eq(schema.signingTokens.recipientId, recipient.id)).orderBy(desc(schema.signingTokens.createdAt)).limit(1)
+  await db.transaction(async (tx) => {
+    if (existing) await tx.update(schema.signingTokens).set({ tokenHash: hashToken(token), expiresAt, revokedAt: null }).where(eq(schema.signingTokens.id, existing.id))
+    else await tx.insert(schema.signingTokens).values({ recipientId: recipient.id, tokenHash: hashToken(token), expiresAt })
+    await tx.update(schema.agreements).set({ expiresAt, status: agreement.status === 'expired' ? 'sent' : agreement.status }).where(eq(schema.agreements.id, agreement.id))
+    await tx.insert(schema.auditEvents).values({ agreementId: agreement.id, recipientId: recipient.id, type: AUDIT_EVENTS.LINK_RENEWED, actor: input.session.email, metadata: { previousStatus: agreement.status, ttlDays, channels: input.channels } })
+  })
+  if (input.channels.length > 0) {
+    await deliverSigningLink({
+      agreementId: agreement.id,
+      recipient: { id: recipient.id, name: recipient.name, phone: recipient.phone, email: recipient.email },
+      channels: input.channels,
+      signingUrl: buildSigningUrl(token),
+      documentTitle: agreement.title,
+      actor: input.session.email,
+    })
+  }
+  return { ok: true, expiresAt }
+}
 
 /** Resends the same request on the same link, without creating a new one. */
 export async function resendAgreement(input: {

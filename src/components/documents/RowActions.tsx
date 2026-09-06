@@ -119,7 +119,22 @@ export function RowActions({
               newVersion,
               { label: isAdmin ? 'ארכיון / מחיקה מוגנת' : 'העברה לארכיון', run: () => { setOpen(false); setRemoving(true) } },
             ]
-          : [view, duplicate, newVersion, link, { label: 'העברה לארכיון', run: () => { setOpen(false); setRemoving(true) } }]
+          : [
+              view,
+              status === 'expired'
+                ? {
+                    label: 'חידוש קישור לחתימה',
+                    run: () => {
+                      if (!window.confirm('לחדש את קישור החתימה ולשלוח אותו שוב לחותם?')) return
+                      void call(`/api/documents/${documentId}/renew`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channels: ['sms', 'email'] }) }, () => router.refresh())
+                    },
+                  }
+                : null,
+              duplicate,
+              newVersion,
+              link,
+              { label: 'העברה לארכיון', run: () => { setOpen(false); setRemoving(true) } },
+            ]
 
   const available = actions.filter((a): a is Action => a !== null)
 

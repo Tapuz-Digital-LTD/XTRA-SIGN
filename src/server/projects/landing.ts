@@ -13,6 +13,7 @@ import {
   type FormField,
 } from './form-schema'
 import { selfServiceOf } from './self-service'
+import { registrationsOpen, REGISTRATIONS_CLOSED_MESSAGE } from '@/lib/campaigns'
 
 /**
  * A project's public joining form.
@@ -130,6 +131,8 @@ export type PublicLanding = {
   organizationId: string
   projectName: string
   config: LandingConfig
+  /** False once the campaign ended, unless it asked to stay open. */
+  registrationsOpen: boolean
 }
 
 /** The form as a stranger sees it: published, and without its hidden fields. */
@@ -146,6 +149,7 @@ export async function getPublicLanding(slug: string): Promise<PublicLanding | nu
   if (selfServiceOf(group.landingConfig).enabled) return null
   const config = cleanConfig(group.landingConfig as Partial<LandingConfig> | null, group.name)
   return {
+    registrationsOpen: registrationsOpen(group),
     groupId: group.id,
     organizationId: group.organizationId,
     projectName: group.name,
@@ -174,6 +178,7 @@ export async function submitLead(input: {
 }): Promise<SubmitResult> {
   const landing = await getPublicLanding(input.slug)
   if (!landing) return { ok: false, message: 'הטופס אינו פעיל.' }
+  if (!landing.registrationsOpen) return { ok: false, message: REGISTRATIONS_CLOSED_MESSAGE }
 
   const result = validateSubmission(landing.config.fields, input.values ?? {})
   if (!result.ok) return { ok: false, message: 'חסרים פרטים בטופס.', fields: result.fields }

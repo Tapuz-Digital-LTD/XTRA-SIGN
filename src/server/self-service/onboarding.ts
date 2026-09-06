@@ -22,6 +22,7 @@ import { notify } from '@/server/notifications/notifications'
 import { findSelfServiceProjectByFormId, type SelfServiceProject } from '@/server/projects/self-service'
 import { linkVisitToRegistration, recordCampaignEvent } from '@/server/analytics/campaign-events'
 import { referrerHost, utmFrom } from '@/lib/campaign-events'
+import { REGISTRATIONS_CLOSED_MESSAGE } from '@/lib/campaigns'
 import { brandFor, registrationEmail, renderSubmission } from '@/server/notifications/campaign-mail'
 import { sendOtp } from '@/server/signing/otp'
 import { resolveSigningToken, type SigningContext } from '@/server/signing/session'
@@ -100,6 +101,7 @@ export async function startSelfServiceSigning(input: RegistrationInput): Promise
   const project = await findSelfServiceProjectByFormId(input.formId)
   const skin = skinByKey(project?.config.skin)
   if (!project || !skin) return { ok: false, message: 'ההרשמה אינה פעילה כרגע.' }
+  if (!project.registrationsOpen) return { ok: false, message: REGISTRATIONS_CLOSED_MESSAGE }
 
   const session = systemSession(project, skin)
   const db = getDb()

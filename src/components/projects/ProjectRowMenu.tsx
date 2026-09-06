@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { DeleteDialog } from '@/components/deletion/DeleteDialog'
 import { RowMenu } from '@/components/deletion/RowMenu'
 
-/** The row's quiet corner: open, archive in or out, and delete under the policy. */
+/** The campaign row's quiet corner: open, settings, archive in or out, and delete under the policy. */
 export function ProjectRowMenu({ projectId, archived, isAdmin }: { projectId: string; archived: boolean; isAdmin: boolean }) {
   const router = useRouter()
   const [removing, setRemoving] = useState(false)

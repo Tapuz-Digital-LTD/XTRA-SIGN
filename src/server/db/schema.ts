@@ -424,6 +424,24 @@ export const groups = pgTable(
      * keys mean the defaults: everything on.
      */
     notificationConfig: jsonb('notification_config'),
+    /**
+     * Which kind of campaign this is (the UI word for a group): 'public' has
+     * a page/form, traffic, registrations; 'signature' starts from people
+     * we already have. Both may hold distributions. Additive: existing rows
+     * default to 'signature' and were classified once by what they used.
+     */
+    campaignKind: text('campaign_kind').default('signature').notNull(),
+    startsAt: timestamp('starts_at', { withTimezone: true }),
+    endsAt: timestamp('ends_at', { withTimezone: true }),
+    /** A public campaign past its end date closes registrations unless told otherwise. */
+    registrationsAfterEnd: boolean('registrations_after_end').default(false).notNull(),
+    /** One signing-link lifetime for everything the campaign sends. */
+    linkTtlDays: integer('link_ttl_days').default(30).notNull(),
+    ownerUserId: uuid('owner_user_id').references(() => users.id),
+    /** The agreement a signature campaign sends unless a send says otherwise. */
+    defaultTemplateId: uuid('default_template_id'),
+    /** Campaign-level message templates over the system defaults; missing keys = default. */
+    messageOverrides: jsonb('message_overrides'),
   },
   (t) => [
     index('groups_org_idx').on(t.organizationId),
@@ -586,6 +604,41 @@ export const systemSettings = pgTable('system_settings', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   updatedBy: uuid('updated_by').references(() => users.id),
 })
+
+/**
+ * What was actually sent, as it was sent: subject, body, the variables it
+ * was rendered with, to whom, through which channel and for which event.
+ * A template edited tomorrow does not change yesterday's message.
+ */
+export const messageSends = pgTable(
+  'message_sends',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    groupId: uuid('group_id'),
+    distributionId: uuid('distribution_id'),
+    agreementId: uuid('agreement_id'),
+    channel: text('channel').notNull(),
+    /** invitation | reminder | signed_confirmation | registration_completed | distribution | test */
+    event: text('event').notNull(),
+    recipient: text('recipient').notNull(),
+    subject: text('subject'),
+    body: text('body').notNull(),
+    variables: jsonb('variables'),
+    providerMessageId: text('provider_message_id'),
+    isTest: boolean('is_test').default(false).notNull(),
+    ok: boolean('ok').default(true).notNull(),
+    error: text('error'),
+    sentAt: timestamp('sent_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('message_sends_group_idx').on(t.groupId, t.sentAt),
+    index('message_sends_distribution_idx').on(t.distributionId),
+    index('message_sends_agreement_idx').on(t.agreementId),
+  ],
+)
 
 /** Membership. A company may belong to any number of groups. */
 export const companyGroups = pgTable(

@@ -51,7 +51,6 @@ export function SelfServiceSettings({
   const [enabled, setEnabled] = useState(config.enabled)
   const [templateId, setTemplateId] = useState(config.templateId ?? '')
   const [ownerUserId, setOwnerUserId] = useState(config.ownerUserId ?? currentUserId)
-  const [linkTtlDays, setLinkTtlDays] = useState(String(config.linkTtlDays))
   const [thankYouTitle, setThankYouTitle] = useState(config.thankYouTitle)
   const [thankYouText, setThankYouText] = useState(config.thankYouText)
   const [busy, setBusy] = useState(false)
@@ -70,7 +69,6 @@ export function SelfServiceSettings({
           enabled: overrides.enabled ?? enabled,
           templateId: (overrides.templateId ?? templateId) || null,
           ownerUserId: ownerUserId || null,
-          linkTtlDays: Number(linkTtlDays) || 30,
           thankYouTitle,
           thankYouText,
         }),
@@ -148,17 +146,6 @@ export function SelfServiceSettings({
       </label>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <label className="block text-sm">
-          <span className="text-muted">תוקף קישור החתימה (ימים)</span>
-          <input
-            type="number"
-            min={1}
-            max={90}
-            value={linkTtlDays}
-            onChange={(e) => setLinkTtlDays(e.target.value)}
-            className={inputClass}
-          />
-        </label>
         <label className="block text-sm">
           <span className="text-muted">כותרת עמוד התודה</span>
           <input value={thankYouTitle} onChange={(e) => setThankYouTitle(e.target.value)} className={inputClass} />

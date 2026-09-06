@@ -5,7 +5,7 @@ import { buildWhatsAppShareUrl } from '@/lib/whatsapp-share'
 import { AUDIT_EVENTS } from '@/server/audit'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
-import { buildSigningUrl, mintAdditionalSigningLink, resendAgreement } from '@/server/documents/send-agreement'
+import { buildSigningUrl, mintAdditionalSigningLink, renewSigningLink, resendAgreement } from '@/server/documents/send-agreement'
 import { authorizeGroup } from '@/server/groups/groups'
 import { publicBaseUrl } from '@/server/http/public-url'
 import { brandFor } from '@/server/mail/brand'
@@ -24,7 +24,7 @@ import { formatDuration } from '@/lib/format-duration'
  * fifty, and says who is skipped and why before anything goes out.
  */
 
-export const REGISTRATION_ACTIONS = ['remind', 'resend', 'send_signed_copy'] as const
+export const REGISTRATION_ACTIONS = ['remind', 'resend', 'send_signed_copy', 'renew'] as const
 export type RegistrationAction = (typeof REGISTRATION_ACTIONS)[number]
 
 export function isRegistrationAction(value: unknown): value is RegistrationAction {
@@ -65,6 +65,7 @@ function actionsFor(status: string | null, leadStatus: string): RegistrationActi
   if (leadStatus === 'failed') return []
   if (status === 'sent' || status === 'viewed') return ['remind', 'resend']
   if (status === 'signed') return ['send_signed_copy']
+  if (status === 'expired') return ['renew']
   return []
 }
 
@@ -160,7 +161,7 @@ export type ActionPlan = {
   summary: string
 }
 
-const ACTION_LABELS: Record<RegistrationAction, string> = { remind: 'התזכורת', resend: 'ההודעה', send_signed_copy: 'העותק החתום' }
+const ACTION_LABELS: Record<RegistrationAction, string> = { remind: 'התזכורת', resend: 'ההודעה', send_signed_copy: 'העותק החתום', renew: 'הקישור המחודש' }
 
 export async function planRegistrationActions(session: StaffSession, projectId: string, ids: string[], action: RegistrationAction): Promise<ActionPlan> {
   const group = await authorizeGroup(session, projectId)
@@ -203,6 +204,12 @@ export async function runRegistrationActions(session: StaffSession, projectId: s
         continue
       }
       const chosen = channels.length ? channels : (['sms', 'email'] as const)
+      if (action === 'renew') {
+        const renewed = await renewSigningLink({ session, agreementId: lead.agreementId, channels: [...chosen] })
+        if (renewed.ok) sent.push({ id: row.id })
+        else failed.push({ id: row.id, message: renewed.message ?? 'החידוש נכשל.' })
+        continue
+      }
       const result = await resendAgreement({ session, agreementId: lead.agreementId, channels: [...chosen], kind: action === 'remind' ? 'reminder' : 'resend' })
       if (result.ok) sent.push({ id: row.id })
       else failed.push({ id: row.id, message: result.message ?? 'השליחה נכשלה.' })

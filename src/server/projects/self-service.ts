@@ -6,6 +6,7 @@ import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
 import { authorizeGroup } from '@/server/groups/groups'
 import { currentSlugOf, ensurePublicSlug, resolvePublicSlug } from './public-slug'
+import { registrationsOpen } from '@/lib/campaigns'
 
 /**
  * A project's self-service onboarding settings.
@@ -178,6 +179,8 @@ export type SelfServiceProject = {
   formId: string
   /** The current public address, for the links we mint. */
   publicSlug: string
+  /** False once the campaign ended without asking to stay open. */
+  registrationsOpen: boolean
   notifyEmails: string[]
   config: SelfServiceConfig
   template: { id: string; name: string; sourceFileKey: string; fields: PlacedField[] }
@@ -239,7 +242,8 @@ export async function loadSelfServiceProject(groupId: string): Promise<SelfServi
     .limit(1)
   if (!group?.landingSlug) return null
 
-  const config = selfServiceOf(group.landingConfig)
+  // One link lifetime per campaign: the group's, not a second setting.
+  const config = { ...selfServiceOf(group.landingConfig), linkTtlDays: group.linkTtlDays }
   if (!config.enabled || !config.templateId || !config.ownerUserId) return null
 
   const [template] = await db
@@ -282,6 +286,7 @@ export async function loadSelfServiceProject(groupId: string): Promise<SelfServi
     projectName: group.name,
     formId: group.landingSlug,
     publicSlug,
+    registrationsOpen: registrationsOpen(group),
     notifyEmails: Array.isArray(group.notifyEmails)
       ? (group.notifyEmails as unknown[]).filter((e): e is string => typeof e === 'string')
       : [],
