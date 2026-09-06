@@ -266,6 +266,7 @@ export function JoinAndSign({ mode, projectName, token: initialToken, values: lo
   }
 
   const lockedMode = mode === 'resume'
+  const frozen = step !== 'form' || busy
 
   if (step === 'already') {
     return (
@@ -298,34 +299,38 @@ export function JoinAndSign({ mode, projectName, token: initialToken, values: lo
         }}
         noValidate
       >
-        <fieldset className="tj-card" disabled={step !== 'form' || busy}>
-          <legend className="tj-h2">פרטי בית העסק</legend>
-          <Field id="businessName" values={values} errors={errors} onChange={setField} locked={lockedMode} autoComplete="organization" />
-          <Field id="taxId" values={values} errors={errors} onChange={setField} locked={lockedMode} inputMode="numeric" dir="ltr" placeholder="לדוגמה 515123456" />
-          <Field id="phone" values={values} errors={errors} onChange={setField} locked={lockedMode} type="tel" inputMode="tel" dir="ltr" autoComplete="tel" placeholder="050-1234567" hint="אליו יישלח קוד האימות לחתימה." />
-          <Field id="email" values={values} errors={errors} onChange={setField} locked={lockedMode} type="email" inputMode="email" dir="ltr" autoComplete="email" />
-        </fieldset>
+        <section className="tj-card" aria-labelledby="tj-business-heading">
+          <h2 id="tj-business-heading" className="tj-h2">פרטי בית העסק</h2>
+          <div className="tj-fields">
+            <Field id="businessName" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} autoComplete="organization" />
+            <Field id="taxId" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} inputMode="numeric" dir="ltr" placeholder="לדוגמה 515123456" />
+            <Field id="phone" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} type="tel" inputMode="tel" dir="ltr" autoComplete="tel" placeholder="050-1234567" hint="אליו יישלח קוד האימות לחתימה." />
+            <Field id="email" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} type="email" inputMode="email" dir="ltr" autoComplete="email" />
+          </div>
+        </section>
 
-        <fieldset className="tj-card" disabled={step !== 'form' || busy}>
-          <legend className="tj-h2">מורשה החתימה</legend>
-          <Field id="signatoryName" values={values} errors={errors} onChange={setField} locked={lockedMode} autoComplete="name" />
-          <Field id="signatoryRole" values={values} errors={errors} onChange={setField} locked={lockedMode} placeholder="לדוגמה: בעלים, מנכ״ל" />
-          {lockedMode ? <p className="tj-hint">הפרטים נשמרו בהרשמה. לשינוי פרטים יש להירשם מחדש מעמוד הקול הקורא.</p> : null}
-        </fieldset>
+        <section className="tj-card" aria-labelledby="tj-signatory-heading">
+          <h2 id="tj-signatory-heading" className="tj-h2">מורשה החתימה</h2>
+          <div className="tj-fields">
+            <Field id="signatoryName" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} autoComplete="name" />
+            <Field id="signatoryRole" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} placeholder="לדוגמה: בעלים, מנכ״ל" />
+          </div>
+          {lockedMode ? <p className="tj-hint tj-hint-block">הפרטים נשמרו בהרשמה. לשינוי פרטים יש להירשם מחדש מעמוד הקול הקורא.</p> : null}
+        </section>
 
-        <section className="tj-card tj-card-agreement">
-          <h2 className="tj-h2">ההסכם</h2>
-          <p className="tj-hint">זה נוסח ההסכם שעליו אתם חותמים. פרטי העסק והחתימה ייכנסו לתוכו אוטומטית.</p>
+        <section className="tj-card tj-card-agreement" aria-labelledby="tj-agreement-heading">
+          <h2 id="tj-agreement-heading" className="tj-h2">ההסכם</h2>
+          <p className="tj-hint tj-hint-lead">זה נוסח ההסכם שעליו אתם חותמים. פרטי העסק והחתימה ייכנסו לתוכו אוטומטית.</p>
           <AgreementText />
           <AgreementSystemNote />
         </section>
 
-        <section className="tj-card" ref={signatureRef}>
-          <h2 className="tj-h2">חתימה</h2>
-          <p className="tj-hint">חתימת מורשה/ת החתימה. התאריך יתמלא אוטומטית ביום החתימה.</p>
+        <section className="tj-card" ref={signatureRef} aria-labelledby="tj-signature-heading">
+          <h2 id="tj-signature-heading" className="tj-h2">חתימה</h2>
+          <p className="tj-hint tj-hint-lead">חתימת מורשה/ת החתימה. התאריך יתמלא אוטומטית ביום החתימה.</p>
           <SignaturePad onChange={setSignature} className={step === 'form' ? '' : 'tj-locked'} />
           <label className="tj-consent">
-            <input type="checkbox" checked={consented} onChange={(e) => setConsented(e.target.checked)} disabled={step !== 'form' || busy} />
+            <input type="checkbox" checked={consented} onChange={(e) => setConsented(e.target.checked)} disabled={frozen} />
             <span>{CONSENT_TEXT}</span>
           </label>
         </section>
@@ -345,8 +350,8 @@ export function JoinAndSign({ mode, projectName, token: initialToken, values: lo
         ) : null}
 
         {step === 'form' ? (
-          <div className="tj-sticky">
-            <button type="submit" className="tj-primary" disabled={busy}>
+          <div className="tj-actions">
+            <button type="submit" className="tj-primary tj-primary-main" disabled={busy}>
               {busy ? 'שולח…' : lockedMode ? 'חתימה' : 'חתום ושלח'}
             </button>
           </div>
@@ -409,6 +414,7 @@ function Field({
   errors,
   onChange,
   locked,
+  disabled,
   type = 'text',
   hint,
   ...rest
@@ -418,6 +424,7 @@ function Field({
   errors: Partial<Record<RegistrationField, string>>
   onChange: (field: RegistrationField, value: string) => void
   locked: boolean
+  disabled: boolean
   type?: string
   hint?: string
 } & Pick<React.InputHTMLAttributes<HTMLInputElement>, 'inputMode' | 'dir' | 'autoComplete' | 'placeholder'>) {
@@ -434,6 +441,7 @@ function Field({
         value={values[id]}
         onChange={(e) => onChange(id, e.target.value)}
         readOnly={locked}
+        disabled={disabled}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `tj-${id}-error` : hint ? `tj-${id}-hint` : undefined}
         className={`tj-input${error ? ' tj-input-error' : ''}${locked ? ' tj-input-locked' : ''}`}

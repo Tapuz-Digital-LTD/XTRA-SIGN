@@ -400,22 +400,31 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  min-height: 56px;
-  padding: 0 28px;
+  gap: 14px;
+  min-height: 64px;
+  padding: 0 34px;
   border-radius: 999px;
   background: var(--tl-cyan);
   color: var(--tl-ink);
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 800;
+  letter-spacing: 0.01em;
   text-decoration: none;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(255, 255, 255, 0.14);
-  transition: transform 220ms ease, opacity 220ms ease, filter 180ms ease;
+  /* A pale ring lifts it off the navy; the shadow gives it weight. */
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.55),
+    0 14px 34px rgba(0, 0, 0, 0.45),
+    0 4px 10px rgba(0, 0, 0, 0.25);
+  transition: transform 220ms ease, opacity 220ms ease, filter 180ms ease, box-shadow 180ms ease;
+  animation: tl-breathe 4.2s ease-in-out infinite;
 }
 
 .tl-float:hover {
   filter: brightness(1.06);
-  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.8),
+    0 18px 40px rgba(0, 0, 0, 0.5),
+    0 4px 10px rgba(0, 0, 0, 0.25);
 }
 
 .tl-float:focus-visible {
@@ -424,40 +433,61 @@
 }
 
 .tl-float-arrow {
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1;
 }
 
+/* Hidden while the artwork's own signpost is on screen. The animation stops
+   so an invisible button does not keep repainting. */
 .tl-float-hidden {
   opacity: 0;
   pointer-events: none;
-  transform: translateY(12px);
+  transform: translateY(14px);
+  animation: none;
 }
 
-/* Desktop: bottom-start corner, out of the composition's way. */
+/* A slow, small breath — enough to catch the eye once, never to nag. */
+@keyframes tl-breathe {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-3px) scale(1.03);
+  }
+}
+
+/* Desktop: the bottom-left corner. In this composition the right side is
+   the reading column and the left holds the character's legs — the one
+   place a fixed button covers no words. */
 @media (min-width: 860px) {
   .tl-float {
-    right: 28px;
-    bottom: 28px;
+    left: 40px;
+    bottom: 40px;
   }
 }
 
-/* Phone and tablet: a bar-width pill at the bottom, with room kept for it. */
+/* Phone and tablet: a full-width pill low on the screen, above the home
+   indicator, with the page keeping room so it never covers the end. */
 @media (max-width: 859.98px) {
   .tl-float {
-    left: 16px;
-    right: 16px;
-    bottom: calc(14px + env(safe-area-inset-bottom));
-    min-height: 58px;
+    left: 18px;
+    right: 18px;
+    bottom: calc(24px + env(safe-area-inset-bottom));
+    min-height: 62px;
+    font-size: 20px;
   }
   .tl-page {
-    padding-bottom: calc(86px + env(safe-area-inset-bottom));
+    padding-bottom: calc(120px + env(safe-area-inset-bottom));
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .tl-float {
+    animation: none;
     transition: opacity 150ms linear;
+  }
+  .tl-float-hidden {
     transform: none;
   }
 }

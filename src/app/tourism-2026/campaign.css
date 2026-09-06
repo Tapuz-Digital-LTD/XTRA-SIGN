@@ -4,13 +4,24 @@
  * under a navy header, because a person reads a contract on white.
  */
 
+/*
+ * One spacing system for the joining and thank-you pages:
+ *   --tj-section-gap  between blocks (card → card → button)
+ *   --tj-block-gap    inside a card, heading → content, content → note
+ *   --tj-field-gap    between fields
+ * A breakpoint may change the values; nothing sets its own margin.
+ */
 .tj-page {
+  --tj-section-gap: 24px;
+  --tj-block-gap: 18px;
+  --tj-field-gap: 20px;
+  --tj-card-pad: 22px 20px 24px;
   min-height: 100dvh;
   background: #eef3f8;
   color: var(--tl-ink);
   display: flex;
   flex-direction: column;
-  /* A focused input scrolls into view above the sticky button, not under it. */
+  /* A focused input scrolls into view clear of the bottom of the screen. */
   scroll-padding-bottom: 110px;
 }
 
@@ -46,7 +57,7 @@
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
-  padding: 20px 16px 40px;
+  padding: var(--tj-section-gap) 16px calc(var(--tj-section-gap) * 2);
 }
 
 .tj-footer {
@@ -62,24 +73,27 @@
   background: var(--tl-pink);
 }
 
-.tj-flow {
+.tj-flow,
+.tj-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--tj-section-gap);
 }
 
 .tj-card {
   background: var(--tl-surface);
   border-radius: 18px;
-  padding: 24px 20px;
+  padding: var(--tj-card-pad);
   border: 0;
   margin: 0;
   min-inline-size: 0;
   box-shadow: 0 1px 2px rgba(12, 50, 87, 0.06), 0 8px 24px rgba(12, 50, 87, 0.06);
 }
 
-.tj-card legend {
-  padding: 0;
+.tj-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tj-field-gap);
 }
 
 .tj-center {
@@ -95,9 +109,11 @@
   color: var(--tl-navy);
 }
 
+/* The heading and its accent bar sit inside the card's padding, in flow. */
 .tj-h2 {
-  margin: 0 0 18px;
+  margin: 0 0 var(--tj-block-gap);
   font-size: 19px;
+  line-height: 1.3;
   font-weight: 700;
   color: var(--tl-navy);
   display: flex;
@@ -108,10 +124,20 @@
 .tj-h2::before {
   content: '';
   width: 6px;
-  height: 22px;
+  height: 1.2em;
   border-radius: 3px;
   background: var(--tl-cyan);
   flex: 0 0 auto;
+}
+
+/* A hint right under a heading closes the gap the heading opened, so the
+   heading → hint → content rhythm stays one block gap. */
+.tj-hint-lead {
+  margin: calc(var(--tj-block-gap) * -1 + 6px) 0 var(--tj-block-gap);
+}
+
+.tj-hint-block {
+  margin-top: var(--tj-block-gap);
 }
 
 .tj-lead {
@@ -126,10 +152,6 @@
   font-size: 14px;
   line-height: 1.5;
   color: #5b7590;
-}
-
-.tj-field + .tj-field {
-  margin-top: 20px;
 }
 
 .tj-label {
@@ -263,16 +285,22 @@
   min-width: 260px;
 }
 
-/* The button ends the form, right after the signature: nothing floats over
-   the contract while it is being read. */
-.tj-sticky {
-  padding: 4px 0 calc(8px + env(safe-area-inset-bottom));
+/* The main button ends the form, right after the signature: nothing floats
+   over the contract while it is being read. It gets the same section gap
+   above it as every block, and clear room below. */
+.tj-actions {
+  padding: 0 0 calc(8px + env(safe-area-inset-bottom));
+}
+
+.tj-primary-main {
+  min-height: 60px;
+  font-size: 20px;
 }
 
 /* ── The agreement ─────────────────────────────────────────────────────── */
 
 .tj-agreement {
-  margin-top: 16px;
+  margin-top: 0;
   padding: 22px 20px 12px;
   border-radius: 14px;
   background: #fbfcfe;
@@ -362,7 +390,7 @@
 }
 
 .tj-system-note {
-  margin: 16px auto 0;
+  margin: var(--tj-block-gap) auto 0;
   max-width: 68ch;
   padding: 12px 16px;
   border-radius: 12px;
@@ -377,7 +405,7 @@
 
 .tj-pad-frame {
   position: relative;
-  margin-top: 16px;
+  margin-top: 0;
   border-radius: 14px;
   border: 2px dashed #9fc2dd;
   background: #fff;
@@ -441,13 +469,14 @@
 .tj-consent {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  margin-top: 20px;
-  padding: 14px 16px;
+  gap: 14px;
+  margin-top: var(--tj-block-gap);
+  padding: 16px 18px;
   border-radius: 12px;
   background: #f3f7fb;
-  font-size: 15px;
-  line-height: 1.5;
+  border: 1px solid #e1e9f1;
+  font-size: 15.5px;
+  line-height: 1.55;
   color: #1c3550;
   cursor: pointer;
 }
@@ -455,7 +484,7 @@
 .tj-consent input {
   width: 22px;
   height: 22px;
-  margin-top: 2px;
+  margin: 1px 0 0;
   flex: 0 0 auto;
   accent-color: var(--tl-cyan-deep);
 }
@@ -604,14 +633,20 @@
 }
 
 @media (min-width: 600px) {
-  .tj-content {
-    padding: 32px 24px 64px;
+  .tj-page {
+    --tj-section-gap: 32px;
+    --tj-block-gap: 20px;
+    --tj-field-gap: 22px;
+    --tj-card-pad: 28px 32px 32px;
   }
-  .tj-card {
-    padding: 30px 32px;
+  .tj-content {
+    padding: var(--tj-section-gap) 24px calc(var(--tj-section-gap) * 2);
   }
   .tj-pad-frame {
     height: 260px;
+  }
+  .tj-primary-main {
+    min-width: 360px;
   }
   .tj-h1 {
     font-size: 30px;

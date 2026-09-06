@@ -140,6 +140,7 @@ async function main() {
   const location = hop.headers.get('location')
   check('download route redirects to a signed storage URL', hop.status === 302 && Boolean(location), `${hop.status} ${location ? new URL(location).host : ''}`)
   const file = location ? await fetch(location) : hop
+  void file
   const downloaded = { status: file.status, bytes: Buffer.from(await file.arrayBuffer()) }
   check('download answers 200', downloaded.status === 200, String(downloaded.status))
   const bytes = downloaded.bytes
