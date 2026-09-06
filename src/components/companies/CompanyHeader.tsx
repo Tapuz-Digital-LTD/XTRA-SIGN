@@ -1,5 +1,6 @@
 'use client'
 
+import { DeleteDialog } from '@/components/deletion/DeleteDialog'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { CompanyForm } from '@/components/companies/CompanyForm'
@@ -9,12 +10,26 @@ import type { CompanyRow } from '@/server/companies/companies'
  * A company's identity and the two actions on it — edit and remove. Kept a
  * client island so the rest of the page stays server-rendered.
  */
-export function CompanyHeader({ company, noun, crmAppUrl }: { company: CompanyRow; noun: string; crmAppUrl: string | null }) {
+export function CompanyHeader({
+  company,
+  noun,
+  crmAppUrl,
+  isAdmin,
+  startEditing = false,
+}: {
+  company: CompanyRow
+  noun: string
+  crmAppUrl: string | null
+  isAdmin: boolean
+  /** Opened from a list's "עריכה": the form is already showing. */
+  startEditing?: boolean
+}) {
   const router = useRouter()
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(startEditing)
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const details = [
     company.taxId ? { label: 'ח.פ / ע.מ', value: company.taxId, dir: 'ltr' as const } : null,
@@ -24,24 +39,29 @@ export function CompanyHeader({ company, noun, crmAppUrl }: { company: CompanyRo
     company.address ? { label: 'כתובת', value: company.address } : null,
   ].filter(Boolean) as { label: string; value: string; dir?: 'ltr' }[]
 
-  async function remove() {
+  async function setArchived(archived: boolean) {
     setBusy(true)
     setError(null)
     try {
-      const response = await fetch(`/api/companies/${company.id}`, { method: 'DELETE' })
+      const response = await fetch('/api/deletion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'company', id: company.id, mode: archived ? 'archive' : 'restore' }),
+      })
+      const data = await response.json().catch(() => null)
       if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        setError(data?.error?.message ?? 'המחיקה נכשלה.')
-        setBusy(false)
+        setError(data?.error?.message ?? 'הפעולה נכשלה.')
         return
       }
-      router.push(company.kind === 'supplier' ? '/suppliers' : '/customers')
+      setNotice(data?.message ?? null)
       router.refresh()
     } catch {
-      setError('המחיקה נכשלה. בדקו את החיבור לאינטרנט.')
+      setError('הפעולה נכשלה. בדקו את החיבור לאינטרנט.')
+    } finally {
       setBusy(false)
     }
   }
+
 
   if (editing) {
     return (
@@ -74,6 +94,14 @@ export function CompanyHeader({ company, noun, crmAppUrl }: { company: CompanyRo
             className="min-h-11 rounded-lg border border-line bg-white px-3 text-sm text-fg"
           >
             עריכה
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void setArchived(!company.archivedAt)}
+            className="min-h-11 rounded-lg border border-line bg-white px-3 text-sm text-fg disabled:opacity-50"
+          >
+            {company.archivedAt ? 'החזרה מהארכיון' : 'ארכיון'}
           </button>
           <button
             type="button"
@@ -125,35 +153,34 @@ export function CompanyHeader({ company, noun, crmAppUrl }: { company: CompanyRo
         </div>
       ) : null}
 
-      {confirming ? (
-        <div className="mt-4 rounded-lg border border-danger/30 bg-red-50 p-3">
-          <p className="text-sm text-fg">
-            {`למחוק את ${company.name}? המסמכים שנשלחו יישארו, אך ${noun} יוסר מהרשימה.`}
-          </p>
-          {error ? (
-            <p role="alert" className="mt-2 text-sm text-danger">
-              {error}
-            </p>
-          ) : null}
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              onClick={remove}
-              disabled={busy}
-              className="min-h-11 rounded-lg bg-danger px-4 text-sm font-medium text-white disabled:opacity-50"
-            >
-              {busy ? 'מוחק…' : 'מחיקה'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirming(false)}
-              className="min-h-11 rounded-lg border border-line bg-white px-4 text-sm text-fg"
-            >
-              ביטול
-            </button>
-          </div>
-        </div>
+      {notice ? (
+        <p role="status" className="mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+          {notice}
+        </p>
       ) : null}
+      {error ? (
+        <p role="alert" className="mt-4 text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
+      <DeleteDialog
+        type="company"
+        id={company.id}
+        noun={noun as 'ספק' | 'לקוח'}
+        isAdmin={isAdmin}
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        onDone={(result) => {
+          setConfirming(false)
+          if (result.action === 'request' || result.action === 'archive' || result.action === 'restore') {
+            setNotice(result.message)
+            router.refresh()
+            return
+          }
+          router.push(company.kind === 'supplier' ? '/suppliers' : '/customers')
+          router.refresh()
+        }}
+      />
     </div>
   )
 }

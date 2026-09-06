@@ -27,6 +27,8 @@ export const AUDIT_EVENTS = {
   CANCELED: 'canceled',
   EXPIRED: 'expired',
   REMINDER_SENT: 'reminder_sent',
+  /** An expired or expiring link was deliberately given new life. */
+  LINK_RENEWED: 'link_renewed',
   NEW_VERSION_CREATED: 'new_version_created',
   /** The document's PDF and layout were copied into a template. */
   SAVED_AS_TEMPLATE: 'saved_as_template',
@@ -34,6 +36,10 @@ export const AUDIT_EVENTS = {
   CRM_UPLOADED: 'crm_uploaded',
   /** The document was filed under a supplier or customer. */
   COMPANY_LINKED: 'company_linked',
+  /** Removal family: out of the lists, out of every screen, back again. */
+  ARCHIVED: 'archived',
+  RESTORED: 'restored',
+  REMOVED: 'removed',
 } as const
 
 export type AuditEventType = (typeof AUDIT_EVENTS)[keyof typeof AUDIT_EVENTS]

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { requestLoginCode, verifyLoginCode } from '@/server/auth/login'
 import { CsrfError, assertSameOrigin } from '@/server/http/csrf'
 import { clientIp } from '@/server/log'
+import { CAPTCHA_ACTIONS } from '@/lib/captcha'
+import { verifyCaptcha } from '@/server/security/captcha'
 
 /**
  * Login in two steps: ask for a code, then present it.
@@ -23,6 +25,9 @@ export async function POST(request: Request) {
     const phone = String(body.phone ?? '')
 
     if (body.step === 'request') {
+      // CAPTCHA before the OTP: the SMS is the thing worth abusing.
+      const captcha = await verifyCaptcha({ action: CAPTCHA_ACTIONS.LOGIN_OTP, token: body.captchaToken, ip, userAgent: request.headers.get('user-agent') })
+      if (!captcha.ok) return NextResponse.json({ error: { message: captcha.message } }, { status: 400 })
       const result = await requestLoginCode(phone, { ip })
       return result.ok
         ? NextResponse.json({

@@ -3,28 +3,30 @@ import { notFound, redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { DocumentsTable } from '@/components/documents/DocumentsTable'
 import { GroupWorkspace } from '@/components/groups/GroupWorkspace'
-import { LeadsPanel } from '@/components/projects/LeadsPanel'
 import { ProjectSettings } from '@/components/projects/ProjectSettings'
-import { ReportPanel } from '@/components/reports/ReportPanel'
 import { ForbiddenError, getSession } from '@/server/auth/session'
 import { listBatches } from '@/server/groups/bulk-send'
 import { authorizeGroup, listGroupCompanies } from '@/server/groups/groups'
 import { listDocuments } from '@/server/documents/queries'
 import { listLeads } from '@/server/projects/leads'
 import { getLandingSettings } from '@/server/projects/landing'
-import { agreementReport, parseReportFilters, reportRows, signedOverTime } from '@/server/reports/reports'
-import { listTemplates } from '@/server/templates/templates'
+import { getSelfServiceConfig } from '@/server/projects/self-service'
+import { listUsers } from '@/server/users/users'
+import type { StaffSession } from '@/server/auth/session'
+import { publicBaseUrl } from '@/server/http/public-url'
+import { parseProjectReportFilters, projectReport, registrationCount, registrationRows, type ProjectReport, type RegistrationRow } from '@/server/reports/project-report'
+import { RegistrationsTable } from '@/components/reports/RegistrationsTable'
+import { ProjectReportView, type ProjectReportData } from '@/components/reports/ProjectReportView'
+import { missingRoles } from '@/lib/agreement-roles'
+import { isCampaignKind, kindLabel, LEGACY_TABS, TAB_LABELS, TABS_BY_KIND, type CampaignKind, type CampaignTab } from '@/lib/campaigns'
+import { CampaignOverview } from '@/components/projects/CampaignOverview'
+import { DistributionsTab } from '@/components/projects/DistributionsTab'
+import type { PlacedField } from '@/lib/fields'
+import { getProjectNotificationSettings } from '@/server/projects/notification-settings'
+import { getPublicSlugSettings } from '@/server/projects/public-slug'
+import { authorizeTemplateAccess, listTemplates, templateRoles } from '@/server/templates/templates'
 
-const TABS = ['suppliers', 'leads', 'agreements', 'reports', 'settings'] as const
-type Tab = (typeof TABS)[number]
-
-const TAB_LABELS: Record<Tab, string> = {
-  suppliers: 'ספקים',
-  leads: 'לידים',
-  agreements: 'הסכמים',
-  reports: 'דוחות',
-  settings: 'הגדרות',
-}
+type Tab = CampaignTab
 
 const dateFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -33,14 +35,13 @@ export default async function ProjectPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ tab?: string; q?: string; from?: string; to?: string; status?: string }>
+  searchParams: Promise<{ tab?: string; q?: string; from?: string; to?: string; status?: string; source?: string; range?: string; setup?: string; new?: string }>
 }) {
   const session = await getSession()
   if (!session) redirect('/login')
 
   const { id } = await params
   const query = await searchParams
-  const tab: Tab = (TABS as readonly string[]).includes(query.tab ?? '') ? (query.tab as Tab) : 'suppliers'
 
   let project
   try {
@@ -49,34 +50,43 @@ export default async function ProjectPage({
     if (error instanceof ForbiddenError) notFound()
     throw error
   }
+  const campaignKind: CampaignKind = isCampaignKind(project.campaignKind) ? project.campaignKind : 'signature'
+  const TABS = TABS_BY_KIND[campaignKind]
+  const requested = LEGACY_TABS[query.tab ?? ''] ?? query.tab
+  const tab: Tab = (TABS as readonly string[]).includes(requested ?? '') ? (requested as Tab) : 'overview'
 
   // Every render needs the members (the header counts them) and the lead count
   // (the tab badge); the rest is fetched only for the open tab.
   const [companies, leads] = await Promise.all([
-    listGroupCompanies(session, id, tab === 'suppliers' ? query.q : undefined),
+    listGroupCompanies(session, id, tab === 'audience' ? query.q : undefined),
     listLeads(session, id),
   ])
   const newLeadCount = leads.filter((l) => l.status === 'new').length
 
-  const href = (next: Tab) => `/projects/${id}${next === 'suppliers' ? '' : `?tab=${next}`}`
+  const href = (next: Tab) => `/projects/${id}${next === 'overview' ? '' : `?tab=${next}`}`
 
   return (
     <AppShell>
       <div className="mb-4">
         <Link href="/projects" className="text-sm text-muted underline-offset-4 hover:text-fg hover:underline">
-          → לכל הפרויקטים
+          → לכל הקמפיינים
         </Link>
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-fg">{project.name}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-fg">{project.name}</h1>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${campaignKind === 'public' ? 'bg-violet-50 text-violet-800' : 'bg-blue-50 text-blue-800'}`}>{kindLabel(campaignKind)}</span>
+          {project.archivedAt ? <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">בארכיון</span> : null}
+        </div>
         {/* One quiet line, not a dashboard: how many, how it's going. */}
         <p className="mt-1 text-sm text-muted">
-          {companies.length === 1 ? 'ספק אחד' : `${companies.length} ספקים`}
+          {companies.length === 1 ? 'נמען אחד' : `${companies.length} נמענים`}
           {' · '}
           {companies.filter((c) => c.lastSend?.status === 'signed').length} חתמו
           {' · '}
           {companies.filter((c) => c.lastSend && ['sent', 'viewed'].includes(c.lastSend.status)).length} ממתינים
+          {project.startsAt || project.endsAt ? ` · ${project.startsAt ? dateFormat.format(project.startsAt) : '…'} – ${project.endsAt ? dateFormat.format(project.endsAt) : '…'}` : ''}
         </p>
       </div>
 
@@ -93,7 +103,7 @@ export default async function ProjectPage({
             }`}
           >
             {TAB_LABELS[key]}
-            {key === 'leads' && newLeadCount > 0 ? (
+            {key === 'registrations' && newLeadCount > 0 ? (
               <span className="rounded-full bg-blue-100 px-1.5 text-xs font-medium text-blue-800">{newLeadCount}</span>
             ) : null}
           </Link>
@@ -101,16 +111,38 @@ export default async function ProjectPage({
       </nav>
 
       <div className="mt-5">
-        {tab === 'suppliers' ? <SuppliersTab projectId={id} projectName={project.name} companies={companies} search={query.q ?? ''} session={session} /> : null}
-        {tab === 'leads' ? <LeadsPanel projectId={id} leads={leads} /> : null}
+        {tab === 'overview' ? <CampaignOverview project={{ id, name: project.name, campaignKind, publicUrl: campaignKind === 'public' ? await publicAddress(session, id) : null }} companies={companies} leads={leads} /> : null}
+        {tab === 'audience' ? <SuppliersTab projectId={id} projectName={project.name} companies={companies} search={query.q ?? ''} session={session} /> : null}
+        {tab === 'distributions' ? <DistributionsTab projectId={id} campaignKind={campaignKind} publicUrl={campaignKind === 'public' ? await publicAddress(session, id) : null} isAdmin={session.isAdmin} openNew={query.new === '1'} /> : null}
+        {tab === 'registrations' ? <RegistrationsTab projectId={id} query={query} session={session} audienceNoun={project.kind === 'customer' ? 'לקוח' : 'ספק'} /> : null}
         {tab === 'agreements' ? <AgreementsTab projectId={id} session={session} /> : null}
-        {tab === 'reports' ? <ReportsTab projectId={id} from={query.from} to={query.to} status={query.status} session={session} /> : null}
+        {tab === 'reports' ? <ReportsTab projectId={id} query={query} session={session} /> : null}
         {tab === 'settings' ? (
           <ProjectSettings
             projectId={id}
             projectName={project.name}
             projectDescription={project.description}
             landing={await getLandingSettings(session, id)}
+            selfService={await getSelfServiceConfig(session, id)}
+            publicSlug={await publicSlugView(session, id)}
+            publicBase={publicBaseUrl()}
+            agreement={await activeAgreement(session, (await getSelfServiceConfig(session, id)).templateId)}
+            // Listing users is an admin power; everyone else sees the owner read-only.
+            owners={session.isAdmin ? (await listUsers(session)).filter((u) => !u.disabled).map((u) => ({ id: u.id, name: u.name, email: u.email })) : []}
+            currentUserId={session.userId}
+            isAdmin={session.isAdmin}
+            notifications={await getProjectNotificationSettings(session, id)}
+            campaign={{
+              campaignKind,
+              startsAt: project.startsAt?.toISOString() ?? null,
+              endsAt: project.endsAt?.toISOString() ?? null,
+              registrationsAfterEnd: project.registrationsAfterEnd,
+              linkTtlDays: project.linkTtlDays,
+              ownerUserId: project.ownerUserId ?? null,
+              defaultTemplateId: project.defaultTemplateId ?? null,
+            }}
+            templates={(await listTemplates(session)).map((t) => ({ id: t.id, name: t.name }))}
+            setup={query.setup}
           />
         ) : null}
       </div>
@@ -178,43 +210,124 @@ async function AgreementsTab({
       </p>
     )
   }
-  return <DocumentsTable documents={result.items} now={result.now} />
+  return <DocumentsTable documents={result.items} now={result.now} isAdmin={session.isAdmin} />
 }
 
 async function ReportsTab({
   projectId,
-  from,
-  to,
-  status,
+  query,
   session,
 }: {
   projectId: string
-  from?: string
-  to?: string
-  status?: string
+  query: Record<string, string | undefined>
   session: NonNullable<Awaited<ReturnType<typeof getSession>>>
 }) {
-  const filters = parseReportFilters({ group: projectId, from, to, status })
-  const [kpis, rows, series] = await Promise.all([
-    agreementReport(session, filters),
-    reportRows(session, filters, 100),
-    signedOverTime(session, filters),
-  ])
-  const query = new URLSearchParams({ group: projectId })
-  if (from) query.set('from', from)
-  if (to) query.set('to', to)
-  if (filters.status) query.set('status', filters.status)
+  const filters = parseProjectReportFilters({ from: query.from, to: query.to, status: query.status, source: query.source, range: query.range })
+  const report = await projectReport(session, projectId, filters, 200)
+  const params = new URLSearchParams()
+  for (const key of ['from', 'to', 'status', 'source', 'range'] as const) if (query[key]) params.set(key, query[key]!)
 
   return (
-    <ReportPanel
-      kpis={kpis}
-      rows={rows}
-      rowLimit={100}
-      series={series}
-      action={`/projects/${projectId}`}
-      hidden={{ tab: 'reports' }}
-      values={{ from, to, status }}
-      exportHref={`/api/reports/export?${query}`}
+    <ProjectReportView
+      projectId={projectId}
+      report={serializeReport(report)}
+      values={{ from: query.from, to: query.to, status: query.status, source: query.source, range: query.range }}
+      exportHref={`/api/projects/${projectId}/report/export?${params}`}
     />
   )
+}
+
+/** Dates as ISO strings: the report screen is a client component. */
+function serializeReport(report: ProjectReport): ProjectReportData {
+  return { ...report, trafficSince: report.trafficSince?.toISOString() ?? null, registrations: serializeRows(report.registrations) }
+}
+
+function serializeRows(rows: RegistrationRow[]): ProjectReportData['registrations'] {
+  return rows.map((r) => ({
+    ...r,
+    createdAt: r.createdAt.toISOString(),
+    agreement: r.agreement ? { ...r.agreement, sentAt: r.agreement.sentAt?.toISOString() ?? null, completedAt: r.agreement.completedAt?.toISOString() ?? null } : null,
+  }))
+}
+
+/**
+ * "הרשמות": everyone who came through the public door, at once — the same
+ * table the report uses, with the drawer and the actions. A registration a
+ * person must still approve is one row among them, marked "דורש טיפול";
+ * there is no separate idea of a lead in the campaign's language.
+ */
+async function RegistrationsTab({
+  projectId,
+  query,
+  session,
+  audienceNoun,
+}: {
+  projectId: string
+  query: Record<string, string | undefined>
+  session: StaffSession
+  audienceNoun: 'ספק' | 'לקוח'
+}) {
+  const filters = parseProjectReportFilters({ status: query.status, q: query.q })
+  const [rows, total, attention] = await Promise.all([
+    registrationRows(projectId, filters, 200),
+    registrationCount(projectId, filters),
+    registrationCount(projectId, { status: 'attention' }),
+  ])
+  void session
+  const field = 'min-h-11 rounded-lg border border-line bg-surface px-3 text-sm text-fg outline-none focus:border-brand'
+  return (
+    <div className="flex flex-col gap-4">
+      <form method="get" action={`/projects/${projectId}`} className="flex flex-wrap items-end gap-2">
+        <input type="hidden" name="tab" value="registrations" />
+        <input type="search" name="q" defaultValue={query.q ?? ''} placeholder="חיפוש לפי עסק, איש קשר, ח.פ., טלפון או אימייל" aria-label="חיפוש בהרשמות" className={`${field} min-w-0 flex-1`} />
+        <select name="status" defaultValue={query.status ?? ''} aria-label="סטטוס" className={field}>
+          <option value="">כל ההרשמות</option>
+          {attention > 0 ? <option value="attention">דורש טיפול ({attention})</option> : null}
+          <option value="registered">נרשמו</option>
+          <option value="pending">ממתינים לחתימה</option>
+          <option value="signed">נחתמו</option>
+          <option value="expired">פג תוקף</option>
+          <option value="failed">נכשלו / נדחו</option>
+        </select>
+        <button type="submit" className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg hover:border-brand">
+          הצגה
+        </button>
+      </form>
+      {attention > 0 && query.status !== 'attention' ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          {attention === 1 ? 'הרשמה אחת דורשת טיפול' : `${attention} הרשמות דורשות טיפול`} —{' '}
+          <Link href={`/projects/${projectId}?tab=registrations&status=attention`} className="underline">
+            הצגה
+          </Link>
+        </p>
+      ) : null}
+      <RegistrationsTable rows={serializeRows(rows)} total={total} projectId={projectId} title="הרשמות" audienceNoun={audienceNoun} />
+    </div>
+  )
+}
+
+/** Dates as ISO strings: the settings screen is a client component. */
+async function publicSlugView(session: StaffSession, id: string) {
+  const settings = await getPublicSlugSettings(session, id)
+  return { current: settings.current, history: settings.history.map((h) => ({ slug: h.slug, replacedAt: h.replacedAt?.toISOString() ?? null })) }
+}
+
+/** The bound agreement as the settings card shows it; null when none or gone. */
+async function activeAgreement(session: StaffSession, templateId: string | null) {
+  if (!templateId) return null
+  try {
+    const template = await authorizeTemplateAccess(session, templateId)
+    const fields = Array.isArray(template.fields) ? (template.fields as PlacedField[]) : []
+    const roles = templateRoles(fields)
+    return { id: template.id, name: template.name, fieldCount: fields.length, readyCount: roles.length, missing: missingRoles(roles) }
+  } catch {
+    return null
+  }
+}
+
+/** The public address of a public campaign, for the overview's "פתח עמוד". */
+async function publicAddress(session: StaffSession, id: string): Promise<string | null> {
+  const [landing, slug] = await Promise.all([getLandingSettings(session, id), getPublicSlugSettings(session, id)])
+  if (slug.current) return `${publicBaseUrl()}/${slug.current}`
+  return landing.url
 }

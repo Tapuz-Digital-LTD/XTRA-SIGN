@@ -3,14 +3,16 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import type { AgreementStatus } from '@/lib/status'
+import { DeleteDialog } from '@/components/deletion/DeleteDialog'
 
 /**
  * The lifecycle actions for a document: duplicate, start a new version, cancel.
  * Which appear depends on the status — a signed document cannot be cancelled, a
  * draft has nothing to supersede yet.
  */
-export function DocumentActions({ documentId, status }: { documentId: string; status: AgreementStatus }) {
+export function DocumentActions({ documentId, status, isAdmin = false }: { documentId: string; status: AgreementStatus; isAdmin?: boolean }) {
   const router = useRouter()
+  const [removing, setRemoving] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -74,7 +76,32 @@ export function DocumentActions({ documentId, status }: { documentId: string; st
             ביטול המסמך
           </button>
         ) : null}
+        <button
+          type="button"
+          disabled={busy !== null}
+          onClick={() => setRemoving(true)}
+          className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition-colors hover:bg-slate-50 disabled:opacity-60"
+        >
+          {status === 'draft' ? 'מחיקה' : status === 'signed' ? 'ארכיון' : 'הסרה מהרשימה'}
+        </button>
       </div>
+      <DeleteDialog
+        type="agreement"
+        id={documentId}
+        noun="הסכם"
+        isAdmin={isAdmin}
+        open={removing}
+        onClose={() => setRemoving(false)}
+        onDone={(result) => {
+          setRemoving(false)
+          if (result.action === 'request' || result.action === 'restore') {
+            router.refresh()
+            return
+          }
+          router.push('/agreements')
+          router.refresh()
+        }}
+      />
 
       {error ? (
         <p role="alert" className="text-sm text-danger">

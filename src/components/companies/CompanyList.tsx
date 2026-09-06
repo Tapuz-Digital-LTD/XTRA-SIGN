@@ -1,5 +1,7 @@
 'use client'
 
+import { DeleteDialog } from '@/components/deletion/DeleteDialog'
+import { RowMenu } from '@/components/deletion/RowMenu'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -28,6 +30,8 @@ export function CompanyList({
   groups,
   activeGroup,
   crmEnabled,
+  isAdmin = false,
+  archivedView = false,
 }: {
   companies: CompanyListItem[]
   kind: 'supplier' | 'customer'
@@ -39,8 +43,35 @@ export function CompanyList({
   /** The group currently filtered on, from the URL. */
   activeGroup: string | null
   crmEnabled: boolean
+  isAdmin?: boolean
+  /** The archive instead of the active list. */
+  archivedView?: boolean
 }) {
   const router = useRouter()
+  const [removing, setRemoving] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+
+  async function setArchived(id: string, archived: boolean) {
+    const response = await fetch('/api/deletion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'company', id, mode: archived ? 'archive' : 'restore' }),
+    })
+    const data = await response.json().catch(() => null)
+    setNotice(data?.message ?? data?.error?.message ?? null)
+    router.refresh()
+  }
+
+  const menuFor = (company: CompanyListItem) => (
+    <RowMenu
+      items={[
+        { label: 'פתיחה', onSelect: () => router.push(`/companies/${company.id}`) },
+        { label: 'עריכה', onSelect: () => router.push(`/companies/${company.id}?edit=1`) },
+        { label: archivedView ? 'החזרה מהארכיון' : 'ארכיון', onSelect: () => void setArchived(company.id, !archivedView) },
+        { label: 'מחיקה', danger: true, onSelect: () => setRemoving(company.id) },
+      ]}
+    />
+  )
   const [adding, setAdding] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState(search)
@@ -309,11 +340,14 @@ export function CompanyList({
                       </span>
                     </span>
                   </label>
-                  {company.crmRecordId ? (
-                    <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">CRM</span>
-                  ) : (
-                    <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">XTRA Sign</span>
-                  )}
+                  <div className="flex shrink-0 items-center gap-1">
+                    {company.crmRecordId ? (
+                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">CRM</span>
+                    ) : (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">XTRA Sign</span>
+                    )}
+                    {menuFor(company)}
+                  </div>
                 </div>
                 <div className="mt-2 flex gap-4 text-xs text-muted">
                   {company.taxId ? <span dir="ltr">{company.taxId}</span> : null}
@@ -348,6 +382,7 @@ export function CompanyList({
                   <th className="w-[10%] px-4 py-3 text-start font-medium">מקור</th>
                   <th className="w-[9%] px-3 py-3 text-center font-medium">ממתינים</th>
                   <th className="w-[9%] px-3 py-3 text-center font-medium">נחתמו</th>
+                  <th className="w-12 px-1 py-3"><span className="sr-only">פעולות</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -393,6 +428,7 @@ export function CompanyList({
                         <span className="text-muted">0</span>
                       )}
                     </td>
+                    <td className="px-1 py-2">{menuFor(company)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -400,6 +436,26 @@ export function CompanyList({
           </div>
         </>
       )}
+      {notice ? (
+        <p role="status" className="rounded-lg border border-line bg-surface px-4 py-2 text-sm text-fg">
+          {notice}
+        </p>
+      ) : null}
+      {removing ? (
+        <DeleteDialog
+          type="company"
+          id={removing}
+          noun={noun === 'ספק' ? 'ספק' : 'לקוח'}
+          isAdmin={isAdmin}
+          open
+          onClose={() => setRemoving(null)}
+          onDone={(result) => {
+            setRemoving(null)
+            setNotice(result.message)
+            router.refresh()
+          }}
+        />
+      ) : null}
     </div>
   )
 }

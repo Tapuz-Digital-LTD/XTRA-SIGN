@@ -58,7 +58,7 @@ export default async function HomePage() {
           className="flex min-h-20 items-center justify-center gap-3 rounded-xl border-2 border-line bg-surface px-6 text-lg font-semibold text-fg transition hover:border-brand"
         >
           <FolderPlus aria-hidden="true" className="size-5" />
-          פרויקט חדש
+          קמפיין חדש
         </Link>
       </div>
 

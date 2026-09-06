@@ -3,13 +3,17 @@ import { and, eq, gt, isNull, sql } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
 import { authorizeGroup } from '@/server/groups/groups'
+import { publicBaseUrl } from '@/server/http/public-url'
 import { log } from '@/server/log'
+import { brandFor, registrationEmail, renderSubmission } from '@/server/notifications/campaign-mail'
 import { notify } from '@/server/notifications/notifications'
 import {
   normalizeFields,
   validateSubmission,
   type FormField,
 } from './form-schema'
+import { selfServiceOf } from './self-service'
+import { registrationsOpen, REGISTRATIONS_CLOSED_MESSAGE } from '@/lib/campaigns'
 
 /**
  * A project's public joining form.
@@ -63,8 +67,7 @@ export type LandingSettings = {
 
 function landingUrl(slug: string | null): string | null {
   if (!slug) return null
-  const base = (process.env.SIGN_PUBLIC_URL ?? 'http://localhost:3000').replace(/\/+$/, '')
-  return `${base}/join/${slug}`
+  return `${publicBaseUrl()}/join/${slug}`
 }
 
 export async function getLandingSettings(session: StaffSession, groupId: string): Promise<LandingSettings> {
@@ -92,22 +95,35 @@ export async function saveLandingSettings(
   // site and an API integration must all survive the form being edited.
   const slug = group.landingSlug ?? randomBytes(8).toString('base64url')
   const config = cleanConfig(input.config, group.name)
-  const notifyEmails = (input.notifyEmails ?? [])
-    .map((e) => e.trim().toLowerCase())
-    .filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))
-    .slice(0, 20)
+  // The addresses belong to the notification settings now; the joining
+  // form only touches them when it is explicitly handed some.
+  const notifyEmails = input.notifyEmails
+    ? input.notifyEmails
+        .map((e) => e.trim().toLowerCase())
+        .filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))
+        .slice(0, 20)
+    : undefined
 
+  // The self-service settings share the column and are edited elsewhere;
+  // saving the joining form must not wipe them.
+  const previous = (group.landingConfig && typeof group.landingConfig === 'object' ? group.landingConfig : {}) as Record<string, unknown>
   await db
     .update(schema.groups)
     .set({
       landingEnabled: input.enabled,
       landingSlug: slug,
-      landingConfig: config,
-      notifyEmails,
+      landingConfig: previous.selfService ? { ...config, selfService: previous.selfService } : config,
+      ...(notifyEmails ? { notifyEmails } : {}),
     })
     .where(eq(schema.groups.id, group.id))
 
-  return { enabled: input.enabled, slug, url: landingUrl(slug), config, notifyEmails }
+  return {
+    enabled: input.enabled,
+    slug,
+    url: landingUrl(slug),
+    config,
+    notifyEmails: notifyEmails ?? (Array.isArray(group.notifyEmails) ? (group.notifyEmails as unknown[]).filter((e): e is string => typeof e === 'string') : []),
+  }
 }
 
 export type PublicLanding = {
@@ -115,6 +131,8 @@ export type PublicLanding = {
   organizationId: string
   projectName: string
   config: LandingConfig
+  /** False once the campaign ended, unless it asked to stay open. */
+  registrationsOpen: boolean
 }
 
 /** The form as a stranger sees it: published, and without its hidden fields. */
@@ -126,8 +144,12 @@ export async function getPublicLanding(slug: string): Promise<PublicLanding | nu
     .where(and(eq(schema.groups.landingSlug, slug), eq(schema.groups.landingEnabled, true), isNull(schema.groups.deletedAt)))
     .limit(1)
   if (!group) return null
+  // While self-service onboarding is on, the branded pages are the only door
+  // into this project; the generic form would create leads nobody handles.
+  if (selfServiceOf(group.landingConfig).enabled) return null
   const config = cleanConfig(group.landingConfig as Partial<LandingConfig> | null, group.name)
   return {
+    registrationsOpen: registrationsOpen(group),
     groupId: group.id,
     organizationId: group.organizationId,
     projectName: group.name,
@@ -156,6 +178,7 @@ export async function submitLead(input: {
 }): Promise<SubmitResult> {
   const landing = await getPublicLanding(input.slug)
   if (!landing) return { ok: false, message: 'הטופס אינו פעיל.' }
+  if (!landing.registrationsOpen) return { ok: false, message: REGISTRATIONS_CLOSED_MESSAGE }
 
   const result = validateSubmission(landing.config.fields, input.values ?? {})
   if (!result.ok) return { ok: false, message: 'חסרים פרטים בטופס.', fields: result.fields }
@@ -236,6 +259,16 @@ export async function submitLead(input: {
     title: `ספק חדש השאיר פרטים בפרויקט ${landing.projectName}`,
     body: result.data.name,
     extraEmails,
+    projectId: landing.groupId,
+    email: await registrationEmail({
+      projectId: landing.groupId,
+      projectName: landing.projectName,
+      registeredAt: new Date(),
+      fields: renderSubmission(result.data, landing.config.fields),
+      referrer,
+      link: `/projects/${landing.groupId}?tab=leads`,
+      brand: await brandFor({ organizationId: landing.organizationId }),
+    }),
   })
 
   return { ok: true }

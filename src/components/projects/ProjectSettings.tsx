@@ -1,11 +1,23 @@
 'use client'
 
+import { DeleteDialog } from '@/components/deletion/DeleteDialog'
+import { NotificationSettings } from '@/components/projects/NotificationSettings'
+import { MessagesSettings } from '@/components/projects/MessagesSettings'
+import { CampaignSettings, type CampaignSettingsValue } from '@/components/projects/CampaignSettings'
+import type { ProjectNotificationSettings } from '@/lib/project-notifications'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { FormBuilder } from '@/components/projects/FormBuilder'
 import { PublishPanel } from '@/components/projects/PublishPanel'
+import {
+  SelfServiceSettings,
+  type PublicSlugView,
+  type OwnerOption,
+} from '@/components/projects/SelfServiceSettings'
+import type { ActiveAgreement } from '@/components/projects/AgreementPanel'
 import type { LandingSettings } from '@/server/projects/landing'
 import type { FormField } from '@/server/projects/form-schema'
+import type { SelfServiceConfig } from '@/server/projects/self-service'
 
 /**
  * A project's own settings: the joining form and its builder, where the form
@@ -17,11 +29,34 @@ export function ProjectSettings({
   projectName,
   projectDescription,
   landing,
+  selfService,
+  publicSlug,
+  publicBase,
+  agreement,
+  owners,
+  currentUserId,
+  isAdmin,
+  notifications,
+  campaign,
+  templates,
+  setup,
 }: {
   projectId: string
   projectName: string
   projectDescription: string | null
   landing: LandingSettings
+  selfService: SelfServiceConfig
+  publicSlug: PublicSlugView
+  publicBase: string
+  agreement: ActiveAgreement | null
+  owners: OwnerOption[]
+  currentUserId: string
+  isAdmin: boolean
+  notifications: ProjectNotificationSettings
+  campaign: CampaignSettingsValue
+  templates: { id: string; name: string }[]
+  /** What the wizard asked to finish here, if anything. */
+  setup?: string
 }) {
   const router = useRouter()
   const [name, setName] = useState(projectName)
@@ -32,7 +67,6 @@ export function ProjectSettings({
   const [successMessage, setSuccessMessage] = useState(landing.config.successMessage)
   const [fields, setFields] = useState<FormField[]>(landing.config.fields)
   const [allowedOrigins, setAllowedOrigins] = useState(landing.config.allowedOrigins.join('\n'))
-  const [notifyEmails, setNotifyEmails] = useState(landing.notifyEmails.join('\n'))
   const [url, setUrl] = useState(landing.url)
   const [slug, setSlug] = useState(landing.slug)
   const [busy, setBusy] = useState(false)
@@ -73,10 +107,6 @@ export function ProjectSettings({
               .map((o) => o.trim())
               .filter(Boolean),
           },
-          notifyEmails: notifyEmails
-            .split(/[\n,]/)
-            .map((e) => e.trim())
-            .filter(Boolean),
         }),
       })
       const data = await response.json().catch(() => null)
@@ -96,19 +126,24 @@ export function ProjectSettings({
     }
   }
 
-  async function remove() {
-    if (!window.confirm('למחוק את הפרויקט? הספקים וההסכמים עצמם יישארו במערכת.')) return
-    setBusy(true)
-    try {
-      await fetch(`/api/groups/${projectId}`, { method: 'DELETE' })
-      router.push('/projects')
-    } finally {
-      setBusy(false)
-    }
-  }
+  const [removing, setRemoving] = useState(false)
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
+      {setup ? (
+        <p role="status" className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          {setup === 'self-service'
+            ? 'הקמפיין נוצר. כדי להפעיל הרשמה וחתימה אוטומטית: להגדיר את ההסכם לחתימה ואת הבעלים בכרטיס "הרשמה וחתימה עצמאית" למטה, ולחבר עמוד קמפיין (על ידי צוות הפיתוח) או להשתמש בטופס הציבורי.'
+            : setup === 'embed'
+              ? 'הקמפיין נוצר והטופס הציבורי פעיל. קוד ההטמעה נמצא בכרטיס "טופס ההצטרפות" למטה.'
+              : setup === 'api'
+                ? 'הקמפיין נוצר והטופס הציבורי פעיל. פרטי ה-API להגשת הרשמות נמצאים בכרטיס "טופס ההצטרפות" למטה.'
+                : setup === 'custom-page'
+                  ? 'הקמפיין נוצר. דף קמפיין מותאם אישית אינו נבנה בתוך XTRA Sign — לעיצוב ופיתוח דף ייעודי יש לפנות למפתח, שיחבר אותו לקמפיין הזה.'
+                  : 'הקמפיין נוצר והטופס הציבורי פעיל. הכתובת לשיתוף נמצאת בכרטיס "טופס ההצטרפות" למטה.'}
+        </p>
+      ) : null}
+      <CampaignSettings projectId={projectId} value={campaign} owners={owners} templates={templates} />
       <section className="rounded-[var(--radius-card)] border border-line bg-surface p-5">
         <h2 className="text-base font-semibold text-fg">פרטי הפרויקט</h2>
         <label className="mt-3 block text-sm">
@@ -130,12 +165,23 @@ export function ProjectSettings({
         </label>
       </section>
 
+      <SelfServiceSettings
+        projectId={projectId}
+        config={selfService}
+        publicSlug={publicSlug}
+        publicBase={publicBase}
+        agreement={agreement}
+        owners={owners}
+        currentUserId={currentUserId}
+      />
+
       <section className="rounded-[var(--radius-card)] border border-line bg-surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-fg">טופס הצטרפות לספקים</h2>
             <p className="mt-1 text-sm text-muted">
               דף ציבורי שבו ספק משאיר פרטים. כל פנייה הופכת לליד שממתין לאישור שלכם.
+              {selfService.enabled ? ' כל עוד ההרשמה העצמאית פעילה, הטופס הזה אינו מוצג.' : ''}
             </p>
           </div>
           <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium text-fg">
@@ -232,20 +278,8 @@ export function ProjectSettings({
         </p>
       )}
 
-      <section className="rounded-[var(--radius-card)] border border-line bg-surface p-5">
-        <h2 className="text-base font-semibold text-fg">התראות על לידים חדשים</h2>
-        <p className="mt-1 text-sm text-muted">
-          כתובות שיקבלו אימייל כשספק חדש משאיר פרטים בפרויקט הזה — בנוסף לכתובות שבהגדרות ההתראות הכלליות.
-        </p>
-        <textarea
-          value={notifyEmails}
-          onChange={(e) => setNotifyEmails(e.target.value)}
-          rows={3}
-          dir="ltr"
-          placeholder={'one@example.com\ntwo@example.com'}
-          className="mt-3 w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-fg outline-none focus:border-brand"
-        />
-      </section>
+      <MessagesSettings projectId={projectId} />
+      <NotificationSettings projectId={projectId} settings={notifications} />
 
       {message ? (
         <p
@@ -270,12 +304,29 @@ export function ProjectSettings({
         <button
           type="button"
           disabled={busy}
-          onClick={() => void remove()}
+          onClick={() => setRemoving(true)}
           className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm text-red-700 transition hover:border-red-400 disabled:opacity-50"
         >
           מחיקת הפרויקט
         </button>
       </div>
+      <DeleteDialog
+        type="project"
+        id={projectId}
+        noun="פרויקט"
+        isAdmin={isAdmin}
+        open={removing}
+        onClose={() => setRemoving(false)}
+        onDone={(result) => {
+          setRemoving(false)
+          if (result.action === 'request' || result.action === 'restore') {
+            setMessage({ tone: 'ok', text: result.message })
+            return
+          }
+          router.push('/projects')
+          router.refresh()
+        }}
+      />
     </div>
   )
 }

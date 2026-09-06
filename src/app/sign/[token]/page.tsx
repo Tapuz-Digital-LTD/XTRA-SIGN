@@ -1,5 +1,7 @@
+import { redirect } from 'next/navigation'
 import { SignerFlow } from '@/components/signer/SignerFlow'
 import { AUDIT_EVENTS } from '@/server/audit'
+import { selfServiceOriginOf } from '@/server/self-service/agreement-skin'
 import { getDb, schema } from '@/server/db'
 import { loadFields, loadPageGeometry } from '@/server/documents/save-fields'
 import { hasVerifiedSession, isSignable, resolveSigningToken } from '@/server/signing/session'
@@ -21,6 +23,11 @@ export default async function SignPage({ params }: { params: Promise<{ token: st
   // Unknown, expired and revoked all render the same page — distinguishing them
   // would tell someone guessing tokens which ones exist.
   if (!context) return <LinkUnavailable />
+
+  // A self-service agreement has its own branded pages (ADR 0001); the link
+  // in the campaign's SMS lands here and continues there.
+  const origin = await selfServiceOriginOf(context.agreementId)
+  if (origin) redirect(`/${origin.slug}/sign/${token}`)
 
   const verified = await hasVerifiedSession(context)
 

@@ -84,11 +84,14 @@ function latestVersionOnly() {
 }
 
 function scope(session: StaffSession) {
+  // A record an admin removed under protection is gone from every screen;
+  // an archived one is out of the lists but still opens by its link.
   return session.isAdmin
-    ? eq(schema.agreements.organizationId, session.organizationId)
+    ? and(eq(schema.agreements.organizationId, session.organizationId), isNull(schema.agreements.deletedAt))
     : and(
         eq(schema.agreements.organizationId, session.organizationId),
         eq(schema.agreements.ownerId, session.userId),
+        isNull(schema.agreements.deletedAt),
       )
 }
 
@@ -104,6 +107,8 @@ export async function listDocuments(
     pageSize?: number
     /** Show superseded versions as their own rows. Off by default. */
     includeSuperseded?: boolean
+    /** Archived agreements are hidden unless asked for. */
+    archived?: boolean
   } = {},
 ): Promise<{ items: DocumentListItem[]; total: number; page: number; pageSize: number; now: number }> {
   const db = getDb()
@@ -122,6 +127,7 @@ export async function listDocuments(
   // listing every version separately turns one agreement into four rows that
   // all look alike.
   if (!options.includeSuperseded) conditions.push(latestVersionOnly())
+  conditions.push(options.archived ? isNotNull(schema.agreements.archivedAt) : isNull(schema.agreements.archivedAt))
 
   if (options.companyId) {
     conditions.push(eq(schema.agreements.companyId, options.companyId))

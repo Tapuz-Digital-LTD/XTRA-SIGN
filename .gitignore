@@ -56,3 +56,19 @@ public/pdfjs/
 # ad-hoc debug scripts
 scripts/tmp-*
 .scratch/
+
+# tourism-2026 design workbench — generated comparisons (artwork.jpeg and agreement.pdf are the spec, committed)
+.design/tourism-2026/shot*.png
+.design/tourism-2026/diff*.png
+.design/tourism-2026/blend*.png
+.design/tourism-2026/noscroll-*.png
+.design/tourism-2026/e2e-*.png
+.design/tourism-2026/side-by-side.jpg
+.design/tourism-2026/resp-*.png
+.design/tourism-2026/preview/
+.design/tourism-2026/staff-*.png
+.design/tourism-2026/preview-*.png
+.design/tourism-2026/keyboard-*.png
+.design/tourism-2026/agreement-original.png
+.design/tourism-2026/agreement-digital.png
+.design/tourism-2026/polish/

@@ -39,6 +39,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     signatureDataUrl: body.signature,
     signatureMethod: body.method === 'typed' ? 'typed' : 'drawn',
     consentText: body.consent.slice(0, 500),
+    token,
     ip: request.headers.get('x-forwarded-for'),
     userAgent: request.headers.get('user-agent'),
   })

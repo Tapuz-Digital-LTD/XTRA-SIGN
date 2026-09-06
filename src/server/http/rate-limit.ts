@@ -43,6 +43,7 @@ export const LIMITS = {
   // The public joining form. Per IP: a hall full of suppliers on one office
   // network still fits, a script does not.
   leadSubmit: { limit: 10, windowMs: 15 * 60_000 },
+  campaignEvent: { limit: 120, windowMs: 60_000 },
 } as const satisfies Record<string, LimitRule>
 
 export type LimitName = keyof typeof LIMITS

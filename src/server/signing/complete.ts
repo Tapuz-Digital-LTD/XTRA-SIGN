@@ -1,9 +1,17 @@
 import { eq } from 'drizzle-orm'
 import { AUDIT_EVENTS } from '@/server/audit'
 import { getDb, schema } from '@/server/db'
+import { log } from '@/server/log'
 import { buildStorageKey, sha256 } from '@/server/documents/file-validation'
+import { publicBaseUrl } from '@/server/http/public-url'
 import { InforuEmailProvider } from '@/server/notifications/inforu'
 import { notify } from '@/server/notifications/notifications'
+import { originFromSnapshot } from '@/server/self-service/agreement-skin'
+import { brandFor, signedTeamEmail, signerConfirmationEmail } from '@/server/notifications/campaign-mail'
+import { campaignFor } from '@/server/documents/send-agreement'
+import { cleanOverrides } from '@/lib/message-template'
+import { projectNotificationSettings } from '@/server/projects/notification-settings'
+import { mintAdditionalSigningLink } from '@/server/documents/send-agreement'
 import { getStorage } from '@/server/storage/blob'
 import { buildSignedPdf } from './pdf'
 import type { SigningContext } from './session'
@@ -26,6 +34,12 @@ export async function completeSigning(input: {
   signatureDataUrl: string
   signatureMethod: 'drawn' | 'typed'
   consentText: string
+  /**
+   * The raw signing token the signer arrived with, when the caller has it.
+   * Only ever used to build the link in the signer's own copy email — the
+   * link they already hold, pointing where their copy is.
+   */
+  token?: string | null
   ip?: string | null
   userAgent?: string | null
 }): Promise<CompleteResult> {
@@ -163,7 +177,7 @@ export async function completeSigning(input: {
 
   // Notifications last, and never inside the transaction: a mail failure must
   // not roll back a completed signature.
-  await notifyAfterSigning(input.context, signedPdf).catch(() => {})
+  await notifyAfterSigning(input.context, input.token ?? null).catch(() => {})
 
   // Nothing is pushed to the CRM here: uploading the signed PDF to Fireberry
   // is a button the user presses, never an automatic side effect of a signature.
@@ -171,67 +185,166 @@ export async function completeSigning(input: {
 }
 
 /**
- * Copy to the signer, notice to the owner.
+ * Copy to the signer, notice to the people who asked to hear.
  *
  * Failures here are swallowed on purpose — the signature is already final, and
  * the audit trail records what was attempted.
  */
-async function notifyAfterSigning(context: SigningContext, signedPdf: Buffer): Promise<void> {
+async function notifyAfterSigning(context: SigningContext, token: string | null): Promise<void> {
   const db = getDb()
   const email = new InforuEmailProvider()
+  const base = publicBaseUrl()
 
-  const [owner] = await db
+  const [row] = await db
     .select({
-      email: schema.users.email,
-      name: schema.users.name,
+      ownerEmail: schema.users.email,
+      ownerName: schema.users.name,
       organizationId: schema.agreements.organizationId,
+      organizationName: schema.organizations.name,
+      companyId: schema.companies.id,
       companyName: schema.companies.name,
+      companyTaxId: schema.companies.taxId,
+      completedAt: schema.agreements.completedAt,
+      mergeSnapshot: schema.agreements.mergeSnapshot,
     })
     .from(schema.agreements)
     .innerJoin(schema.users, eq(schema.users.id, schema.agreements.ownerId))
+    .innerJoin(schema.organizations, eq(schema.organizations.id, schema.agreements.organizationId))
     .leftJoin(schema.companies, eq(schema.companies.id, schema.agreements.companyId))
     .where(eq(schema.agreements.id, context.agreementId))
     .limit(1)
+  if (!row) return
+  const signedAt = row.completedAt ?? new Date()
 
-  // In-app first: it is the one channel that does not depend on a third party
-  // being reachable, and it is what the badge counts.
-  if (owner?.organizationId) {
-    await notify({
-      organizationId: owner.organizationId,
-      type: 'signed',
-      agreementId: context.agreementId,
-      title: `${context.recipientName} חתם על "${context.title}"`,
-      body: owner.companyName,
+  // A self-service agreement belongs to a campaign: its project's addresses
+  // hear about the signature, its settings shape the signer's confirmation,
+  // and its colours dress the mail.
+  const origin = originFromSnapshot(row.mergeSnapshot)
+  const project = origin
+    ? (
+        await db
+          .select({ id: schema.groups.id, name: schema.groups.name, notifyEmails: schema.groups.notifyEmails })
+          .from(schema.groups)
+          .where(eq(schema.groups.id, origin.projectId))
+          .limit(1)
+      )[0]
+    : null
+  const extraEmails = Array.isArray(project?.notifyEmails)
+    ? (project!.notifyEmails as unknown[]).filter((e): e is string => typeof e === 'string')
+    : []
+  const settings = project ? await projectNotificationSettings(project.id) : null
+  const brand = await brandFor({ organizationId: row.organizationId, skin: origin?.skin.key ?? null })
+
+  // The team: in-app first — the one channel that does not depend on a third
+  // party — then the full email to whoever asked to hear.
+  const teamMail = await signedTeamEmail({
+    projectName: project?.name ?? null,
+    documentName: context.title,
+    agreementId: context.agreementId,
+    companyId: row.companyId,
+    companyName: row.companyName,
+    taxId: row.companyTaxId,
+    signerName: context.recipientName,
+    signedAt,
+    brand,
+  })
+  await notify({
+    organizationId: row.organizationId,
+    type: 'signed',
+    agreementId: context.agreementId,
+    title: `${context.recipientName} חתם על "${context.title}"`,
+    body: row.companyName,
+    extraEmails,
+    projectId: project?.id ?? null,
+    email: teamMail,
+  })
+
+  // The signer's own confirmation: generic words, a button scoped to this
+  // one document, the campaign's colours. Off only when the project says so.
+  const signerCopy = settings?.signerCopy ?? { enabled: true, replyTo: null, senderName: null, note: null, attachPdf: false }
+  if (context.recipientEmail && signerCopy.enabled) {
+    const downloadToken = token ?? (await mintAdditionalSigningLink(context.recipientId, new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))).token
+    const mail = await signerConfirmationEmail({
+      vars: {
+        document_name: context.title,
+        signer_name: context.recipientName,
+        signed_document_link: `${base}/api/sign/${downloadToken}/download`,
+        organization_name: row.organizationName,
+        signed_at: formatSigningDate(signedAt),
+        company_name: row.companyName,
+        campaign_name: project?.name ?? null,
+        email: context.recipientEmail,
+        phone: context.recipientPhone,
+      },
+      brand,
+      note: signerCopy.note,
+      template: project ? cleanOverrides((await campaignFor(context.agreementId))?.messageOverrides).signed_confirmation : null,
     })
-  }
-
-  if (context.recipientEmail) {
-    await email.send({
+    let attachments: { name: string; contentType: string; data: Buffer }[] | undefined
+    if (signerCopy.attachPdf) {
+      const [version] = await db
+        .select({ signedFileKey: schema.agreementVersions.signedFileKey })
+        .from(schema.agreementVersions)
+        .where(eq(schema.agreementVersions.id, context.versionId))
+        .limit(1)
+      if (version?.signedFileKey) {
+        attachments = [{ name: `${context.title}.pdf`, contentType: 'application/pdf', data: await getStorage().get(version.signedFileKey) }].filter((a) => a.data.length > 0)
+      }
+    }
+    const result = await email.send({
       to: context.recipientEmail,
-      subject: `המסמך "${context.title}" נחתם`,
-      text: `המסמך נחתם בהצלחה. ניתן להוריד עותק מהקישור שנשלח אליך.`,
+      subject: mail.subject,
+      text: mail.text,
+      html: mail.html,
       recipientName: context.recipientName,
+      replyTo: signerCopy.replyTo ?? undefined,
+      fromName: signerCopy.senderName ?? undefined,
+      attachments,
+    })
+    try {
+      await db.insert(schema.messageSends).values({
+        organizationId: row.organizationId,
+        groupId: project?.id ?? null,
+        agreementId: context.agreementId,
+        channel: 'email',
+        event: 'signed_confirmation',
+        recipient: context.recipientEmail,
+        subject: mail.subject,
+        body: mail.text,
+        variables: { signer_name: context.recipientName, document_name: context.title, campaign_name: project?.name ?? null },
+        providerMessageId: result.providerMessageId,
+        ok: result.ok,
+        error: result.ok ? null : result.error,
+      })
+    } catch (error) {
+      log.warn('message snapshot failed', { agreementId: context.agreementId, error: String(error) })
+    }
+    // Recorded, so a thank-you page can say "a copy was emailed" only when
+    // one actually was — and a failure is visible, never fatal.
+    await db.insert(schema.auditEvents).values({
+      agreementId: context.agreementId,
+      recipientId: context.recipientId,
+      type: result.ok ? AUDIT_EVENTS.EMAIL_SENT : AUDIT_EVENTS.EMAIL_FAILED,
+      actor: 'system',
+      metadata: { purpose: 'signed_copy', ...(result.ok ? {} : { error: result.error }) },
     })
   }
 
-  if (owner?.email) {
-    const base = (process.env.SIGN_PUBLIC_URL ?? '').replace(/\/+$/, '')
-    await email.send({
-      to: owner.email,
-      subject: 'המסמך נחתם',
-      text: `${context.recipientName} חתם על "${context.title}". צפייה במסמך: ${base}/documents/${context.agreementId}`,
-      recipientName: owner.name,
-    })
+  // The owner's personal note is for documents a person sent. A campaign's
+  // people are on the notification settings above.
+  if (!origin && row.ownerEmail) {
+    await email.send({ to: row.ownerEmail, subject: teamMail.subject, text: teamMail.text, html: teamMail.html, recipientName: row.ownerName })
   }
-
-  void signedPdf
 }
 
-/** dd/mm/yyyy in the local Israel calendar sense — the date a person would write. */
+/** dd/mm/yyyy on the Israel calendar — the date a person here would write. */
 function formatSigningDate(date: Date): string {
-  const d = String(date.getUTCDate()).padStart(2, '0')
-  const m = String(date.getUTCMonth() + 1).padStart(2, '0')
-  return `${d}/${m}/${date.getUTCFullYear()}`
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'Asia/Jerusalem',
+  }).format(date)
 }
 
 /**

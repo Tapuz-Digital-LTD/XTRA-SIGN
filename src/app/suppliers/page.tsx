@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { CompanyList } from '@/components/companies/CompanyList'
@@ -10,14 +11,15 @@ import { listGroups } from '@/server/groups/groups'
 export default async function SuppliersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; group?: string }>
+  searchParams: Promise<{ q?: string; group?: string; view?: string }>
 }) {
   const session = await getSession()
   if (!session) redirect('/login')
-  const { q, group } = await searchParams
+  const { q, group, view } = await searchParams
+  const archived = view === 'archive'
 
   const [companies, groups] = await Promise.all([
-    listCompanies(session, 'supplier', q, group),
+    listCompanies(session, 'supplier', q, group, archived),
     listGroups(session, 'supplier'),
   ])
 
@@ -28,8 +30,13 @@ export default async function SuppliersPage({
         כל ספק במקום אחד — הפרטים שלו וכל המסמכים שנשלחו אליו לחתימה.
       </p>
       <CompanyTabs base="/suppliers" active="list" listLabel="ספקים" />
+      <div className="mt-3 flex justify-end">
+        <Link href={archived ? '/suppliers' : '/suppliers?view=archive'} className="text-xs text-muted hover:text-fg hover:underline">
+          {archived ? '← חזרה לרשימה הפעילה' : 'ארכיון'}
+        </Link>
+      </div>
       <div className="mt-5">
-        <CompanyList companies={companies} kind="supplier" search={q ?? ''} groups={groups} activeGroup={group ?? null} noun="ספק" crmEnabled={getCrmProvider().isConfigured()} />
+        <CompanyList companies={companies} kind="supplier" search={q ?? ''} groups={groups} activeGroup={group ?? null} noun="ספק" crmEnabled={getCrmProvider().isConfigured()} isAdmin={session.isAdmin} archivedView={archived} />
       </div>
     </AppShell>
   )

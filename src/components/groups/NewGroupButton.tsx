@@ -6,7 +6,7 @@ import { useState } from 'react'
 /** Creates a project, optionally seeded from a selection elsewhere. */
 export function NewGroupButton({
   companyIds,
-  label = '+ פרויקט חדש',
+  label = '+ קמפיין חדש',
   /** Preselected when the button sits on a suppliers or customers screen. */
   defaultKind = null,
   /** Opens the dialog on mount — for the home screen's "new project" action. */
@@ -63,16 +63,16 @@ export function NewGroupButton({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
       <form onSubmit={submit} className="w-full max-w-md rounded-t-2xl bg-surface p-5 sm:rounded-2xl">
-        <h2 className="text-base font-semibold text-fg">פרויקט חדש</h2>
+        <h2 className="text-base font-semibold text-fg">קמפיין חתימות חדש</h2>
         {companyIds?.length ? (
           <p className="mt-1 text-sm text-muted">
-            {companyIds.length === 1 ? 'חברה אחת תיכלל' : `${companyIds.length} חברות ייכללו`} בפרויקט.
+            {companyIds.length === 1 ? 'חברה אחת תיכלל' : `${companyIds.length} חברות ייכללו`} בקמפיין.
           </p>
         ) : null}
 
         <label className="mt-4 block text-sm">
           <span className="text-muted">
-            שם הפרויקט <span className="text-red-700">*</span>
+            שם הקמפיין <span className="text-red-700">*</span>
           </span>
           <input
             value={name}
@@ -84,7 +84,7 @@ export function NewGroupButton({
           />
         </label>
         <fieldset className="mt-4">
-          <legend className="text-sm text-muted">הפרויקט מיועד ל־</legend>
+          <legend className="text-sm text-muted">הקמפיין מיועד ל־</legend>
           {/* Suppliers and customers get different agreements, so a group holds
               one or the other and the send screens stay uncluttered. */}
           <div className="mt-1 grid grid-cols-2 gap-2">

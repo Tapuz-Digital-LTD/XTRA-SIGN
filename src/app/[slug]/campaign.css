@@ -1,0 +1,652 @@
+/*
+ * Pages 2 and 3 of the campaign: joining + signing, and thank-you.
+ * Same tokens as tourism.css (defined on .tl-root); a light reading surface
+ * under a navy header, because a person reads a contract on white.
+ */
+
+/*
+ * One spacing system for the joining and thank-you pages:
+ *   --tj-section-gap  between blocks (card → card → button)
+ *   --tj-block-gap    inside a card, heading → content, content → note
+ *   --tj-field-gap    between fields
+ * A breakpoint may change the values; nothing sets its own margin.
+ */
+.tj-page {
+  --tj-section-gap: 24px;
+  --tj-block-gap: 18px;
+  --tj-field-gap: 20px;
+  --tj-card-pad: 22px 20px 24px;
+  min-height: 100dvh;
+  background: #eef3f8;
+  color: var(--tl-ink);
+  display: flex;
+  flex-direction: column;
+  /* A focused input scrolls into view clear of the bottom of the screen. */
+  scroll-padding-bottom: 110px;
+}
+
+.tj-input,
+.tj-code,
+.tj-pad-frame {
+  scroll-margin-bottom: 110px;
+}
+
+.tj-header {
+  background: var(--tl-navy);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  padding-top: max(14px, env(safe-area-inset-top));
+}
+
+.tj-header-logo img {
+  width: 150px;
+}
+
+.tj-header-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--tl-text-soft);
+}
+
+.tj-content {
+  flex: 1;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--tj-section-gap) 16px calc(var(--tj-section-gap) * 2);
+}
+
+.tj-footer {
+  height: 18px;
+  background: var(--tl-navy);
+  position: relative;
+  overflow: hidden;
+}
+
+.tj-footer-band {
+  position: absolute;
+  inset: 8px 0 0;
+  background: var(--tl-pink);
+}
+
+.tj-flow,
+.tj-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tj-section-gap);
+}
+
+.tj-card {
+  background: var(--tl-surface);
+  border-radius: 18px;
+  padding: var(--tj-card-pad);
+  border: 0;
+  margin: 0;
+  min-inline-size: 0;
+  box-shadow: 0 1px 2px rgba(12, 50, 87, 0.06), 0 8px 24px rgba(12, 50, 87, 0.06);
+}
+
+.tj-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tj-field-gap);
+}
+
+.tj-center {
+  text-align: center;
+}
+
+.tj-h1 {
+  margin: 0;
+  font-size: clamp(23px, 6vw, 30px);
+  overflow-wrap: anywhere;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--tl-navy);
+}
+
+/* The heading and its accent bar sit inside the card's padding, in flow. */
+.tj-h2 {
+  margin: 0 0 var(--tj-block-gap);
+  font-size: 19px;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--tl-navy);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tj-h2::before {
+  content: '';
+  width: 6px;
+  height: 1.2em;
+  border-radius: 3px;
+  background: var(--tl-cyan);
+  flex: 0 0 auto;
+}
+
+/* A hint right under a heading closes the gap the heading opened, so the
+   heading → hint → content rhythm stays one block gap. */
+.tj-hint-lead {
+  margin: calc(var(--tj-block-gap) * -1 + 6px) 0 var(--tj-block-gap);
+}
+
+.tj-hint-block {
+  margin-top: var(--tj-block-gap);
+}
+
+.tj-lead {
+  margin: 8px 0 0;
+  font-size: 17px;
+  line-height: 1.55;
+  color: #2b4a68;
+}
+
+.tj-hint {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #5b7590;
+}
+
+.tj-label {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--tl-navy);
+  margin-bottom: 8px;
+}
+
+.tj-input {
+  display: block;
+  width: 100%;
+  min-height: 50px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--tl-line);
+  background: #fff;
+  color: var(--tl-ink);
+  font: inherit;
+  font-size: 17px;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.tj-input:focus-visible {
+  border-color: var(--tl-cyan);
+  box-shadow: 0 0 0 4px rgba(69, 178, 237, 0.25);
+}
+
+.tj-input[dir='ltr'] {
+  text-align: left;
+}
+
+.tj-input-error {
+  border-color: var(--tl-error);
+}
+
+.tj-input-locked {
+  background: #f3f6fa;
+  color: #34506b;
+}
+
+.tj-error {
+  margin: 8px 0 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--tl-error);
+}
+
+.tj-alert {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #fff1f4;
+  border: 1px solid #f5c2d0;
+  color: #9b1c3a;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.tj-devcode {
+  margin: 10px 0 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fff7e0;
+  border: 1px dashed #e4c05a;
+  color: #6b4d00;
+  font-size: 14px;
+}
+
+.tj-primary,
+.tj-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 24px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 19px;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 150ms ease, filter 150ms ease, opacity 150ms ease;
+}
+
+.tj-primary {
+  background: var(--tl-cyan);
+  color: var(--tl-navy);
+  border: 0;
+  box-shadow: 0 8px 20px rgba(69, 178, 237, 0.35);
+}
+
+.tj-primary:hover {
+  filter: brightness(1.05);
+}
+
+.tj-primary:active {
+  transform: translateY(1px);
+}
+
+.tj-primary:disabled,
+.tj-secondary:disabled {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
+}
+
+.tj-secondary {
+  background: transparent;
+  color: var(--tl-navy);
+  border: 1.5px solid var(--tl-line);
+  font-weight: 600;
+  font-size: 16px;
+  margin-top: 10px;
+}
+
+.tj-primary:focus-visible,
+.tj-secondary:focus-visible,
+.tj-pad-clear:focus-visible,
+.tj-header-logo:focus-visible {
+  outline: 3px solid var(--tl-navy);
+  outline-offset: 3px;
+}
+
+.tj-inline-link {
+  margin-top: 20px;
+  width: auto;
+  min-width: 260px;
+}
+
+/* The main button ends the form, right after the signature: nothing floats
+   over the contract while it is being read. It gets the same section gap
+   above it as every block, and clear room below. */
+.tj-actions {
+  padding: 0 0 calc(8px + env(safe-area-inset-bottom));
+}
+
+.tj-primary-main {
+  min-height: 60px;
+  font-size: 20px;
+}
+
+/* ── The agreement ─────────────────────────────────────────────────────── */
+
+.tj-agreement {
+  margin-top: 0;
+  padding: 22px 20px 12px;
+  border-radius: 14px;
+  background: #fbfcfe;
+  border: 1px solid var(--tl-line);
+  font-size: 16.5px;
+  line-height: 1.75;
+  color: #1c3550;
+  max-width: 68ch;
+  margin-inline: auto;
+}
+
+.tj-agreement-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--tl-navy);
+  text-align: center;
+}
+
+.tj-agreement-subtitle {
+  margin: 4px 0 16px;
+  text-align: center;
+  font-weight: 600;
+  color: var(--tl-cyan-deep);
+}
+
+.tj-agreement h3 {
+  margin: 24px 0 10px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--tl-navy);
+  padding-inline-start: 10px;
+  border-inline-start: 4px solid var(--tl-cyan);
+}
+
+.tj-agreement p {
+  margin: 0 0 12px;
+}
+
+.tj-agreement ul {
+  margin: 0 0 12px;
+  padding-inline-start: 22px;
+}
+
+.tj-agreement li {
+  margin: 0 0 8px;
+}
+
+.tj-agreement li::marker {
+  color: var(--tl-cyan);
+}
+
+.tj-coupon {
+  display: inline-block;
+  padding: 2px 12px;
+  border-radius: 8px;
+  background: #ffe6f1;
+  color: #c2185b;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.tj-declarations {
+  list-style: none;
+  padding-inline-start: 0 !important;
+}
+
+.tj-declarations li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.tj-check {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin-top: 3px;
+  border-radius: 5px;
+  background: #e7f6ee;
+  color: var(--tl-ok);
+  font-weight: 800;
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tj-system-note {
+  margin: var(--tj-block-gap) auto 0;
+  max-width: 68ch;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #eaf6fd;
+  border: 1px solid #bfe0f5;
+  color: #1c3550;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+/* ── Signature ─────────────────────────────────────────────────────────── */
+
+.tj-pad-frame {
+  position: relative;
+  margin-top: 0;
+  border-radius: 14px;
+  border: 2px dashed #9fc2dd;
+  background: #fff;
+  height: clamp(200px, 30dvh, 240px);
+  overflow: hidden;
+}
+
+.tj-pad {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.tj-pad-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9db2c6;
+  font-size: 16px;
+  pointer-events: none;
+}
+
+.tj-pad-line {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 44px;
+  border-bottom: 1px solid #cfdceb;
+  pointer-events: none;
+}
+
+.tj-pad-clear {
+  margin-top: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1.5px solid var(--tl-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--tl-navy);
+  font-weight: 600;
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.tj-pad-clear:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.tj-locked {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.tj-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-top: var(--tj-block-gap);
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: #f3f7fb;
+  border: 1px solid #e1e9f1;
+  font-size: 15.5px;
+  line-height: 1.55;
+  color: #1c3550;
+  cursor: pointer;
+}
+
+.tj-consent input {
+  width: 22px;
+  height: 22px;
+  margin: 1px 0 0;
+  flex: 0 0 auto;
+  accent-color: var(--tl-cyan-deep);
+}
+
+/* Visually gone without leaving the layout (an off-screen offset in RTL
+   widens the scrollable area). */
+.tj-honeypot {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── OTP ───────────────────────────────────────────────────────────────── */
+
+.tj-otp {
+  border: 2px solid var(--tl-cyan);
+  scroll-margin-top: 16px;
+}
+
+.tj-code {
+  /* The shared six-box input sits here; only the spacing is the campaign's. */
+  display: block;
+  margin: 8px 0 14px;
+}
+
+.tj-code:focus-visible {
+  border-color: var(--tl-cyan);
+  box-shadow: 0 0 0 4px rgba(69, 178, 237, 0.25);
+}
+
+.tj-otp .tj-alert {
+  margin-bottom: 12px;
+}
+
+/* ── Thank-you ─────────────────────────────────────────────────────────── */
+
+.tj-thanks {
+  position: relative;
+  overflow: hidden;
+  padding-top: 32px;
+}
+
+.tj-big-check,
+.tj-big-info {
+  margin: 0 0 8px;
+  font-size: 44px;
+  color: var(--tl-cyan-deep);
+  line-height: 1;
+}
+
+.tj-thanks-note {
+  margin-top: 18px;
+}
+
+.tj-checkmark {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 16px;
+  display: block;
+}
+
+.tj-checkmark-circle {
+  fill: none;
+  stroke: var(--tl-cyan);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-dasharray: 330;
+  stroke-dashoffset: 330;
+  animation: tj-draw 700ms ease-out forwards;
+}
+
+.tj-checkmark-path {
+  fill: none;
+  stroke: var(--tl-navy);
+  stroke-width: 9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 80;
+  stroke-dashoffset: 80;
+  animation: tj-draw 450ms ease-out 550ms forwards;
+}
+
+@keyframes tj-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.tj-confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.tj-confetti span {
+  position: absolute;
+  top: -20px;
+  opacity: 0;
+  animation-name: tj-fall;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+}
+
+@keyframes tj-fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(420px) rotate(540deg);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tj-checkmark-circle,
+  .tj-checkmark-path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .tj-confetti {
+    display: none;
+  }
+  .tj-primary,
+  .tj-secondary,
+  .tj-input {
+    transition: none;
+  }
+}
+
+@media (min-width: 600px) {
+  .tj-page {
+    --tj-section-gap: 32px;
+    --tj-block-gap: 20px;
+    --tj-field-gap: 22px;
+    --tj-card-pad: 28px 32px 32px;
+  }
+  .tj-content {
+    padding: var(--tj-section-gap) 24px calc(var(--tj-section-gap) * 2);
+  }
+  .tj-pad-frame {
+    height: 260px;
+  }
+  .tj-primary-main {
+    min-width: 360px;
+  }
+  .tj-h1 {
+    font-size: 30px;
+  }
+  .tj-primary {
+    width: auto;
+    min-width: 320px;
+  }
+  .tj-sticky .tj-primary {
+    display: flex;
+    margin: 0 auto;
+  }
+}

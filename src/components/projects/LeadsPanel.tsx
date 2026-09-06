@@ -1,5 +1,6 @@
 'use client'
 
+import { DeleteDialog } from '@/components/deletion/DeleteDialog'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -38,6 +39,7 @@ const SOURCE_LABELS: Record<string, string> = {
 const dateFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
 export function LeadsPanel({ projectId, leads }: { projectId: string; leads: LeadItem[] }) {
+  const [removing, setRemoving] = useState<string | null>(null)
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -181,6 +183,14 @@ export function LeadsPanel({ projectId, leads }: { projectId: string; leads: Lea
                     >
                       דחה
                     </button>
+                    <button
+                      type="button"
+                      disabled={busyId === lead.id}
+                      onClick={() => setRemoving(lead.id)}
+                      className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm text-red-700 transition hover:border-red-400 disabled:opacity-50"
+                    >
+                      מחיקה
+                    </button>
                   </div>
                 )}
               </div>
@@ -211,6 +221,18 @@ export function LeadsPanel({ projectId, leads }: { projectId: string; leads: Lea
                   <Link href={`/companies/${lead.companyId}`} className="whitespace-nowrap rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 hover:underline">
                     אושר · לספק
                   </Link>
+                ) : lead.status === 'converted' && lead.agreementId ? (
+                  <Link href={`/documents/${lead.agreementId}`} className="whitespace-nowrap rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 hover:underline">
+                    הרשמה עצמאית · להסכם
+                  </Link>
+                ) : lead.status === 'pending' ? (
+                  <span className="whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                    הרשמה בעיבוד
+                  </span>
+                ) : lead.status === 'failed' ? (
+                  <span className="whitespace-nowrap rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
+                    הרשמה נכשלה
+                  </span>
                 ) : (
                   <span className="whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
                     נדחה
@@ -223,7 +245,7 @@ export function LeadsPanel({ projectId, leads }: { projectId: string; leads: Lea
       ) : null}
 
       {editing ? (
-        <EditLeadDialog
+        <LeadEditForm
           lead={editing}
           busy={busyId === editing.id}
           onClose={() => setEditing(null)}
@@ -233,11 +255,25 @@ export function LeadsPanel({ projectId, leads }: { projectId: string; leads: Lea
           }}
         />
       ) : null}
+      {removing ? (
+        <DeleteDialog
+          type="lead"
+          id={removing}
+          noun="הרשמה"
+          isAdmin={false}
+          open
+          onClose={() => setRemoving(null)}
+          onDone={() => {
+            setRemoving(null)
+            router.refresh()
+          }}
+        />
+      ) : null}
     </div>
   )
 }
 
-function EditLeadDialog({
+function LeadEditForm({
   lead,
   busy,
   onClose,
@@ -295,5 +331,53 @@ function EditLeadDialog({
         </div>
       </form>
     </div>
+  )
+}
+
+/**
+ * The same edit form, opened from the registrations table by id: it posts
+ * the change and tells the caller when it is saved.
+ */
+export function EditLeadDialog({
+  projectId,
+  leadId,
+  initial,
+  onClose,
+  onSaved,
+}: {
+  projectId: string
+  leadId: string
+  initial: Record<string, string | null | undefined>
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const data = Object.fromEntries(Object.entries(initial).filter(([, v]) => typeof v === 'string' && v)) as Record<string, string>
+  const lead = { id: leadId, status: 'new', data, companyId: null, agreementId: null, source: 'landing', createdAt: new Date(), formSnapshot: null, reviewedAt: null } as unknown as LeadItem
+  async function save(values: Record<string, string>) {
+    setBusy(true)
+    setError(null)
+    try {
+      const response = await fetch(`/api/projects/${projectId}/leads`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update', leadId, values }) })
+      const body = await response.json().catch(() => null)
+      if (!response.ok) {
+        setError(body?.error?.message ?? 'השמירה נכשלה.')
+        return
+      }
+      onSaved()
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <>
+      <LeadEditForm lead={lead} busy={busy} onClose={onClose} onSave={(values) => void save(values)} />
+      {error ? (
+        <p role="alert" className="fixed inset-x-0 bottom-4 z-[60] mx-auto w-fit rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
+          {error}
+        </p>
+      ) : null}
+    </>
   )
 }

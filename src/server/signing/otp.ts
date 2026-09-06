@@ -4,6 +4,7 @@ import { generateOtpCode, hashToken, safeEqualHex } from '@/server/auth/tokens'
 import { getDb, schema } from '@/server/db'
 import { maskPhone, toIsraeliNationalFormat } from '@/lib/phone'
 import { InforuSmsProvider, logOnlyMode } from '@/server/notifications/inforu'
+import { otpSmsText } from '@/server/notifications/otp-sms'
 import { createSigningSession, type SigningContext } from './session'
 
 /**
@@ -108,7 +109,7 @@ export async function sendOtp(context: SigningContext): Promise<OtpSendResult> {
   const template = process.env.SIGN_OTP_MESSAGE ?? 'קוד האימות שלך לחתימה על מסמך ב-XTRA הוא:'
   const result = await new InforuSmsProvider().send({
     to: phone,
-    text: `${template} ${code}`,
+    text: otpSmsText(template, code),
     recipientName: context.recipientName,
   })
 

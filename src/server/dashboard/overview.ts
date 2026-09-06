@@ -80,10 +80,12 @@ function latestVersionOnly() {
 
 function scope(session: StaffSession) {
   return session.isAdmin
-    ? eq(schema.agreements.organizationId, session.organizationId)
+    ? and(eq(schema.agreements.organizationId, session.organizationId), isNull(schema.agreements.deletedAt), isNull(schema.agreements.archivedAt))
     : and(
         eq(schema.agreements.organizationId, session.organizationId),
         eq(schema.agreements.ownerId, session.userId),
+        isNull(schema.agreements.deletedAt),
+        isNull(schema.agreements.archivedAt),
       )
 }
 
@@ -107,6 +109,7 @@ export async function getDashboardOverview(session: StaffSession): Promise<Dashb
         and(
           eq(schema.companies.organizationId, session.organizationId),
           isNull(schema.companies.deletedAt),
+          isNull(schema.companies.archivedAt),
         ),
       ),
 

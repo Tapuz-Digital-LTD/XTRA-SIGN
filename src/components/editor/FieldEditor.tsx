@@ -45,19 +45,42 @@ const ZOOM_MAX = 200
  */
 const PAGE_BASE_WIDTH = 794
 
+/**
+ * Where the editor reads and writes. A document by default; a template's
+ * fields are the same boxes on the same kind of page, kept at other routes
+ * and with no recipient and no sending.
+ */
+export type EditorTarget = {
+  fieldsUrl: string
+  fileUrl: string
+  backHref: string
+  backLabel?: string
+  previewHref?: string
+  sendHref?: string
+}
+
 export function FieldEditor({
   documentId,
   title,
   pages,
   initialFields,
   initialRecipient,
+  target: targetOverride,
 }: {
   documentId: string
   title: string
   pages: PageGeometry[]
   initialFields: PlacedField[]
   initialRecipient: EditorRecipient | null
+  target?: EditorTarget
 }) {
+  const target: EditorTarget = targetOverride ?? {
+    fieldsUrl: `/api/documents/${documentId}/fields`,
+    fileUrl: `/api/documents/${documentId}/file`,
+    backHref: `/documents/${documentId}`,
+    previewHref: `/documents/${documentId}/preview`,
+    sendHref: `/documents/${documentId}/send`,
+  }
   const [fields, setFields] = useState<PlacedField[]>(initialFields)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<SaveState>('idle')
@@ -91,7 +114,7 @@ export function FieldEditor({
     const timer = setTimeout(async () => {
       setSaveState('saving')
       try {
-        const response = await fetch(`/api/documents/${documentId}/fields`, {
+        const response = await fetch(target.fieldsUrl, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fields }),
@@ -111,7 +134,7 @@ export function FieldEditor({
       }
     }, 700)
     return () => clearTimeout(timer)
-  }, [fields, documentId])
+  }, [fields, target.fieldsUrl])
 
   // ── field operations ──────────────────────────────────────────────────────
   const addField = useCallback((type: FieldType, page: number, at?: { x: number; y: number }) => {
@@ -340,10 +363,10 @@ export function FieldEditor({
       <header className="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-3 py-2">
         <button
           type="button"
-          onClick={() => navigate(`/documents/${documentId}`)}
+          onClick={() => navigate(target.backHref)}
           className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-sm text-fg hover:bg-slate-100"
         >
-          <span aria-hidden="true">→</span> חזרה
+          <span aria-hidden="true">→</span> {target.backLabel ?? 'חזרה'}
         </button>
         <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-fg">{title}</h1>
 
@@ -390,27 +413,33 @@ export function FieldEditor({
         >
           <span aria-hidden="true" className="me-1">+</span> הוספת שדה
         </button>
-        <button
-          type="button"
-          onClick={() => setRecipientOpen(true)}
-          className="inline-flex min-h-9 items-center rounded-lg border border-line bg-white px-3 text-sm text-fg hover:bg-slate-50"
-        >
-          פרטי הנמען
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate(`/documents/${documentId}/preview`)}
-          className="inline-flex min-h-9 items-center rounded-lg border border-line bg-white px-3 text-sm text-fg hover:bg-slate-50"
-        >
-          תצוגה מקדימה
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate(`/documents/${documentId}/send`)}
-          className="inline-flex min-h-9 items-center rounded-lg border border-brand bg-brand/5 px-3 text-sm font-medium text-brand hover:bg-brand/10"
-        >
-          המשך לשליחה
-        </button>
+        {targetOverride ? null : (
+          <button
+            type="button"
+            onClick={() => setRecipientOpen(true)}
+            className="inline-flex min-h-9 items-center rounded-lg border border-line bg-white px-3 text-sm text-fg hover:bg-slate-50"
+          >
+            פרטי הנמען
+          </button>
+        )}
+        {target.previewHref ? (
+          <button
+            type="button"
+            onClick={() => navigate(target.previewHref!)}
+            className="inline-flex min-h-9 items-center rounded-lg border border-line bg-white px-3 text-sm text-fg hover:bg-slate-50"
+          >
+            תצוגה מקדימה
+          </button>
+        ) : null}
+        {target.sendHref ? (
+          <button
+            type="button"
+            onClick={() => navigate(target.sendHref!)}
+            className="inline-flex min-h-9 items-center rounded-lg border border-brand bg-brand/5 px-3 text-sm font-medium text-brand hover:bg-brand/10"
+          >
+            המשך לשליחה
+          </button>
+        ) : null}
 
         <span
           role="status"
@@ -478,7 +507,7 @@ export function FieldEditor({
                   }}
                 >
                   <PdfPage
-                    url={`/api/documents/${documentId}/file`}
+                    url={target.fileUrl}
                     pageNumber={page.pageNumber}
                     widthPt={page.widthPt}
                     heightPt={page.heightPt}

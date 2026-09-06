@@ -71,6 +71,12 @@ export type PlacedField = {
    * company — 'company.name', 'company.tax_id', and so on. Null means typed.
    */
   autoSource: string | null
+  /**
+   * The stable `{{key}}` a value is filled by. Derived from the label unless
+   * the field arrived with one — a fillable PDF's own field name, which is
+   * what an automated flow fills by.
+   */
+  variableKey?: string | null
 }
 
 export type PageGeometry = {

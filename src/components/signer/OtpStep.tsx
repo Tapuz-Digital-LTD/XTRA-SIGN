@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { OtpInput } from '@/components/ui/OtpInput'
 
-/** Phone verification. One code, one input, one button. */
+/** Phone verification before signing: one code, the shared input, one button. */
 export function OtpStep({
   token,
   maskedPhone,
@@ -19,7 +20,6 @@ export function OtpStep({
   const [cooldown, setCooldown] = useState(0)
   // Only ever set when the server tells us no SMS was actually sent.
   const [devCode, setDevCode] = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (cooldown <= 0) return
@@ -42,9 +42,9 @@ export function OtpStep({
         return
       }
       setSent(true)
+      setCode('')
       setDevCode(data?.devCode ?? null)
       setCooldown(30)
-      setTimeout(() => inputRef.current?.focus(), 50)
     } catch {
       setError('שליחת הקוד נכשלה. בדקו את החיבור לאינטרנט.')
     } finally {
@@ -52,14 +52,15 @@ export function OtpStep({
     }
   }
 
-  async function verify() {
+  async function verify(supplied = code) {
+    if (supplied.length !== 6 || busy) return
     setBusy(true)
     setError(null)
     try {
       const response = await fetch(`/api/sign/${token}/otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verify', code }),
+        body: JSON.stringify({ action: 'verify', code: supplied }),
       })
       const data = await response.json().catch(() => null)
       if (!response.ok) {
@@ -77,7 +78,7 @@ export function OtpStep({
 
   if (!sent) {
     return (
-      <>
+      <div className="xtra-rise">
         <h1 className="text-lg font-semibold text-fg">אימות זהות</h1>
         <p className="mt-2 text-sm text-muted">
           נשלח קוד אימות חד-פעמי למספר{' '}
@@ -86,7 +87,7 @@ export function OtpStep({
           </span>
         </p>
         {error ? (
-          <p role="alert" className="mt-3 text-sm text-danger">
+          <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {error}
           </p>
         ) : null}
@@ -94,47 +95,40 @@ export function OtpStep({
           type="button"
           onClick={request}
           disabled={busy}
-          className="mt-6 min-h-12 w-full rounded-lg bg-brand text-sm font-medium text-white disabled:opacity-60"
+          className="mt-6 h-12 w-full rounded-xl bg-brand text-base font-semibold text-white disabled:opacity-60"
         >
-          {busy ? 'שולח…' : 'שליחת קוד'}
+          {busy ? 'שולחים…' : 'שליחת קוד'}
         </button>
-      </>
+      </div>
     )
   }
 
   return (
-    <>
+    <form
+      className="xtra-rise"
+      onSubmit={(e) => {
+        e.preventDefault()
+        void verify()
+      }}
+      noValidate
+    >
       <h1 className="text-lg font-semibold text-fg">הזינו את הקוד</h1>
       <p className="mt-2 text-sm text-muted">
         שלחנו קוד בן 6 ספרות אל{' '}
         <span dir="ltr" className="font-medium text-fg">
           {maskedPhone ?? ''}
         </span>
+        . בטלפון, הקוד יוצע לכם מעל המקלדת.
       </p>
 
-      <label htmlFor="otp" className="sr-only">
-        קוד אימות
-      </label>
-      <input
-        ref={inputRef}
-        id="otp"
-        // Numeric keypad on a phone, and the OS offers the SMS code directly.
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        maxLength={6}
-        dir="ltr"
-        value={code}
-        onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-        className="mt-5 min-h-14 w-full rounded-lg border border-line bg-white text-center text-2xl tracking-[0.4em]"
-      />
+      <div className="mt-5">
+        <OtpInput value={code} onChange={(next) => { setCode(next); if (error) setError(null) }} onComplete={(c) => void verify(c)} disabled={busy} invalid={Boolean(error)} id="otp" />
+      </div>
 
       {devCode ? (
         // Unmissable, and it says what actually happened: no SMS left the
         // server. Disappears the moment real credentials are configured.
-        <p
-          role="status"
-          className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-start text-xs text-amber-900"
-        >
+        <p role="status" className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-start text-xs text-amber-900">
           <strong>מצב פיתוח — לא נשלחה הודעת SMS.</strong>
           <br />
           הקוד לבדיקה: <span dir="ltr" className="font-mono text-sm">{devCode}</span>
@@ -142,18 +136,17 @@ export function OtpStep({
       ) : null}
 
       {error ? (
-        <p role="alert" className="mt-3 text-sm text-danger">
+        <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}
         </p>
       ) : null}
 
       <button
-        type="button"
-        onClick={verify}
+        type="submit"
         disabled={busy || code.length !== 6}
-        className="mt-5 min-h-12 w-full rounded-lg bg-brand text-sm font-medium text-white disabled:opacity-50"
+        className="mt-5 h-12 w-full rounded-xl bg-brand text-base font-semibold text-white disabled:opacity-50"
       >
-        {busy ? 'בודק…' : 'אישור'}
+        {busy ? 'בודקים…' : 'אישור'}
       </button>
 
       <button
@@ -162,8 +155,8 @@ export function OtpStep({
         disabled={busy || cooldown > 0}
         className="mt-3 min-h-11 w-full text-sm text-muted disabled:opacity-60"
       >
-        {cooldown > 0 ? `שליחה חוזרת בעוד ${cooldown}` : 'שליחה חוזרת'}
+        {cooldown > 0 ? `שליחה חוזרת בעוד ${cooldown} שנ׳` : 'שלחו לי קוד מחדש'}
       </button>
-    </>
+    </form>
   )
 }

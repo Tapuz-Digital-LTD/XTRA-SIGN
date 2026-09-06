@@ -1,5 +1,6 @@
 'use client'
 
+import { DeleteDialog } from '@/components/deletion/DeleteDialog'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import type { TemplateListItem } from '@/server/templates/templates'
@@ -38,14 +39,8 @@ export function TemplateList({ templates }: { templates: TemplateListItem[] }) {
   // the new-document flow with the template pre-chosen.
   const use = (id: string) => router.push(`/documents/new?template=${id}`)
 
-  const remove = (template: TemplateListItem) => {
-    if (!window.confirm(`למחוק את התבנית "${template.name}"? מסמכים שנוצרו ממנה לא יושפעו.`)) return
-    void call(
-      template.id,
-      () => fetch(`/api/templates/${template.id}`, { method: 'DELETE' }),
-      () => router.refresh(),
-    )
-  }
+  const [removing, setRemoving] = useState<TemplateListItem | null>(null)
+  const remove = (template: TemplateListItem) => setRemoving(template)
 
   const rename = (id: string, name: string) =>
     call(
@@ -168,6 +163,20 @@ export function TemplateList({ templates }: { templates: TemplateListItem[] }) {
           )
         })}
       </ul>
+      {removing ? (
+        <DeleteDialog
+          type="template"
+          id={removing.id}
+          noun="תבנית"
+          isAdmin={false}
+          open
+          onClose={() => setRemoving(null)}
+          onDone={() => {
+            setRemoving(null)
+            router.refresh()
+          }}
+        />
+      ) : null}
     </div>
   )
 }

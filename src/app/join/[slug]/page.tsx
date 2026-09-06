@@ -1,4 +1,7 @@
 import { JoinForm } from '@/components/projects/JoinForm'
+import { CAPTCHA_ACTIONS } from '@/lib/captcha'
+import { REGISTRATIONS_CLOSED_MESSAGE } from '@/lib/campaigns'
+import { captchaPublicConfig } from '@/server/security/captcha'
 import { getPublicLanding } from '@/server/projects/landing'
 
 export const dynamic = 'force-dynamic'
@@ -21,6 +24,7 @@ export default async function JoinPage({
   const [{ slug }, query] = await Promise.all([params, searchParams])
   const embed = query.embed === '1'
   const landing = await getPublicLanding(slug)
+  const captcha = await captchaPublicConfig(CAPTCHA_ACTIONS.PUBLIC_FORM_SUBMIT)
 
   if (!landing) {
     return (
@@ -33,6 +37,18 @@ export default async function JoinPage({
     )
   }
 
+  if (!landing.registrationsOpen) {
+    return (
+      <main className={embed ? 'bg-bg p-2' : 'flex min-h-dvh items-center justify-center bg-bg px-4'}>
+        <div className="mx-auto w-full max-w-md rounded-2xl border border-line bg-surface p-8 text-center">
+          <p className="text-3xl" aria-hidden="true">✓</p>
+          <h1 className="mt-2 text-xl font-bold tracking-tight text-fg">{landing.config.title}</h1>
+          <p className="mt-2 text-sm text-muted">{REGISTRATIONS_CLOSED_MESSAGE}</p>
+        </div>
+      </main>
+    )
+  }
+
   if (embed) {
     return (
       <main className="bg-bg p-1">
@@ -40,7 +56,7 @@ export default async function JoinPage({
         {landing.config.description ? (
           <p className="whitespace-pre-line px-1 pb-3 text-sm text-muted">{landing.config.description}</p>
         ) : null}
-        <JoinForm slug={slug} config={landing.config} embed />
+        <JoinForm slug={slug} config={landing.config} embed captcha={captcha} />
       </main>
     )
   }
@@ -59,7 +75,7 @@ export default async function JoinPage({
         ) : null}
 
         <div className="mt-6">
-          <JoinForm slug={slug} config={landing.config} />
+          <JoinForm slug={slug} config={landing.config} captcha={captcha} />
         </div>
 
         <p className="mt-8 text-center text-xs text-muted">

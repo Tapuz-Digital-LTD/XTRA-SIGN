@@ -17,6 +17,12 @@ export type OutboundMessage = {
   /** Email only; when absent the provider sends `text` as the body. */
   html?: string
   recipientName?: string
+  /** Email only. Must be an address the provider account allows. */
+  replyTo?: string
+  /** Email only. */
+  fromName?: string
+  /** Email only. Sent base64-encoded, the way the provider documents. */
+  attachments?: { name: string; contentType: string; data: Buffer }[]
 }
 
 export type DeliveryResult =

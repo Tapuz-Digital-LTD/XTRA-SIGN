@@ -167,9 +167,13 @@ export class InforuEmailProvider implements NotificationProvider {
       CampaignName: campaignName,
       CampaignRefId: campaignName.replace(/-/g, ' '),
       FromAddress: process.env.SIGN_EMAIL_SENDER ?? 'services@xtra.co.il',
-      FromName: process.env.SIGN_EMAIL_SENDER_NAME ?? 'XTRA',
+      FromName: message.fromName?.trim() || process.env.SIGN_EMAIL_SENDER_NAME || 'XTRA',
+      ...(message.replyTo ? { ReplyAddress: message.replyTo } : {}),
       Subject: message.subject ?? '',
       Body: message.html ?? message.text,
+      ...(message.attachments?.length
+        ? { Attachments: message.attachments.map((a) => ({ Name: a.name, ContentType: a.contentType, FileData: a.data.toString('base64') })) }
+        : {}),
       IncludeContacts: [{ Email: message.to, FirstName: message.recipientName ?? '' }],
     })
   }

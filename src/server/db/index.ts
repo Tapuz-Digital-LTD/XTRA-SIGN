@@ -27,9 +27,30 @@ import * as schema from './schema'
  */
 const globalForDb = globalThis as unknown as { __xtraSignPool?: Pool }
 
+/**
+ * Which database this deployment talks to.
+ *
+ * A preview deployment must never write to production. Its own database is
+ * connected under the PREVIEW_ prefix (a separate marketplace resource,
+ * scoped to the preview environment); when that is missing the deployment
+ * refuses to start rather than quietly falling through to DATABASE_URL —
+ * which the platform also exposes to previews, and which is production's.
+ */
+export function databaseUrl(): string {
+  if (process.env.VERCEL_ENV === 'preview') {
+    const url = process.env.PREVIEW_DATABASE_URL
+    if (!url) {
+      throw new Error('PREVIEW_DATABASE_URL is not configured — preview deployments do not use the production database')
+    }
+    return url
+  }
+  const url = process.env.DATABASE_URL
+  if (!url) throw new Error('DATABASE_URL is not configured')
+  return url
+}
+
 function pool(): Pool {
-  const connectionString = process.env.DATABASE_URL
-  if (!connectionString) throw new Error('DATABASE_URL is not configured')
+  const connectionString = databaseUrl()
 
   if (!globalForDb.__xtraSignPool) {
     globalForDb.__xtraSignPool = new Pool({

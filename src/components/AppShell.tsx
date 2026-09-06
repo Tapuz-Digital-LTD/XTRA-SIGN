@@ -15,7 +15,7 @@ const NAV = [
   { href: '/', label: 'בית' },
   { href: '/suppliers', label: 'ספקים' },
   { href: '/customers', label: 'לקוחות' },
-  { href: '/projects', label: 'פרויקטים' },
+  { href: '/projects', label: 'קמפיינים' },
   { href: '/agreements', label: 'הסכמים' },
   { href: '/templates', label: 'תבניות' },
   { href: '/settings', label: 'הגדרות' },
@@ -54,13 +54,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           the screen it was supposed to organise. */}
       <header className="border-b border-line bg-surface">
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
-          <div className="flex items-center justify-between gap-2 py-3 sm:justify-start sm:gap-4">
+          <div className="flex items-center justify-between gap-2 py-3 lg:justify-start lg:gap-4">
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
               aria-label="פתיחת התפריט"
               aria-expanded={menuOpen}
-              className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-fg transition hover:bg-slate-100 sm:hidden"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-fg transition hover:bg-slate-100 lg:hidden"
             >
               <Menu aria-hidden="true" className="size-6" strokeWidth={1.75} />
             </button>
@@ -92,7 +92,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </span>
             </Link>
 
-            <nav className="hidden flex-1 gap-1 sm:flex" aria-label="ניווט ראשי">
+            <nav className="hidden flex-1 gap-1 lg:flex" aria-label="ניווט ראשי">
               {NAV.map((item) => (
                 <Link
                   key={item.href}
@@ -107,15 +107,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               ))}
             </nav>
 
-            <span className="ms-auto sm:ms-0" />
+            <span className="ms-auto lg:ms-0" />
             <NotificationBell />
 
             <Link
               href="/documents/new"
               className="inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-lg bg-brand px-3 text-sm font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] sm:px-4"
             >
-              <span className="sm:hidden">לחתימה</span>
-              <span className="hidden sm:inline">שלח מסמך לחתימה</span>
+              <span className="lg:hidden">לחתימה</span>
+              <span className="hidden lg:inline">שלח מסמך לחתימה</span>
             </Link>
           </div>
         </div>
@@ -123,7 +123,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* The mobile drawer. Opens from the start edge (right, in RTL). */}
       {menuOpen ? (
-        <div className="fixed inset-0 z-50 sm:hidden" role="dialog" aria-modal="true" aria-label="תפריט ניווט">
+        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="תפריט ניווט">
           <div className="absolute inset-0 bg-black/40" onClick={() => setMenuOpen(false)} />
           <div className="absolute inset-y-0 start-0 flex w-72 max-w-[85vw] flex-col bg-surface shadow-xl">
             <div className="flex min-h-14 items-center justify-between border-b border-line px-4">

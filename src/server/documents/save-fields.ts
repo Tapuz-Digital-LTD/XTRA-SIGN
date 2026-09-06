@@ -25,6 +25,29 @@ const MAX_FIELDS = 200
 
 export type SaveFieldsResult = { ok: true; count: number } | { ok: false; message: string }
 
+/**
+ * Validates a whole layout without saving it — the same rules the editor's
+ * autosave goes through, for a caller (a template) that stores fields itself.
+ */
+export function parseFieldLayout(
+  raw: unknown,
+  pageCount: number,
+): { ok: true; fields: PlacedField[] } | { ok: false; message: string } {
+  if (!Array.isArray(raw)) return { ok: false, message: 'נתונים לא תקינים.' }
+  if (raw.length > MAX_FIELDS) return { ok: false, message: 'יותר מדי שדות במסמך.' }
+  const usedKeys: string[] = []
+  const fields: PlacedField[] = []
+  for (const item of raw) {
+    const parsed = parseField(item, pageCount)
+    if (!parsed) return { ok: false, message: 'נתונים לא תקינים.' }
+    const variableKey =
+      parsed.variableKey && !usedKeys.includes(parsed.variableKey) ? parsed.variableKey : toVariableKey(parsed.label, usedKeys)
+    usedKeys.push(variableKey)
+    fields.push({ ...parsed, variableKey })
+  }
+  return { ok: true, fields }
+}
+
 export async function saveFields(input: {
   session: StaffSession
   agreementId: string
@@ -59,7 +82,12 @@ export async function saveFields(input: {
     const parsed = parseField(raw, pageCount)
     if (!parsed) return { ok: false, message: 'נתונים לא תקינים.' }
 
-    const variableKey = toVariableKey(parsed.label, usedKeys)
+    // A key the field brought with it (a fillable PDF's own name) is kept;
+    // anything else is derived from the label as always. Either way unique.
+    const variableKey =
+      parsed.variableKey && !usedKeys.includes(parsed.variableKey)
+        ? parsed.variableKey
+        : toVariableKey(parsed.label, usedKeys)
     usedKeys.push(variableKey)
 
     rows.push({
@@ -147,6 +175,8 @@ function parseField(raw: unknown, pageCount: number): PlacedField | null {
     // Validated against the known sources: an arbitrary string here would be a
     // silent no-op at send time rather than a rejected layout.
     autoSource: isAutoSource(f.autoSource) ? f.autoSource : null,
+    variableKey:
+      typeof f.variableKey === 'string' && /^[a-z0-9_]{1,40}$/.test(f.variableKey) ? f.variableKey : null,
   }
 }
 
@@ -173,6 +203,7 @@ export async function loadFields(versionId: string): Promise<PlacedField[]> {
     placeholder: row.placeholder,
     autoFill: row.autoFill,
     autoSource: row.autoSource ?? null,
+    variableKey: row.variableKey ?? null,
   }))
 }
 

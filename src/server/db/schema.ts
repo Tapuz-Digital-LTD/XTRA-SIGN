@@ -148,6 +148,13 @@ export const companies = pgTable(
     crmSyncedAt: timestamp('crm_synced_at', { withTimezone: true }),
     /** Soft delete: agreements keep pointing at the company they were filed under. */
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    /**
+     * Out of the active lists but not gone: the record, its agreements and
+     * their signed files stay exactly as they are. Archiving is how a record
+     * with signed history is tidied away; deleting is reserved for records
+     * with nothing behind them.
+     */
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
@@ -410,6 +417,31 @@ export const groups = pgTable(
     landingConfig: jsonb('landing_config'),
     /** Extra addresses this project notifies about new leads, beyond the org's. */
     notifyEmails: jsonb('notify_emails'),
+    /**
+     * Which events the project's addresses hear about, and how the signer's
+     * own confirmation is sent, as
+     * `{ events: Record<string, boolean>, signerCopy: {...} }`. Missing
+     * keys mean the defaults: everything on.
+     */
+    notificationConfig: jsonb('notification_config'),
+    /**
+     * Which kind of campaign this is (the UI word for a group): 'public' has
+     * a page/form, traffic, registrations; 'signature' starts from people
+     * we already have. Both may hold distributions. Additive: existing rows
+     * default to 'signature' and were classified once by what they used.
+     */
+    campaignKind: text('campaign_kind').default('signature').notNull(),
+    startsAt: timestamp('starts_at', { withTimezone: true }),
+    endsAt: timestamp('ends_at', { withTimezone: true }),
+    /** A public campaign past its end date closes registrations unless told otherwise. */
+    registrationsAfterEnd: boolean('registrations_after_end').default(false).notNull(),
+    /** One signing-link lifetime for everything the campaign sends. */
+    linkTtlDays: integer('link_ttl_days').default(30).notNull(),
+    ownerUserId: uuid('owner_user_id').references(() => users.id),
+    /** The agreement a signature campaign sends unless a send says otherwise. */
+    defaultTemplateId: uuid('default_template_id'),
+    /** Campaign-level message templates over the system defaults; missing keys = default. */
+    messageOverrides: jsonb('message_overrides'),
   },
   (t) => [
     index('groups_org_idx').on(t.organizationId),
@@ -437,7 +469,7 @@ export const projectLeads = pgTable(
     groupId: uuid('group_id')
       .notNull()
       .references(() => groups.id),
-    /** new | approved | rejected */
+    /** new | approved | rejected — or, for self-service registrations, pending | converted | failed */
     status: text('status').default('new').notNull(),
     /** What was submitted, exactly as submitted: name, taxId, contact… */
     data: jsonb('data').notNull(),
@@ -458,6 +490,17 @@ export const projectLeads = pgTable(
      * without minting a second lead. Unique per project when present.
      */
     idempotencyKey: text('idempotency_key'),
+    /**
+     * Campaign attribution, kept apart from `data` so it never shows up as a
+     * form answer: UTM fields, the landing URL, the form version. Whitelisted
+     * and capped on write — never raw query strings.
+     */
+    meta: jsonb('meta'),
+    /**
+     * The agreement a self-service registration turned into (ADR 0001). Null
+     * for a regular lead, which waits for a person and never has one.
+     */
+    agreementId: uuid('agreement_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
     reviewedBy: uuid('reviewed_by').references(() => users.id),
@@ -467,6 +510,195 @@ export const projectLeads = pgTable(
     uniqueIndex('project_leads_idempotency_unique')
       .on(t.groupId, t.idempotencyKey)
       .where(sql`${t.idempotencyKey} is not null`),
+  ],
+)
+
+/**
+ * A project's public addresses: the current one and every one it ever had.
+ *
+ * The address is a marketing choice that changes; the project id and the
+ * form id never do. A row that is no longer current is an alias: it keeps
+ * answering, by redirecting straight to whatever is current now, so a link
+ * printed on a flyer last month still works. Slugs are unique across the
+ * whole system — the path is global — and a retired slug is never handed to
+ * another project.
+ */
+export const projectPublicSlugs = pgTable(
+  'project_public_slugs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    slug: text('slug').notNull(),
+    isCurrent: boolean('is_current').default(true).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    /** When this stopped being the current address. */
+    replacedAt: timestamp('replaced_at', { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex('project_public_slugs_slug_unique').on(t.slug),
+    uniqueIndex('project_public_slugs_current_unique')
+      .on(t.groupId)
+      .where(sql`${t.isCurrent} = true`),
+    index('project_public_slugs_group_idx').on(t.groupId),
+  ],
+)
+
+/**
+ * What happened on a project's campaign pages, one row per event.
+ *
+ * First-party and deliberately small: a page view, a click on the join
+ * button, a form begun, a signature begun, a thank-you page seen, a signed
+ * copy downloaded. Each carries an opaque visit id the browser minted for
+ * itself — no fingerprint, no IP kept — plus the address it arrived at and
+ * the campaign tags it came with, so "where did they come from" can be
+ * answered without a third-party tracker. Registrations and signatures are
+ * counted from their own tables, never from here; an event is a trace of
+ * behaviour, not a ledger.
+ */
+export const campaignEvents = pgTable(
+  'campaign_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    type: text('type').notNull(),
+    /** Opaque per-browser id, minted client-side. */
+    visitId: text('visit_id').notNull(),
+    requestedSlug: text('requested_slug'),
+    canonicalSlug: text('canonical_slug'),
+    path: text('path'),
+    /** utm_source / utm_medium / utm_campaign / utm_content / utm_term, capped. */
+    utm: jsonb('utm'),
+    /** The referring host, not the full URL. */
+    referrer: text('referrer'),
+    registrationId: uuid('registration_id'),
+    agreementId: uuid('agreement_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('campaign_events_group_type_time_idx').on(t.groupId, t.type, t.createdAt),
+    index('campaign_events_group_visit_idx').on(t.groupId, t.visitId),
+    index('campaign_events_registration_idx').on(t.registrationId),
+    index('campaign_events_agreement_idx').on(t.agreementId),
+  ],
+)
+
+/**
+ * System-wide settings an admin changes from the product, never from a
+ * deploy: one row per key, the whole value replaced at once. Secrets inside
+ * a value are stored encrypted (see server/security/secrets.ts) and are
+ * never read back to a screen.
+ */
+export const systemSettings = pgTable('system_settings', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedBy: uuid('updated_by').references(() => users.id),
+})
+
+/**
+ * What was actually sent, as it was sent: subject, body, the variables it
+ * was rendered with, to whom, through which channel and for which event.
+ * A template edited tomorrow does not change yesterday's message.
+ */
+export const messageSends = pgTable(
+  'message_sends',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    groupId: uuid('group_id'),
+    distributionId: uuid('distribution_id'),
+    agreementId: uuid('agreement_id'),
+    channel: text('channel').notNull(),
+    /** invitation | reminder | signed_confirmation | registration_completed | distribution | test */
+    event: text('event').notNull(),
+    recipient: text('recipient').notNull(),
+    subject: text('subject'),
+    body: text('body').notNull(),
+    variables: jsonb('variables'),
+    providerMessageId: text('provider_message_id'),
+    isTest: boolean('is_test').default(false).notNull(),
+    ok: boolean('ok').default(true).notNull(),
+    error: text('error'),
+    sentAt: timestamp('sent_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('message_sends_group_idx').on(t.groupId, t.sentAt),
+    index('message_sends_distribution_idx').on(t.distributionId),
+    index('message_sends_agreement_idx').on(t.agreementId),
+  ],
+)
+
+/**
+ * A distribution: one send of one message to a chosen audience. A campaign
+ * may have many, or none — the campaign is the thing being run, the
+ * distribution is one push of it out the door.
+ */
+export const distributions = pgTable(
+  'distributions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    name: text('name').notNull(),
+    /** draft | sending | sent | failed */
+    status: text('status').default('draft').notNull(),
+    /** ('sms' | 'email')[] */
+    channels: jsonb('channels').notNull(),
+    /** campaign_link | url */
+    contentKind: text('content_kind').default('campaign_link').notNull(),
+    contentUrl: text('content_url'),
+    /** { sms?: string; email?: { subject, body, cta } } */
+    message: jsonb('message'),
+    /** What was chosen, kept so a report can say who this went to. */
+    audience: jsonb('audience'),
+    scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    stats: jsonb('stats'),
+  },
+  (t) => [index('distributions_group_idx').on(t.groupId, t.createdAt)],
+)
+
+/** One row per person a distribution went to, with what happened per channel. */
+export const distributionRecipients = pgTable(
+  'distribution_recipients',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    distributionId: uuid('distribution_id')
+      .notNull()
+      .references(() => distributions.id, { onDelete: 'cascade' }),
+    companyId: uuid('company_id').references(() => companies.id),
+    name: text('name').notNull(),
+    phone: text('phone'),
+    email: text('email'),
+    /** pending | sent | failed | skipped */
+    status: text('status').default('pending').notNull(),
+    /** { sms?: { ok, id, error }, email?: { ok, id, error } } */
+    results: jsonb('results'),
+    error: text('error'),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('distribution_recipients_distribution_idx').on(t.distributionId),
+    index('distribution_recipients_phone_idx').on(t.phone, t.sentAt),
+    index('distribution_recipients_email_idx').on(t.email, t.sentAt),
   ],
 )
 
@@ -626,6 +858,18 @@ export const agreements = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     sentAt: timestamp('sent_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),
+    /**
+     * Hidden from the active lists; everything about it — versions, signed
+     * file, signatures, audit — stays. A signed agreement is never deleted
+     * through the product; archiving is how it leaves the way.
+     */
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    /**
+     * Protected removal by an admin: the record leaves every screen but the
+     * row, its signed file and its audit trail remain, and the action itself
+     * is in the admin audit.
+     */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
   },
   (t) => [

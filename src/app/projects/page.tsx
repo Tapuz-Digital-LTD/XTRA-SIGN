@@ -2,18 +2,22 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { EmptyState } from '@/components/EmptyState'
-import { NewGroupButton } from '@/components/groups/NewGroupButton'
+import { NewCampaignWizard } from '@/components/projects/NewCampaignWizard'
 import { ProjectsList } from '@/components/projects/ProjectsList'
 import { ProjectsSearch } from '@/components/projects/ProjectsSearch'
+import { isCampaignKind } from '@/lib/campaigns'
 import { getSession } from '@/server/auth/session'
 import { listProjects } from '@/server/groups/groups'
+import { findSelfServiceProjectBySkin } from '@/server/projects/self-service'
+import { listTemplates } from '@/server/templates/templates'
+import { listUsers } from '@/server/users/users'
 
 /**
- * Projects: an activity with its own suppliers, sends and tracking. A plain
- * list, not a dashboard — a project is a collection of suppliers, leads and
- * agreements around one activity, and that is the whole concept.
+ * Campaigns: the business envelope around a public page, a list of people,
+ * distributions, agreements and their signatures. A plain list with two
+ * kinds, and a short wizard to start one.
  */
-export default async function ProjectsPage({
+export default async function CampaignsPage({
   searchParams,
 }: {
   searchParams: Promise<{ new?: string; view?: string; q?: string }>
@@ -22,36 +26,49 @@ export default async function ProjectsPage({
   if (!session) redirect('/login')
 
   const params = await searchParams
-  const archived = params.view === 'archive'
+  const view = params.view ?? 'all'
+  const archived = view === 'archive'
+  const campaignKind = isCampaignKind(view) ? view : undefined
   const search = params.q ?? ''
-  const projects = await listProjects(session, { archived, search })
+  const [projects, templates, owners, bound] = await Promise.all([
+    listProjects(session, { archived, search, campaignKind }),
+    listTemplates(session),
+    session.isAdmin ? listUsers(session) : Promise.resolve([]),
+    findSelfServiceProjectBySkin('tourism-2026'),
+  ])
+
+  const tabs = [
+    { key: 'all', href: '/projects', label: 'הכול' },
+    { key: 'public', href: '/projects?view=public', label: 'קמפיינים ציבוריים' },
+    { key: 'signature', href: '/projects?view=signature', label: 'קמפייני חתימות' },
+    { key: 'archive', href: '/projects?view=archive', label: 'ארכיון' },
+  ]
 
   return (
     <AppShell>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-fg">פרויקטים</h1>
-          <p className="mt-1 text-sm text-muted">
-            פעילות עם ספקים משלה — הוספה, טופס הצטרפות, שליחה מרוכזת ומעקב.
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-fg">קמפיינים</h1>
+          <p className="mt-1 text-sm text-muted">פעילות עם קהל, הפצות, הסכמים וחתימות — ציבורית או מול אנשים שכבר יש לכם.</p>
         </div>
-        <NewGroupButton autoOpen={params.new === '1'} />
+        <NewCampaignWizard
+          owners={owners.filter((u) => !u.disabled).map((u) => ({ id: u.id, name: u.name, email: u.email }))}
+          templates={templates.map((t) => ({ id: t.id, name: t.name }))}
+          currentUserId={session.userId}
+          autoOpen={params.new === '1'}
+          customPageBound={Boolean(bound)}
+        />
       </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-3 border-b border-line pb-0">
-        <nav className="flex gap-1" aria-label="סינון פרויקטים">
-          {(
-            [
-              { key: false, href: '/projects', label: 'פעילים' },
-              { key: true, href: '/projects?view=archive', label: 'ארכיון' },
-            ] as const
-          ).map((tab) => (
+        <nav className="-mx-1 flex gap-1 overflow-x-auto px-1" aria-label="סינון קמפיינים">
+          {tabs.map((tab) => (
             <Link
-              key={tab.href}
+              key={tab.key}
               href={tab.href}
-              aria-current={archived === tab.key ? 'page' : undefined}
-              className={`inline-flex min-h-11 items-center border-b-2 px-3 text-sm transition ${
-                archived === tab.key ? 'border-brand font-semibold text-fg' : 'border-transparent text-muted hover:text-fg'
+              aria-current={view === tab.key ? 'page' : undefined}
+              className={`inline-flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-2 px-3 text-sm transition ${
+                view === tab.key ? 'border-brand font-semibold text-fg' : 'border-transparent text-muted hover:text-fg'
               }`}
             >
               {tab.label}
@@ -66,31 +83,32 @@ export default async function ProjectsPage({
       <div className="mt-5">
         {projects.length === 0 ? (
           search.trim() ? (
-            <p className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center text-sm text-muted">
-              לא נמצאו פרויקטים מתאימים. נסו חיפוש אחר.
-            </p>
+            <p className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center text-sm text-muted">לא נמצאו קמפיינים מתאימים. נסו חיפוש אחר.</p>
           ) : archived ? (
-            <p className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center text-sm text-muted">
-              אין פרויקטים בארכיון.
-            </p>
+            <p className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center text-sm text-muted">אין קמפיינים בארכיון.</p>
           ) : (
             <EmptyState
-              title="עדיין אין פרויקטים"
-              description="פרויקט הוא פעילות עם רשימת ספקים משלה — למשל ״חודש התיירות 2026״. מוסיפים ספקים, שולחים הסכם ועוקבים מי חתם."
+              title="עדיין אין קמפיינים"
+              description="קמפיין ציבורי מפרסם פעילות ואוסף הרשמות; קמפיין חתימות שולח הסכמים לאנשים שכבר יש לכם. שניהם יכולים להפיץ SMS ואימייל."
               actionIcon="+"
-              actionLabel="פרויקט חדש"
+              actionLabel="קמפיין חדש"
               actionHref="/projects?new=1"
             />
           )
         ) : (
           <ProjectsList
+            isAdmin={session.isAdmin}
             projects={projects.map((p) => ({
               id: p.id,
               name: p.name,
+              campaignKind: p.campaignKind,
               companyCount: p.companyCount,
+              registrations: p.registrations,
               signed: p.signed,
               pending: p.pending,
               lastActivityAt: p.lastActivityAt ? p.lastActivityAt.toISOString() : null,
+              startsAt: p.startsAt?.toISOString() ?? null,
+              endsAt: p.endsAt?.toISOString() ?? null,
               archived,
             }))}
           />

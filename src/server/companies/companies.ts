@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm'
+import { and, desc, eq, ilike, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
 import { validateCompanyFields, type CompanyFieldErrors } from '@/lib/company-validation'
 import { normalizeIsraeliPhone } from '@/lib/phone'
 import type { StaffSession } from '@/server/auth/session'
@@ -38,6 +38,7 @@ export type CompanyRow = {
   crmObjectType: number | null
   crmSyncedAt: Date | null
   address: string | null
+  archivedAt: Date | null
   createdAt: Date
 }
 
@@ -233,13 +234,18 @@ export async function searchCompanies(
   search: string,
   limit = 20,
   kind?: CompanyKind,
-): Promise<{ id: string; name: string; kind: CompanyKind; taxId: string | null; fromCrm: boolean }[]> {
+  /** Only the records mirrored from the CRM, or only the ones made here. */
+  source?: 'crm' | 'xtra',
+): Promise<{ id: string; name: string; kind: CompanyKind; taxId: string | null; fromCrm: boolean; contactPhone: string | null; contactEmail: string | null }[]> {
   const term = search.trim()
   const conditions = [
     eq(schema.companies.organizationId, session.organizationId),
     isNull(schema.companies.deletedAt),
+    isNull(schema.companies.archivedAt),
   ]
   if (kind) conditions.push(eq(schema.companies.kind, kind))
+  if (source === 'crm') conditions.push(isNotNull(schema.companies.crmRecordId))
+  if (source === 'xtra') conditions.push(isNull(schema.companies.crmRecordId))
   if (term) {
     const like = `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
     conditions.push(
@@ -247,6 +253,8 @@ export async function searchCompanies(
         ilike(schema.companies.name, like),
         ilike(schema.companies.taxId, like),
         ilike(schema.companies.contactName, like),
+        ilike(schema.companies.contactPhone, like),
+        ilike(schema.companies.contactEmail, like),
       )!,
     )
   }
@@ -258,6 +266,8 @@ export async function searchCompanies(
       kind: schema.companies.kind,
       taxId: schema.companies.taxId,
       crmRecordId: schema.companies.crmRecordId,
+      contactPhone: schema.companies.contactPhone,
+      contactEmail: schema.companies.contactEmail,
     })
     .from(schema.companies)
     .where(and(...conditions))
@@ -272,6 +282,8 @@ export async function searchCompanies(
     kind: row.kind,
     taxId: row.taxId,
     fromCrm: Boolean(row.crmRecordId),
+    contactPhone: row.contactPhone,
+    contactEmail: row.contactEmail,
   }))
 }
 
@@ -281,6 +293,8 @@ export async function listCompanies(
   search?: string,
   /** Narrows to one group, for the group chips on the list screens. */
   groupId?: string,
+  /** The archive instead of the active list. */
+  archived = false,
 ): Promise<CompanyListItem[]> {
   const db = getDb()
   const a = schema.agreements
@@ -289,6 +303,7 @@ export async function listCompanies(
     eq(schema.companies.organizationId, session.organizationId),
     eq(schema.companies.kind, kind),
     isNull(schema.companies.deletedAt),
+    archived ? isNotNull(schema.companies.archivedAt) : isNull(schema.companies.archivedAt),
   ]
   if (groupId) {
     // An exists clause rather than a join: a company can be in several groups,
@@ -327,6 +342,7 @@ export async function listCompanies(
       crmRecordId: schema.companies.crmRecordId,
       crmObjectType: schema.companies.crmObjectType,
       crmSyncedAt: schema.companies.crmSyncedAt,
+      archivedAt: schema.companies.archivedAt,
       address: schema.companies.address,
       createdAt: schema.companies.createdAt,
     })
@@ -407,6 +423,7 @@ export async function getCompany(
       crmRecordId: schema.companies.crmRecordId,
       crmObjectType: schema.companies.crmObjectType,
       crmSyncedAt: schema.companies.crmSyncedAt,
+      archivedAt: schema.companies.archivedAt,
       address: schema.companies.address,
       createdAt: schema.companies.createdAt,
     })

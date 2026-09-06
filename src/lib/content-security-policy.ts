@@ -83,7 +83,8 @@ export function buildCsp(options: { isProd: boolean; frameAncestors?: string }):
 
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"}`,
+    // reCAPTCHA Enterprise: its script from Google, its challenge frame from Google.
+    `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"} https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
@@ -91,6 +92,7 @@ export function buildCsp(options: { isProd: boolean; frameAncestors?: string }):
     // pdf.js runs its parser in a Web Worker, which Next serves from a blob: URL.
     // Without this the preview silently fails to render.
     "worker-src 'self' blob:",
+    "frame-src 'self' https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/",
     // Storage is private and signed download URLs are followed by a redirect the
     // browser makes itself, so no third-party origin needs to be submittable to.
     "form-action 'self'",

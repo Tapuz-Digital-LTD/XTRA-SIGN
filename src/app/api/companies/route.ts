@@ -14,7 +14,10 @@ export async function GET(request: Request) {
     const search = url.searchParams.get('q') ?? ''
     const kindParam = url.searchParams.get('kind')
     const kind = kindParam === 'supplier' || kindParam === 'customer' ? kindParam : undefined
-    const companies = await searchCompanies(session, search, 20, kind)
+    const sourceParam = url.searchParams.get('source')
+    const source = sourceParam === 'crm' || sourceParam === 'xtra' ? sourceParam : undefined
+    const limit = Math.min(50, Math.max(1, Number(url.searchParams.get('limit') ?? 20) || 20))
+    const companies = await searchCompanies(session, search, limit, kind, source)
     return NextResponse.json({ ok: true, companies })
   } catch (error) {
     return templateFailure(error)

@@ -3,6 +3,7 @@ import { ForbiddenError, type StaffSession } from '@/server/auth/session'
 import type { CompanyKind } from '@/server/companies/companies'
 import { getDb, schema } from '@/server/db'
 import { isUuid } from '@/server/documents/authorization'
+import { isCampaignKind, type CampaignKind } from '@/lib/campaigns'
 
 /**
  * Groups: a hand-picked list of companies to work with together.
@@ -24,6 +25,9 @@ export type GroupListItem = {
   description: string | null
   /** null for the groups that predate the split; they belong to both. */
   kind: 'supplier' | 'customer' | null
+  campaignKind: CampaignKind
+  startsAt: Date | null
+  endsAt: Date | null
   companyCount: number
   createdAt: Date
 }
@@ -62,7 +66,7 @@ export async function listGroups(
    */
   kind?: 'supplier' | 'customer',
   /** Archived projects are off every default list; true shows only them. */
-  options: { archived?: boolean; search?: string } = {},
+  options: { archived?: boolean; search?: string; campaignKind?: CampaignKind } = {},
 ): Promise<GroupListItem[]> {
   const term = options.search?.trim()
   const like = term ? `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null
@@ -76,13 +80,16 @@ export async function listGroups(
       description: schema.groups.description,
       createdAt: schema.groups.createdAt,
       kind: schema.groups.kind,
+      campaignKind: schema.groups.campaignKind,
+      startsAt: schema.groups.startsAt,
+      endsAt: schema.groups.endsAt,
       companyCount: sql<number>`count(${schema.companies.id})`,
     })
     .from(schema.groups)
     .leftJoin(schema.companyGroups, eq(schema.companyGroups.groupId, schema.groups.id))
     .leftJoin(
       schema.companies,
-      and(eq(schema.companies.id, schema.companyGroups.companyId), isNull(schema.companies.deletedAt)),
+      and(eq(schema.companies.id, schema.companyGroups.companyId), isNull(schema.companies.deletedAt), isNull(schema.companies.archivedAt)),
     )
     .where(
       and(
@@ -90,6 +97,7 @@ export async function listGroups(
         isNull(schema.groups.deletedAt),
         options.archived ? isNotNull(schema.groups.archivedAt) : isNull(schema.groups.archivedAt),
         kind ? or(eq(schema.groups.kind, kind), isNull(schema.groups.kind)) : undefined,
+        options.campaignKind ? eq(schema.groups.campaignKind, options.campaignKind) : undefined,
         like
           ? sql`(${schema.groups.name} ilike ${like} or ${schema.groups.description} ilike ${like})`
           : undefined,
@@ -101,12 +109,18 @@ export async function listGroups(
       schema.groups.description,
       schema.groups.createdAt,
       schema.groups.kind,
+      schema.groups.campaignKind,
+      schema.groups.startsAt,
+      schema.groups.endsAt,
     )
     .orderBy(desc(schema.groups.createdAt))
 
   return rows.map((row) => ({
     ...row,
     kind: (row.kind as 'supplier' | 'customer' | null) ?? null,
+    campaignKind: isCampaignKind(row.campaignKind) ? row.campaignKind : 'signature',
+    startsAt: row.startsAt,
+    endsAt: row.endsAt,
     companyCount: Number(row.companyCount),
   }))
 }
@@ -116,6 +130,8 @@ export type ProjectListItem = GroupListItem & {
   signed: number
   /** Suppliers whose latest send is still waiting (sent/viewed). */
   pending: number
+  /** People who came through the public door. */
+  registrations: number
   lastActivityAt: Date | null
 }
 
@@ -126,10 +142,17 @@ export type ProjectListItem = GroupListItem & {
  */
 export async function listProjects(
   session: StaffSession,
-  options: { archived?: boolean; search?: string } = {},
+  options: { archived?: boolean; search?: string; campaignKind?: CampaignKind } = {},
 ): Promise<ProjectListItem[]> {
   const groups = await listGroups(session, undefined, options)
   if (groups.length === 0) return []
+
+  const registrationRows = await getDb()
+    .select({ groupId: schema.projectLeads.groupId, n: sql<number>`count(*)` })
+    .from(schema.projectLeads)
+    .where(and(eq(schema.projectLeads.organizationId, session.organizationId), sql`${schema.projectLeads.status} <> 'pending'`))
+    .groupBy(schema.projectLeads.groupId)
+  const registrations = new Map(registrationRows.map((r) => [r.groupId, Number(r.n)]))
 
   const stats = await getDb().execute(sql`
     select group_id,
@@ -163,6 +186,7 @@ export async function listProjects(
     ...group,
     signed: byGroup.get(group.id)?.signed ?? 0,
     pending: byGroup.get(group.id)?.pending ?? 0,
+    registrations: registrations.get(group.id) ?? 0,
     lastActivityAt: byGroup.get(group.id)?.lastActivityAt ?? null,
   }))
 }
@@ -181,6 +205,28 @@ export async function setProjectArchived(
   return { ok: true }
 }
 
+export type CampaignFields = {
+  campaignKind?: CampaignKind
+  startsAt?: Date | null
+  endsAt?: Date | null
+  registrationsAfterEnd?: boolean
+  linkTtlDays?: number
+  ownerUserId?: string | null
+  defaultTemplateId?: string | null
+}
+
+function cleanCampaignFields(input: CampaignFields) {
+  const out: Partial<typeof schema.groups.$inferInsert> = {}
+  if (input.campaignKind !== undefined && isCampaignKind(input.campaignKind)) out.campaignKind = input.campaignKind
+  if (input.startsAt !== undefined) out.startsAt = input.startsAt
+  if (input.endsAt !== undefined) out.endsAt = input.endsAt
+  if (input.registrationsAfterEnd !== undefined) out.registrationsAfterEnd = Boolean(input.registrationsAfterEnd)
+  if (input.linkTtlDays !== undefined) out.linkTtlDays = Number.isInteger(input.linkTtlDays) && input.linkTtlDays >= 1 && input.linkTtlDays <= 365 ? input.linkTtlDays : 30
+  if (input.ownerUserId !== undefined) out.ownerUserId = input.ownerUserId && isUuid(input.ownerUserId) ? input.ownerUserId : null
+  if (input.defaultTemplateId !== undefined) out.defaultTemplateId = input.defaultTemplateId && isUuid(input.defaultTemplateId) ? input.defaultTemplateId : null
+  return out
+}
+
 export async function createGroup(input: {
   session: StaffSession
   name: string
@@ -188,9 +234,10 @@ export async function createGroup(input: {
   kind?: 'supplier' | 'customer' | null
   /** Seed membership, for "create a group from this selection". */
   companyIds?: string[]
-}): Promise<GroupResult> {
+} & CampaignFields): Promise<GroupResult> {
   const name = cleanName(input.name)
-  if (!name) return { ok: false, message: 'יש להזין שם לקבוצה.' }
+  if (!name) return { ok: false, message: 'יש להזין שם לקמפיין.' }
+  if (input.startsAt && input.endsAt && input.endsAt.getTime() < input.startsAt.getTime()) return { ok: false, message: 'תאריך הסיום חייב להיות אחרי תאריך ההתחלה.' }
 
   const [group] = await getDb()
     .insert(schema.groups)
@@ -200,6 +247,8 @@ export async function createGroup(input: {
       description: input.description?.trim().slice(0, 2000) || null,
       kind: input.kind === 'supplier' || input.kind === 'customer' ? input.kind : null,
       createdBy: input.session.userId,
+      ownerUserId: input.session.userId,
+      ...cleanCampaignFields(input),
     })
     .returning({ id: schema.groups.id })
 
@@ -223,6 +272,31 @@ export async function renameGroup(input: {
     .update(schema.groups)
     .set({ name, description: input.description?.trim().slice(0, 2000) || null })
     .where(eq(schema.groups.id, group.id))
+  return { ok: true }
+}
+
+/** The campaign's own settings — kind, dates, link lifetime, owner, default agreement. */
+export async function updateCampaign(session: StaffSession, groupId: string, input: CampaignFields & { name?: string; description?: string | null }): Promise<{ ok: true } | { ok: false; message: string }> {
+  const group = await authorizeGroup(session, groupId)
+  const patch: Partial<typeof schema.groups.$inferInsert> = cleanCampaignFields(input)
+  if (input.name !== undefined) {
+    const name = cleanName(input.name)
+    if (!name) return { ok: false, message: 'יש להזין שם לקמפיין.' }
+    patch.name = name
+  }
+  if (input.description !== undefined) patch.description = input.description?.trim().slice(0, 2000) || null
+  const startsAt = patch.startsAt !== undefined ? patch.startsAt : group.startsAt
+  const endsAt = patch.endsAt !== undefined ? patch.endsAt : group.endsAt
+  if (startsAt && endsAt && endsAt.getTime() < startsAt.getTime()) return { ok: false, message: 'תאריך הסיום חייב להיות אחרי תאריך ההתחלה.' }
+  if (patch.ownerUserId) {
+    const [owner] = await getDb().select({ id: schema.users.id }).from(schema.users).where(and(eq(schema.users.id, patch.ownerUserId), eq(schema.users.organizationId, session.organizationId))).limit(1)
+    if (!owner) return { ok: false, message: 'הבעלים שנבחר לא נמצא.' }
+  }
+  if (patch.defaultTemplateId) {
+    const [template] = await getDb().select({ id: schema.templates.id }).from(schema.templates).where(and(eq(schema.templates.id, patch.defaultTemplateId), eq(schema.templates.organizationId, session.organizationId), isNull(schema.templates.deletedAt))).limit(1)
+    if (!template) return { ok: false, message: 'התבנית שנבחרה לא נמצאה.' }
+  }
+  await getDb().update(schema.groups).set(patch).where(eq(schema.groups.id, group.id))
   return { ok: true }
 }
 
@@ -370,6 +444,31 @@ export async function listGroupCompanies(
       status: send.agreementStatus ?? send.itemStatus,
       at: send.updatedAt,
     })
+  }
+
+  // Agreements the project's self-service flow created (ADR 0001) never went
+  // through a batch; they carry the project on their snapshot instead. The
+  // newest word per company wins, whichever door it came through.
+  const selfService = await getDb()
+    .select({
+      companyId: schema.agreements.companyId,
+      agreementId: schema.agreements.id,
+      status: schema.agreements.status,
+      at: schema.agreements.createdAt,
+    })
+    .from(schema.agreements)
+    .where(
+      and(
+        eq(schema.agreements.organizationId, session.organizationId),
+        sql`${schema.agreements.mergeSnapshot}->'selfService'->>'projectId' = ${group.id}`,
+      ),
+    )
+    .orderBy(schema.agreements.createdAt)
+  for (const row of selfService) {
+    if (!row.companyId) continue
+    const current = lastSendByCompany.get(row.companyId)
+    if (current && current.at > row.at) continue
+    lastSendByCompany.set(row.companyId, { agreementId: row.agreementId, status: row.status, at: row.at })
   }
 
   return rows.map((row) => ({
