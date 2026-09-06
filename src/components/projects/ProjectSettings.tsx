@@ -6,9 +6,10 @@ import { FormBuilder } from '@/components/projects/FormBuilder'
 import { PublishPanel } from '@/components/projects/PublishPanel'
 import {
   SelfServiceSettings,
+  type PublicSlugView,
   type OwnerOption,
-  type TemplateOption,
 } from '@/components/projects/SelfServiceSettings'
+import type { ActiveAgreement } from '@/components/projects/AgreementPanel'
 import type { LandingSettings } from '@/server/projects/landing'
 import type { FormField } from '@/server/projects/form-schema'
 import type { SelfServiceConfig } from '@/server/projects/self-service'
@@ -24,7 +25,9 @@ export function ProjectSettings({
   projectDescription,
   landing,
   selfService,
-  templates,
+  publicSlug,
+  publicBase,
+  agreement,
   owners,
   currentUserId,
 }: {
@@ -33,7 +36,9 @@ export function ProjectSettings({
   projectDescription: string | null
   landing: LandingSettings
   selfService: SelfServiceConfig
-  templates: TemplateOption[]
+  publicSlug: PublicSlugView
+  publicBase: string
+  agreement: ActiveAgreement | null
   owners: OwnerOption[]
   currentUserId: string
 }) {
@@ -147,7 +152,9 @@ export function ProjectSettings({
       <SelfServiceSettings
         projectId={projectId}
         config={selfService}
-        templates={templates}
+        publicSlug={publicSlug}
+        publicBase={publicBase}
+        agreement={agreement}
         owners={owners}
         currentUserId={currentUserId}
       />

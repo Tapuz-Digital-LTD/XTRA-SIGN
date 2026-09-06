@@ -1,101 +1,65 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useRef, useState } from 'react'
-import { SELF_SERVICE_SKINS, skinByKey } from '@/lib/self-service-skins'
+import { useState } from 'react'
+import { normalizeSlug, validateSlug } from '@/lib/public-slug'
+import { skinByKey } from '@/lib/self-service-skins'
 import type { SelfServiceConfig } from '@/server/projects/self-service'
+import { AgreementPanel, type ActiveAgreement } from './AgreementPanel'
 
 /**
  * "הרשמה וחתימה עצמאית" — the project's second door (ADR 0001).
  *
- * Small on purpose: switch, which branded pages, which agreement, who owns
- * the agreements, how long a link lives, what the thank-you page says. The
- * pages themselves are code; everything a person would want to change about
- * the flow is here.
+ * What a person sees is their campaign page: its address, with open / copy /
+ * change; the agreement registrants sign; who owns the agreements; how long
+ * a link lives; what the thank-you page says. The page itself is code bound
+ * to the project by a developer — there is no list of pages to pick from,
+ * because there is nothing a person could create there.
  */
 
 export type TemplateOption = { id: string; name: string; fieldCount: number }
 export type OwnerOption = { id: string; name: string; email: string }
+export type PublicSlugView = { current: string | null; history: { slug: string; replacedAt: string | null }[] }
 
 const inputClass =
   'mt-1 h-11 w-full rounded-lg border border-line bg-bg px-3 text-sm text-fg outline-none focus:border-brand'
+const buttonClass =
+  'inline-flex min-h-10 items-center justify-center rounded-lg border border-line bg-surface px-3 text-sm font-medium text-fg transition hover:border-brand disabled:opacity-50'
 
 export function SelfServiceSettings({
   projectId,
   config,
-  templates: initialTemplates,
+  publicSlug,
+  publicBase,
+  agreement,
   owners,
   currentUserId,
 }: {
   projectId: string
   config: SelfServiceConfig
-  templates: TemplateOption[]
+  publicSlug: PublicSlugView
+  /** The origin links are minted on — the same one the SMS carries. */
+  publicBase: string
+  /** The agreement currently bound, or null. */
+  agreement: ActiveAgreement | null
   /** Empty when the viewer may not list users; the current owner is then shown read-only. */
   owners: OwnerOption[]
   currentUserId: string
 }) {
   const router = useRouter()
+  const skin = skinByKey(config.skin)
   const [enabled, setEnabled] = useState(config.enabled)
-  const [skin, setSkin] = useState<string>(config.skin ?? SELF_SERVICE_SKINS[0].key)
   const [templateId, setTemplateId] = useState(config.templateId ?? '')
   const [ownerUserId, setOwnerUserId] = useState(config.ownerUserId ?? currentUserId)
   const [linkTtlDays, setLinkTtlDays] = useState(String(config.linkTtlDays))
   const [thankYouTitle, setThankYouTitle] = useState(config.thankYouTitle)
   const [thankYouText, setThankYouText] = useState(config.thankYouText)
-  const [templates, setTemplates] = useState(initialTemplates)
-  const [uploadName, setUploadName] = useState('')
   const [busy, setBusy] = useState(false)
-  const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
 
-  const chosenSkin = skinByKey(skin)
-  const publicUrl =
-    chosenSkin && typeof window !== 'undefined' ? `${window.location.origin}${chosenSkin.basePath}` : null
   const ready = Boolean(skin && templateId && ownerUserId)
 
-  async function uploadTemplate() {
-    const file = fileRef.current?.files?.[0]
-    if (!file) {
-      setMessage({ tone: 'error', text: 'יש לבחור קובץ PDF.' })
-      return
-    }
-    setUploading(true)
-    setMessage(null)
-    try {
-      const form = new FormData()
-      form.set('file', file)
-      form.set('name', uploadName.trim() || file.name.replace(/\.pdf$/i, ''))
-      const response = await fetch('/api/templates/from-pdf', { method: 'POST', body: form })
-      const data = await response.json().catch(() => null)
-      if (!response.ok) {
-        setMessage({ tone: 'error', text: data?.error?.message ?? 'ההעלאה נכשלה.' })
-        return
-      }
-      const created: TemplateOption = {
-        id: data.templateId,
-        name: uploadName.trim() || file.name.replace(/\.pdf$/i, ''),
-        fieldCount: data.fieldCount ?? 0,
-      }
-      setTemplates((list) => [created, ...list])
-      setTemplateId(created.id)
-      setUploadName('')
-      if (fileRef.current) fileRef.current.value = ''
-      setMessage({
-        tone: 'ok',
-        text:
-          created.fieldCount > 0
-            ? `ההסכם הועלה. זוהו ${created.fieldCount} שדות למילוי בקובץ.`
-            : 'ההסכם הועלה. לא זוהו שדות למילוי — יש להציב שדות דרך מסמך מהתבנית.',
-      })
-    } catch {
-      setMessage({ tone: 'error', text: 'ההעלאה נכשלה. נסו שוב.' })
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  async function save() {
+  async function save(overrides: Partial<{ enabled: boolean; templateId: string }> = {}) {
     setBusy(true)
     setMessage(null)
     try {
@@ -103,9 +67,8 @@ export function SelfServiceSettings({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          enabled,
-          skin,
-          templateId: templateId || null,
+          enabled: overrides.enabled ?? enabled,
+          templateId: (overrides.templateId ?? templateId) || null,
           ownerUserId: ownerUserId || null,
           linkTtlDays: Number(linkTtlDays) || 30,
           thankYouTitle,
@@ -115,13 +78,15 @@ export function SelfServiceSettings({
       const data = await response.json().catch(() => null)
       if (!response.ok) {
         setMessage({ tone: 'error', text: data?.error?.message ?? 'השמירה נכשלה.' })
-        return
+        return false
       }
       setEnabled(Boolean(data.enabled))
       setMessage({ tone: 'ok', text: data.enabled ? 'ההרשמה העצמאית פעילה.' : 'ההגדרות נשמרו.' })
       router.refresh()
+      return true
     } catch {
       setMessage({ tone: 'error', text: 'השמירה נכשלה. נסו שוב.' })
+      return false
     } finally {
       setBusy(false)
     }
@@ -133,8 +98,8 @@ export function SelfServiceSettings({
         <div>
           <h2 className="text-base font-semibold text-fg">הרשמה וחתימה עצמאית</h2>
           <p className="mt-1 text-sm text-muted">
-            עמוד ציבורי ממותג שבו ספק ממלא פרטים, קורא את ההסכם, מאמת טלפון וחותם — בלי שלב ידני.
-            הספק, ההסכם והחתימה נוצרים אוטומטית בפרויקט הזה.
+            ספק נכנס לעמוד הקמפיין, ממלא פרטים, קורא את ההסכם, מאמת טלפון וחותם — בלי שלב ידני. הספק, ההסכם
+            והחתימה נוצרים אוטומטית בפרויקט הזה.
           </p>
         </div>
         <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium text-fg">
@@ -149,70 +114,24 @@ export function SelfServiceSettings({
         </label>
       </div>
 
-      {enabled && publicUrl ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-bg px-3 py-2">
-          <span className="min-w-0 flex-1 truncate text-sm text-fg" dir="ltr">
-            {publicUrl}
-          </span>
-          <a
-            href={publicUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex min-h-9 items-center rounded-lg border border-line bg-surface px-3 text-xs font-medium text-fg transition hover:border-brand"
-          >
-            פתיחה
-          </a>
-        </div>
-      ) : null}
+      {skin ? (
+        <CampaignAddress projectId={projectId} publicBase={publicBase} initial={publicSlug} enabled={config.enabled} />
+      ) : (
+        <p className="mt-4 rounded-lg border border-dashed border-line bg-bg px-4 py-3 text-sm text-muted">
+          לפרויקט הזה עדיין לא חובר עמוד קמפיין. עמוד קמפיין נבנה ומחובר לפרויקט על ידי צוות הפיתוח.
+        </p>
+      )}
+
+      <AgreementPanel
+        agreement={agreement}
+        projectId={projectId}
+        onActivate={async (id) => {
+          setTemplateId(id)
+          return save({ templateId: id })
+        }}
+      />
 
       <label className="mt-4 block text-sm">
-        <span className="text-muted">עמוד ציבורי ממותג</span>
-        <select value={skin} onChange={(e) => setSkin(e.target.value)} className={inputClass}>
-          {SELF_SERVICE_SKINS.map((s) => (
-            <option key={s.key} value={s.key}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label className="mt-3 block text-sm">
-        <span className="text-muted">ההסכם לחתימה (תבנית)</span>
-        <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} className={inputClass}>
-          <option value="">— בחרו תבנית —</option>
-          {templates.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name} · {t.fieldCount} שדות
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <div className="mt-3 rounded-lg border border-dashed border-line bg-bg p-3">
-        <p className="text-xs font-medium text-fg">העלאת הסכם חדש (PDF)</p>
-        <p className="mt-0.5 text-xs text-muted">
-          PDF עם שדות למילוי מביא איתו את השדות; הם ימולאו אוטומטית מפרטי ההרשמה.
-        </p>
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-          <input
-            value={uploadName}
-            onChange={(e) => setUploadName(e.target.value)}
-            placeholder="שם התבנית"
-            className="h-11 flex-1 rounded-lg border border-line bg-surface px-3 text-sm text-fg outline-none focus:border-brand"
-          />
-          <input ref={fileRef} type="file" accept="application/pdf" className="h-11 flex-1 text-sm text-fg file:me-2 file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-2 file:text-xs" />
-          <button
-            type="button"
-            disabled={uploading}
-            onClick={() => void uploadTemplate()}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition hover:border-brand disabled:opacity-50"
-          >
-            {uploading ? 'מעלה…' : 'העלאה'}
-          </button>
-        </div>
-      </div>
-
-      <label className="mt-3 block text-sm">
         <span className="text-muted">בעלים של ההסכמים שנוצרים</span>
         {owners.length > 0 ? (
           <select value={ownerUserId} onChange={(e) => setOwnerUserId(e.target.value)} className={inputClass}>
@@ -257,7 +176,7 @@ export function SelfServiceSettings({
 
       {!ready ? (
         <p className="mt-3 text-xs text-muted">
-          כדי להפעיל: לבחור עמוד ממותג, תבנית הסכם ובעלים.
+          כדי להפעיל: {skin ? '' : 'לחבר עמוד קמפיין, '}להגדיר הסכם לחתימה ולבחור בעלים.
         </p>
       ) : null}
 
@@ -283,5 +202,184 @@ export function SelfServiceSettings({
         </button>
       </div>
     </section>
+  )
+}
+
+/**
+ * The campaign page's address: the link as it is, and a way to change it
+ * that says what changing it means — the old address keeps working.
+ */
+function CampaignAddress({
+  projectId,
+  publicBase,
+  initial,
+  enabled,
+}: {
+  projectId: string
+  publicBase: string
+  initial: PublicSlugView
+  enabled: boolean
+}) {
+  const [slug, setSlug] = useState(initial)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const url = slug.current ? `${publicBase}/${slug.current}` : null
+  const check = draft ? validateSlug(draft) : null
+  const preview = draft ? `${publicBase}/${normalizeSlug(draft) || '…'}` : null
+
+  async function copy() {
+    if (!url) return
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      window.prompt('העתיקו את הקישור:', url)
+    }
+  }
+
+  async function saveSlug() {
+    if (!check?.ok) return
+    setBusy(true)
+    setNote(null)
+    try {
+      const response = await fetch(`/api/projects/${projectId}/public-slug`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: draft }),
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok) {
+        setNote({ tone: 'error', text: data?.error?.message ?? 'שינוי הכתובת נכשל.' })
+        return
+      }
+      setSlug(data)
+      setEditing(false)
+      setDraft('')
+      setNote({ tone: 'ok', text: 'הכתובת עודכנה. הכתובת הקודמת ממשיכה לעבוד ומפנה לכתובת החדשה.' })
+    } catch {
+      setNote({ tone: 'error', text: 'שינוי הכתובת נכשל. נסו שוב.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mt-4 rounded-lg border border-line bg-bg p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-fg">עמוד הקמפיין</h3>
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            enabled ? 'bg-green-50 text-green-800' : 'bg-line text-muted'
+          }`}
+        >
+          {enabled ? 'פעיל' : 'לא פעיל'}
+        </span>
+      </div>
+
+      {url ? (
+        <p className="mt-2 break-all rounded-md bg-surface px-3 py-2 text-sm text-fg" dir="ltr">
+          {url}
+        </p>
+      ) : (
+        <p className="mt-2 text-sm text-muted">הכתובת תיקבע כשההרשמה העצמאית תופעל.</p>
+      )}
+
+      {url ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <a href={url} target="_blank" rel="noreferrer" className={buttonClass}>
+            פתח עמוד
+          </a>
+          <button type="button" onClick={() => void copy()} className={buttonClass}>
+            {copied ? 'הועתק' : 'העתק קישור'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditing((v) => !v)
+              setDraft(slug.current ?? '')
+              setNote(null)
+            }}
+            className={buttonClass}
+            aria-expanded={editing}
+          >
+            שינוי כתובת
+          </button>
+        </div>
+      ) : null}
+
+      {editing ? (
+        <div className="mt-3 rounded-lg border border-line bg-surface p-3">
+          <label className="block text-sm">
+            <span className="text-muted">כתובת חדשה</span>
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              dir="ltr"
+              autoComplete="off"
+              spellCheck={false}
+              className={inputClass}
+              aria-invalid={Boolean(check && !check.ok)}
+              aria-describedby="slug-preview"
+            />
+          </label>
+          <p id="slug-preview" className="mt-2 break-all text-xs text-muted" dir="ltr">
+            {preview ?? ' '}
+          </p>
+          {check && !check.ok ? (
+            <p role="alert" className="mt-1 text-xs text-red-700">
+              {check.message}
+            </p>
+          ) : null}
+          <p className="mt-2 text-xs text-muted">הכתובת הישנה תמשיך לעבוד ותפנה אוטומטית לכתובת החדשה.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy || !check?.ok || normalizeSlug(draft) === slug.current}
+              onClick={() => void saveSlug()}
+              className="inline-flex min-h-10 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+            >
+              {busy ? 'שומר…' : 'שמירת הכתובת'}
+            </button>
+            <button type="button" onClick={() => setEditing(false)} className={buttonClass}>
+              ביטול
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {note ? (
+        <p
+          role={note.tone === 'error' ? 'alert' : 'status'}
+          className={`mt-3 rounded-lg px-3 py-2 text-xs ${
+            note.tone === 'error' ? 'border border-red-200 bg-red-50 text-red-800' : 'border border-green-200 bg-green-50 text-green-800'
+          }`}
+        >
+          {note.text}
+        </p>
+      ) : null}
+
+      {slug.history.length > 0 ? (
+        <details className="mt-3 text-sm">
+          <summary className="cursor-pointer text-muted">כתובות קודמות ({slug.history.length})</summary>
+          <ul className="mt-2 space-y-1">
+            {slug.history.map((h) => (
+              <li key={h.slug} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-surface px-3 py-1.5">
+                <span className="break-all text-fg" dir="ltr">
+                  {publicBase}/{h.slug}
+                </span>
+                <span className="text-xs text-muted">
+                  {h.replacedAt ? `עד ${new Date(h.replacedAt).toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' })}` : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </div>
   )
 }

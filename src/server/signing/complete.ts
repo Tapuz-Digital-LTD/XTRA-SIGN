@@ -5,6 +5,7 @@ import { buildStorageKey, sha256 } from '@/server/documents/file-validation'
 import { publicBaseUrl } from '@/server/http/public-url'
 import { InforuEmailProvider } from '@/server/notifications/inforu'
 import { notify } from '@/server/notifications/notifications'
+import { currentSlugOf } from '@/server/projects/public-slug'
 import { originFromSnapshot } from '@/server/self-service/agreement-skin'
 import { signedCopyCopy } from '@/server/self-service/copy'
 import { getStorage } from '@/server/storage/blob'
@@ -241,7 +242,7 @@ async function notifyAfterSigning(context: SigningContext, token: string | null)
             to: context.recipientEmail,
             ...signedCopyCopy({ projectName: project.name }, origin.skin).email(
               context.recipientName,
-              `${base}${origin.skin.basePath}/thanks/${token}`,
+              `${base}/${(await currentSlugOf(origin.projectId)) ?? origin.skin.defaultSlug}/thanks/${token}`,
             ),
             recipientName: context.recipientName,
           }

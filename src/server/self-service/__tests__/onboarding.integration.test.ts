@@ -30,6 +30,7 @@ const SIGNATURE = `data:image/png;base64,${PNG_1PX.toString('base64')}`
 
 let admin: StaffSession
 let groupId: string
+let FORM_ID: string
 
 const values = (overrides: Record<string, unknown> = {}) => ({
   businessName: 'מלון הנוף הצפוני',
@@ -43,7 +44,7 @@ const values = (overrides: Record<string, unknown> = {}) => ({
 
 function register(key: string, overrides: Record<string, unknown> = {}) {
   return startSelfServiceSigning({
-    skin: 'tourism-2026',
+    formId: FORM_ID,
     values: values(overrides),
     idempotencyKey: key,
     ip: '10.0.0.1',
@@ -80,6 +81,8 @@ beforeAll(async () => {
     linkTtlDays: 30,
   })
   if (!saved.ok) throw new Error(saved.message)
+  const [row] = await db.select({ formId: schema.groups.landingSlug }).from(schema.groups).where(eq(schema.groups.id, groupId))
+  FORM_ID = row.formId!
 })
 
 describe('validateRegistration', () => {

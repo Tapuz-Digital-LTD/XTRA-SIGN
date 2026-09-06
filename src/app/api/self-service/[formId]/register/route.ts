@@ -6,7 +6,8 @@ import { startSelfServiceSigning } from '@/server/self-service/onboarding'
 
 /**
  * The public door of a self-service project: details in, a signing token and
- * an OTP out (ADR 0001).
+ * an OTP out (ADR 0001). Addressed by the project's stable form id, never by
+ * its public address — the address is a marketing choice that changes.
  *
  * Unauthenticated by design and defended accordingly: a payload cap, a per-IP
  * rate limit, a honeypot no person sees, an idempotency key the page mints per
@@ -16,9 +17,9 @@ import { startSelfServiceSigning } from '@/server/self-service/onboarding'
  */
 const MAX_BODY_BYTES = 50_000
 
-export async function POST(request: Request, context: { params: Promise<{ skin: string }> }) {
+export async function POST(request: Request, context: { params: Promise<{ formId: string }> }) {
   try {
-    const { skin } = await context.params
+    const { formId } = await context.params
     const ip = clientIp(request)
 
     const length = Number(request.headers.get('content-length') ?? 0)
@@ -59,7 +60,7 @@ export async function POST(request: Request, context: { params: Promise<{ skin: 
     }
 
     const result = await startSelfServiceSigning({
-      skin,
+      formId,
       values: body.values && typeof body.values === 'object' ? body.values : {},
       idempotencyKey: body.idempotencyKey,
       ip,

@@ -3,11 +3,11 @@ import { redirect } from 'next/navigation'
 import { and, eq, sql } from 'drizzle-orm'
 import { AUDIT_EVENTS } from '@/server/audit'
 import { getDb, schema } from '@/server/db'
-import { selfServiceOf } from '@/server/projects/self-service'
 import { selfServiceOriginOf } from '@/server/self-service/agreement-skin'
 import { resolveSigningToken } from '@/server/signing/session'
 import { CampaignFrame, CampaignNotice } from '../../CampaignFrame'
 import { ThanksView } from '../../ThanksView'
+import { campaignProject, type SearchParams } from '../../resolve'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,22 +24,24 @@ export const metadata: Metadata = {
  * two-minute presigned URL). A token whose agreement is not signed yet goes
  * back to signing; an unknown or expired one gets the plain message.
  */
-export default async function ThanksPage({ params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params
+export default async function ThanksPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string; token: string }>
+  searchParams: Promise<SearchParams>
+}) {
+  const [{ slug, token }, query] = await Promise.all([params, searchParams])
+  const project = await campaignProject(slug, `/thanks/${token}`, query)
   const context = await resolveSigningToken(token)
-  if (!context) return <Expired />
+  if (!context) return <Expired slug={slug} />
 
   const origin = await selfServiceOriginOf(context.agreementId)
-  if (origin?.skin.key !== 'tourism-2026') redirect(`/sign/${token}`)
-  if (context.status !== 'signed') redirect(`/tourism-2026/sign/${token}`)
+  if (origin?.projectId !== project.groupId) redirect(`/sign/${token}`)
+  if (context.status !== 'signed') redirect(`/${slug}/sign/${token}`)
 
   const db = getDb()
-  const [project] = await db
-    .select({ name: schema.groups.name, landingConfig: schema.groups.landingConfig })
-    .from(schema.groups)
-    .where(eq(schema.groups.id, origin.projectId))
-    .limit(1)
-  const config = selfServiceOf(project?.landingConfig)
+  const config = project.config
 
   // "A copy was emailed" only when one actually left.
   const [emailed] = await db
@@ -55,11 +57,11 @@ export default async function ThanksPage({ params }: { params: Promise<{ token: 
     .limit(1)
 
   return (
-    <CampaignFrame title="ההצטרפות הושלמה">
+    <CampaignFrame slug={slug} title="ההצטרפות הושלמה">
       <ThanksView
         title={config.thankYouTitle}
         text={config.thankYouText}
-        projectName={project?.name ?? 'חודש התיירות הישראלית 2026'}
+        projectName={project.projectName}
         signerName={context.recipientName}
         downloadHref={`/api/sign/${token}/download`}
         emailed={Boolean(emailed)}
@@ -69,10 +71,11 @@ export default async function ThanksPage({ params }: { params: Promise<{ token: 
   )
 }
 
-function Expired() {
+function Expired({ slug }: { slug: string }) {
   return (
-    <CampaignFrame title="ההצטרפות הושלמה">
+    <CampaignFrame slug={slug} title="ההצטרפות הושלמה">
       <CampaignNotice
+        slug={slug}
         title="תוקף הקישור הסתיים"
         text="ניתן לפנות לצוות הפרויקט לקבלת קישור חדש: tour@xtra.co.il"
       />

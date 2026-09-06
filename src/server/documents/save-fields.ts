@@ -25,6 +25,29 @@ const MAX_FIELDS = 200
 
 export type SaveFieldsResult = { ok: true; count: number } | { ok: false; message: string }
 
+/**
+ * Validates a whole layout without saving it — the same rules the editor's
+ * autosave goes through, for a caller (a template) that stores fields itself.
+ */
+export function parseFieldLayout(
+  raw: unknown,
+  pageCount: number,
+): { ok: true; fields: PlacedField[] } | { ok: false; message: string } {
+  if (!Array.isArray(raw)) return { ok: false, message: 'נתונים לא תקינים.' }
+  if (raw.length > MAX_FIELDS) return { ok: false, message: 'יותר מדי שדות במסמך.' }
+  const usedKeys: string[] = []
+  const fields: PlacedField[] = []
+  for (const item of raw) {
+    const parsed = parseField(item, pageCount)
+    if (!parsed) return { ok: false, message: 'נתונים לא תקינים.' }
+    const variableKey =
+      parsed.variableKey && !usedKeys.includes(parsed.variableKey) ? parsed.variableKey : toVariableKey(parsed.label, usedKeys)
+    usedKeys.push(variableKey)
+    fields.push({ ...parsed, variableKey })
+  }
+  return { ok: true, fields }
+}
+
 export async function saveFields(input: {
   session: StaffSession
   agreementId: string

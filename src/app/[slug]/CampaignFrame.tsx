@@ -4,11 +4,11 @@ import Link from 'next/link'
  * The frame around pages 2 and 3: the campaign's navy header with the
  * Ministry's logo, a light reading surface, no XTRA Sign chrome.
  */
-export function CampaignFrame({ children, title }: { children: React.ReactNode; title: string }) {
+export function CampaignFrame({ children, title, slug }: { children: React.ReactNode; title: string; slug: string }) {
   return (
     <main className="tj-page">
       <header className="tj-header">
-        <Link href="/tourism-2026" className="tj-header-logo" aria-label="לעמוד הקול הקורא">
+        <Link href={`/${slug}`} className="tj-header-logo" aria-label="לעמוד הקול הקורא">
           <img src="/tourism-2026/logo.webp" alt="משרד התיירות" width={190} height={67} />
         </Link>
         <span className="tj-header-title">{title}</span>
@@ -21,7 +21,7 @@ export function CampaignFrame({ children, title }: { children: React.ReactNode; 
   )
 }
 
-export function CampaignNotice({ title, text }: { title: string; text: string }) {
+export function CampaignNotice({ title, text, slug }: { title: string; text: string; slug: string }) {
   return (
     <div className="tj-flow">
       <section className="tj-card tj-center">
@@ -30,7 +30,7 @@ export function CampaignNotice({ title, text }: { title: string; text: string })
         </p>
         <h1 className="tj-h1">{title}</h1>
         <p className="tj-lead">{text}</p>
-        <Link href="/tourism-2026" className="tj-secondary tj-inline-link">
+        <Link href={`/${slug}`} className="tj-secondary tj-inline-link">
           לעמוד הקול הקורא
         </Link>
       </section>

@@ -24,7 +24,7 @@ function check(name: string, ok: boolean, extra = '') {
 const ip = () => `10.9.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`
 
 async function register(body: unknown, fromIp = ip(), raw?: string) {
-  const res = await fetch(`${BASE}/api/self-service/tourism-2026/register`, {
+  const res = await fetch(`${BASE}/api/self-service/${FORM_ID}/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-forwarded-for': fromIp },
     body: raw ?? JSON.stringify(body),
@@ -46,7 +46,18 @@ async function registrations(taxId: string) {
   return sql`select id, status, agreement_id from project_leads where data->>'taxId' = ${taxId} order by created_at`
 }
 
+let FORM_ID = ''
+
+/** The register API is keyed by the project's form id; the joining page carries it. */
+async function discoverFormId(): Promise<string> {
+  const html = await (await fetch(`${BASE}/tourism-2026/join`)).text()
+  const match = html.match(/data-form-id="([^"]+)"/)
+  if (!match) throw new Error('joining page has no form id — is self-service on?')
+  return match[1]
+}
+
 async function main() {
+  FORM_ID = await discoverFormId()
   const stamp = Date.now()
   const base = values(stamp)
 

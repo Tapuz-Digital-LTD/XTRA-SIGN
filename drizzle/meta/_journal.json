@@ -204,6 +204,13 @@
       "when": 1788687204776,
       "tag": "0028_self_service_registration",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1788694982351,
+      "tag": "0029_project_public_slugs",
+      "breakpoints": true
     }
   ]
 }

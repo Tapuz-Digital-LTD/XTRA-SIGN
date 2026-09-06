@@ -4,7 +4,9 @@ import { MAX_FILE_BYTES } from '@/server/documents/file-validation'
 import { assertSameOrigin } from '@/server/http/csrf'
 import { consume } from '@/server/http/rate-limit'
 import { templateFailure } from '@/server/http/template-errors'
-import { createTemplateFromPdf } from '@/server/templates/templates'
+import { authorizeTemplateAccess, createTemplateFromPdf } from '@/server/templates/templates'
+import { suggestRole, type AgreementRole } from '@/lib/agreement-roles'
+import type { PlacedField } from '@/lib/fields'
 
 /**
  * A template from an uploaded PDF, in one request: multipart `file` + `name`.
@@ -41,7 +43,17 @@ export async function POST(request: Request) {
     if (!result.ok) {
       return NextResponse.json({ error: { message: result.message } }, { status: 400 })
     }
-    return NextResponse.json({ templateId: result.templateId, fieldCount: result.fieldCount })
+    // The boxes found, each with a first guess at its role — for the person
+    // to confirm on the next step, never saved by this call.
+    const template = await authorizeTemplateAccess(session, result.templateId)
+    const fields = Array.isArray(template.fields) ? (template.fields as PlacedField[]) : []
+    const taken = new Set<AgreementRole>()
+    const detected = fields.map((f) => {
+      const suggestion = suggestRole(f, taken)
+      if (suggestion) taken.add(suggestion)
+      return { id: f.id, name: f.label, type: f.type, page: f.page, suggestion }
+    })
+    return NextResponse.json({ templateId: result.templateId, fieldCount: result.fieldCount, fields: detected })
   } catch (error) {
     return templateFailure(error)
   }

@@ -57,7 +57,7 @@ function campaignEmail(input: {
   lines: string[]
   cta: { label: string; url: string }
 }): string {
-  const logo = `${publicBaseUrl()}${input.skin.basePath}/email-logo.png`
+  const logo = `${publicBaseUrl()}${input.skin.assetsPath}/email-logo.png`
   return `<!doctype html>
 <html lang="he" dir="rtl"><body style="margin:0;background:#eef2f7;font-family:Arial,Helvetica,sans-serif">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f7;padding:32px 16px">

@@ -24,7 +24,6 @@ import { AgreementSystemNote, AgreementText } from './AgreementText'
  * browser was closed: details locked, signature and code still to do.
  */
 
-const SKIN = 'tourism-2026'
 const FORM_VERSION = '2026-09-06.1'
 /** The engine's consent wording — the same sentence the standard signer shows. */
 const CONSENT_TEXT = 'אני מאשר/ת שקראתי את המסמך ושחתימתי ניתנת על ידי מרצוני.'
@@ -35,6 +34,10 @@ type Step = 'form' | 'otp' | 'finishing' | 'already'
 
 type Props = {
   mode: 'new' | 'resume'
+  /** The project's current public address — where the thank-you page lives. */
+  slug: string
+  /** The project's stable form id — what the register API is addressed by. */
+  formId: string
   projectName: string
   token?: string
   values?: RegistrationValues
@@ -58,7 +61,7 @@ function errorMessage(data: unknown, fallback: string): string {
   return typeof message === 'string' && message ? message : fallback
 }
 
-export function JoinAndSign({ mode, projectName, token: initialToken, values: locked, verified = false, maskedPhone: initialMasked }: Props) {
+export function JoinAndSign({ mode, slug, formId, projectName, token: initialToken, values: locked, verified = false, maskedPhone: initialMasked }: Props) {
   const router = useRouter()
   const [values, setValues] = useState<FormValues>(() => (locked ? { ...locked } : emptyValues()))
   const [errors, setErrors] = useState<Partial<Record<RegistrationField, string>>>({})
@@ -146,7 +149,7 @@ export function JoinAndSign({ mode, projectName, token: initialToken, values: lo
         if (value) meta[key] = value
       }
 
-      const response = await fetch(`/api/self-service/${SKIN}/register`, {
+      const response = await fetch(`/api/self-service/${formId}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -262,7 +265,7 @@ export function JoinAndSign({ mode, projectName, token: initialToken, values: lo
       setMessage(errorMessage(data, 'החתימה נכשלה. נסו שוב.'))
       return
     }
-    router.replace(`/tourism-2026/thanks/${forToken}`)
+    router.replace(`/${slug}/thanks/${forToken}`)
   }
 
   const lockedMode = mode === 'resume'
@@ -293,6 +296,7 @@ export function JoinAndSign({ mode, projectName, token: initialToken, values: lo
 
       <form
         className="tj-form"
+        data-form-id={formId}
         onSubmit={(e) => {
           e.preventDefault()
           if (step === 'form') void submit()

@@ -15,7 +15,18 @@ const TOTAL = Number(process.env.CAP_TOTAL ?? 300)
 const BURST = Number(process.env.CAP_BURST ?? 30)
 const sql = postgres(DB, { max: 1 })
 
+let FORM_ID = ''
+
+/** The register API is keyed by the project's form id; the joining page carries it. */
+async function discoverFormId(): Promise<string> {
+  const html = await (await fetch(`${BASE}/tourism-2026/join`)).text()
+  const match = html.match(/data-form-id="([^"]+)"/)
+  if (!match) throw new Error('joining page has no form id — is self-service on?')
+  return match[1]
+}
+
 async function main() {
+  FORM_ID = await discoverFormId()
   const run = `CAP${Date.now() % 100000}`
   const latencies: number[] = []
   const kinds = new Map<string, number>()
@@ -40,7 +51,7 @@ async function main() {
       const t0 = Date.now()
       // Each request from its own address: the per-IP limit is a real
       // protection and is not what is being measured here.
-      return fetch(`${BASE}/api/self-service/tourism-2026/register`, {
+      return fetch(`${BASE}/api/self-service/${FORM_ID}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-forwarded-for': `10.${20 + batch}.${Math.floor(j / 250)}.${j % 250}` },
         body: JSON.stringify(body),

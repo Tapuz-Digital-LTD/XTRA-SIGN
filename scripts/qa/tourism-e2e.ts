@@ -71,7 +71,7 @@ async function main() {
   await page.type('#tj-signatoryRole', 'מנכ"ל')
 
   // ── Submit without a signature: refused on the page, nothing sent ──────
-  await page.click('.tj-sticky button[type=submit]')
+  await page.click('.tj-actions button[type=submit]')
   await page.waitForSelector('.tj-alert', { timeout: 5000 })
   const alertText = await page.$eval('.tj-alert', (el) => el.textContent ?? '')
   check('refuses to send without a signature', alertText.includes('לחתום'), alertText)
@@ -95,8 +95,8 @@ async function main() {
   await page.screenshot({ path: `${OUT}/e2e-${WIDTH}-filled.png`, fullPage: true })
 
   // Double click: one registration.
-  await page.click('.tj-sticky button[type=submit]')
-  await page.click('.tj-sticky button[type=submit]').catch(() => {})
+  await page.click('.tj-actions button[type=submit]')
+  await page.click('.tj-actions button[type=submit]').catch(() => {})
   await page.waitForSelector('#tj-code', { timeout: 60000 })
   check('OTP panel shown', true)
   await page.screenshot({ path: `${OUT}/e2e-${WIDTH}-otp.png`, fullPage: true })
@@ -116,7 +116,7 @@ async function main() {
   // waitForNavigation does not see.
   await page.click('.tj-otp .tj-primary')
   try {
-    await page.waitForFunction(() => location.pathname.startsWith('/tourism-2026/thanks/'), { timeout: 90000 })
+    await page.waitForFunction(() => window.location.pathname.startsWith('/tourism-2026/thanks/'), { timeout: 90000 })
   } catch (error) {
     await page.screenshot({ path: `${OUT}/e2e-${WIDTH}-fail.png`, fullPage: true })
     const alert = await page.$eval('.tj-otp .tj-alert', (el) => el.textContent).catch(() => null)

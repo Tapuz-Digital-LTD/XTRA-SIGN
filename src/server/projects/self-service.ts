@@ -1,9 +1,11 @@
+import { randomBytes } from 'node:crypto'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { skinByKey, type SkinKey } from '@/lib/self-service-skins'
 import type { PlacedField } from '@/lib/fields'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
 import { authorizeGroup } from '@/server/groups/groups'
+import { currentSlugOf, ensurePublicSlug, resolvePublicSlug } from './public-slug'
 
 /**
  * A project's self-service onboarding settings.
@@ -124,7 +126,7 @@ export async function saveSelfServiceConfig(
   }
 
   if (next.enabled) {
-    if (!next.skin) return { ok: false, message: 'יש לבחור עמוד ציבורי ממותג לפני ההפעלה.' }
+    if (!next.skin) return { ok: false, message: 'לפרויקט הזה עדיין לא חובר עמוד קמפיין.' }
     if (!next.templateId) return { ok: false, message: 'יש לבחור את ההסכם לחתימה לפני ההפעלה.' }
     if (!next.ownerUserId) return { ok: false, message: 'יש לבחור בעלים להסכמים לפני ההפעלה.' }
 
@@ -143,14 +145,27 @@ export async function saveSelfServiceConfig(
         ),
       )
       .limit(1)
-    if (other) return { ok: false, message: `העמוד הממותג הזה כבר משמש את הפרויקט "${other.name}".` }
+    if (other) return { ok: false, message: `עמוד הקמפיין הזה כבר משמש את הפרויקט "${other.name}".` }
   }
 
   const landingConfig = {
     ...((group.landingConfig && typeof group.landingConfig === 'object' ? group.landingConfig : {}) as Record<string, unknown>),
     selfService: next,
   }
-  await db.update(schema.groups).set({ landingConfig }).where(eq(schema.groups.id, group.id))
+  await db
+    .update(schema.groups)
+    .set({
+      landingConfig,
+      // The form id: the stable, publishable identifier the register API is
+      // addressed by. Minted once, never changed — the address may change,
+      // this may not.
+      ...(group.landingSlug ? {} : { landingSlug: randomBytes(8).toString('base64url') }),
+    })
+    .where(eq(schema.groups.id, group.id))
+
+  // A live project always has an address; the campaign's default unless the
+  // project already chose one.
+  if (next.enabled && next.skin) await ensurePublicSlug(session, group.id, skinByKey(next.skin)!.defaultSlug)
 
   return { ok: true, config: next }
 }
@@ -159,6 +174,10 @@ export type SelfServiceProject = {
   groupId: string
   organizationId: string
   projectName: string
+  /** The stable public form id the register API is addressed by. */
+  formId: string
+  /** The current public address, for the links we mint. */
+  publicSlug: string
   notifyEmails: string[]
   config: SelfServiceConfig
   template: { id: string; name: string; sourceFileKey: string; fields: PlacedField[] }
@@ -166,16 +185,38 @@ export type SelfServiceProject = {
 }
 
 /**
- * The project behind a branded page, as the public flow sees it: enabled,
- * alive, and with everything it needs. A project whose template or owner has
- * since disappeared is treated as switched off rather than half-working.
+ * A project as the public flow sees it, by its stable form id: enabled,
+ * alive, and with everything it needs. A project whose template or owner
+ * has since disappeared is treated as switched off rather than half-working.
  */
+export async function findSelfServiceProjectByFormId(formId: string): Promise<SelfServiceProject | null> {
+  if (!formId || formId.length > 64) return null
+  const [group] = await getDb()
+    .select({ id: schema.groups.id })
+    .from(schema.groups)
+    .where(and(eq(schema.groups.landingSlug, formId), isNull(schema.groups.deletedAt)))
+    .limit(1)
+  return group ? loadSelfServiceProject(group.id) : null
+}
+
+/**
+ * A project by any public address it ever had. `isAlias` tells the page to
+ * send the browser to the canonical address instead of answering here.
+ */
+export async function findSelfServiceProjectBySlug(
+  slug: string,
+): Promise<{ project: SelfServiceProject; canonical: string; isAlias: boolean } | null> {
+  const resolved = await resolvePublicSlug(slug)
+  if (!resolved) return null
+  const project = await loadSelfServiceProject(resolved.groupId)
+  return project ? { project, canonical: resolved.canonical, isAlias: resolved.isAlias } : null
+}
+
+/** The setup script's door: the one project bound to a campaign's pages. */
 export async function findSelfServiceProjectBySkin(skin: string): Promise<SelfServiceProject | null> {
   if (!skinByKey(skin)) return null
-  const db = getDb()
-
-  const [group] = await db
-    .select()
+  const [group] = await getDb()
+    .select({ id: schema.groups.id })
     .from(schema.groups)
     .where(
       and(
@@ -186,7 +227,17 @@ export async function findSelfServiceProjectBySkin(skin: string): Promise<SelfSe
     )
     .orderBy(schema.groups.createdAt)
     .limit(1)
-  if (!group) return null
+  return group ? loadSelfServiceProject(group.id) : null
+}
+
+export async function loadSelfServiceProject(groupId: string): Promise<SelfServiceProject | null> {
+  const db = getDb()
+  const [group] = await db
+    .select()
+    .from(schema.groups)
+    .where(and(eq(schema.groups.id, groupId), isNull(schema.groups.deletedAt)))
+    .limit(1)
+  if (!group?.landingSlug) return null
 
   const config = selfServiceOf(group.landingConfig)
   if (!config.enabled || !config.templateId || !config.ownerUserId) return null
@@ -222,10 +273,15 @@ export async function findSelfServiceProjectBySkin(skin: string): Promise<SelfSe
     .limit(1)
   if (!owner) return null
 
+  const publicSlug = await currentSlugOf(group.id)
+  if (!publicSlug) return null
+
   return {
     groupId: group.id,
     organizationId: group.organizationId,
     projectName: group.name,
+    formId: group.landingSlug,
+    publicSlug,
     notifyEmails: Array.isArray(group.notifyEmails)
       ? (group.notifyEmails as unknown[]).filter((e): e is string => typeof e === 'string')
       : [],

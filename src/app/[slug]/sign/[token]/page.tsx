@@ -9,6 +9,7 @@ import { selfServiceOriginOf } from '@/server/self-service/agreement-skin'
 import { hasVerifiedSession, isSignable, resolveSigningToken } from '@/server/signing/session'
 import { CampaignFrame, CampaignNotice } from '../../CampaignFrame'
 import { JoinAndSign } from '../../JoinAndSign'
+import { campaignProject, type SearchParams } from '../../resolve'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,17 +23,26 @@ export const metadata: Metadata = {
  * already locked in, and the signature and the code still to do. Signed →
  * the thank-you page; expired, cancelled or unknown → one plain message.
  */
-export default async function ResumeSigningPage({ params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params
+export default async function ResumeSigningPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string; token: string }>
+  searchParams: Promise<SearchParams>
+}) {
+  const [{ slug, token }, query] = await Promise.all([params, searchParams])
+  const project = await campaignProject(slug, `/sign/${token}`, query)
   const context = await resolveSigningToken(token)
 
-  if (!context) return <Expired />
+  if (!context) return <Expired slug={slug} />
 
+  // A link that belongs to another project's agreement is sent through the
+  // engine's own door, which knows where it lives.
   const origin = await selfServiceOriginOf(context.agreementId)
-  if (origin?.skin.key !== 'tourism-2026') redirect(`/sign/${token}`)
+  if (origin?.projectId !== project.groupId) redirect(`/sign/${token}`)
 
-  if (context.status === 'signed') redirect(`/tourism-2026/thanks/${token}`)
-  if (!isSignable(context.status)) return <Expired />
+  if (context.status === 'signed') redirect(`/${slug}/thanks/${token}`)
+  if (!isSignable(context.status)) return <Expired slug={slug} />
 
   const db = getDb()
   const [agreement] = await db
@@ -41,7 +51,7 @@ export default async function ResumeSigningPage({ params }: { params: Promise<{ 
     .where(eq(schema.agreements.id, context.agreementId))
     .limit(1)
   const snapshot = (agreement?.mergeSnapshot as { values?: RegistrationValues } | null)?.values
-  if (!snapshot) return <Expired />
+  if (!snapshot) return <Expired slug={slug} />
   // Shown, not edited: the phone reads as a person writes it, not as E.164.
   const national = toIsraeliNationalFormat(snapshot.phone)
   const values: RegistrationValues = { ...snapshot, phone: national ? `${national.slice(0, 3)}-${national.slice(3)}` : snapshot.phone }
@@ -58,17 +68,14 @@ export default async function ResumeSigningPage({ params }: { params: Promise<{ 
   }
 
   const verified = await hasVerifiedSession(context)
-  const [project] = await db
-    .select({ name: schema.groups.name })
-    .from(schema.groups)
-    .where(eq(schema.groups.id, origin.projectId))
-    .limit(1)
 
   return (
-    <CampaignFrame title="המשך חתימה">
+    <CampaignFrame slug={slug} title="המשך חתימה">
       <JoinAndSign
         mode="resume"
-        projectName={project?.name ?? 'חודש התיירות הישראלית 2026'}
+        slug={slug}
+        formId={project.formId}
+        projectName={project.projectName}
         token={token}
         values={values}
         verified={verified}
@@ -78,10 +85,11 @@ export default async function ResumeSigningPage({ params }: { params: Promise<{ 
   )
 }
 
-function Expired() {
+function Expired({ slug }: { slug: string }) {
   return (
-    <CampaignFrame title="הצטרפות וחתימה">
+    <CampaignFrame slug={slug} title="הצטרפות וחתימה">
       <CampaignNotice
+        slug={slug}
         title="תוקף הקישור הסתיים"
         text="ניתן לפנות לצוות הפרויקט לקבלת קישור חדש: tour@xtra.co.il"
       />

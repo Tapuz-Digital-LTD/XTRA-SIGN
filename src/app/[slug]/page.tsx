@@ -1,5 +1,8 @@
 import Link from 'next/link'
 import { FloatingCta } from './FloatingCta'
+import { campaignProject, type SearchParams } from './resolve'
+
+export const dynamic = 'force-dynamic'
 
 /**
  * Page 1 — the call for suppliers.
@@ -53,17 +56,20 @@ function Lines({ lines }: { lines: string[] }) {
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'] as const
 
 export default async function TourismCallPage({
+  params,
   searchParams,
 }: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>
+  params: Promise<{ slug: string }>
+  searchParams: Promise<SearchParams>
 }) {
-  const query = await searchParams
+  const [{ slug }, query] = await Promise.all([params, searchParams])
+  await campaignProject(slug, '', query)
   const carried = new URLSearchParams()
   for (const key of UTM_KEYS) {
     const value = query[key]
     if (typeof value === 'string' && value.trim()) carried.set(key, value.trim().slice(0, 200))
   }
-  const joinHref = carried.size > 0 ? `/tourism-2026/join?${carried}` : '/tourism-2026/join'
+  const joinHref = carried.size > 0 ? `/${slug}/join?${carried}` : `/${slug}/join`
 
   return (
     <main className="tl-page">

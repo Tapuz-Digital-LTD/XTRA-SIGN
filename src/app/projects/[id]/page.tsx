@@ -15,7 +15,12 @@ import { getLandingSettings } from '@/server/projects/landing'
 import { getSelfServiceConfig } from '@/server/projects/self-service'
 import { listUsers } from '@/server/users/users'
 import { agreementReport, parseReportFilters, reportRows, signedOverTime } from '@/server/reports/reports'
-import { listTemplates } from '@/server/templates/templates'
+import type { StaffSession } from '@/server/auth/session'
+import { publicBaseUrl } from '@/server/http/public-url'
+import { missingRoles } from '@/lib/agreement-roles'
+import type { PlacedField } from '@/lib/fields'
+import { getPublicSlugSettings } from '@/server/projects/public-slug'
+import { authorizeTemplateAccess, listTemplates, templateRoles } from '@/server/templates/templates'
 
 const TABS = ['suppliers', 'leads', 'agreements', 'reports', 'settings'] as const
 type Tab = (typeof TABS)[number]
@@ -114,7 +119,9 @@ export default async function ProjectPage({
             projectDescription={project.description}
             landing={await getLandingSettings(session, id)}
             selfService={await getSelfServiceConfig(session, id)}
-            templates={(await listTemplates(session)).map((t) => ({ id: t.id, name: t.name, fieldCount: t.fieldCount }))}
+            publicSlug={await publicSlugView(session, id)}
+            publicBase={publicBaseUrl()}
+            agreement={await activeAgreement(session, (await getSelfServiceConfig(session, id)).templateId)}
             // Listing users is an admin power; everyone else sees the owner read-only.
             owners={session.isAdmin ? (await listUsers(session)).filter((u) => !u.disabled).map((u) => ({ id: u.id, name: u.name, email: u.email })) : []}
             currentUserId={session.userId}
@@ -224,4 +231,23 @@ async function ReportsTab({
       exportHref={`/api/reports/export?${query}`}
     />
   )
+}
+
+/** Dates as ISO strings: the settings screen is a client component. */
+async function publicSlugView(session: StaffSession, id: string) {
+  const settings = await getPublicSlugSettings(session, id)
+  return { current: settings.current, history: settings.history.map((h) => ({ slug: h.slug, replacedAt: h.replacedAt?.toISOString() ?? null })) }
+}
+
+/** The bound agreement as the settings card shows it; null when none or gone. */
+async function activeAgreement(session: StaffSession, templateId: string | null) {
+  if (!templateId) return null
+  try {
+    const template = await authorizeTemplateAccess(session, templateId)
+    const fields = Array.isArray(template.fields) ? (template.fields as PlacedField[]) : []
+    const roles = templateRoles(fields)
+    return { id: template.id, name: template.name, fieldCount: fields.length, readyCount: roles.length, missing: missingRoles(roles) }
+  } catch {
+    return null
+  }
 }

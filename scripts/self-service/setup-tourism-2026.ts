@@ -4,7 +4,7 @@ import type { StaffSession } from '../../src/server/auth/session'
 import { getDb, schema } from '../../src/server/db'
 import { createGroup } from '../../src/server/groups/groups'
 import { publicBaseUrl } from '../../src/server/http/public-url'
-import { getSelfServiceConfig, saveSelfServiceConfig } from '../../src/server/projects/self-service'
+import { findSelfServiceProjectBySkin, getSelfServiceConfig, saveSelfServiceConfig } from '../../src/server/projects/self-service'
 import { createTemplateFromPdf } from '../../src/server/templates/templates'
 
 /**
@@ -117,7 +117,7 @@ async function main() {
     thankYouText: current.thankYouText,
   })
   if (!saved.ok) throw new Error(saved.message)
-  console.log(`self-service on: ${publicBaseUrl()}/tourism-2026`)
+  console.log(`self-service on: ${publicBaseUrl()}/${(await findSelfServiceProjectBySkin('tourism-2026'))?.publicSlug}`)
   process.exit(0)
 }
 

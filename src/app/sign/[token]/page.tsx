@@ -27,7 +27,7 @@ export default async function SignPage({ params }: { params: Promise<{ token: st
   // A self-service agreement has its own branded pages (ADR 0001); the link
   // in the campaign's SMS lands here and continues there.
   const origin = await selfServiceOriginOf(context.agreementId)
-  if (origin) redirect(`${origin.skin.basePath}/sign/${token}`)
+  if (origin) redirect(`/${origin.slug}/sign/${token}`)
 
   const verified = await hasVerifiedSession(context)
 

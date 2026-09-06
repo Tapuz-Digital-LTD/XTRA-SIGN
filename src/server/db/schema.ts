@@ -481,6 +481,41 @@ export const projectLeads = pgTable(
   ],
 )
 
+/**
+ * A project's public addresses: the current one and every one it ever had.
+ *
+ * The address is a marketing choice that changes; the project id and the
+ * form id never do. A row that is no longer current is an alias: it keeps
+ * answering, by redirecting straight to whatever is current now, so a link
+ * printed on a flyer last month still works. Slugs are unique across the
+ * whole system — the path is global — and a retired slug is never handed to
+ * another project.
+ */
+export const projectPublicSlugs = pgTable(
+  'project_public_slugs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id),
+    slug: text('slug').notNull(),
+    isCurrent: boolean('is_current').default(true).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    /** When this stopped being the current address. */
+    replacedAt: timestamp('replaced_at', { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex('project_public_slugs_slug_unique').on(t.slug),
+    uniqueIndex('project_public_slugs_current_unique')
+      .on(t.groupId)
+      .where(sql`${t.isCurrent} = true`),
+    index('project_public_slugs_group_idx').on(t.groupId),
+  ],
+)
+
 /** Membership. A company may belong to any number of groups. */
 export const companyGroups = pgTable(
   'company_groups',

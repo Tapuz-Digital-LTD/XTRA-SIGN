@@ -19,7 +19,7 @@ import { publicBaseUrl } from '@/server/http/public-url'
 import { log } from '@/server/log'
 import { InforuEmailProvider, InforuSmsProvider } from '@/server/notifications/inforu'
 import { notify } from '@/server/notifications/notifications'
-import { findSelfServiceProjectBySkin, type SelfServiceProject } from '@/server/projects/self-service'
+import { findSelfServiceProjectByFormId, type SelfServiceProject } from '@/server/projects/self-service'
 import { sendOtp } from '@/server/signing/otp'
 import { resolveSigningToken, type SigningContext } from '@/server/signing/session'
 import { createDocumentFromTemplate } from '@/server/templates/templates'
@@ -46,7 +46,8 @@ export type { RegistrationValues }
 export { validateRegistration }
 
 export type RegistrationInput = {
-  skin: string
+  /** The project's stable public form id. */
+  formId: string
   values: Record<string, unknown>
   idempotencyKey: string
   ip: string | null
@@ -87,15 +88,13 @@ const STALE_PENDING_MS = 60_000
 const WAIT_FOR_SIBLING_MS = 6_000
 
 export async function startSelfServiceSigning(input: RegistrationInput): Promise<RegistrationResult> {
-  const skin = skinByKey(input.skin)
-  if (!skin) return { ok: false, message: 'העמוד אינו פעיל.' }
-
   const validated = validateRegistration(input.values)
   if (!validated.ok) return { ok: false, message: 'יש לתקן את הפרטים המסומנים.', fields: validated.fields }
   const data = validated.data
 
-  const project = await findSelfServiceProjectBySkin(skin.key)
-  if (!project) return { ok: false, message: 'ההרשמה אינה פעילה כרגע.' }
+  const project = await findSelfServiceProjectByFormId(input.formId)
+  const skin = skinByKey(project?.config.skin)
+  if (!project || !skin) return { ok: false, message: 'ההרשמה אינה פעילה כרגע.' }
 
   const session = systemSession(project, skin)
   const db = getDb()
@@ -569,7 +568,7 @@ async function alreadySigned(project: SelfServiceProject, skin: SelfServiceSkin,
       if (!recipient) return
       const expiresAt = new Date(Date.now() + project.config.linkTtlDays * 24 * 60 * 60 * 1000)
       const minted = await mintAdditionalSigningLink(recipient.id, expiresAt)
-      const url = `${publicBaseUrl()}${skin.basePath}/thanks/${minted.token}`
+      const url = `${publicBaseUrl()}/${project.publicSlug}/thanks/${minted.token}`
       const copy = signedCopyCopy(project, skin)
       if (recipient.phone) {
         await new InforuSmsProvider().send({ to: recipient.phone, text: copy.sms(recipient.name, url), recipientName: recipient.name })
