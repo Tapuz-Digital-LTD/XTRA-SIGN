@@ -417,6 +417,13 @@ export const groups = pgTable(
     landingConfig: jsonb('landing_config'),
     /** Extra addresses this project notifies about new leads, beyond the org's. */
     notifyEmails: jsonb('notify_emails'),
+    /**
+     * Which events the project's addresses hear about, and how the signer's
+     * own confirmation is sent, as
+     * `{ events: Record<string, boolean>, signerCopy: {...} }`. Missing
+     * keys mean the defaults: everything on.
+     */
+    notificationConfig: jsonb('notification_config'),
   },
   (t) => [
     index('groups_org_idx').on(t.organizationId),

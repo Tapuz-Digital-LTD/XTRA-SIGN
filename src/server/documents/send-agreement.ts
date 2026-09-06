@@ -3,6 +3,10 @@ import { AUDIT_EVENTS } from '@/server/audit'
 import { ForbiddenError, type StaffSession } from '@/server/auth/session'
 import { generateToken, hashToken } from '@/server/auth/tokens'
 import { getDb, schema } from '@/server/db'
+import { DEFAULT_MESSAGES, renderTemplate } from '@/lib/message-template'
+import { brandFor, DEFAULT_BRAND, type EmailBrand } from '@/server/mail/brand'
+import { renderEmail } from '@/server/mail/render'
+import { InvitationEmail } from '@/server/mail/templates'
 import { publicBaseUrl } from '@/server/http/public-url'
 import { notify } from '@/server/notifications/notifications'
 import { InforuEmailProvider, InforuSmsProvider } from '@/server/notifications/inforu'
@@ -44,18 +48,57 @@ export type IssueResult =
   | { ok: false; blockers: string[] }
 
 /** The words that carry a signing link. Overridable per campaign. */
+/** What the mail knows about who is sending: the name on the footer, the colours on the header. */
+export type MailContext = { organizationName: string; brand: EmailBrand; expiresAt?: Date | null }
+
 export type LinkCopy = {
   sms: (name: string, url: string) => string
-  email: (name: string, title: string, url: string) => { subject: string; text: string; html: string }
+  email: (name: string, title: string, url: string, ctx: MailContext) => Promise<{ subject: string; text: string; html: string }>
 }
 
+/** The system's own words for "there is a document waiting for you". */
 export const DEFAULT_LINK_COPY: LinkCopy = {
-  sms: (name, url) => `שלום ${name}, מחכה לך מסמך לחתימה מ-XTRA: ${url}`,
-  email: (name, title, url) => ({
-    subject: `מסמך לחתימה: ${title}`,
-    text: `שלום ${name}, מחכה לך מסמך לחתימה: ${url}`,
-    html: emailHtml(name, title, url),
-  }),
+  sms: (name, url) => renderTemplate(DEFAULT_MESSAGES.invitation.sms!, { signer_name: name, signing_link: url }).text,
+  email: async (name, title, url, ctx) => {
+    const t = DEFAULT_MESSAGES.invitation.email!
+    const vars = { signer_name: name, document_name: title, signing_link: url, organization_name: ctx.organizationName }
+    return renderEmail(
+      renderTemplate(t.subject, vars).text,
+      InvitationEmail({
+        brand: ctx.brand,
+        title: 'נשלח אליך מסמך לחתימה',
+        body: renderTemplate(t.body, vars).text,
+        cta: t.cta ?? 'לצפייה וחתימה',
+        signingUrl: url,
+        facts: [
+          { label: 'מסמך', value: title },
+          { label: 'נשלח על ידי', value: ctx.organizationName },
+          ...(ctx.expiresAt ? [{ label: 'בתוקף עד', value: formatDay(ctx.expiresAt) }] : []),
+        ],
+        organizationName: ctx.organizationName,
+      }),
+    )
+  },
+}
+
+function formatDay(date: Date): string {
+  return new Intl.DateTimeFormat('he-IL', { dateStyle: 'medium', timeZone: 'Asia/Jerusalem' }).format(date)
+}
+
+/** The organization behind an agreement, and the colours its mail wears. */
+async function mailContextFor(agreementId: string): Promise<MailContext> {
+  const [row] = await getDb()
+    .select({ organizationId: schema.agreements.organizationId, organizationName: schema.organizations.name, expiresAt: schema.agreements.expiresAt, mergeSnapshot: schema.agreements.mergeSnapshot })
+    .from(schema.agreements)
+    .innerJoin(schema.organizations, eq(schema.organizations.id, schema.agreements.organizationId))
+    .where(eq(schema.agreements.id, agreementId))
+    .limit(1)
+  const skin = (row?.mergeSnapshot as { selfService?: { skin?: string } } | null)?.selfService?.skin ?? null
+  return {
+    organizationName: row?.organizationName ?? 'XTRA Sign',
+    brand: row ? await brandFor({ organizationId: row.organizationId, skin }) : DEFAULT_BRAND,
+    expiresAt: row?.expiresAt ?? null,
+  }
 }
 
 export async function sendAgreement(input: {
@@ -225,7 +268,7 @@ async function deliver(input: {
         }
       : {
           to: input.to,
-          ...input.copy.email(input.recipientName, input.documentTitle, input.signingUrl),
+          ...(await input.copy.email(input.recipientName, input.documentTitle, input.signingUrl, await mailContextFor(input.agreementId))),
           recipientName: input.recipientName,
         }
 
@@ -287,23 +330,6 @@ async function deliver(input: {
 }
 
 /** Inline styles only: every mail client strips a stylesheet. */
-function emailHtml(name: string, title: string, url: string): string {
-  const safe = (value: string) =>
-    value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
-
-  return `<!doctype html>
-<html lang="he" dir="rtl"><body style="margin:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 16px">
-<tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #e4e5e7;border-radius:12px;padding:32px">
-<tr><td style="text-align:right;color:#0f172a;font-size:16px;line-height:1.6">
-<p style="margin:0 0 8px">שלום ${safe(name)},</p>
-<p style="margin:0 0 24px;font-size:18px;font-weight:bold">מחכה לך מסמך לחתימה</p>
-<p style="margin:0 0 24px;color:#64748b">${safe(title)}</p>
-<a href="${safe(url)}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:bold">לצפייה וחתימה</a>
-<p style="margin:24px 0 0;font-size:12px;color:#64748b">הקישור אישי ואינו מיועד להעברה.</p>
-</td></tr></table></td></tr></table></body></html>`
-}
 
 /** Resends the same request on the same link, without creating a new one. */
 export async function resendAgreement(input: {

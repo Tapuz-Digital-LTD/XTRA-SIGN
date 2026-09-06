@@ -22,6 +22,7 @@ import { notify } from '@/server/notifications/notifications'
 import { findSelfServiceProjectByFormId, type SelfServiceProject } from '@/server/projects/self-service'
 import { linkVisitToRegistration, recordCampaignEvent } from '@/server/analytics/campaign-events'
 import { referrerHost, utmFrom } from '@/lib/campaign-events'
+import { brandFor, registrationEmail, renderSubmission } from '@/server/notifications/campaign-mail'
 import { sendOtp } from '@/server/signing/otp'
 import { resolveSigningToken, type SigningContext } from '@/server/signing/session'
 import { createDocumentFromTemplate } from '@/server/templates/templates'
@@ -229,14 +230,26 @@ export async function startSelfServiceSigning(input: RegistrationInput): Promise
           copy: signingLinkCopy(project, skin),
         }).catch((error) => log.error('self-service link delivery failed', { agreementId, error: String(error) }))
 
+        const mail = await registrationEmail({
+          projectId: project.groupId,
+          projectName: project.projectName,
+          registeredAt: registration.createdAt,
+          fields: renderSubmission(registration.data, registration.formSnapshot),
+          utm: utmFrom((registration.meta ?? {}) as Record<string, string | undefined>),
+          referrer: registration.referrer,
+          link: `/companies/${supplier.id}`,
+          brand: await brandFor({ organizationId: project.organizationId, skin: skin.key }),
+        })
         await notify({
           organizationId: project.organizationId,
           type: 'new_lead',
           agreementId: null,
-          link: `/projects/${project.groupId}?tab=leads`,
+          link: `/companies/${supplier.id}`,
           title: `הרשמה חדשה בפרויקט ${project.projectName}`,
           body: `${data.businessName} · ${data.signatoryName}`,
           extraEmails: project.notifyEmails,
+          projectId: project.groupId,
+          email: mail,
         })
 
         if (supplier.nameHint) {
@@ -592,7 +605,8 @@ async function alreadySigned(project: SelfServiceProject, skin: SelfServiceSkin,
         await new InforuSmsProvider().send({ to: recipient.phone, text: copy.sms(recipient.name, url), recipientName: recipient.name })
       }
       if (recipient.email) {
-        await new InforuEmailProvider().send({ to: recipient.email, ...copy.email(recipient.name, url), recipientName: recipient.name })
+        const brand = await brandFor({ organizationId: project.organizationId, skin: skin.key })
+        await new InforuEmailProvider().send({ to: recipient.email, ...(await copy.email(recipient.name, url, { organizationName: project.projectName, brand })), recipientName: recipient.name })
       }
     },
   }

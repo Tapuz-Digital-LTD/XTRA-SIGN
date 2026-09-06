@@ -5,9 +5,10 @@ import { buildStorageKey, sha256 } from '@/server/documents/file-validation'
 import { publicBaseUrl } from '@/server/http/public-url'
 import { InforuEmailProvider } from '@/server/notifications/inforu'
 import { notify } from '@/server/notifications/notifications'
-import { currentSlugOf } from '@/server/projects/public-slug'
 import { originFromSnapshot } from '@/server/self-service/agreement-skin'
-import { signedCopyCopy } from '@/server/self-service/copy'
+import { brandFor, signedTeamEmail, signerConfirmationEmail } from '@/server/notifications/campaign-mail'
+import { projectNotificationSettings } from '@/server/projects/notification-settings'
+import { mintAdditionalSigningLink } from '@/server/documents/send-agreement'
 import { getStorage } from '@/server/storage/blob'
 import { buildSignedPdf } from './pdf'
 import type { SigningContext } from './session'
@@ -189,29 +190,37 @@ export async function completeSigning(input: {
 async function notifyAfterSigning(context: SigningContext, token: string | null): Promise<void> {
   const db = getDb()
   const email = new InforuEmailProvider()
+  const base = publicBaseUrl()
 
   const [row] = await db
     .select({
       ownerEmail: schema.users.email,
       ownerName: schema.users.name,
       organizationId: schema.agreements.organizationId,
+      organizationName: schema.organizations.name,
+      companyId: schema.companies.id,
       companyName: schema.companies.name,
+      companyTaxId: schema.companies.taxId,
+      completedAt: schema.agreements.completedAt,
       mergeSnapshot: schema.agreements.mergeSnapshot,
     })
     .from(schema.agreements)
     .innerJoin(schema.users, eq(schema.users.id, schema.agreements.ownerId))
+    .innerJoin(schema.organizations, eq(schema.organizations.id, schema.agreements.organizationId))
     .leftJoin(schema.companies, eq(schema.companies.id, schema.agreements.companyId))
     .where(eq(schema.agreements.id, context.agreementId))
     .limit(1)
+  if (!row) return
+  const signedAt = row.completedAt ?? new Date()
 
   // A self-service agreement belongs to a campaign: its project's addresses
-  // hear about the signature, and the signer is sent back to the campaign's
-  // pages rather than to XTRA Sign.
-  const origin = originFromSnapshot(row?.mergeSnapshot)
+  // hear about the signature, its settings shape the signer's confirmation,
+  // and its colours dress the mail.
+  const origin = originFromSnapshot(row.mergeSnapshot)
   const project = origin
     ? (
         await db
-          .select({ name: schema.groups.name, notifyEmails: schema.groups.notifyEmails })
+          .select({ id: schema.groups.id, name: schema.groups.name, notifyEmails: schema.groups.notifyEmails })
           .from(schema.groups)
           .where(eq(schema.groups.id, origin.projectId))
           .limit(1)
@@ -220,43 +229,76 @@ async function notifyAfterSigning(context: SigningContext, token: string | null)
   const extraEmails = Array.isArray(project?.notifyEmails)
     ? (project!.notifyEmails as unknown[]).filter((e): e is string => typeof e === 'string')
     : []
+  const settings = project ? await projectNotificationSettings(project.id) : null
+  const brand = await brandFor({ organizationId: row.organizationId, skin: origin?.skin.key ?? null })
 
-  // In-app first: it is the one channel that does not depend on a third party
-  // being reachable, and it is what the badge counts.
-  if (row?.organizationId) {
-    await notify({
-      organizationId: row.organizationId,
-      type: 'signed',
-      agreementId: context.agreementId,
-      title: `${context.recipientName} חתם על "${context.title}"`,
-      body: row.companyName,
-      extraEmails,
+  // The team: in-app first — the one channel that does not depend on a third
+  // party — then the full email to whoever asked to hear.
+  const teamMail = await signedTeamEmail({
+    projectName: project?.name ?? null,
+    documentName: context.title,
+    agreementId: context.agreementId,
+    companyId: row.companyId,
+    companyName: row.companyName,
+    taxId: row.companyTaxId,
+    signerName: context.recipientName,
+    signedAt,
+    brand,
+  })
+  await notify({
+    organizationId: row.organizationId,
+    type: 'signed',
+    agreementId: context.agreementId,
+    title: `${context.recipientName} חתם על "${context.title}"`,
+    body: row.companyName,
+    extraEmails,
+    projectId: project?.id ?? null,
+    email: teamMail,
+  })
+
+  // The signer's own confirmation: generic words, a button scoped to this
+  // one document, the campaign's colours. Off only when the project says so.
+  const signerCopy = settings?.signerCopy ?? { enabled: true, replyTo: null, senderName: null, note: null, attachPdf: false }
+  if (context.recipientEmail && signerCopy.enabled) {
+    const downloadToken = token ?? (await mintAdditionalSigningLink(context.recipientId, new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))).token
+    const mail = await signerConfirmationEmail({
+      vars: {
+        document_name: context.title,
+        signer_name: context.recipientName,
+        signed_document_link: `${base}/api/sign/${downloadToken}/download`,
+        organization_name: row.organizationName,
+        signed_at: formatSigningDate(signedAt),
+        company_name: row.companyName,
+        campaign_name: project?.name ?? null,
+        email: context.recipientEmail,
+        phone: context.recipientPhone,
+      },
+      brand,
+      note: signerCopy.note,
     })
-  }
-
-  if (context.recipientEmail) {
-    const base = publicBaseUrl()
-    const message =
-      origin && project && token
-        ? {
-            to: context.recipientEmail,
-            ...signedCopyCopy({ projectName: project.name }, origin.skin).email(
-              context.recipientName,
-              `${base}/${(await currentSlugOf(origin.projectId)) ?? origin.skin.defaultSlug}/thanks/${token}`,
-            ),
-            recipientName: context.recipientName,
-          }
-        : {
-            to: context.recipientEmail,
-            subject: `המסמך "${context.title}" נחתם`,
-            text: token
-              ? `המסמך נחתם בהצלחה. להורדת עותק: ${base}/sign/${token}`
-              : 'המסמך נחתם בהצלחה. ניתן להוריד עותק מהקישור שנשלח אליך.',
-            recipientName: context.recipientName,
-          }
-    const result = await email.send(message)
+    let attachments: { name: string; contentType: string; data: Buffer }[] | undefined
+    if (signerCopy.attachPdf) {
+      const [version] = await db
+        .select({ signedFileKey: schema.agreementVersions.signedFileKey })
+        .from(schema.agreementVersions)
+        .where(eq(schema.agreementVersions.id, context.versionId))
+        .limit(1)
+      if (version?.signedFileKey) {
+        attachments = [{ name: `${context.title}.pdf`, contentType: 'application/pdf', data: await getStorage().get(version.signedFileKey) }].filter((a) => a.data.length > 0)
+      }
+    }
+    const result = await email.send({
+      to: context.recipientEmail,
+      subject: mail.subject,
+      text: mail.text,
+      html: mail.html,
+      recipientName: context.recipientName,
+      replyTo: signerCopy.replyTo ?? undefined,
+      fromName: signerCopy.senderName ?? undefined,
+      attachments,
+    })
     // Recorded, so a thank-you page can say "a copy was emailed" only when
-    // one actually was.
+    // one actually was — and a failure is visible, never fatal.
     await db.insert(schema.auditEvents).values({
       agreementId: context.agreementId,
       recipientId: context.recipientId,
@@ -268,14 +310,8 @@ async function notifyAfterSigning(context: SigningContext, token: string | null)
 
   // The owner's personal note is for documents a person sent. A campaign's
   // people are on the notification settings above.
-  if (!origin && row?.ownerEmail) {
-    const base = publicBaseUrl()
-    await email.send({
-      to: row.ownerEmail,
-      subject: 'המסמך נחתם',
-      text: `${context.recipientName} חתם על "${context.title}". צפייה במסמך: ${base}/documents/${context.agreementId}`,
-      recipientName: row.ownerName,
-    })
+  if (!origin && row.ownerEmail) {
+    await email.send({ to: row.ownerEmail, subject: teamMail.subject, text: teamMail.text, html: teamMail.html, recipientName: row.ownerName })
   }
 }
 

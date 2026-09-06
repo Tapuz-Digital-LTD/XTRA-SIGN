@@ -14,6 +14,7 @@ const TABS = [
   { href: '/settings/organization', label: 'פרטי הארגון' },
   { href: '/settings/users', label: 'משתמשים' },
   { href: '/settings/notifications', label: 'התראות' },
+  { href: '/settings/emails', label: 'תבניות מייל' },
 ]
 
 export function SettingsNav() {

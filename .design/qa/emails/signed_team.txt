@@ -1,0 +1,18 @@
+XTRA Sign
+
+✓
+
+
+הסכם נחתם – מלון הדוגמה בע"מ
+
+"הסכם השתתפות (דוגמה)" נחתם.
+
+קמפייןקמפיין לדוגמהשם העסקמלון הדוגמה בע"מח.פ.515123456שם החותםישראל ישראליתאריך ושעת חתימה6 בספט׳ 2026, 15:10סטטוסנחתם
+
+צפייה בהסכם https://example.invalid/documents/sample
+
+הורדת ההסכם החתום https://example.invalid/api/documents/sample/download · פתח את הספק https://example.invalid/companies/sample
+
+----------------------------------------
+
+נשלח באמצעות XTRA Sign https://xtra-sign.vercel.app

@@ -1,6 +1,8 @@
 'use client'
 
 import { DeleteDialog } from '@/components/deletion/DeleteDialog'
+import { NotificationSettings } from '@/components/projects/NotificationSettings'
+import type { ProjectNotificationSettings } from '@/server/projects/notification-settings'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { FormBuilder } from '@/components/projects/FormBuilder'
@@ -32,6 +34,7 @@ export function ProjectSettings({
   owners,
   currentUserId,
   isAdmin,
+  notifications,
 }: {
   projectId: string
   projectName: string
@@ -44,6 +47,7 @@ export function ProjectSettings({
   owners: OwnerOption[]
   currentUserId: string
   isAdmin: boolean
+  notifications: ProjectNotificationSettings
 }) {
   const router = useRouter()
   const [name, setName] = useState(projectName)
@@ -54,7 +58,6 @@ export function ProjectSettings({
   const [successMessage, setSuccessMessage] = useState(landing.config.successMessage)
   const [fields, setFields] = useState<FormField[]>(landing.config.fields)
   const [allowedOrigins, setAllowedOrigins] = useState(landing.config.allowedOrigins.join('\n'))
-  const [notifyEmails, setNotifyEmails] = useState(landing.notifyEmails.join('\n'))
   const [url, setUrl] = useState(landing.url)
   const [slug, setSlug] = useState(landing.slug)
   const [busy, setBusy] = useState(false)
@@ -95,10 +98,6 @@ export function ProjectSettings({
               .map((o) => o.trim())
               .filter(Boolean),
           },
-          notifyEmails: notifyEmails
-            .split(/[\n,]/)
-            .map((e) => e.trim())
-            .filter(Boolean),
         }),
       })
       const data = await response.json().catch(() => null)
@@ -256,20 +255,7 @@ export function ProjectSettings({
         </p>
       )}
 
-      <section className="rounded-[var(--radius-card)] border border-line bg-surface p-5">
-        <h2 className="text-base font-semibold text-fg">התראות על לידים חדשים</h2>
-        <p className="mt-1 text-sm text-muted">
-          כתובות שיקבלו אימייל כשספק חדש משאיר פרטים בפרויקט הזה — בנוסף לכתובות שבהגדרות ההתראות הכלליות.
-        </p>
-        <textarea
-          value={notifyEmails}
-          onChange={(e) => setNotifyEmails(e.target.value)}
-          rows={3}
-          dir="ltr"
-          placeholder={'one@example.com\ntwo@example.com'}
-          className="mt-3 w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-fg outline-none focus:border-brand"
-        />
-      </section>
+      <NotificationSettings projectId={projectId} settings={notifications} />
 
       {message ? (
         <p

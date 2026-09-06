@@ -17,6 +17,8 @@ export const SELF_SERVICE_SKINS = [
     assetsPath: '/tourism-2026',
     /** The address the project gets when it goes live without one. */
     defaultSlug: 'tourism-2026',
+    /** The campaign's colour, for the emails it sends. */
+    brandColor: '#0c3257',
   },
 ] as const
 

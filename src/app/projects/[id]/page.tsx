@@ -19,6 +19,7 @@ import { parseProjectReportFilters, projectReport, type ProjectReport } from '@/
 import { ProjectReportView, type ProjectReportData } from '@/components/reports/ProjectReportView'
 import { missingRoles } from '@/lib/agreement-roles'
 import type { PlacedField } from '@/lib/fields'
+import { getProjectNotificationSettings } from '@/server/projects/notification-settings'
 import { getPublicSlugSettings } from '@/server/projects/public-slug'
 import { authorizeTemplateAccess, listTemplates, templateRoles } from '@/server/templates/templates'
 
@@ -126,6 +127,7 @@ export default async function ProjectPage({
             owners={session.isAdmin ? (await listUsers(session)).filter((u) => !u.disabled).map((u) => ({ id: u.id, name: u.name, email: u.email })) : []}
             currentUserId={session.userId}
             isAdmin={session.isAdmin}
+            notifications={await getProjectNotificationSettings(session, id)}
           />
         ) : null}
       </div>
