@@ -24,6 +24,7 @@
  */
 
 import { log } from '@/server/log'
+import { previewOrigins } from './public-url'
 
 export class CsrfError extends Error {
   readonly status = 403
@@ -41,7 +42,7 @@ export function allowedOrigins(): string[] {
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value))
 
-  return configured
+  const origins = configured
     .map((value) => {
       try {
         return new URL(value).origin
@@ -50,6 +51,10 @@ export function allowedOrigins(): string[] {
       }
     })
     .filter((value): value is string => Boolean(value))
+
+  // A preview deployment answers at an address only the platform knows. It is
+  // trusted there and nowhere else — see public-url.ts.
+  return [...new Set([...origins, ...previewOrigins()])]
 }
 
 /**

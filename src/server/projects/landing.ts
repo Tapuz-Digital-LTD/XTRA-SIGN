@@ -3,6 +3,7 @@ import { and, eq, gt, isNull, sql } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
 import { authorizeGroup } from '@/server/groups/groups'
+import { publicBaseUrl } from '@/server/http/public-url'
 import { log } from '@/server/log'
 import { notify } from '@/server/notifications/notifications'
 import {
@@ -63,8 +64,7 @@ export type LandingSettings = {
 
 function landingUrl(slug: string | null): string | null {
   if (!slug) return null
-  const base = (process.env.SIGN_PUBLIC_URL ?? 'http://localhost:3000').replace(/\/+$/, '')
-  return `${base}/join/${slug}`
+  return `${publicBaseUrl()}/join/${slug}`
 }
 
 export async function getLandingSettings(session: StaffSession, groupId: string): Promise<LandingSettings> {

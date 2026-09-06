@@ -3,6 +3,7 @@ import { AUDIT_EVENTS } from '@/server/audit'
 import { ForbiddenError, type StaffSession } from '@/server/auth/session'
 import { generateToken, hashToken } from '@/server/auth/tokens'
 import { getDb, schema } from '@/server/db'
+import { publicBaseUrl } from '@/server/http/public-url'
 import { notify } from '@/server/notifications/notifications'
 import { InforuEmailProvider, InforuSmsProvider } from '@/server/notifications/inforu'
 import type { NotificationProvider } from '@/server/notifications/types'
@@ -104,8 +105,7 @@ export async function sendAgreement(input: {
 }
 
 export function buildSigningUrl(token: string): string {
-  const base = (process.env.SIGN_PUBLIC_URL ?? 'http://localhost:3000').replace(/\/+$/, '')
-  return `${base}/sign/${token}`
+  return `${publicBaseUrl()}/sign/${token}`
 }
 
 /**

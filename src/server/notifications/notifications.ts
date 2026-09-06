@@ -1,6 +1,7 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
+import { publicBaseUrl } from '@/server/http/public-url'
 import { log } from '@/server/log'
 import { InforuEmailProvider } from './inforu'
 
@@ -41,8 +42,7 @@ export type NotificationPrefs = {
 const IMMEDIATE_EMAIL_TYPES = new Set<NotificationType>(['signed', 'new_lead', 'send_failed', 'crm_failed'])
 
 export function publicUrl(path: string): string {
-  const base = (process.env.SIGN_PUBLIC_URL ?? 'http://localhost:3000').replace(/\/+$/, '')
-  return `${base}${path.startsWith('/') ? path : `/${path}`}`
+  return `${publicBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`
 }
 
 /**
