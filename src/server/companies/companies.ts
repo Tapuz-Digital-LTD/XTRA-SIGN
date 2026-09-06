@@ -234,7 +234,9 @@ export async function searchCompanies(
   search: string,
   limit = 20,
   kind?: CompanyKind,
-): Promise<{ id: string; name: string; kind: CompanyKind; taxId: string | null; fromCrm: boolean }[]> {
+  /** Only the records mirrored from the CRM, or only the ones made here. */
+  source?: 'crm' | 'xtra',
+): Promise<{ id: string; name: string; kind: CompanyKind; taxId: string | null; fromCrm: boolean; contactPhone: string | null; contactEmail: string | null }[]> {
   const term = search.trim()
   const conditions = [
     eq(schema.companies.organizationId, session.organizationId),
@@ -242,6 +244,8 @@ export async function searchCompanies(
     isNull(schema.companies.archivedAt),
   ]
   if (kind) conditions.push(eq(schema.companies.kind, kind))
+  if (source === 'crm') conditions.push(isNotNull(schema.companies.crmRecordId))
+  if (source === 'xtra') conditions.push(isNull(schema.companies.crmRecordId))
   if (term) {
     const like = `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
     conditions.push(
@@ -249,6 +253,8 @@ export async function searchCompanies(
         ilike(schema.companies.name, like),
         ilike(schema.companies.taxId, like),
         ilike(schema.companies.contactName, like),
+        ilike(schema.companies.contactPhone, like),
+        ilike(schema.companies.contactEmail, like),
       )!,
     )
   }
@@ -260,6 +266,8 @@ export async function searchCompanies(
       kind: schema.companies.kind,
       taxId: schema.companies.taxId,
       crmRecordId: schema.companies.crmRecordId,
+      contactPhone: schema.companies.contactPhone,
+      contactEmail: schema.companies.contactEmail,
     })
     .from(schema.companies)
     .where(and(...conditions))
@@ -274,6 +282,8 @@ export async function searchCompanies(
     kind: row.kind,
     taxId: row.taxId,
     fromCrm: Boolean(row.crmRecordId),
+    contactPhone: row.contactPhone,
+    contactEmail: row.contactEmail,
   }))
 }
 

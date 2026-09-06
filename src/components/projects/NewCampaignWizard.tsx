@@ -14,7 +14,7 @@ import { AFTER_REGISTRATION_OPTIONS, CAMPAIGN_KINDS, JOIN_METHODS, type AfterReg
 export type WizardOwner = { id: string; name: string; email: string }
 export type WizardTemplate = { id: string; name: string }
 
-type Company = { id: string; name: string; kind: 'supplier' | 'customer'; taxId: string | null; contactPhone?: string | null; contactEmail?: string | null }
+type Company = { id: string; name: string; kind: 'supplier' | 'customer'; taxId: string | null; fromCrm?: boolean; contactPhone?: string | null; contactEmail?: string | null }
 
 const primary = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50'
 const secondary = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition hover:border-brand disabled:opacity-50'
@@ -45,6 +45,7 @@ export function NewCampaignWizard({
   const [joinMethod, setJoinMethod] = useState<JoinMethod>('form')
   const [after, setAfter] = useState<AfterRegistration>('save')
   const [audienceKind, setAudienceKind] = useState<'supplier' | 'customer'>('supplier')
+  const [audienceSource, setAudienceSource] = useState<'all' | 'crm' | 'xtra'>('all')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Company[]>([])
   const [chosen, setChosen] = useState<Map<string, Company>>(new Map())
@@ -56,7 +57,7 @@ export function NewCampaignWizard({
     if (!open || kind !== 'signature' || step !== 3) return
     const controller = new AbortController()
     const timer = setTimeout(() => {
-      fetch(`/api/companies?kind=${audienceKind}&q=${encodeURIComponent(query)}`, { signal: controller.signal })
+      fetch(`/api/companies?kind=${audienceKind}&q=${encodeURIComponent(query)}&limit=50${audienceSource === 'all' ? '' : `&source=${audienceSource}`}`, { signal: controller.signal })
         .then((r) => (r.ok ? r.json() : { companies: [] }))
         .then((data: { companies?: Company[] } | Company[]) => setResults(Array.isArray(data) ? data : (data.companies ?? [])))
         .catch(() => {})
@@ -65,7 +66,7 @@ export function NewCampaignWizard({
       clearTimeout(timer)
       controller.abort()
     }
-  }, [open, kind, step, audienceKind, query])
+  }, [open, kind, step, audienceKind, audienceSource, query])
 
   function reset() {
     setStep(1)
@@ -240,15 +241,27 @@ export function NewCampaignWizard({
           {step === 3 && kind === 'signature' ? (
             <div className="flex flex-col gap-4">
               <fieldset>
-                <legend className="text-sm font-medium text-fg">קהל</legend>
-                <div className="mt-2 flex gap-2">
+                <legend className="text-sm font-medium text-fg">מאיפה לבחור נמענים?</legend>
+                <div className="mt-2 flex flex-wrap gap-2">
                   {(['supplier', 'customer'] as const).map((k) => (
                     <button key={k} type="button" onClick={() => { setAudienceKind(k); setChosen(new Map()) }} aria-pressed={audienceKind === k} className={`inline-flex min-h-10 items-center rounded-full border px-4 text-sm font-medium ${audienceKind === k ? 'border-brand bg-brand text-white' : 'border-line bg-surface text-fg'}`}>
                       {k === 'supplier' ? 'ספקים' : 'לקוחות'}
                     </button>
                   ))}
+                  <span className="inline-flex min-h-10 items-center rounded-full border border-dashed border-line px-4 text-sm text-muted" title="קובץ נטען בשלב ההפצה, ונשאר נמעני ההפצה בלבד">
+                    Excel / CSV — בהפצה
+                  </span>
                 </div>
-                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="חיפוש לפי שם או ח.פ." className={input} aria-label="חיפוש" />
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-muted">מקור:</span>
+                  {(['all', 'crm', 'xtra'] as const).map((s) => (
+                    <button key={s} type="button" onClick={() => setAudienceSource(s)} aria-pressed={audienceSource === s} className={`inline-flex min-h-8 items-center rounded-full border px-3 font-medium ${audienceSource === s ? 'border-fg bg-fg text-white' : 'border-line bg-surface text-fg'}`}>
+                      {s === 'all' ? 'הכול' : s === 'crm' ? 'CRM' : 'XTRA Sign'}
+                    </button>
+                  ))}
+                  <span className="text-muted">רשומות ה-CRM מסונכרנות מקומית מ-Fireberry; הבחירה לא משנה דבר ב-CRM.</span>
+                </div>
+                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="חיפוש לפי שם, ח.פ., טלפון או אימייל" className={input} aria-label="חיפוש" />
                 <ul className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-line">
                   {results.map((c) => (
                     <li key={c.id}>
@@ -265,6 +278,7 @@ export function NewCampaignWizard({
                           }}
                         />
                         <span className="min-w-0 flex-1 truncate">{c.name}</span>
+                        {c.fromCrm ? <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-800">CRM</span> : null}
                         {c.taxId ? <span className="text-xs text-muted" dir="ltr">{c.taxId}</span> : null}
                       </label>
                     </li>
