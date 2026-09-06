@@ -2,6 +2,7 @@
 
 import { DeleteDialog } from '@/components/deletion/DeleteDialog'
 import { NotificationSettings } from '@/components/projects/NotificationSettings'
+import { MessagesSettings } from '@/components/projects/MessagesSettings'
 import { CampaignSettings, type CampaignSettingsValue } from '@/components/projects/CampaignSettings'
 import type { ProjectNotificationSettings } from '@/lib/project-notifications'
 import { useRouter } from 'next/navigation'
@@ -277,6 +278,7 @@ export function ProjectSettings({
         </p>
       )}
 
+      <MessagesSettings projectId={projectId} />
       <NotificationSettings projectId={projectId} settings={notifications} />
 
       {message ? (

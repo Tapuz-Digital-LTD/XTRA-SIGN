@@ -1,4 +1,4 @@
-import { DEFAULT_MESSAGES, renderTemplate } from '@/lib/message-template'
+import { renderTemplate, resolveMessage } from '@/lib/message-template'
 import type { SelfServiceSkin } from '@/lib/self-service-skins'
 import type { LinkCopy } from '@/server/documents/send-agreement'
 import { renderEmail } from '@/server/mail/render'
@@ -13,11 +13,11 @@ import { InvitationEmail, SignedConfirmationEmail } from '@/server/mail/template
  */
 
 export function signingLinkCopy(project: { projectName: string }, _skin: SelfServiceSkin): LinkCopy {
-  const t = DEFAULT_MESSAGES.registration_completed
   return {
-    sms: (name, url) => renderTemplate(t.sms!, { signer_name: name, campaign_name: project.projectName, signing_link: url }).text,
+    sms: (name, url, ctx) => renderTemplate(resolveMessage('registration_completed', ctx?.messages?.registration_completed).sms!, { signer_name: name, campaign_name: project.projectName, signing_link: url, organization_name: ctx?.organizationName ?? '' }).text,
     email: async (name, title, url, ctx) => {
-      const vars = { signer_name: name, campaign_name: project.projectName, document_name: title, signing_link: url, organization_name: ctx.organizationName }
+      const t = resolveMessage('registration_completed', ctx.messages?.registration_completed)
+      const vars = { signer_name: name, campaign_name: project.projectName, document_name: title, signing_link: url, organization_name: ctx.organizationName, expires_at: ctx.expiresAt ? new Intl.DateTimeFormat('he-IL', { dateStyle: 'medium', timeZone: 'Asia/Jerusalem' }).format(ctx.expiresAt) : '' }
       return renderEmail(
         renderTemplate(t.email!.subject, vars).text,
         InvitationEmail({

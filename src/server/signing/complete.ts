@@ -1,12 +1,15 @@
 import { eq } from 'drizzle-orm'
 import { AUDIT_EVENTS } from '@/server/audit'
 import { getDb, schema } from '@/server/db'
+import { log } from '@/server/log'
 import { buildStorageKey, sha256 } from '@/server/documents/file-validation'
 import { publicBaseUrl } from '@/server/http/public-url'
 import { InforuEmailProvider } from '@/server/notifications/inforu'
 import { notify } from '@/server/notifications/notifications'
 import { originFromSnapshot } from '@/server/self-service/agreement-skin'
 import { brandFor, signedTeamEmail, signerConfirmationEmail } from '@/server/notifications/campaign-mail'
+import { campaignFor } from '@/server/documents/send-agreement'
+import { cleanOverrides } from '@/lib/message-template'
 import { projectNotificationSettings } from '@/server/projects/notification-settings'
 import { mintAdditionalSigningLink } from '@/server/documents/send-agreement'
 import { getStorage } from '@/server/storage/blob'
@@ -275,6 +278,7 @@ async function notifyAfterSigning(context: SigningContext, token: string | null)
       },
       brand,
       note: signerCopy.note,
+      template: project ? cleanOverrides((await campaignFor(context.agreementId))?.messageOverrides).signed_confirmation : null,
     })
     let attachments: { name: string; contentType: string; data: Buffer }[] | undefined
     if (signerCopy.attachPdf) {
@@ -297,6 +301,24 @@ async function notifyAfterSigning(context: SigningContext, token: string | null)
       fromName: signerCopy.senderName ?? undefined,
       attachments,
     })
+    try {
+      await db.insert(schema.messageSends).values({
+        organizationId: row.organizationId,
+        groupId: project?.id ?? null,
+        agreementId: context.agreementId,
+        channel: 'email',
+        event: 'signed_confirmation',
+        recipient: context.recipientEmail,
+        subject: mail.subject,
+        body: mail.text,
+        variables: { signer_name: context.recipientName, document_name: context.title, campaign_name: project?.name ?? null },
+        providerMessageId: result.providerMessageId,
+        ok: result.ok,
+        error: result.ok ? null : result.error,
+      })
+    } catch (error) {
+      log.warn('message snapshot failed', { agreementId: context.agreementId, error: String(error) })
+    }
     // Recorded, so a thank-you page can say "a copy was emailed" only when
     // one actually was — and a failure is visible, never fatal.
     await db.insert(schema.auditEvents).values({

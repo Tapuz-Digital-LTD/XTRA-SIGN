@@ -3,7 +3,8 @@ import { AUDIT_EVENTS } from '@/server/audit'
 import { ForbiddenError, type StaffSession } from '@/server/auth/session'
 import { generateToken, hashToken } from '@/server/auth/tokens'
 import { getDb, schema } from '@/server/db'
-import { DEFAULT_MESSAGES, renderTemplate } from '@/lib/message-template'
+import { log } from '@/server/log'
+import { cleanOverrides, renderTemplate, resolveMessage, type MessageOverrides } from '@/lib/message-template'
 import { brandFor, DEFAULT_BRAND, type EmailBrand } from '@/server/mail/brand'
 import { renderEmail } from '@/server/mail/render'
 import { InvitationEmail, ReminderEmail } from '@/server/mail/templates'
@@ -51,19 +52,28 @@ export type IssueResult =
 
 /** The words that carry a signing link. Overridable per campaign. */
 /** What the mail knows about who is sending: the name on the footer, the colours on the header. */
-export type MailContext = { organizationName: string; brand: EmailBrand; expiresAt?: Date | null }
+export type MailContext = {
+  organizationName: string
+  brand: EmailBrand
+  expiresAt?: Date | null
+  /** The campaign behind the agreement, when there is one. */
+  groupId?: string | null
+  campaignName?: string | null
+  /** The campaign's own words, by event; blank fields fall back to the defaults. */
+  messages?: MessageOverrides | null
+}
 
 export type LinkCopy = {
-  sms: (name: string, url: string) => string
+  sms: (name: string, url: string, ctx?: MailContext) => string
   email: (name: string, title: string, url: string, ctx: MailContext) => Promise<{ subject: string; text: string; html: string }>
 }
 
 /** The system's own words for "there is a document waiting for you". */
 export const DEFAULT_LINK_COPY: LinkCopy = {
-  sms: (name, url) => renderTemplate(DEFAULT_MESSAGES.invitation.sms!, { signer_name: name, signing_link: url }).text,
+  sms: (name, url, ctx) => renderTemplate(resolveMessage('invitation', ctx?.messages?.invitation).sms!, { signer_name: name, signing_link: url, campaign_name: ctx?.campaignName ?? '', organization_name: ctx?.organizationName ?? '' }).text,
   email: async (name, title, url, ctx) => {
-    const t = DEFAULT_MESSAGES.invitation.email!
-    const vars = { signer_name: name, document_name: title, signing_link: url, organization_name: ctx.organizationName }
+    const t = resolveMessage('invitation', ctx.messages?.invitation).email!
+    const vars = { signer_name: name, document_name: title, signing_link: url, organization_name: ctx.organizationName, campaign_name: ctx.campaignName ?? '', expires_at: ctx.expiresAt ? formatDay(ctx.expiresAt) : '' }
     return renderEmail(
       renderTemplate(t.subject, vars).text,
       InvitationEmail({
@@ -85,17 +95,17 @@ export const DEFAULT_LINK_COPY: LinkCopy = {
 
 /** "Still waiting for you": the reminder wording, with the fresh link. */
 export const REMINDER_LINK_COPY: LinkCopy = {
-  sms: (name, url) => renderTemplate(DEFAULT_MESSAGES.reminder.sms!, { signer_name: name, signing_link: url }).text,
+  sms: (name, url, ctx) => renderTemplate(resolveMessage('reminder', ctx?.messages?.reminder).sms!, { signer_name: name, signing_link: url, campaign_name: ctx?.campaignName ?? '', organization_name: ctx?.organizationName ?? '' }).text,
   email: async (name, title, url, ctx) => {
-    const t = DEFAULT_MESSAGES.reminder.email!
-    const vars = { signer_name: name, document_name: title, signing_link: url, organization_name: ctx.organizationName }
+    const t = resolveMessage('reminder', ctx.messages?.reminder).email!
+    const vars = { signer_name: name, document_name: title, signing_link: url, organization_name: ctx.organizationName, campaign_name: ctx.campaignName ?? '', expires_at: ctx.expiresAt ? formatDay(ctx.expiresAt) : '' }
     return renderEmail(
       renderTemplate(t.subject, vars).text,
       ReminderEmail({
         brand: ctx.brand,
         title: 'תזכורת: המסמך עדיין ממתין לחתימתך',
         body: renderTemplate(t.body, vars).text,
-        cta: 'להמשך חתימה',
+        cta: t.cta ?? 'להמשך חתימה',
         signingUrl: url,
         facts: [{ label: 'מסמך', value: title }, { label: 'נשלח על ידי', value: ctx.organizationName }],
         organizationName: ctx.organizationName,
@@ -109,7 +119,7 @@ function formatDay(date: Date): string {
 }
 
 /** The organization behind an agreement, and the colours its mail wears. */
-async function mailContextFor(agreementId: string): Promise<MailContext> {
+export async function mailContextFor(agreementId: string): Promise<MailContext> {
   const [row] = await getDb()
     .select({ organizationId: schema.agreements.organizationId, organizationName: schema.organizations.name, expiresAt: schema.agreements.expiresAt, mergeSnapshot: schema.agreements.mergeSnapshot })
     .from(schema.agreements)
@@ -117,11 +127,36 @@ async function mailContextFor(agreementId: string): Promise<MailContext> {
     .where(eq(schema.agreements.id, agreementId))
     .limit(1)
   const skin = (row?.mergeSnapshot as { selfService?: { skin?: string } } | null)?.selfService?.skin ?? null
+  const campaign = await campaignFor(agreementId)
   return {
     organizationName: row?.organizationName ?? 'XTRA Sign',
     brand: row ? await brandFor({ organizationId: row.organizationId, skin }) : DEFAULT_BRAND,
     expiresAt: row?.expiresAt ?? null,
+    groupId: campaign?.id ?? null,
+    campaignName: campaign?.name ?? null,
+    messages: campaign ? cleanOverrides(campaign.messageOverrides) : null,
   }
+}
+
+/** The campaign an agreement belongs to — through a bulk send or a registration — or null. */
+export async function campaignFor(agreementId: string): Promise<{ id: string; name: string; linkTtlDays: number; messageOverrides: unknown } | null> {
+  const db = getDb()
+  const cols = { id: schema.groups.id, name: schema.groups.name, linkTtlDays: schema.groups.linkTtlDays, messageOverrides: schema.groups.messageOverrides }
+  const [viaBatch] = await db
+    .select(cols)
+    .from(schema.bulkBatchItems)
+    .innerJoin(schema.bulkBatches, eq(schema.bulkBatches.id, schema.bulkBatchItems.batchId))
+    .innerJoin(schema.groups, eq(schema.groups.id, schema.bulkBatches.groupId))
+    .where(eq(schema.bulkBatchItems.agreementId, agreementId))
+    .limit(1)
+  if (viaBatch) return viaBatch
+  const [viaLead] = await db
+    .select(cols)
+    .from(schema.projectLeads)
+    .innerJoin(schema.groups, eq(schema.groups.id, schema.projectLeads.groupId))
+    .where(eq(schema.projectLeads.agreementId, agreementId))
+    .limit(1)
+  return viaLead ?? null
 }
 
 export async function sendAgreement(input: {
@@ -239,11 +274,13 @@ export async function deliverSigningLink(input: {
   documentTitle: string
   actor: string
   copy?: LinkCopy
+  event?: 'invitation' | 'reminder' | 'registration_completed'
 }): Promise<Delivery[]> {
   const deliveries: Delivery[] = []
   for (const channel of input.channels) {
     deliveries.push(
       await deliver({
+        event: input.event,
         channel,
         agreementId: input.agreementId,
         recipientId: input.recipient.id,
@@ -277,25 +314,52 @@ async function deliver(input: {
   signingUrl: string
   actor: string
   copy: LinkCopy
+  /** What this send is, for the snapshot: invitation by default. */
+  event?: 'invitation' | 'reminder' | 'registration_completed'
 }): Promise<Delivery> {
   const db = getDb()
   const provider: NotificationProvider =
     input.channel === 'sms' ? new InforuSmsProvider() : new InforuEmailProvider()
+  const ctx = await mailContextFor(input.agreementId)
 
   const message =
     input.channel === 'sms'
       ? {
           to: input.to,
-          text: input.copy.sms(input.recipientName, input.signingUrl),
+          text: input.copy.sms(input.recipientName, input.signingUrl, ctx),
           recipientName: input.recipientName,
         }
       : {
           to: input.to,
-          ...(await input.copy.email(input.recipientName, input.documentTitle, input.signingUrl, await mailContextFor(input.agreementId))),
+          ...(await input.copy.email(input.recipientName, input.documentTitle, input.signingUrl, ctx)),
           recipientName: input.recipientName,
         }
 
   const result = await provider.send(message)
+
+  // The exact words that left, kept beside the agreement. Never allowed to
+  // fail the send: the snapshot is a record, not a step.
+  try {
+    const [agreement] = await db.select({ organizationId: schema.agreements.organizationId }).from(schema.agreements).where(eq(schema.agreements.id, input.agreementId)).limit(1)
+    if (agreement) {
+      await db.insert(schema.messageSends).values({
+        organizationId: agreement.organizationId,
+        groupId: ctx.groupId ?? null,
+        agreementId: input.agreementId,
+        channel: input.channel,
+        event: input.event ?? 'invitation',
+        recipient: input.to,
+        subject: 'subject' in message ? message.subject : null,
+        body: message.text,
+        variables: { signer_name: input.recipientName, document_name: input.documentTitle, campaign_name: ctx.campaignName ?? null },
+        providerMessageId: result.providerMessageId,
+        ok: result.ok,
+        error: result.ok ? null : result.error,
+      })
+    }
+  } catch (error) {
+    log.warn('message snapshot failed', { agreementId: input.agreementId, error: String(error) })
+  }
 
   await db.insert(schema.deliveries).values({
     agreementId: input.agreementId,
@@ -360,22 +424,8 @@ async function deliver(input: {
  * system default otherwise.
  */
 export async function ttlDaysFor(agreementId: string): Promise<number> {
-  const db = getDb()
-  const [viaBatch] = await db
-    .select({ ttl: schema.groups.linkTtlDays })
-    .from(schema.bulkBatchItems)
-    .innerJoin(schema.bulkBatches, eq(schema.bulkBatches.id, schema.bulkBatchItems.batchId))
-    .innerJoin(schema.groups, eq(schema.groups.id, schema.bulkBatches.groupId))
-    .where(eq(schema.bulkBatchItems.agreementId, agreementId))
-    .limit(1)
-  if (viaBatch?.ttl) return viaBatch.ttl
-  const [viaLead] = await db
-    .select({ ttl: schema.groups.linkTtlDays })
-    .from(schema.projectLeads)
-    .innerJoin(schema.groups, eq(schema.groups.id, schema.projectLeads.groupId))
-    .where(eq(schema.projectLeads.agreementId, agreementId))
-    .limit(1)
-  return viaLead?.ttl ?? SIGNING_LINK_TTL_DAYS
+  const campaign = await campaignFor(agreementId)
+  return campaign?.linkTtlDays || SIGNING_LINK_TTL_DAYS
 }
 
 /**

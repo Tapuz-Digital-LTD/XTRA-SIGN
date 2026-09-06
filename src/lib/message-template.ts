@@ -39,7 +39,9 @@ export type VariableKey =
 export type VariableGroup = 'recipient' | 'company' | 'campaign' | 'document' | 'organization' | 'distribution'
 
 /** What the picker shows: Hebrew names, grouped the way a person thinks. */
-export const VARIABLE_CATALOG: { key: VariableKey; label: string; group: VariableGroup; link?: boolean }[] = [
+export type VariableCatalogEntry = { key: VariableKey; label: string; group: VariableGroup; link?: boolean }
+
+export const VARIABLE_CATALOG: VariableCatalogEntry[] = [
   { key: 'signer_name', label: 'שם החותם', group: 'recipient' },
   { key: 'first_name', label: 'שם פרטי', group: 'recipient' },
   { key: 'last_name', label: 'שם משפחה', group: 'recipient' },
