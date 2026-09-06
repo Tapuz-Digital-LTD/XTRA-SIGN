@@ -229,6 +229,15 @@ describe('startSelfServiceSigning', () => {
     expect(text).toContain('israel@example.com')
     // The legal copy is still there, untouched.
     expect(text).toContain('XTRA25')
+    // The signing date is stamped on the Israel calendar, dd/mm/yyyy.
+    const today = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jerusalem' }).format(new Date())
+    expect(text).toContain(today)
+
+    // The signer's copy email was attempted (log-only here, so recorded as
+    // failed) and tagged, so the thank-you page can tell the truth about it.
+    const audit = await db.select().from(schema.auditEvents).where(eq(schema.auditEvents.agreementId, firstAgreementId))
+    const copy = audit.find((e) => (e.metadata as { purpose?: string } | null)?.purpose === 'signed_copy')
+    expect(copy?.type).toBe('email_failed')
   })
 
   it('refuses a second signature: the business already signed', async () => {
