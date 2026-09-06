@@ -52,6 +52,13 @@ describe('intakeAcroForm', () => {
 
     expect(fields.find((f) => f.variableKey === 'contact_email')!.type).toBe('email')
     expect(fields.find((f) => f.variableKey === 'contact_phone')!.type).toBe('phone')
+    // "signatory" is not "signature": a name and a role are text, ours to fill.
+    for (const key of ['authorized_signatory', 'signatory_role', 'company_number']) {
+      const field = fields.find((f) => f.variableKey === key)!
+      expect(field.type, key).toBe('text')
+      expect(field.ownedBy, key).toBe('sender')
+    }
+    expect(fields.filter((f) => f.type === 'signature')).toHaveLength(1)
 
     const signature = fields.find((f) => f.variableKey === 'typed_signature')!
     expect(signature.type).toBe('signature')

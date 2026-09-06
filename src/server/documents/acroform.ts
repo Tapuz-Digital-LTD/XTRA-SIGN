@@ -117,9 +117,10 @@ function pageIndexOf(widget: PDFWidgetAnnotation, pageRefs: { toString(): string
 
 /** What a box is for, read off its name — the only hint a form gives. */
 function typeFor(key: string): FieldType {
-  // "signature_date" is a date. Order matters.
+  // "signature_date" is a date; "authorized_signatory" is a name. Only the
+  // whole word "signature" means a signature.
   if (key.includes('date')) return 'date'
-  if (key.includes('signature') || key.includes('sign')) return 'signature'
+  if (/(^|_)signature(_|$)/.test(key)) return 'signature'
   if (key.includes('email') || key.includes('mail')) return 'email'
   if (key.includes('phone') || key.includes('tel') || key.includes('mobile')) return 'phone'
   return 'text'
