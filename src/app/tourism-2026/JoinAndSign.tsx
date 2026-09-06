@@ -9,7 +9,7 @@ import {
   type RegistrationField,
   type RegistrationValues,
 } from '@/lib/self-service-registration'
-import { AgreementText } from './AgreementText'
+import { AgreementSystemNote, AgreementText } from './AgreementText'
 
 /**
  * Page 2 — join, read, sign.
@@ -317,6 +317,7 @@ export function JoinAndSign({ mode, projectName, token: initialToken, values: lo
           <h2 className="tj-h2">ההסכם</h2>
           <p className="tj-hint">זה נוסח ההסכם שעליו אתם חותמים. פרטי העסק והחתימה ייכנסו לתוכו אוטומטית.</p>
           <AgreementText />
+          <AgreementSystemNote />
         </section>
 
         <section className="tj-card" ref={signatureRef}>

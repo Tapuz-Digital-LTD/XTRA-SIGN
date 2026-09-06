@@ -17,9 +17,9 @@ import puppeteer from 'puppeteer-core'
 const BASE = process.env.E2E_BASE!
 const DB = process.env.E2E_DB!
 const SHARE = process.env.E2E_SHARE_URL ?? ''
-const PDF = '.design/tourism-2026/agreement.pdf'
+const PDF = '.design/tourism-2026/agreement-digital.pdf'
 const PROJECT_NAME = 'חודש התיירות הישראלית 2026'
-const TEMPLATE_NAME = 'הסכם השתתפות — חודש התיירות הישראלית 2026'
+const TEMPLATE_NAME = 'הסכם השתתפות (דיגיטלי) — חודש התיירות הישראלית 2026'
 const OUT = process.env.SHOT_OUT ?? '.design/tourism-2026'
 
 const sql = postgres(DB, { max: 1 })
@@ -36,8 +36,8 @@ async function main() {
   })
   const page = await browser.newPage()
   await page.setViewport({ width: 1280, height: 900 })
-  page.on('response', (r) => {
-    if (r.url().includes('/api/') && r.status() >= 400) console.log(`  ↳ ${r.request().method()} ${r.url().replace(BASE, '')} ${r.status()}`)
+  page.on('response', async (r) => {
+    if (r.url().includes('/api/') && r.status() >= 400) console.log(`  ↳ ${r.request().method()} ${r.url().replace(BASE, '')} ${r.status()} ${(await r.text().catch(() => '')).slice(0, 200)}`)
   })
 
   if (SHARE) await page.goto(SHARE, { waitUntil: 'networkidle0', timeout: 60000 })

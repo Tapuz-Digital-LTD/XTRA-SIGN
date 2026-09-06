@@ -11,7 +11,7 @@ export function SignaturePad({
   onChange,
   className,
   label = 'שטח חתימה',
-  clearLabel = 'ניקוי',
+  clearLabel = 'ניקוי וחתימה מחדש',
 }: {
   onChange: (dataUrl: string | null) => void
   className?: string

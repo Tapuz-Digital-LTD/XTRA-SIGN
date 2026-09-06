@@ -4,6 +4,8 @@
  * Verbatim from .design/tourism-2026/agreement.pdf — the legal source of
  * truth that the supplier signs and later downloads. Nothing here is
  * rewritten, shortened or "improved"; only laid out as readable RTL HTML.
+ * The one line left out is the file's closing "save and email it"
+ * instruction, which belongs to the paper route (see AgreementSystemNote).
  * The business's details and the signature live around this text on the
  * joining page and are stamped into the PDF's own boxes.
  */
@@ -57,8 +59,21 @@ export function AgreementText() {
           הנני מצהיר/ה כי ברשות בית העסק פוליסת ביטוח בתוקף.
         </li>
       </ul>
-
-      <p className="tj-agreement-footnote">יש למלא, לשמור את הקובץ ולשלוח למייל: tour@xtra.co.il</p>
     </article>
+  )
+}
+
+/**
+ * What happens next — a system note beside the agreement, not a clause of
+ * it. The Ministry's file ends with an instruction to save and email it,
+ * which is the old paper route; the digital route replaces it, and the
+ * project's template carries the same text without that line
+ * (scripts/design/prepare-agreement.ts).
+ */
+export function AgreementSystemNote() {
+  return (
+    <p className="tj-system-note" role="note">
+      לאחר החתימה הדיגיטלית ההסכם יישמר אוטומטית ועותק חתום יהיה זמין להורדה.
+    </p>
   )
 }

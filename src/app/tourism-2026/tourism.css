@@ -147,25 +147,28 @@
   }
 
   /* Each row: icon box and text box in artwork pixels. `li` spans the canvas
-     so the children's percentages stay canvas-relative. */
+     so the children's percentages stay canvas-relative — and must therefore
+     let clicks through to whatever sits under it (the signpost). */
   .tl-list li {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
     height: 100%;
-    pointer-events: auto;
+    pointer-events: none;
     display: block;
   }
 
   .tl-list li img {
     position: absolute;
     width: 5.75%;
+    pointer-events: auto;
   }
 
   .tl-list li span {
     position: absolute;
     display: block;
+    pointer-events: auto;
     font-size: 1.75cqw;
     line-height: 2.25cqw;
     font-weight: 500;
@@ -414,5 +417,75 @@
 @media (prefers-reduced-motion: reduce) {
   .tl-cta {
     transition: none;
+  }
+}
+
+/* ── The floating call to action ───────────────────────────────────────── */
+
+.tl-float {
+  position: fixed;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 0 28px;
+  border-radius: 999px;
+  background: var(--tl-cyan);
+  color: var(--tl-ink);
+  font-size: 19px;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(255, 255, 255, 0.14);
+  transition: transform 220ms ease, opacity 220ms ease, filter 180ms ease;
+}
+
+.tl-float:hover {
+  filter: brightness(1.06);
+  transform: translateY(-2px);
+}
+
+.tl-float:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 4px;
+}
+
+.tl-float-arrow {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.tl-float-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(12px);
+}
+
+/* Desktop: bottom-start corner, out of the composition's way. */
+@media (min-width: 860px) {
+  .tl-float {
+    right: 28px;
+    bottom: 28px;
+  }
+}
+
+/* Phone and tablet: a bar-width pill at the bottom, with room kept for it. */
+@media (max-width: 859.98px) {
+  .tl-float {
+    left: 16px;
+    right: 16px;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    min-height: 58px;
+  }
+  .tl-page {
+    padding-bottom: calc(86px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-float {
+    transition: opacity 150ms linear;
+    transform: none;
   }
 }

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { FloatingCta } from './FloatingCta'
 
 /**
  * Page 1 — the call for suppliers.
@@ -143,6 +144,7 @@ export default async function TourismCallPage({
           </Link>
         </div>
       </div>
+      <FloatingCta href={joinHref} watch=".tl-cta" />
     </main>
   )
 }

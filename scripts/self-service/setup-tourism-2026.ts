@@ -23,9 +23,15 @@ import { createTemplateFromPdf } from '../../src/server/templates/templates'
  */
 
 const PROJECT_NAME = 'חודש התיירות הישראלית 2026'
-const TEMPLATE_NAME = 'הסכם השתתפות — חודש התיירות הישראלית 2026'
+const TEMPLATE_NAME = 'הסכם השתתפות (דיגיטלי) — חודש התיירות הישראלית 2026'
 const OWNER_EMAIL = process.env.SELF_SERVICE_OWNER_EMAIL ?? 'tomer@xtra.co.il'
-const PDF = '.design/tourism-2026/agreement.pdf'
+/**
+ * The digital-route copy of the Ministry's agreement: the original with its
+ * "save and email it" footer line removed and nothing else touched
+ * (scripts/design/prepare-agreement.ts, verified by verify-agreement.ts).
+ * The original stays in .design/ untouched, for traceability.
+ */
+const PDF = '.design/tourism-2026/agreement-digital.pdf'
 
 async function main() {
   const db = getDb()
@@ -74,11 +80,14 @@ async function main() {
   let templateId = current.templateId
   if (templateId) {
     const [template] = await db
-      .select({ id: schema.templates.id })
+      .select({ id: schema.templates.id, name: schema.templates.name })
       .from(schema.templates)
       .where(and(eq(schema.templates.id, templateId), isNull(schema.templates.deletedAt)))
       .limit(1)
-    if (!template) templateId = null
+    // A configured template under another name is an earlier edition of the
+    // agreement; the current edition replaces it on the project (the old
+    // template stays, and documents made from it keep their copy).
+    if (!template || template.name !== TEMPLATE_NAME) templateId = null
   }
   if (!templateId) {
     const [byName] = await db
