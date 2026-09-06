@@ -11,6 +11,7 @@ import {
   validateSubmission,
   type FormField,
 } from './form-schema'
+import { selfServiceOf } from './self-service'
 
 /**
  * A project's public joining form.
@@ -97,12 +98,15 @@ export async function saveLandingSettings(
     .filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))
     .slice(0, 20)
 
+  // The self-service settings share the column and are edited elsewhere;
+  // saving the joining form must not wipe them.
+  const previous = (group.landingConfig && typeof group.landingConfig === 'object' ? group.landingConfig : {}) as Record<string, unknown>
   await db
     .update(schema.groups)
     .set({
       landingEnabled: input.enabled,
       landingSlug: slug,
-      landingConfig: config,
+      landingConfig: previous.selfService ? { ...config, selfService: previous.selfService } : config,
       notifyEmails,
     })
     .where(eq(schema.groups.id, group.id))
@@ -126,6 +130,9 @@ export async function getPublicLanding(slug: string): Promise<PublicLanding | nu
     .where(and(eq(schema.groups.landingSlug, slug), eq(schema.groups.landingEnabled, true), isNull(schema.groups.deletedAt)))
     .limit(1)
   if (!group) return null
+  // While self-service onboarding is on, the branded pages are the only door
+  // into this project; the generic form would create leads nobody handles.
+  if (selfServiceOf(group.landingConfig).enabled) return null
   const config = cleanConfig(group.landingConfig as Partial<LandingConfig> | null, group.name)
   return {
     groupId: group.id,
