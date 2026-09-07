@@ -69,7 +69,7 @@ async function main() {
   const groupIds = (cls.test.groups ?? []).filter((id) => !uncertain.has(id))
   if (groupIds.length) {
     const { rows } = await client.query(`select id, name from groups where id = any($1::uuid[])`, [groupIds])
-    const suspicious = rows.filter((r) => !/test|טסט|בדיקה|למחיקה/i.test(r.name))
+    const suspicious = rows.filter((r) => !/test|טסט|בדיק|למחיקה|dummy|demo/i.test(r.name))
     if (suspicious.length) throw new Error(`refusing: groups without a test marker in the name: ${suspicious.map((s) => s.name).join(', ')}`)
   }
   const agreementIds = (cls.test.agreements ?? []).filter((id) => !uncertain.has(id))
@@ -85,30 +85,65 @@ async function main() {
   await client.query('begin')
   const deleted: Record<string, number> = {}
   try {
-    for (const table of ORDER) {
-      if (PROTECTED.has(table)) continue
-      const ids = (cls.test[table] ?? []).filter((id) => !uncertain.has(id))
-      if (ids.length === 0) {
-        deleted[table] = 0
-        continue
-      }
-      const idColumn = table === 'company_groups' ? null : 'id'
-      let n = 0
-      if (idColumn) {
-        const res = await client.query(`delete from ${table} where ${idColumn} = any($1::uuid[])`, [ids])
-        n = res.rowCount ?? 0
-      } else {
-        // company_groups has a composite key; the inventory stored "groupId:companyId".
-        for (const pair of ids) {
-          const [groupId, companyId] = pair.split(':')
-          if (!groupId || !companyId) continue
-          const res = await client.query(`delete from company_groups where group_id = $1 and company_id = $2`, [groupId, companyId])
-          n += res.rowCount ?? 0
-        }
-      }
-      deleted[table] = n
+    // The roots are explicit ids from the classification; every child row is
+    // found by relationship, so nothing created since the inventory (a new
+    // audit line, a fresh signing token) is left dangling.
+    const ids = (table: string) => (cls.test[table] ?? []).filter((id) => !uncertain.has(id))
+    const rootCompanies = ids('companies')
+    const rootGroups = ids('groups')
+    const rootTemplates = ids('templates')
+    const rootAgreements = new Set(ids('agreements'))
+    // Agreements on a TEST company are TEST too (the owner's own smoke tests included).
+    if (rootCompanies.length) for (const r of (await client.query(`select id from agreements where company_id = any($1::uuid[])`, [rootCompanies])).rows) rootAgreements.add(r.id)
+    // …unless they sit on a CRM-linked company, which the earlier check already refused.
+    const agreements = [...rootAgreements]
+    const has = async (table: string, column: string) => Number((await client.query(`select count(*)::int as n from information_schema.columns where table_name = $1 and column_name = $2`, [table, column])).rows[0].n) > 0
+    const del = async (table: string, sql: string, params: unknown[]) => {
+      const res = await client.query(sql, params)
+      deleted[table] = (deleted[table] ?? 0) + (res.rowCount ?? 0)
     }
-    // Children the file may not have listed, hanging off deleted parents: none may remain.
+    if (agreements.length) {
+      await del('notifications', `delete from notifications where agreement_id = any($1::uuid[])`, [agreements])
+      await del('message_sends', `delete from message_sends where agreement_id = any($1::uuid[])`, [agreements])
+      await del('deliveries', `delete from deliveries where agreement_id = any($1::uuid[]) or recipient_id in (select id from recipients where agreement_id = any($1::uuid[]))`, [agreements])
+      await del('otp_challenges', `delete from otp_challenges where recipient_id in (select id from recipients where agreement_id = any($1::uuid[]))`, [agreements])
+      await del('signing_sessions', (await has('signing_sessions', 'agreement_id')) ? `delete from signing_sessions where recipient_id in (select id from recipients where agreement_id = any($1::uuid[])) or agreement_id = any($1::uuid[])` : `delete from signing_sessions where recipient_id in (select id from recipients where agreement_id = any($1::uuid[]))`, [agreements])
+      await del('signing_tokens', `delete from signing_tokens where recipient_id in (select id from recipients where agreement_id = any($1::uuid[]))`, [agreements])
+      await del('signatures', `delete from signatures where agreement_version_id in (select id from agreement_versions where agreement_id = any($1::uuid[]))`, [agreements])
+      await del('fields', (await has('fields', 'agreement_version_id')) ? `delete from fields where agreement_version_id in (select id from agreement_versions where agreement_id = any($1::uuid[]))` : `delete from fields where agreement_id = any($1::uuid[])`, [agreements])
+      await del('document_pages', (await has('document_pages', 'agreement_version_id')) ? `delete from document_pages where agreement_version_id in (select id from agreement_versions where agreement_id = any($1::uuid[]))` : `delete from document_pages where agreement_id = any($1::uuid[])`, [agreements])
+      await del('audit_events', `delete from audit_events where agreement_id = any($1::uuid[]) or recipient_id in (select id from recipients where agreement_id = any($1::uuid[]))`, [agreements])
+      await del('recipients', `delete from recipients where agreement_id = any($1::uuid[])`, [agreements])
+      await del('bulk_batch_items', `delete from bulk_batch_items where agreement_id = any($1::uuid[])`, [agreements])
+      await del('project_leads', `update project_leads set agreement_id = null where agreement_id = any($1::uuid[])`, [agreements])
+      await del('agreement_versions', `delete from agreement_versions where agreement_id = any($1::uuid[])`, [agreements])
+      await del('agreements', `delete from agreements where id = any($1::uuid[])`, [agreements])
+    }
+    if (rootGroups.length) {
+      await del('campaign_events', `delete from campaign_events where group_id = any($1::uuid[])`, [rootGroups])
+      await del('message_sends', `delete from message_sends where group_id = any($1::uuid[])`, [rootGroups])
+      await del('distribution_recipients', `delete from distribution_recipients where distribution_id in (select id from distributions where group_id = any($1::uuid[]))`, [rootGroups])
+      await del('distributions', `delete from distributions where group_id = any($1::uuid[])`, [rootGroups])
+      await del('bulk_batch_items', `delete from bulk_batch_items where batch_id in (select id from bulk_batches where group_id = any($1::uuid[]))`, [rootGroups])
+      await del('bulk_batches', `delete from bulk_batches where group_id = any($1::uuid[])`, [rootGroups])
+      await del('project_leads', `delete from project_leads where group_id = any($1::uuid[])`, [rootGroups])
+      await del('company_groups', `delete from company_groups where group_id = any($1::uuid[])`, [rootGroups])
+      await del('project_public_slugs', `delete from project_public_slugs where group_id = any($1::uuid[])`, [rootGroups])
+      await del('groups', `delete from groups where id = any($1::uuid[])`, [rootGroups])
+    }
+    if (rootTemplates.length) {
+      await del('groups (unbound)', `update groups set default_template_id = null where default_template_id = any($1::uuid[])`, [rootTemplates])
+      await del('agreements (unbound)', `update agreements set template_id = null where template_id = any($1::uuid[])`, [rootTemplates])
+      await del('templates', `delete from templates where id = any($1::uuid[])`, [rootTemplates])
+    }
+    if (rootCompanies.length) {
+      // A registration that resolved to a TEST company is a test registration (the smoke tests).
+      await del('project_leads', `delete from project_leads where company_id = any($1::uuid[])`, [rootCompanies])
+      await del('company_groups', `delete from company_groups where company_id = any($1::uuid[])`, [rootCompanies])
+      await del('notifications', `delete from notifications where body = any(select name from companies where id = any($1::uuid[]))`, [rootCompanies])
+      await del('companies', `delete from companies where id = any($1::uuid[])`, [rootCompanies])
+    }
+    // Nothing may be left pointing at a parent that went.
     const orphanChecks: [string, string][] = [
       ['recipients', `select count(*)::int as n from recipients r where not exists (select 1 from agreements a where a.id = r.agreement_id)`],
       ['agreement_versions', `select count(*)::int as n from agreement_versions v where not exists (select 1 from agreements a where a.id = v.agreement_id)`],
@@ -120,7 +155,7 @@ async function main() {
     }
     const total = Object.values(deleted).reduce((a, b) => a + b, 0)
     console.log(`\n${apply ? 'DELETING' : 'DRY RUN'} — rows by table:`)
-    for (const table of ORDER) console.log(`  ${table.padEnd(20)} ${String(deleted[table] ?? 0).padStart(5)}   (of ${before[table]})`)
+    for (const [table, n] of Object.entries(deleted)) console.log(`  ${table.padEnd(24)} ${String(n).padStart(5)}${before[table] !== undefined ? `   (of ${before[table]})` : ''}`)
     console.log(`  total                ${String(total).padStart(5)}`)
     console.log(`  kept as uncertain    ${String(uncertain.size).padStart(5)}`)
 
