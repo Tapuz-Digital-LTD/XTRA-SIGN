@@ -6,7 +6,7 @@ import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
 import { authorizeGroup } from '@/server/groups/groups'
 import { currentSlugOf, ensurePublicSlug, resolvePublicSlug } from './public-slug'
-import { registrationsOpen } from '@/lib/campaigns'
+import { type RegistrationTarget, registrationsOpen } from '@/lib/campaigns'
 
 /**
  * A project's self-service onboarding settings.
@@ -181,6 +181,8 @@ export type SelfServiceProject = {
   publicSlug: string
   /** False once the campaign ended without asking to stay open. */
   registrationsOpen: boolean
+  /** Where registrants are saved: here only (default), or linked to a synced CRM company by tax id. */
+  registrationTarget: RegistrationTarget
   notifyEmails: string[]
   config: SelfServiceConfig
   template: { id: string; name: string; sourceFileKey: string; fields: PlacedField[] }
@@ -287,6 +289,7 @@ export async function loadSelfServiceProject(groupId: string): Promise<SelfServi
     formId: group.landingSlug,
     publicSlug,
     registrationsOpen: registrationsOpen(group),
+    registrationTarget: group.registrationTarget === 'crm' ? 'crm' : 'xtra_sign',
     notifyEmails: Array.isArray(group.notifyEmails)
       ? (group.notifyEmails as unknown[]).filter((e): e is string => typeof e === 'string')
       : [],

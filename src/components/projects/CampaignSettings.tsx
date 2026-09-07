@@ -14,6 +14,7 @@ export type CampaignSettingsValue = {
   campaignKind: CampaignKind
   goal: CampaignGoal
   entry: EntryMethod
+  registrationTarget: 'xtra_sign' | 'crm'
   startsAt: string | null
   endsAt: string | null
   registrationsAfterEnd: boolean
