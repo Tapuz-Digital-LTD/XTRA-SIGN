@@ -19,6 +19,12 @@ export const SELF_SERVICE_SKINS = [
     defaultSlug: 'tourism-2026',
     /** The campaign's colour, for the emails it sends. */
     brandColor: '#0c3257',
+    /** What a shared link shows until the campaign sets its own. */
+    share: {
+      title: 'הצטרפו לחודש התיירות הישראלית 2026',
+      description: 'בעלי עסקים בתחום התיירות מוזמנים להכיר את פרטי ההשתתפות, להירשם ולחתום על הסכם ההצטרפות באופן דיגיטלי.',
+      image: '/tourism-2026/og.png',
+    },
   },
 ] as const
 

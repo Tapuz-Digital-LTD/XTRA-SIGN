@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { GROUP_LABELS, type MessageEvent, type MessageTemplate, type VariableCatalogEntry } from '@/lib/message-template'
 import { smsLength } from '@/lib/sms-length'
+import { DeviceToggle, MailFrame, type MailDevice } from '@/components/mail/MailFrame'
 
 /**
  * Campaign → הגדרות → הודעות. One card per event, closed by default and
@@ -88,7 +89,7 @@ function EventCard({ projectId, row, variables, onSaved }: { projectId: string; 
   const [sms, setSms] = useState(initial.sms)
   const [email, setEmail] = useState(initial.email)
   const [preview, setPreview] = useState<Preview | null>(null)
-  const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop')
+  const [previewMode, setPreviewMode] = useState<MailDevice>('desktop')
   const [busy, setBusy] = useState<null | 'save' | 'reset' | 'test' | 'preview'>(null)
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
   const [testPhone, setTestPhone] = useState('')
@@ -191,13 +192,7 @@ function EventCard({ projectId, row, variables, onSaved }: { projectId: string; 
           <div className="min-w-0">
             <div className="flex items-center justify-between">
               <p className="text-xs font-medium text-muted">תצוגה מקדימה (ערכי דוגמה)</p>
-              {hasEmail ? (
-                <div className="flex gap-1 text-xs">
-                  {(['desktop', 'mobile'] as const).map((m) => (
-                    <button key={m} type="button" onClick={() => setPreviewMode(m)} aria-pressed={previewMode === m} className={`rounded-full border px-2 py-0.5 ${previewMode === m ? 'border-fg bg-fg text-white' : 'border-line text-fg'}`}>{m === 'desktop' ? 'מחשב' : 'נייד'}</button>
-                  ))}
-                </div>
-              ) : null}
+              {hasEmail ? <DeviceToggle device={previewMode} onChange={setPreviewMode} /> : null}
             </div>
             {preview?.sms ? (
               <div className="mt-2 rounded-lg border border-line bg-surface p-3 text-sm">
@@ -210,9 +205,7 @@ function EventCard({ projectId, row, variables, onSaved }: { projectId: string; 
               <div className="mt-2">
                 <p className="text-xs text-muted">אימייל · {preview.email.subject}</p>
                 {preview.email.missing.length ? <p className="mt-1 text-xs text-amber-700">משתנים ללא ערך: {preview.email.missing.join(', ')}</p> : null}
-                <div className="mt-1 overflow-hidden rounded-lg border border-line bg-white">
-                  <iframe title="תצוגה מקדימה" srcDoc={preview.email.html} sandbox="" className="block h-[520px] border-0" style={{ width: previewMode === 'mobile' ? 375 : '100%', maxWidth: '100%', marginInline: 'auto' }} />
-                </div>
+                <div className="mt-1"><MailFrame html={preview.email.html} device={previewMode} title="תצוגה מקדימה" /></div>
               </div>
             ) : null}
             {!preview && busy === 'preview' ? <p className="mt-2 text-sm text-muted" aria-busy="true">מכין תצוגה מקדימה…</p> : null}

@@ -15,6 +15,19 @@ import { getDb, schema } from '@/server/db'
 
 export type CompanyKind = 'supplier' | 'customer'
 
+/**
+ * Which side of the product a company is shown on. 'crm' is every record that
+ * carries a Fireberry id (mirrored by sync, or created here and linked); 'xtra'
+ * is everything that lives only here. Decided by `crmRecordId`, not by the
+ * `source` column — that one records where the row was first created.
+ */
+export type CompanySource = 'crm' | 'xtra'
+
+/** The `?source=` of the suppliers/customers screens. Anything but 'crm' is XTRA Sign: a bare address never lands on the CRM by itself. */
+export function parseCompanySource(value: unknown): CompanySource {
+  return value === 'crm' ? 'crm' : 'xtra'
+}
+
 export type CompanyInput = {
   name: string
   taxId?: string | null
@@ -37,6 +50,8 @@ export type CompanyRow = {
   crmRecordId: string | null
   crmObjectType: number | null
   crmSyncedAt: Date | null
+  /** 'crm' when the row was first written by a sync, 'xtra' when created here — even if linked to the CRM since. */
+  source: string
   address: string | null
   archivedAt: Date | null
   createdAt: Date
@@ -235,7 +250,7 @@ export async function searchCompanies(
   limit = 20,
   kind?: CompanyKind,
   /** Only the records mirrored from the CRM, or only the ones made here. */
-  source?: 'crm' | 'xtra',
+  source?: CompanySource,
 ): Promise<{ id: string; name: string; kind: CompanyKind; taxId: string | null; fromCrm: boolean; contactPhone: string | null; contactEmail: string | null }[]> {
   const term = search.trim()
   const conditions = [
@@ -295,6 +310,8 @@ export async function listCompanies(
   groupId?: string,
   /** The archive instead of the active list. */
   archived = false,
+  /** One side only: the CRM mirror or XTRA Sign's own records. Omitted, both. */
+  source?: CompanySource,
 ): Promise<CompanyListItem[]> {
   const db = getDb()
   const a = schema.agreements
@@ -305,6 +322,8 @@ export async function listCompanies(
     isNull(schema.companies.deletedAt),
     archived ? isNotNull(schema.companies.archivedAt) : isNull(schema.companies.archivedAt),
   ]
+  if (source === 'crm') conditions.push(isNotNull(schema.companies.crmRecordId))
+  if (source === 'xtra') conditions.push(isNull(schema.companies.crmRecordId))
   if (groupId) {
     // An exists clause rather than a join: a company can be in several groups,
     // and joining would return it once per membership.
@@ -342,6 +361,7 @@ export async function listCompanies(
       crmRecordId: schema.companies.crmRecordId,
       crmObjectType: schema.companies.crmObjectType,
       crmSyncedAt: schema.companies.crmSyncedAt,
+      source: schema.companies.source,
       archivedAt: schema.companies.archivedAt,
       address: schema.companies.address,
       createdAt: schema.companies.createdAt,
@@ -423,6 +443,7 @@ export async function getCompany(
       crmRecordId: schema.companies.crmRecordId,
       crmObjectType: schema.companies.crmObjectType,
       crmSyncedAt: schema.companies.crmSyncedAt,
+      source: schema.companies.source,
       archivedAt: schema.companies.archivedAt,
       address: schema.companies.address,
       createdAt: schema.companies.createdAt,

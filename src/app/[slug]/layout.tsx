@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { shareForSlug } from '@/server/projects/share'
 import { Heebo } from 'next/font/google'
 import './tourism.css'
 import './campaign.css'
@@ -15,11 +16,25 @@ const heebo = Heebo({
   display: 'swap',
 })
 
-export const metadata: Metadata = {
-  title: 'קול קורא לעסקי תיירות — חודש התיירות הישראלית 2026',
-  description:
-    'קול קורא לעסקי תיירות להצטרף לחודש התיירות הישראלית, נובמבר 2026. הצטרפות, קריאת הסכם ההשתתפות וחתימה דיגיטלית בכמה דקות.',
-  robots: { index: true, follow: true },
+/**
+ * What a shared link shows: the campaign's own share card (title, line,
+ * picture), rendered on the server so WhatsApp, Facebook and every other
+ * crawler sees it without running a line of JavaScript. Aliases of the
+ * address resolve to the same card and point at the current address.
+ */
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params
+  const share = await shareForSlug(slug).catch(() => null)
+  if (!share) return { title: 'XTRA Sign', robots: { index: false, follow: false } }
+  const images = share.imageUrl ? [{ url: share.imageUrl, width: 1200, height: 630, alt: share.title }] : []
+  return {
+    title: share.title,
+    description: share.description || undefined,
+    alternates: { canonical: share.canonicalUrl },
+    openGraph: { type: 'website', title: share.title, description: share.description || undefined, url: share.canonicalUrl, siteName: share.campaignName, locale: 'he_IL', images },
+    twitter: { card: images.length ? 'summary_large_image' : 'summary', title: share.title, description: share.description || undefined, images: images.map((i) => i.url) },
+    robots: { index: true, follow: true },
+  }
 }
 
 export const viewport: Viewport = {

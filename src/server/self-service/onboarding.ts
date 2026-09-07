@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, isNull, lt, sql } from 'drizzle-orm'
 import { maskPhone, toIsraeliNationalFormat } from '@/lib/phone'
 import { validateRegistration, type RegistrationValues } from '@/lib/self-service-registration'
 import { skinByKey, type SelfServiceSkin } from '@/lib/self-service-skins'
@@ -640,6 +640,64 @@ async function deferredSigningLink(input: {
   } catch (error) {
     log.error('self-service link delivery failed', { agreementId: input.agreementId, error: String(error) })
   }
+}
+
+/**
+ * The daily safety net for the deferred link above: registrations whose
+ * agreement is still unsigned hours later and never received the
+ * "come back and sign" message (a function that was cut short, a deploy in
+ * between). One message per registration, ever.
+ */
+export async function sendLinksToAbandonedRegistrations(olderThanMs = 4 * 60 * 60 * 1000): Promise<number> {
+  const db = getDb()
+  const rows = await db
+    .select({
+      agreementId: schema.agreements.id,
+      title: schema.agreements.title,
+      groupName: schema.groups.name,
+      groupId: schema.groups.id,
+      linkTtlDays: schema.groups.linkTtlDays,
+      recipientId: schema.recipients.id,
+      name: schema.recipients.name,
+      phone: schema.recipients.phone,
+      email: schema.recipients.email,
+      snapshot: schema.agreements.mergeSnapshot,
+    })
+    .from(schema.projectLeads)
+    .innerJoin(schema.agreements, eq(schema.agreements.id, schema.projectLeads.agreementId))
+    .innerJoin(schema.groups, eq(schema.groups.id, schema.projectLeads.groupId))
+    .innerJoin(schema.recipients, eq(schema.recipients.agreementId, schema.agreements.id))
+    .where(
+      and(
+        inArray(schema.agreements.status, ['sent', 'viewed']),
+        lt(schema.agreements.createdAt, new Date(Date.now() - olderThanMs)),
+        sql`not exists (select 1 from ${schema.messageSends} ms where ms.agreement_id = ${schema.agreements.id} and ms.event = 'registration_completed')`,
+      ),
+    )
+    .limit(200)
+  let sent = 0
+  for (const row of rows) {
+    const skinKey = (row.snapshot as { selfService?: { skin?: string } } | null)?.selfService?.skin ?? null
+    const skin = skinByKey(skinKey)
+    if (!skin) continue
+    try {
+      const minted = await mintAdditionalSigningLink(row.recipientId, new Date(Date.now() + row.linkTtlDays * 24 * 60 * 60 * 1000))
+      await deliverSigningLink({
+        agreementId: row.agreementId,
+        recipient: { id: row.recipientId, name: row.name, phone: row.phone, email: row.email },
+        channels: [...(row.phone ? (['sms'] as const) : []), ...(row.email ? (['email'] as const) : [])],
+        signingUrl: minted.signingUrl,
+        documentTitle: row.title,
+        actor: 'system',
+        copy: signingLinkCopy({ projectName: row.groupName }, skin),
+        event: 'registration_completed',
+      })
+      sent++
+    } catch (error) {
+      log.error('abandoned registration link failed', { agreementId: row.agreementId, error: String(error) })
+    }
+  }
+  return sent
 }
 
 function maskEmail(email: string | null | undefined): string | null {

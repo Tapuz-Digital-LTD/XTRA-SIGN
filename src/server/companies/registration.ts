@@ -135,9 +135,11 @@ async function linkLocalToCrm(
   crmRecordId: string,
   crmObjectType: number,
 ): Promise<void> {
+  // `source` is left alone: it records where the company was first created,
+  // and a linked local company must still read "נוצר ב-XTRA Sign וקושר ל-CRM".
   await getDb()
     .update(schema.companies)
-    .set({ crmRecordId, crmObjectType, source: 'crm', crmSyncedAt: new Date() })
+    .set({ crmRecordId, crmObjectType, crmSyncedAt: new Date() })
     .where(
       and(eq(schema.companies.id, companyId), eq(schema.companies.organizationId, session.organizationId)),
     )

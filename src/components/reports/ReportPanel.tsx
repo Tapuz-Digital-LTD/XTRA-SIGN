@@ -18,7 +18,7 @@ export function ReportPanel({
   exportHref,
   hidden = {},
   values = {},
-  showSource = false,
+  breakdown,
 }: {
   kpis: ReportKpis
   /** The agreements the numbers above counted, newest first. */
@@ -32,8 +32,9 @@ export function ReportPanel({
   exportHref: string
   /** Extra query params the form must carry through (a tab, say). */
   hidden?: Record<string, string>
-  values?: { from?: string; to?: string; source?: string; status?: string }
-  showSource?: boolean
+  values?: { from?: string; to?: string; status?: string }
+  /** The same numbers per source — shown only when the report spans all sources. */
+  breakdown?: { label: string; kpis: ReportKpis }[]
 }) {
   const tiles: { label: string; value: number | string }[] = [
     { label: 'נשלחו', value: kpis.sent },
@@ -81,20 +82,6 @@ export function ReportPanel({
             <option value="canceled">בוטלו</option>
           </select>
         </label>
-        {showSource ? (
-          <label className="text-sm">
-            <span className="block text-xs text-muted">מקור</span>
-            <select
-              name="source"
-              defaultValue={values.source ?? ''}
-              className="mt-1 min-h-11 rounded-lg border border-line bg-surface px-3 text-sm text-fg outline-none focus:border-brand"
-            >
-              <option value="">הכול</option>
-              <option value="crm">CRM</option>
-              <option value="xtra">XTRA Sign</option>
-            </select>
-          </label>
-        ) : null}
         <button
           type="submit"
           className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition hover:border-brand"
@@ -117,6 +104,33 @@ export function ReportPanel({
           </div>
         ))}
       </div>
+
+      {breakdown ? (
+        <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+          <table className="w-full text-sm">
+            <caption className="px-4 pt-3 text-start text-sm font-semibold text-fg">כל המקורות — פירוט לפי מקור</caption>
+            <thead>
+              <tr className="text-xs text-muted">
+                <th className="px-4 py-2 text-start font-medium">מקור</th>
+                {['נשלחו', 'נחתמו', 'ממתינים', 'פגו', 'אחוז חתימה'].map((h) => (
+                  <th key={h} className="px-2 py-2 text-center font-medium">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {breakdown.map((part) => (
+                <tr key={part.label} className="border-t border-line">
+                  <td className="px-4 py-2 font-medium text-fg">{part.label}</td>
+                  {[part.kpis.sent, part.kpis.signed, part.kpis.pending, part.kpis.expired].map((n, i) => (
+                    <td key={i} className="px-2 py-2 text-center tabular-nums text-fg">{n}</td>
+                  ))}
+                  <td className="px-2 py-2 text-center tabular-nums text-fg">{part.kpis.signRate === null ? '—' : `${part.kpis.signRate}%`}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
 
       {kpis.sent > 0 ? (
         <div className="grid gap-3 lg:grid-cols-2">

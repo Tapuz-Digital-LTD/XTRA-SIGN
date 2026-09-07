@@ -4,6 +4,8 @@ import { DeleteDialog } from '@/components/deletion/DeleteDialog'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { CompanyForm } from '@/components/companies/CompanyForm'
+import { LINKED_NOTE, SourceBadge, isLinked, sourceOf } from '@/components/companies/SourceBadge'
+import { withSource } from '@/components/companies/SourceSwitch'
 import type { CompanyRow } from '@/server/companies/companies'
 
 /**
@@ -82,7 +84,10 @@ export function CompanyHeader({
     <div className="rounded-[var(--radius-card)] border border-line bg-surface p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-xs font-medium text-muted">{noun}</p>
+          <p className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted">
+            <span>{noun}</span>
+            <SourceBadge company={company} />
+          </p>
           <h1 className="mt-0.5 truncate text-2xl font-bold tracking-tight text-fg">
             {company.name}
           </h1>
@@ -135,6 +140,7 @@ export function CompanyHeader({
       {company.crmRecordId ? (
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
           <span className="font-medium text-blue-800">מחובר ל-Fireberry ✓</span>
+          {isLinked(company) ? <span className="text-blue-700/80">{LINKED_NOTE}</span> : null}
           {company.crmSyncedAt ? (
             <span className="text-blue-700/80">
               סונכרן לאחרונה: {new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(company.crmSyncedAt))}
@@ -177,7 +183,7 @@ export function CompanyHeader({
             router.refresh()
             return
           }
-          router.push(company.kind === 'supplier' ? '/suppliers' : '/customers')
+          router.push(withSource(company.kind === 'supplier' ? '/suppliers' : '/customers', sourceOf(company)))
           router.refresh()
         }}
       />

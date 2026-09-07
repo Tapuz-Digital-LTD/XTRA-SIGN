@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
 import { ForbiddenError, type StaffSession } from '@/server/auth/session'
-import type { CompanyKind } from '@/server/companies/companies'
+import type { CompanyKind, CompanySource } from '@/server/companies/companies'
 import { getDb, schema } from '@/server/db'
 import { isUuid } from '@/server/documents/authorization'
 import { isCampaignKind, type CampaignKind } from '@/lib/campaigns'
@@ -65,8 +65,12 @@ export async function listGroups(
    * filtering must keep them rather than hide work already organised.
    */
   kind?: 'supplier' | 'customer',
-  /** Archived projects are off every default list; true shows only them. */
-  options: { archived?: boolean; search?: string; campaignKind?: CampaignKind } = {},
+  /**
+   * Archived projects are off every default list; true shows only them.
+   * `source` counts only that side's companies, so the chips on the XTRA Sign
+   * view never count a CRM row.
+   */
+  options: { archived?: boolean; search?: string; campaignKind?: CampaignKind; source?: CompanySource } = {},
 ): Promise<GroupListItem[]> {
   const term = options.search?.trim()
   const like = term ? `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null
@@ -89,7 +93,13 @@ export async function listGroups(
     .leftJoin(schema.companyGroups, eq(schema.companyGroups.groupId, schema.groups.id))
     .leftJoin(
       schema.companies,
-      and(eq(schema.companies.id, schema.companyGroups.companyId), isNull(schema.companies.deletedAt), isNull(schema.companies.archivedAt)),
+      and(
+        eq(schema.companies.id, schema.companyGroups.companyId),
+        isNull(schema.companies.deletedAt),
+        isNull(schema.companies.archivedAt),
+        options.source === 'crm' ? isNotNull(schema.companies.crmRecordId) : undefined,
+        options.source === 'xtra' ? isNull(schema.companies.crmRecordId) : undefined,
+      ),
     )
     .where(
       and(

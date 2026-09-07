@@ -34,6 +34,13 @@ type Values = {
 /**
  * Create or edit a supplier/customer. The same fields either way; only the
  * endpoint and the copy differ, so one component covers both.
+ *
+ * Creating starts with one question — where — because the answer decides what
+ * saving does: XTRA Sign only, or also a Fireberry record through the
+ * registration service (duplicate check first, then create and link, audited).
+ * XTRA Sign is the default. The CRM half is offered only when the connection
+ * is configured; otherwise the card says where CRM records come from instead
+ * of pretending to be a button.
  */
 export function CompanyForm({
   kind,
@@ -62,6 +69,9 @@ export function CompanyForm({
     notes: existing?.notes ?? '',
   })
   const [target, setTarget] = useState<'local' | 'crm'>('local')
+  const [choosing, setChoosing] = useState(!existing)
+  /** The explicit yes to "this will also be created in Fireberry". */
+  const [confirmed, setConfirmed] = useState(false)
   const [matches, setMatches] = useState<CrmMatch[] | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -134,11 +144,69 @@ export function CompanyForm({
     }
   }
 
+  const choose = (next: 'local' | 'crm') => {
+    setTarget(next)
+    setConfirmed(false)
+    setChoosing(false)
+  }
+
+  if (choosing) {
+    return (
+      <div className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
+        <h2 className="text-base font-semibold text-fg">{`היכן ליצור את ה${noun}?`}</h2>
+        <p className="mt-1 text-sm text-muted">ברירת המחדל היא XTRA Sign. רשומת CRM נוצרת ב-Fireberry ומופיעה כאן ברשימת CRM.</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            autoFocus
+            onClick={() => choose('local')}
+            className="min-h-11 rounded-lg border border-brand bg-blue-50 p-3 text-start transition hover:bg-blue-100"
+          >
+            <span className="block text-sm font-semibold text-fg">XTRA Sign</span>
+            <span className="block text-xs text-muted">{`ה${noun} נשמר כאן בלבד, למסמכים ולחתימות.`}</span>
+          </button>
+          {crmAvailable ? (
+            <button
+              type="button"
+              onClick={() => choose('crm')}
+              className="min-h-11 rounded-lg border border-line bg-white p-3 text-start transition hover:border-brand"
+            >
+              <span className="block text-sm font-semibold text-fg">CRM</span>
+              <span className="block text-xs text-muted">{`ה${noun} ייווצר גם ב-Fireberry ויקושר לרשומה כאן.`}</span>
+            </button>
+          ) : (
+            <div className="rounded-lg border border-dashed border-line p-3">
+              <span className="block text-sm font-semibold text-fg">CRM</span>
+              <span className="block text-xs text-muted">יצירה ב-CRM מתבצעת ב-Fireberry עצמו; הרשומה תסונכרן לכאן בסנכרון הבא.</span>
+            </div>
+          )}
+        </div>
+        {onCancel ? (
+          <button type="button" onClick={onCancel} className="mt-3 min-h-11 rounded-lg border border-line bg-white px-5 text-sm text-fg">
+            ביטול
+          </button>
+        ) : null}
+      </div>
+    )
+  }
+
   return (
     <form
       onSubmit={submit}
       className="rounded-[var(--radius-card)] border border-line bg-surface p-4"
     >
+      {!existing ? (
+        <p className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted">נוצר ב:</span>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${target === 'crm' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-600'}`}>
+            {target === 'crm' ? 'XTRA Sign + Fireberry' : 'XTRA Sign'}
+          </span>
+          <button type="button" onClick={() => setChoosing(true)} className="min-h-11 px-2 text-xs text-brand underline-offset-4 hover:underline">
+            שינוי
+          </button>
+        </p>
+      ) : null}
+
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={`שם ה${noun}`} value={values.name} onChange={set('name')} onBlur={check('name')} required autoFocus error={fieldErrors.name} />
         <Field label="ח.פ / ע.מ" value={values.taxId} onChange={set('taxId')} onBlur={check('taxId')} dir="ltr" inputMode="numeric" error={fieldErrors.taxId} />
@@ -161,37 +229,19 @@ export function CompanyForm({
       </div>
 
 
-      {crmAvailable && !existing ? (
-        <fieldset className="mt-4">
-          <legend className="text-xs font-medium text-fg">איפה לשמור?</legend>
-          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-            {(
-              [
-                ['local', 'XTRA Sign בלבד', `ה${noun} ישמש למסמכים וחתימות במערכת הזו.`],
-                ['crm', 'XTRA Sign + Fireberry CRM', `ה${noun} ייווצר או יקושר גם ל-Fireberry.`],
-              ] as const
-            ).map(([value, label, hint]) => (
-              <label
-                key={value}
-                className={`flex flex-1 cursor-pointer items-start gap-2 rounded-lg border p-3 transition ${
-                  target === value ? 'border-brand bg-blue-50' : 'border-line hover:border-brand'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="company-target"
-                  className="mt-0.5 size-4 shrink-0"
-                  checked={target === value}
-                  onChange={() => setTarget(value)}
-                />
-                <span>
-                  <span className="block text-sm font-medium text-fg">{label}</span>
-                  <span className="block text-xs text-muted">{hint}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
+      {target === 'crm' && !existing ? (
+        <label className="mt-4 flex cursor-pointer items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
+          <input
+            type="checkbox"
+            checked={confirmed}
+            onChange={(e) => setConfirmed(e.target.checked)}
+            className="mt-0.5 size-4 shrink-0"
+          />
+          <span>
+            <span className="block text-sm font-medium text-fg">הרשומה תיווצר גם ב-Fireberry</span>
+            <span className="block text-xs text-muted">לפני היצירה נבדוק אם החברה כבר קיימת שם, כדי לא ליצור כפילות ב-CRM.</span>
+          </span>
+        </label>
       ) : null}
 
       {matches ? (
@@ -253,10 +303,10 @@ export function CompanyForm({
       <div className="mt-4 flex gap-2">
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || (target === 'crm' && !confirmed)}
           className="min-h-11 rounded-lg bg-brand px-5 text-sm font-medium text-white disabled:opacity-50"
         >
-          {busy ? 'שומר…' : existing ? 'שמירה' : `הוספת ${noun}`}
+          {busy ? 'שומר…' : existing ? 'שמירה' : target === 'crm' ? 'יצירה ב-XTRA Sign וב-Fireberry' : `הוספת ${noun}`}
         </button>
         {onCancel ? (
           <button

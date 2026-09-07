@@ -35,7 +35,7 @@ export default async function ProjectPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ tab?: string; q?: string; from?: string; to?: string; status?: string; source?: string; range?: string; setup?: string; new?: string }>
+  searchParams: Promise<{ tab?: string; q?: string; from?: string; to?: string; status?: string; source?: string; range?: string; setup?: string; new?: string; section?: string }>
 }) {
   const session = await getSession()
   if (!session) redirect('/login')
@@ -143,7 +143,8 @@ export default async function ProjectPage({
             }}
             templates={(await listTemplates(session)).map((t) => ({ id: t.id, name: t.name }))}
             setup={query.setup}
-          />
+              section={query.section}
+            />
         ) : null}
       </div>
     </AppShell>
