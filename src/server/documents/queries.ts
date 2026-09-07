@@ -176,6 +176,7 @@ export async function listDocuments(
             select 1 from ${schema.messageSends} ms
             where ms.agreement_id = ${schema.agreements.id}
               and ms.ok = false and ms.is_test = false and ms.resolved_at is null
+              and (ms.error is distinct from 'reserved' or ms.sent_at < now() - interval '10 minutes')
               and (ms.channel <> 'whatsapp' or ms.manual_state = 'not_sent')
               and (ms.event not in ('invitation', 'reminder', 'registration_completed') or ${schema.agreements.status} in ('sent', 'viewed'))
               and not exists (

@@ -36,6 +36,8 @@ export function QuickSendDialog({ templates, onClose }: { templates: Template[];
   const [result, setResult] = useState<{ agreementId: string; delivered: boolean; deliveryError: string | null; whatsapp: { sendId: string; url: string; text: string } | null } | null>(null)
   const [confirmed, setConfirmed] = useState<boolean | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  // One id per action: a retry after a timeout reuses it, so the server sends once.
+  const operationId = useRef<string>(crypto.randomUUID())
 
   useEffect(() => {
     const escape = (e: KeyboardEvent) => {
@@ -90,7 +92,7 @@ export function QuickSendDialog({ templates, onClose }: { templates: Template[];
       const response = await fetch('/api/quick-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipient: company ? { companyId: company.id } : { name: name.trim(), phone: phone.trim() || null, email: email.trim() || null, kind }, templateId, channel }),
+        body: JSON.stringify({ operationId: operationId.current, recipient: company ? { companyId: company.id } : { name: name.trim(), phone: phone.trim() || null, email: email.trim() || null, kind }, templateId, channel }),
       })
       const data = await response.json().catch(() => null)
       if (!response.ok || !data?.ok) {

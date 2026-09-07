@@ -120,7 +120,7 @@ export function NewCampaignWizard({ templates, autoOpen = false }: { owners?: Wi
               <p className="text-lg font-semibold text-fg">מה תרצו לעשות?</p>
               {GOALS.map((g) => (
                 <button key={g.key} type="button" onClick={() => pickGoal(g.key)} aria-pressed={goal === g.key} className={card(goal === g.key, true)}>
-                  <span className="block text-lg font-semibold text-fg">{g.key === 'inquiries' ? 'לאסוף פרטים מאנשים' : 'להחתים אנשים על מסמכים'}</span>
+                  <span className="block text-lg font-semibold text-fg">{g.key === 'inquiries' ? 'איסוף פניות (לידים)' : 'להחתים אנשים על מסמכים'}</span>
                   <span className="mt-1 block text-base leading-relaxed text-muted">{g.blurb}</span>
                 </button>
               ))}

@@ -685,11 +685,15 @@ export const messageSends = pgTable(
     resolvedAt: timestamp('resolved_at', { withTimezone: true }),
     resolvedBy: uuid('resolved_by'),
     resolvedNote: text('resolved_note'),
+    /** The client's key for one attempt: the same key never sends twice. Unique per organisation. */
+    attemptKey: text('attempt_key'),
   },
   (t) => [
     index('message_sends_group_idx').on(t.groupId, t.sentAt),
     index('message_sends_distribution_idx').on(t.distributionId),
     index('message_sends_agreement_idx').on(t.agreementId),
+    // One reservation in flight per person, channel and message (partial: rows still marked reserved).
+    uniqueIndex('message_sends_reservation_unique').on(t.leadId, t.channel, t.event).where(sql`${t.error} = 'reserved' and ${t.leadId} is not null`),
   ],
 )
 
@@ -1373,4 +1377,26 @@ export const followUpTasks = pgTable(
     index('follow_up_tasks_group_status_idx').on(t.groupId, t.status),
     index('follow_up_tasks_company_idx').on(t.companyId),
   ],
+)
+
+/**
+ * People who asked not to be contacted, per channel ('sms' | 'email' | 'any').
+ * Honoured by every send that goes through the dispatcher; an admin may send
+ * an explicitly requested operational message anyway, and that is audited.
+ */
+export const contactSuppressions = pgTable(
+  'contact_suppressions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    channel: text('channel').default('any').notNull(),
+    /** Normalised: E.164 for phones, lower-cased for email. */
+    address: text('address').notNull(),
+    reason: text('reason'),
+    createdBy: uuid('created_by'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('contact_suppressions_unique').on(t.organizationId, t.channel, t.address)],
 )

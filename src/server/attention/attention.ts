@@ -213,6 +213,9 @@ export async function attentionForAgreements(
     if (a.status !== 'canceled') {
       for (const s of mine) {
         if (s.ok || s.resolvedAt) continue
+        // A reservation the dispatcher is still working on is not a failure; one
+        // left behind for ten minutes is (the outcome is unknown, so a retry is due).
+        if (s.error === 'reserved' && now.getTime() - s.sentAt.getTime() < 10 * 60_000) continue
         // WhatsApp: 'opened' (or nothing yet) is not a failure — only what the rep reported as not sent.
         if (s.channel === 'whatsapp' && s.manualState !== 'not_sent') continue
         if (LINK_EVENTS.has(s.event) && !open) continue

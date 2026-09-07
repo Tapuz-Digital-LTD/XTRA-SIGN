@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
 import { cleanOverrides, renderTemplate, resolveMessage, type Variables } from '@/lib/message-template'
@@ -6,11 +7,11 @@ import { buildWhatsAppShareUrl } from '@/lib/whatsapp-share'
 import { getDb, schema } from '@/server/db'
 import { campaignUrlFor } from '@/server/distributions/distributions'
 import { authorizeGroup } from '@/server/groups/groups'
-import { log } from '@/server/log'
 import { brandFor } from '@/server/mail/brand'
 import { renderEmail } from '@/server/mail/render'
 import { InvitationEmail } from '@/server/mail/templates'
 import { InforuEmailProvider, InforuSmsProvider } from '@/server/notifications/inforu'
+import { dispatch, humanize } from '@/server/messaging/dispatch'
 import { summarizeTask, type TaskSummary } from '@/server/follow-up/labels'
 import { tasksForLeads } from '@/server/follow-up/tasks'
 
@@ -143,6 +144,8 @@ export function processStatus(leadStatus: string, agreementStatus: string | null
 
 export type CreateInvitationInput = {
   groupId: string
+  /** The client's key for this one action: a retry with the same key returns the same row instead of a second person. */
+  operationId?: string | null
   name: string
   phone?: string | null
   email?: string | null
@@ -153,7 +156,11 @@ export type CreateInvitationInput = {
   agreementId?: string | null
 }
 
-export type Invitation = { id: string; name: string; contact: Contact; link: string | null }
+export type Invitation = { id: string; name: string; contact: Contact; link: string | null; /** True when this call found the row an earlier attempt made. */ replayed?: boolean }
+
+export function operationKey(groupId: string, operationId: string): string {
+  return createHash('sha256').update(`${groupId}:op:${operationId.trim().slice(0, 120)}`).digest('hex')
+}
 
 export async function createInvitation(session: StaffSession, input: CreateInvitationInput): Promise<{ ok: true; invitation: Invitation } | { ok: false; message: string }> {
   const group = await authorizeGroup(session, input.groupId)
@@ -164,7 +171,8 @@ export async function createInvitation(session: StaffSession, input: CreateInvit
   const kind = input.kind ?? (group.kind === 'customer' ? 'customer' : group.kind === 'supplier' ? 'supplier' : null)
   if (group.kind === null && !kind && !group.systemKey) return { ok: false, message: 'בחרו אם זה ספק או לקוח.' }
   const db = getDb()
-  const [row] = await db
+  const idempotencyKey = input.operationId && /^[A-Za-z0-9:_-]{8,120}$/.test(input.operationId) ? operationKey(group.id, input.operationId) : null
+  const inserted = await db
     .insert(schema.projectLeads)
     .values({
       organizationId: session.organizationId,
@@ -178,10 +186,16 @@ export async function createInvitation(session: StaffSession, input: CreateInvit
       invitedBy: session.userId,
       companyId: input.companyId ?? null,
       agreementId: input.agreementId ?? null,
+      idempotencyKey,
       lastActivityAt: new Date(),
     })
+    .onConflictDoNothing()
     .returning({ id: schema.projectLeads.id })
-  return { ok: true, invitation: { id: row.id, name, contact: normalized.contact, link: await invitationLink(group.id, row.id) } }
+  if (inserted[0]) return { ok: true, invitation: { id: inserted[0].id, name, contact: normalized.contact, link: await invitationLink(group.id, inserted[0].id) } }
+  // The same action, again (a retry, a second click): the row it already made.
+  const [existing] = await db.select({ id: schema.projectLeads.id }).from(schema.projectLeads).where(and(eq(schema.projectLeads.groupId, group.id), eq(schema.projectLeads.idempotencyKey, idempotencyKey!))).limit(1)
+  if (!existing) return { ok: false, message: 'ההזמנה לא נשמרה. נסו שוב.' }
+  return { ok: true, invitation: { id: existing.id, name, contact: normalized.contact, link: await invitationLink(group.id, existing.id), replayed: true } }
 }
 
 async function ownedLead(session: StaffSession, leadId: string) {
@@ -225,80 +239,93 @@ async function renderInvitation(session: StaffSession, groupId: string, lead: { 
   return { sms, email, vars, name }
 }
 
-export type SendResult = { ok: true; sendId: string } | { ok: false; message: string }
+export type SendResult = { ok: true; sendId: string; state: 'sent' | 'duplicate' } | { ok: false; message: string; state: string; retryAfter?: number }
 
-/** SMS or email through the provider; the row records exactly what left and whether it was accepted. */
-export async function sendInvitation(session: StaffSession, leadId: string, channel: 'sms' | 'email'): Promise<SendResult> {
+export type SendOptions = { attemptKey?: string | null; force?: boolean }
+
+/**
+ * SMS or email, through the dispatcher: permission, eligibility, the
+ * do-not-contact list, the rate limit, the 24-hour cooldown and the
+ * reservation all happen before the provider hears about it.
+ */
+export async function sendInvitation(session: StaffSession, leadId: string, channel: 'sms' | 'email', options: SendOptions = {}): Promise<SendResult> {
   const lead = await ownedLead(session, leadId)
-  if (!lead) return { ok: false, message: 'ההזמנה לא נמצאה.' }
-  const to = channel === 'sms' ? lead.phone : lead.email
-  if (!to) return { ok: false, message: channel === 'sms' ? 'אין טלפון להזמנה הזו.' : 'אין אימייל להזמנה הזו.' }
+  if (!lead) return { ok: false, message: 'ההזמנה לא נמצאה.', state: 'not_found' }
   const link = await invitationLink(lead.groupId, lead.id)
-  if (!link) return { ok: false, message: 'לקמפיין אין עמוד ציבורי לשלוח אליו.' }
-  const rendered = await renderInvitation(session, lead.groupId, lead, link)
-  const db = getDb()
-  let result: { ok: boolean; providerMessageId: string | null; error?: string }
-  let subject: string | null = null
-  let body: string
-  if (channel === 'sms') {
-    if (!rendered.sms) return { ok: false, message: 'לקמפיין אין נוסח SMS להזמנה.' }
-    body = rendered.sms
-    result = await new InforuSmsProvider().send({ to, text: body, recipientName: rendered.name })
-  } else {
-    if (!rendered.email) return { ok: false, message: 'לקמפיין אין נוסח אימייל להזמנה.' }
-    subject = rendered.email.subject
-    body = rendered.email.text
-    result = await new InforuEmailProvider().send({ to, subject, text: body, html: rendered.email.html, recipientName: rendered.name })
-  }
-  const [send] = await db
-    .insert(schema.messageSends)
-    .values({
-      organizationId: session.organizationId,
-      groupId: lead.groupId,
-      agreementId: lead.agreementId,
-      leadId: lead.id,
-      sentBy: session.userId,
-      channel,
-      event: 'invitation',
-      recipient: to,
-      subject,
-      body,
-      variables: rendered.vars,
-      providerMessageId: result.providerMessageId,
-      ok: result.ok,
-      error: result.ok ? null : (result.error ?? 'השליחה נכשלה'),
-    })
-    .returning({ id: schema.messageSends.id })
-  await db.update(schema.projectLeads).set({ lastActivityAt: new Date(), inviteChannel: lead.inviteChannel ?? channel }).where(eq(schema.projectLeads.id, lead.id))
-  if (!result.ok) log.warn('invitation send failed', { leadId: lead.id, channel, error: result.error })
-  return result.ok ? { ok: true, sendId: send.id } : { ok: false, message: humanSendError(result.error) }
+  if (!link) return { ok: false, message: 'לקמפיין אין עמוד ציבורי לשלוח אליו.', state: 'not_eligible' }
+  const status = await statusOfLead(lead)
+  const result = await dispatch({
+    session,
+    lead: { id: lead.id, organizationId: lead.organizationId, groupId: lead.groupId, agreementId: lead.agreementId, status: lead.status, phone: lead.phone, email: lead.email },
+    processStatus: status,
+    channel,
+    event: 'invitation',
+    attemptKey: options.attemptKey,
+    force: options.force,
+    render: async () => {
+      const rendered = await renderInvitation(session, lead.groupId, lead, link)
+      if (channel === 'sms') {
+        if (!rendered.sms) throw new Error('לקמפיין אין נוסח SMS להזמנה.')
+        return { to: lead.phone!, subject: null, body: rendered.sms, variables: rendered.vars }
+      }
+      if (!rendered.email) throw new Error('לקמפיין אין נוסח אימייל להזמנה.')
+      return { to: lead.email!, subject: rendered.email.subject, body: rendered.email.text, html: rendered.email.html, variables: rendered.vars }
+    },
+    send: (message) =>
+      channel === 'sms'
+        ? new InforuSmsProvider().send({ to: message.to, text: message.body, recipientName: nameOf(lead.data) })
+        : new InforuEmailProvider().send({ to: message.to, subject: message.subject ?? '', text: message.body, html: message.html ?? message.body, recipientName: nameOf(lead.data) }),
+  }).catch((error): DispatchResultLike => ({ ok: false, state: 'failed', message: error instanceof Error ? error.message : 'השליחה נכשלה.' }))
+  if (!result.ok) return { ok: false, message: result.message, state: result.state, retryAfter: result.retryAfter }
+  await db_touch(lead.id, lead.inviteChannel ?? channel)
+  return { ok: true, sendId: result.sendId, state: result.state === 'duplicate' ? 'duplicate' : 'sent' }
+}
+
+type DispatchResultLike = { ok: false; state: string; message: string; retryAfter?: number }
+
+async function db_touch(leadId: string, inviteChannel: string) {
+  await getDb().update(schema.projectLeads).set({ lastActivityAt: new Date(), inviteChannel }).where(eq(schema.projectLeads.id, leadId))
+}
+
+async function statusOfLead(lead: { status: string; agreementId: string | null }): Promise<ProcessStatus> {
+  if (!lead.agreementId) return processStatus(lead.status, null)
+  const [a] = await getDb().select({ status: schema.agreements.status }).from(schema.agreements).where(eq(schema.agreements.id, lead.agreementId)).limit(1)
+  return processStatus(lead.status, a?.status ?? null)
 }
 
 export function humanSendError(error: string | undefined): string {
-  if (!error) return 'השליחה נכשלה. נסו שוב בעוד רגע.'
-  if (/mailing list|invalid|not valid|address/i.test(error)) return 'הכתובת לא התקבלה אצל ספק ההודעות. בדקו את הפרטים ונסו שוב.'
-  if (/credentials|missing|SIGN_LOG_NOTIFICATIONS/i.test(error)) return 'שירות ההודעות אינו מוגדר בסביבה הזו, ההודעה נרשמה בלבד.'
-  return 'השליחה נכשלה. נסו שוב בעוד רגע.'
+  return humanize(error)
 }
 
 /**
- * WhatsApp: the rep's phone does the sending. The row says the share
- * opened; `confirmWhatsapp` records what the rep saw happen.
+ * WhatsApp: the rep's phone does the sending. The reservation is the record
+ * that the share opened; `confirmWhatsapp` records what the rep saw happen.
+ * Same door as every other message — a signed person or a suppressed
+ * number is refused before anything opens.
  */
-export async function whatsappInvitation(session: StaffSession, leadId: string): Promise<{ ok: true; sendId: string; url: string; text: string } | { ok: false; message: string }> {
+export async function whatsappInvitation(session: StaffSession, leadId: string, options: SendOptions = {}): Promise<{ ok: true; sendId: string; url: string; text: string } | { ok: false; message: string; state: string }> {
   const lead = await ownedLead(session, leadId)
-  if (!lead) return { ok: false, message: 'ההזמנה לא נמצאה.' }
+  if (!lead) return { ok: false, message: 'ההזמנה לא נמצאה.', state: 'not_found' }
   const link = await invitationLink(lead.groupId, lead.id)
-  if (!link) return { ok: false, message: 'לקמפיין אין עמוד ציבורי לשלוח אליו.' }
-  const rendered = await renderInvitation(session, lead.groupId, lead, link)
-  const text = rendered.sms ?? `שלום ${rendered.name}, מצורף קישור אישי: ${link}`
-  const [send] = await getDb()
-    .insert(schema.messageSends)
-    .values({ organizationId: session.organizationId, groupId: lead.groupId, agreementId: lead.agreementId, leadId: lead.id, sentBy: session.userId, channel: 'whatsapp', event: 'invitation', recipient: lead.phone ?? '', body: text, variables: rendered.vars, ok: false, error: null, manualState: 'opened' })
-    .returning({ id: schema.messageSends.id })
-  await getDb().update(schema.projectLeads).set({ lastActivityAt: new Date(), inviteChannel: lead.inviteChannel ?? 'whatsapp' }).where(eq(schema.projectLeads.id, lead.id))
-  const url = buildWhatsAppShareUrl({ recipientName: rendered.name, signingLink: link, phoneE164: lead.phone }).replace(/\?text=.*$/, `?text=${encodeURIComponent(text)}`)
-  return { ok: true, sendId: send.id, url, text }
+  if (!link) return { ok: false, message: 'לקמפיין אין עמוד ציבורי לשלוח אליו.', state: 'not_eligible' }
+  const status = await statusOfLead(lead)
+  const result = await dispatch({
+    session,
+    lead: { id: lead.id, organizationId: lead.organizationId, groupId: lead.groupId, agreementId: lead.agreementId, status: lead.status, phone: lead.phone, email: lead.email },
+    processStatus: status,
+    channel: 'whatsapp',
+    event: 'invitation',
+    attemptKey: options.attemptKey,
+    force: options.force,
+    render: async () => {
+      const rendered = await renderInvitation(session, lead.groupId, lead, link)
+      return { to: lead.phone!, subject: null, body: rendered.sms ?? `שלום ${rendered.name}, מצורף קישור אישי: ${link}`, variables: rendered.vars }
+    },
+  })
+  if (!result.ok) return { ok: false, message: result.message, state: result.state }
+  await db_touch(lead.id, lead.inviteChannel ?? 'whatsapp')
+  const url = buildWhatsAppShareUrl({ recipientName: nameOf(lead.data), signingLink: link, phoneE164: lead.phone }).replace(/\?text=.*$/, `?text=${encodeURIComponent(result.body)}`)
+  return { ok: true, sendId: result.sendId, url, text: result.body }
 }
 
 export async function confirmWhatsapp(session: StaffSession, sendId: string, sent: boolean): Promise<{ ok: true } | { ok: false; message: string }> {

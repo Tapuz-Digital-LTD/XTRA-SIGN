@@ -32,6 +32,8 @@ export function InviteDialog({ projectId, askKind, onClose }: { projectId: strin
   const [result, setResult] = useState<{ leadId: string; link: string | null; whatsapp?: { sendId: string; url: string; text: string }; sendOk?: boolean; sendMessage?: string } | null>(null)
   const [confirmed, setConfirmed] = useState<boolean | null>(null)
   const nameRef = useRef<HTMLInputElement>(null)
+  // One id per action; a retry after a timeout reuses it and the server creates and sends once.
+  const operationId = useRef<string>(crypto.randomUUID())
 
   useEffect(() => {
     const timer = setTimeout(() => nameRef.current?.focus(), 50)
@@ -71,7 +73,7 @@ export function InviteDialog({ projectId, askKind, onClose }: { projectId: strin
       const response = await fetch(`/api/projects/${projectId}/invitations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), phone: phone.trim() || null, email: email.trim() || null, kind: kind || null, channel }),
+        body: JSON.stringify({ operationId: operationId.current, name: name.trim(), phone: phone.trim() || null, email: email.trim() || null, kind: kind || null, channel }),
       })
       const data = await response.json().catch(() => null)
       if (!response.ok || !data?.ok) {
@@ -97,7 +99,7 @@ export function InviteDialog({ projectId, askKind, onClose }: { projectId: strin
     setBusy(true)
     setError(null)
     try {
-      const response = await fetch(`/api/invitations/${leadId}/send`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel }) })
+      const response = await fetch(`/api/invitations/${leadId}/send`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, attemptKey: `${operationId.current}:${channel}` }) })
       const data = await response.json().catch(() => null)
       if (!response.ok) {
         setError(data?.error?.message ?? 'השליחה נכשלה.')
@@ -129,6 +131,7 @@ export function InviteDialog({ projectId, askKind, onClose }: { projectId: strin
   }
 
   function reset() {
+    operationId.current = crypto.randomUUID()
     setName('')
     setPhone('')
     setEmail('')

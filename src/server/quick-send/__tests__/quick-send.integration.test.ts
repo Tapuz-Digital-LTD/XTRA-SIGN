@@ -9,6 +9,8 @@ import { DIRECT_SIGNING_KEY, listAudience } from '@/server/invitations/invitatio
 import { createTemplateFromAgreement } from '@/server/templates/templates'
 import { quickSend } from '../quick-send'
 
+const op = () => `op-${crypto.randomUUID()}`
+
 /**
  * "שלח מסמך לחתימה" to someone the system does not know: a document, a
  * recipient, a tracked row under the internal context — and no supplier,
@@ -44,7 +46,7 @@ beforeAll(async () => {
 describe('quick send', () => {
   it('sends to a person not in the system: no company, a tracked row, the empty office field handed to the signer', async () => {
     const companiesBefore = (await db.select({ id: schema.companies.id }).from(schema.companies).where(eq(schema.companies.organizationId, orgId))).length
-    const result = await quickSend(session, { recipient: { name: 'יוסי חדש', phone: '050-000-0444', kind: 'supplier' }, templateId, channel: 'sms' })
+    const result = await quickSend(session, { operationId: op(), recipient: { name: 'יוסי חדש', phone: '050-000-0444', kind: 'supplier' }, templateId, channel: 'sms' })
     expect(result.ok).toBe(true)
     if (!result.ok) return
 
@@ -84,7 +86,7 @@ describe('quick send', () => {
   })
 
   it('an existing supplier gets a document filed under them', async () => {
-    const result = await quickSend(session, { recipient: { companyId }, templateId, channel: 'email' })
+    const result = await quickSend(session, { operationId: op(), recipient: { companyId }, templateId, channel: 'email' })
     expect(result.ok).toBe(true)
     if (!result.ok) return
     const [agreement] = await db.select().from(schema.agreements).where(eq(schema.agreements.id, result.agreementId))
@@ -94,7 +96,7 @@ describe('quick send', () => {
   })
 
   it('WhatsApp mints the link, marks the document sent, and records the share as opened — never as delivered', async () => {
-    const result = await quickSend(session, { recipient: { name: 'רונית', phone: '0500000555', kind: 'customer' }, templateId, channel: 'whatsapp' })
+    const result = await quickSend(session, { operationId: op(), recipient: { name: 'רונית', phone: '0500000555', kind: 'customer' }, templateId, channel: 'whatsapp' })
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.whatsapp?.url).toMatch(/^https:\/\/wa\.me\/972500000555\?text=/)
@@ -108,7 +110,58 @@ describe('quick send', () => {
   })
 
   it('refuses a channel the person cannot receive', async () => {
-    const result = await quickSend(session, { recipient: { name: 'בלי מייל', phone: '0500000666', kind: 'supplier' }, templateId, channel: 'email' })
+    const result = await quickSend(session, { operationId: op(), recipient: { name: 'בלי מייל', phone: '0500000666', kind: 'supplier' }, templateId, channel: 'email' })
     expect(result.ok).toBe(false)
+  })
+
+  it('the same operation twice makes one document and replays the first result', async () => {
+    const operationId = op()
+    const agreementsBefore = (await db.select({ id: schema.agreements.id }).from(schema.agreements).where(eq(schema.agreements.organizationId, orgId))).length
+    const first = await quickSend(session, { operationId, recipient: { name: 'כפול', phone: '0500000777', kind: 'supplier' }, templateId, channel: 'sms' })
+    const second = await quickSend(session, { operationId, recipient: { name: 'כפול', phone: '0500000777', kind: 'supplier' }, templateId, channel: 'sms' })
+    expect(first.ok && second.ok).toBe(true)
+    if (!first.ok || !second.ok) return
+    expect(second.agreementId).toBe(first.agreementId)
+    expect(second.leadId).toBe(first.leadId)
+    expect(second.replayed).toBe(true)
+    const agreementsAfter = (await db.select({ id: schema.agreements.id }).from(schema.agreements).where(eq(schema.agreements.organizationId, orgId))).length
+    expect(agreementsAfter - agreementsBefore).toBe(1)
+    const sends = await db.select().from(schema.messageSends).where(eq(schema.messageSends.leadId, first.leadId))
+    expect(sends.filter((x) => x.channel === 'sms')).toHaveLength(1)
+  })
+
+  it('two clicks at once make one document; the second waits and gets the same result', async () => {
+    const operationId = op()
+    const input = { operationId, recipient: { name: 'מקביל', phone: '0500000888', kind: 'supplier' as const }, templateId, channel: 'sms' as const }
+    const [a, b] = await Promise.all([quickSend(session, input), quickSend(session, input)])
+    expect(a.ok && b.ok).toBe(true)
+    if (!a.ok || !b.ok) return
+    expect(a.agreementId).toBe(b.agreementId)
+    expect([a.replayed, b.replayed].filter(Boolean)).toHaveLength(1)
+    const leads = await db.select({ id: schema.projectLeads.id }).from(schema.projectLeads).where(eq(schema.projectLeads.agreementId, a.agreementId))
+    expect(leads).toHaveLength(1)
+  })
+
+  it('a retry after a failed attempt reuses the claim instead of leaving a dead row', async () => {
+    const operationId = op()
+    const broken = await quickSend(session, { operationId, recipient: { name: 'נסיון', phone: '0500000999', kind: 'supplier' }, templateId: crypto.randomUUID(), channel: 'sms' })
+    expect(broken.ok).toBe(false)
+    const rows = await db.select().from(schema.projectLeads).where(and(eq(schema.projectLeads.organizationId, orgId), eq(schema.projectLeads.phone, '+972500000999')))
+    expect(rows).toHaveLength(1)
+    expect(rows[0].status).toBe('failed')
+    const again = await quickSend(session, { operationId, recipient: { name: 'נסיון', phone: '0500000999', kind: 'supplier' }, templateId, channel: 'sms' })
+    expect(again.ok).toBe(true)
+    if (!again.ok) return
+    expect(again.leadId).toBe(rows[0].id)
+    expect(again.replayed).toBe(false)
+    const after = await db.select().from(schema.projectLeads).where(and(eq(schema.projectLeads.organizationId, orgId), eq(schema.projectLeads.phone, '+972500000999')))
+    expect(after).toHaveLength(1)
+    expect(after[0].agreementId).toBe(again.agreementId)
+  })
+
+  it('the same phone with a different operation is a different document — never merged by phone', async () => {
+    const one = await quickSend(session, { operationId: op(), recipient: { name: 'עסק א', phone: '0500001111', kind: 'supplier' }, templateId, channel: 'sms' })
+    const two = await quickSend(session, { operationId: op(), recipient: { name: 'עסק ב', phone: '0500001111', kind: 'customer' }, templateId, channel: 'sms' })
+    expect(one.ok && two.ok && one.agreementId !== two.agreementId).toBe(true)
   })
 })

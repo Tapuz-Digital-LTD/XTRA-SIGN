@@ -39,7 +39,7 @@ export default async function CampaignsPage({
 
   const tabs = [
     { key: 'all', href: '/projects', label: 'הכול' },
-    { key: 'inquiries', href: '/projects?view=inquiries', label: 'איסוף פניות' },
+    { key: 'inquiries', href: '/projects?view=inquiries', label: 'איסוף פניות (לידים)' },
     { key: 'signing', href: '/projects?view=signing', label: 'החתמה על מסמכים' },
     { key: 'archive', href: '/projects?view=archive', label: 'ארכיון' },
   ]
