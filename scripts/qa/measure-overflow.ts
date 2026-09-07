@@ -36,6 +36,7 @@ async function main() {
     }
     return { w, sw: document.documentElement.scrollWidth, bad: bad.slice(0, 15) }
   })
+  if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT })
   console.log(JSON.stringify(out, null, 1))
   await browser.close()
 }
