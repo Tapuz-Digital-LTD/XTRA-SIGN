@@ -492,26 +492,6 @@
     "notes": "Tourism 2026 self-service campaign"
   },
   {
-    "key": "public.layout.heading_1",
-    "text": "קול קורא לעסקי תיירות — חודש התיירות הישראלית 2026",
-    "location": "src/app/[slug]/layout.tsx:19",
-    "screen": "עמוד ציבורי: metadata",
-    "context": "כותרת החלון / הדפדפן (metadata)",
-    "type": "heading",
-    "variables": [],
-    "notes": "Tourism 2026 self-service campaign"
-  },
-  {
-    "key": "public.layout.other_1",
-    "text": "קול קורא לעסקי תיירות להצטרף לחודש התיירות הישראלית, נובמבר 2026. הצטרפות, קריאת הסכם ההשתתפות וחתימה דיגיטלית בכמה דקות.",
-    "location": "src/app/[slug]/layout.tsx:21",
-    "screen": "עמוד ציבורי: metadata",
-    "context": "תיאור העמוד לשיתוף ולמנועי חיפוש (metadata)",
-    "type": "other",
-    "variables": [],
-    "notes": "glossary term — keep consistent: הסכמים; Tourism 2026 self-service campaign"
-  },
-  {
     "key": "public.landing.aria_3",
     "text": "מה העסק שלכם מרוויח?",
     "location": "src/app/[slug]/page.tsx:112",
@@ -834,7 +814,7 @@
     "context": "קישור-פעולה",
     "type": "button",
     "variables": [],
-    "notes": "same text also at: src/app/agreements/page.tsx:82, src/app/companies/[id]/page.tsx:124, src/app/companies/[id]/page.tsx:181 (+3 more)"
+    "notes": "same text also at: src/app/agreements/page.tsx:82, src/app/companies/[id]/page.tsx:126, src/app/companies/[id]/page.tsx:183 (+3 more)"
   },
   {
     "key": "agreements.list.empty_state_1",
@@ -1008,7 +988,7 @@
     "context": "הודעת שגיאה שמוחזרת מהשרת ומוצגת למשתמש",
     "type": "error",
     "variables": [],
-    "notes": "same text also at: src/app/api/companies/[id]/crm-business/route.ts:48, src/app/api/companies/[id]/route.ts:14, src/app/api/companies/import/route.ts:62 (+32 more)"
+    "notes": "same text also at: src/app/api/companies/[id]/crm-business/route.ts:48, src/app/api/companies/[id]/route.ts:14, src/app/api/companies/import/route.ts:62 (+33 more)"
   },
   {
     "key": "login.api.error_2",
@@ -1048,7 +1028,7 @@
     "context": "הודעת שגיאה שמוחזרת מהשרת ומוצגת למשתמש",
     "type": "error",
     "variables": [],
-    "notes": "same text also at: src/server/ai/tools/companies.ts:74, src/server/ai/tools/companies.ts:188, src/server/companies/companies.ts:164 (+2 more)"
+    "notes": "same text also at: src/server/ai/tools/companies.ts:74, src/server/ai/tools/companies.ts:188, src/server/companies/companies.ts:167 (+2 more)"
   },
   {
     "key": "companies.api.error_4",
@@ -1458,7 +1438,7 @@
     "context": "הודעת שגיאה שמוחזרת מהשרת ומוצגת למשתמש (ברירת מחדל כשאין ערך אחר)",
     "type": "error",
     "variables": [],
-    "notes": "same text also at: src/components/documents/CrmWritebackButton.tsx:38, src/components/projects/AgreementPanel.tsx:153"
+    "notes": "same text also at: src/components/documents/CrmWritebackButton.tsx:38, src/components/projects/AgreementPanel.tsx:153, src/components/templates/TemplateUploadWizard.tsx:58"
   },
   {
     "key": "agreements.new.error_1",
@@ -1702,7 +1682,7 @@
     "context": "הודעת שגיאה שמוחזרת מהשרת ומוצגת למשתמש",
     "type": "error",
     "variables": [],
-    "notes": "glossary term — keep consistent: קמפיין; same text also at: src/app/api/projects/[id]/messages/route.ts:14, src/server/distributions/distributions.ts:157, src/server/distributions/distributions.ts:267 (+2 more)"
+    "notes": "glossary term — keep consistent: קמפיין; same text also at: src/app/api/projects/[id]/messages/route.ts:14, src/app/api/projects/[id]/share/route.ts:13, src/server/distributions/distributions.ts:157 (+6 more)"
   },
   {
     "key": "campaigns.leads.error_1",
@@ -1713,6 +1693,16 @@
     "type": "error",
     "variables": [],
     "notes": "glossary term — keep consistent: הרשמות"
+  },
+  {
+    "key": "campaigns.share.error_1",
+    "text": "לא נבחרה תמונה.",
+    "location": "src/app/api/projects/[id]/share/image/route.ts:15",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "הודעת שגיאה שמוחזרת מהשרת ומוצגת למשתמש",
+    "type": "error",
+    "variables": [],
+    "notes": ""
   },
   {
     "key": "public.embed_api.error_1",
@@ -1795,6 +1785,16 @@
     "notes": "same text also at: src/server/templates/templates.ts:269, src/server/templates/templates.ts:429"
   },
   {
+    "key": "templates.replace.error_1",
+    "text": "חסרה התבנית החדשה.",
+    "location": "src/app/api/templates/[id]/replace/route.ts:14",
+    "screen": "תבנית → החלפת קובץ ה-PDF",
+    "context": "הודעת שגיאה שמוחזרת מהשרת ומוצגת למשתמש",
+    "type": "error",
+    "variables": [],
+    "notes": ""
+  },
+  {
     "key": "templates.list.error_2",
     "text": "יש לבחור ספק או לקוח למסמך.",
     "location": "src/app/api/templates/[id]/use/route.ts:27",
@@ -1827,7 +1827,7 @@
   {
     "key": "companies.detail.aria_1",
     "text": "מידע על החברה",
-    "location": "src/app/companies/[id]/page.tsx:103",
+    "location": "src/app/companies/[id]/page.tsx:105",
     "screen": "כרטיס ספק/לקוח",
     "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
     "type": "aria",
@@ -1837,27 +1837,17 @@
   {
     "key": "companies.detail.other_2",
     "text": "מקור",
-    "location": "src/app/companies/[id]/page.tsx:137",
+    "location": "src/app/companies/[id]/page.tsx:139",
     "screen": "כרטיס ספק/לקוח",
     "context": "טקסט במסך",
     "type": "other",
     "variables": [],
-    "notes": "same text also at: src/components/reports/RegistrationsTable.tsx:439, src/server/companies/excel.ts:233, src/server/reports/reports.ts:186 (+4 more)"
-  },
-  {
-    "key": "companies.detail.doc_filters.0.label",
-    "text": "הכול",
-    "location": "src/app/companies/[id]/page.tsx:15",
-    "screen": "כרטיס ספק/לקוח",
-    "context": "לשונית / מסנן בראש הרשימה",
-    "type": "tab",
-    "variables": [],
-    "notes": "same text also at: src/components/documents/InboxControls.tsx:8, src/app/projects/page.tsx:41, src/components/companies/CompanyList.tsx:141 (+7 more)"
+    "notes": "same text also at: src/components/reports/RegistrationsTable.tsx:439, src/server/companies/excel.ts:233, src/server/reports/reports.ts:186 (+5 more)"
   },
   {
     "key": "companies.detail.aria_2",
     "text": "סינון הסכמים",
-    "location": "src/app/companies/[id]/page.tsx:155",
+    "location": "src/app/companies/[id]/page.tsx:157",
     "screen": "כרטיס ספק/לקוח",
     "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
     "type": "aria",
@@ -1865,29 +1855,19 @@
     "notes": "glossary term — keep consistent: הסכמים"
   },
   {
-    "key": "companies.detail.doc_filters.1.label",
-    "text": "טיוטות",
-    "location": "src/app/companies/[id]/page.tsx:16",
-    "screen": "כרטיס ספק/לקוח",
-    "context": "לשונית / מסנן בראש הרשימה",
-    "type": "tab",
-    "variables": [],
-    "notes": "same text also at: src/components/ListFilters.tsx:8, src/components/documents/InboxControls.tsx:9"
-  },
-  {
-    "key": "companies.detail.doc_filters.2.label",
-    "text": "ממתינים",
+    "key": "companies.detail.doc_filters.0.label",
+    "text": "הכול",
     "location": "src/app/companies/[id]/page.tsx:17",
     "screen": "כרטיס ספק/לקוח",
     "context": "לשונית / מסנן בראש הרשימה",
     "type": "tab",
     "variables": [],
-    "notes": "same text also at: src/components/ListFilters.tsx:6, src/components/reports/ReportPanel.tsx:41, src/components/reports/ReportPanel.tsx:212 (+2 more)"
+    "notes": "same text also at: src/components/documents/InboxControls.tsx:8, src/app/projects/page.tsx:41, src/components/companies/CompanyList.tsx:228 (+4 more)"
   },
   {
     "key": "companies.detail.empty_state_1",
     "text": "עדיין אין הסכמים ל${company.name}",
-    "location": "src/app/companies/[id]/page.tsx:174",
+    "location": "src/app/companies/[id]/page.tsx:176",
     "screen": "כרטיס ספק/לקוח",
     "context": "מצב ריק — מוצג כשאין נתונים להצגה (אחת מגרסאות טקסט מותנות)",
     "type": "empty_state",
@@ -1899,7 +1879,7 @@
   {
     "key": "companies.detail.empty_state_2",
     "text": "אין הסכמים בסטטוס הזה",
-    "location": "src/app/companies/[id]/page.tsx:174",
+    "location": "src/app/companies/[id]/page.tsx:176",
     "screen": "כרטיס ספק/לקוח",
     "context": "מצב ריק — מוצג כשאין נתונים להצגה (אחת מגרסאות טקסט מותנות)",
     "type": "empty_state",
@@ -1909,7 +1889,7 @@
   {
     "key": "companies.detail.other_3",
     "text": "כל מסמך שייווצר עבור החברה הזו יופיע כאן.",
-    "location": "src/app/companies/[id]/page.tsx:176",
+    "location": "src/app/companies/[id]/page.tsx:178",
     "screen": "כרטיס ספק/לקוח",
     "context": "פסקת הסבר במסך",
     "type": "other",
@@ -1917,19 +1897,29 @@
     "notes": ""
   },
   {
-    "key": "companies.detail.doc_filters.3.label",
-    "text": "נחתמו",
+    "key": "companies.detail.doc_filters.1.label",
+    "text": "טיוטות",
     "location": "src/app/companies/[id]/page.tsx:18",
     "screen": "כרטיס ספק/לקוח",
     "context": "לשונית / מסנן בראש הרשימה",
     "type": "tab",
     "variables": [],
-    "notes": "same text also at: src/components/ListFilters.tsx:7, src/components/documents/InboxControls.tsx:12, src/components/reports/ReportPanel.tsx:40 (+6 more)"
+    "notes": "same text also at: src/components/ListFilters.tsx:8, src/components/documents/InboxControls.tsx:9"
+  },
+  {
+    "key": "companies.detail.doc_filters.2.label",
+    "text": "ממתינים",
+    "location": "src/app/companies/[id]/page.tsx:19",
+    "screen": "כרטיס ספק/לקוח",
+    "context": "לשונית / מסנן בראש הרשימה",
+    "type": "tab",
+    "variables": [],
+    "notes": "same text also at: src/components/ListFilters.tsx:6, src/components/reports/ReportPanel.tsx:42, src/components/reports/ReportPanel.tsx:115 (+3 more)"
   },
   {
     "key": "companies.detail.other_4",
     "text": "החברה מחוברת ל-Fireberry. הסנכרון מביא עדכונים מה-CRM; הייבוא מביא קבצים שכבר מצורפים לרשומה. שום פעולה כאן אינה משנה דבר ב-CRM.",
-    "location": "src/app/companies/[id]/page.tsx:195",
+    "location": "src/app/companies/[id]/page.tsx:197",
     "screen": "כרטיס ספק/לקוח",
     "context": "פסקת הסבר במסך",
     "type": "other",
@@ -1937,9 +1927,19 @@
     "notes": "glossary term — keep consistent: CRM"
   },
   {
+    "key": "companies.detail.doc_filters.3.label",
+    "text": "נחתמו",
+    "location": "src/app/companies/[id]/page.tsx:20",
+    "screen": "כרטיס ספק/לקוח",
+    "context": "לשונית / מסנן בראש הרשימה",
+    "type": "tab",
+    "variables": [],
+    "notes": "same text also at: src/components/ListFilters.tsx:7, src/components/documents/InboxControls.tsx:12, src/components/reports/ReportPanel.tsx:41 (+7 more)"
+  },
+  {
     "key": "companies.detail.label_3",
     "text": "סנכרון אחרון",
-    "location": "src/app/companies/[id]/page.tsx:200",
+    "location": "src/app/companies/[id]/page.tsx:202",
     "screen": "כרטיס ספק/לקוח",
     "context": "תווית בסיכום פרטים",
     "type": "label",
@@ -1949,7 +1949,7 @@
   {
     "key": "companies.detail.empty_state_3",
     "text": "טרם סונכרן",
-    "location": "src/app/companies/[id]/page.tsx:204",
+    "location": "src/app/companies/[id]/page.tsx:206",
     "screen": "כרטיס ספק/לקוח",
     "context": "מצב ריק — מוצג כשאין נתונים להצגה (אחת מגרסאות טקסט מותנות)",
     "type": "empty_state",
@@ -1959,7 +1959,7 @@
   {
     "key": "companies.detail.label_4",
     "text": "סוג רשומה",
-    "location": "src/app/companies/[id]/page.tsx:208",
+    "location": "src/app/companies/[id]/page.tsx:210",
     "screen": "כרטיס ספק/לקוח",
     "context": "תווית בסיכום פרטים",
     "type": "label",
@@ -1969,7 +1969,7 @@
   {
     "key": "companies.detail.heading_1",
     "text": "הצעות מחיר{quotes.length > 0 ? ` (${quotes.length})` : ''}",
-    "location": "src/app/companies/[id]/page.tsx:218",
+    "location": "src/app/companies/[id]/page.tsx:220",
     "screen": "כרטיס ספק/לקוח",
     "context": "כותרת מקטע",
     "type": "heading",
@@ -1981,7 +1981,7 @@
   {
     "key": "companies.detail.other_5",
     "text": "הצעות המחיר של {company.name} ב-Fireberry, עם כל השורות שבהן.",
-    "location": "src/app/companies/[id]/page.tsx:221",
+    "location": "src/app/companies/[id]/page.tsx:223",
     "screen": "כרטיס ספק/לקוח",
     "context": "פסקת הסבר במסך",
     "type": "other",
@@ -1993,7 +1993,7 @@
   {
     "key": "companies.detail.heading_2",
     "text": "קבצים מצורפים",
-    "location": "src/app/companies/[id]/page.tsx:229",
+    "location": "src/app/companies/[id]/page.tsx:231",
     "screen": "כרטיס ספק/לקוח",
     "context": "כותרת מקטע",
     "type": "heading",
@@ -2003,7 +2003,7 @@
   {
     "key": "companies.detail.other_6",
     "text": "קובצי PDF שכבר מצורפים לרשומה עצמה ב-Fireberry.",
-    "location": "src/app/companies/[id]/page.tsx:231",
+    "location": "src/app/companies/[id]/page.tsx:233",
     "screen": "כרטיס ספק/לקוח",
     "context": "פסקת הסבר במסך",
     "type": "other",
@@ -2013,7 +2013,7 @@
   {
     "key": "companies.detail.label_1",
     "text": "ספק",
-    "location": "src/app/companies/[id]/page.tsx:44",
+    "location": "src/app/companies/[id]/page.tsx:46",
     "screen": "כרטיס ספק/לקוח",
     "context": "תווית שדה / פריט (אחת מגרסאות טקסט מותנות)",
     "type": "label",
@@ -2023,7 +2023,7 @@
   {
     "key": "companies.detail.label_2",
     "text": "לקוח",
-    "location": "src/app/companies/[id]/page.tsx:44",
+    "location": "src/app/companies/[id]/page.tsx:46",
     "screen": "כרטיס ספק/לקוח",
     "context": "תווית שדה / פריט (אחת מגרסאות טקסט מותנות)",
     "type": "label",
@@ -2031,19 +2031,9 @@
     "notes": "glossary term — keep consistent: לקוחות; same text also at: src/components/ai/ResultCards.tsx:79, src/components/documents/CompanyPicker.tsx:142, src/components/documents/CompanyStep.tsx:220 (+14 more)"
   },
   {
-    "key": "companies.detail.tab_1",
-    "text": "פרטים",
-    "location": "src/app/companies/[id]/page.tsx:65",
-    "screen": "כרטיס ספק/לקוח",
-    "context": "לשונית / מסנן בראש הרשימה",
-    "type": "tab",
-    "variables": [],
-    "notes": "same text also at: src/components/projects/NewCampaignWizard.tsx:144"
-  },
-  {
     "key": "companies.detail.button_1",
     "text": "→ לכל הספקים",
-    "location": "src/app/companies/[id]/page.tsx:79",
+    "location": "src/app/companies/[id]/page.tsx:81",
     "screen": "כרטיס ספק/לקוח",
     "context": "קישור-פעולה (אחת מגרסאות טקסט מותנות)",
     "type": "button",
@@ -2053,7 +2043,7 @@
   {
     "key": "companies.detail.button_2",
     "text": "→ לכל הלקוחות",
-    "location": "src/app/companies/[id]/page.tsx:79",
+    "location": "src/app/companies/[id]/page.tsx:81",
     "screen": "כרטיס ספק/לקוח",
     "context": "קישור-פעולה (אחת מגרסאות טקסט מותנות)",
     "type": "button",
@@ -2063,7 +2053,7 @@
   {
     "key": "companies.detail.other_1",
     "text": "פרויקטים:",
-    "location": "src/app/companies/[id]/page.tsx:89",
+    "location": "src/app/companies/[id]/page.tsx:91",
     "screen": "כרטיס ספק/לקוח",
     "context": "טקסט קצר במסך",
     "type": "other",
@@ -2073,22 +2063,22 @@
   {
     "key": "customers.list.other_1",
     "text": "כל לקוח במקום אחד — הפרטים שלו וכל המסמכים שנשלחו אליו לחתימה.",
-    "location": "src/app/customers/page.tsx:30",
+    "location": "src/app/customers/page.tsx:28",
     "screen": "לקוחות (רשימה)",
     "context": "פסקת הסבר במסך",
     "type": "other",
     "variables": [],
-    "notes": "glossary term — keep consistent: לקוחות"
+    "notes": "glossary term — keep consistent: לקוחות; same text also at: src/app/customers/page.tsx:47"
   },
   {
     "key": "customers.list.button_1",
     "text": "← חזרה לרשימה הפעילה",
-    "location": "src/app/customers/page.tsx:35",
+    "location": "src/app/customers/page.tsx:53",
     "screen": "לקוחות (רשימה)",
     "context": "קישור-פעולה (אחת מגרסאות טקסט מותנות)",
     "type": "button",
     "variables": [],
-    "notes": "same text also at: src/app/suppliers/page.tsx:35"
+    "notes": "same text also at: src/app/suppliers/page.tsx:53"
   },
   {
     "key": "agreements.edit.other_1",
@@ -2258,7 +2248,7 @@
     "context": "כותרת מקטע",
     "type": "heading",
     "variables": [],
-    "notes": "same text also at: src/components/companies/CompanyList.tsx:385, src/components/documents/RowActions.tsx:163, src/components/reports/RegistrationsTable.tsx:267"
+    "notes": "same text also at: src/components/companies/CompanyList.tsx:345, src/components/documents/RowActions.tsx:163, src/components/reports/RegistrationsTable.tsx:267"
   },
   {
     "key": "agreements.detail.heading_4",
@@ -2298,7 +2288,7 @@
     "context": "קישור-פעולה",
     "type": "button",
     "variables": [],
-    "notes": "same text also at: src/components/companies/CompanyForm.tsx:226, src/components/documents/CompanyStep.tsx:191"
+    "notes": "same text also at: src/components/companies/CompanyForm.tsx:276, src/components/documents/CompanyStep.tsx:191"
   },
   {
     "key": "agreements.new.heading_4",
@@ -2415,7 +2405,7 @@
     "variables": [
       "${template.pageCount}"
     ],
-    "notes": "placeholders must stay exactly as written; same text also at: src/components/TemplateList.tsx:72"
+    "notes": "placeholders must stay exactly as written; same text also at: src/components/TemplateList.tsx:73"
   },
   {
     "key": "agreements.new.other_5",
@@ -2427,7 +2417,7 @@
     "variables": [
       "${template.fieldCount}"
     ],
-    "notes": "placeholders must stay exactly as written; same text also at: src/components/TemplateList.tsx:78"
+    "notes": "placeholders must stay exactly as written; same text also at: src/components/TemplateList.tsx:79"
   },
   {
     "key": "agreements.new.other_6",
@@ -2629,7 +2619,7 @@
     "context": "קישור-פעולה",
     "type": "button",
     "variables": [],
-    "notes": "glossary term — keep consistent: קמפיין; same text also at: src/app/projects/page.tsx:94, src/components/projects/NewCampaignWizard.tsx:142"
+    "notes": "glossary term — keep consistent: קמפיין; same text also at: src/app/projects/page.tsx:94, src/components/projects/NewCampaignWizard.tsx:143"
   },
   {
     "key": "home.dashboard.label_1",
@@ -2787,7 +2777,7 @@
     "context": "כפתור / פעולה",
     "type": "button",
     "variables": [],
-    "notes": "same text also at: src/app/projects/[id]/page.tsx:301, src/components/reports/ProjectReportView.tsx:171, src/components/reports/ReportPanel.tsx:102"
+    "notes": "same text also at: src/app/projects/[id]/page.tsx:301, src/components/reports/ProjectReportView.tsx:171, src/components/reports/ReportPanel.tsx:89"
   },
   {
     "key": "campaigns.detail.other_6",
@@ -2893,7 +2883,7 @@
     "context": "לשונית / מסנן בראש הרשימה",
     "type": "tab",
     "variables": [],
-    "notes": "same text also at: src/components/companies/CompanyList.tsx:70, src/app/customers/page.tsx:35, src/app/suppliers/page.tsx:35 (+2 more)"
+    "notes": "same text also at: src/components/companies/CompanyList.tsx:72, src/app/customers/page.tsx:53, src/app/suppliers/page.tsx:53 (+2 more)"
   },
   {
     "key": "campaigns.list.other_1",
@@ -3088,12 +3078,12 @@
   {
     "key": "suppliers.list.other_1",
     "text": "כל ספק במקום אחד — הפרטים שלו וכל המסמכים שנשלחו אליו לחתימה.",
-    "location": "src/app/suppliers/page.tsx:30",
+    "location": "src/app/suppliers/page.tsx:28",
     "screen": "ספקים (רשימה)",
     "context": "פסקת הסבר במסך",
     "type": "other",
     "variables": [],
-    "notes": "glossary term — keep consistent: ספקים"
+    "notes": "glossary term — keep consistent: ספקים; same text also at: src/app/suppliers/page.tsx:47"
   },
   {
     "key": "templates.fields.heading_1",
@@ -3123,7 +3113,7 @@
     "context": "קישור-פעולה",
     "type": "button",
     "variables": [],
-    "notes": "same text also at: src/components/deletion/DeleteDialog.tsx:172, src/components/editor/FieldEditor.tsx:369, src/components/groups/BulkSendDialog.tsx:267 (+2 more)"
+    "notes": "same text also at: src/components/deletion/DeleteDialog.tsx:172, src/components/editor/FieldEditor.tsx:369, src/components/groups/BulkSendDialog.tsx:267 (+3 more)"
   },
   {
     "key": "templates.fields.button_2",
@@ -3136,24 +3126,74 @@
     "notes": ""
   },
   {
-    "key": "templates.list.button_1",
+    "key": "templates.detail.aria_1",
+    "text": "פירורי לחם",
+    "location": "src/app/templates/[id]/page.tsx:43",
+    "screen": "תבנית (דף התבנית: שם, שדות, החלפת PDF, מסמך חדש)",
+    "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
+    "type": "aria",
+    "variables": [],
+    "notes": "same text also at: src/app/templates/new/page.tsx:13"
+  },
+  {
+    "key": "templates.new_wizard.other_1",
+    "text": "<Link>תבניות</Link> <span>›</span> תבנית חדשה",
+    "location": "src/app/templates/new/page.tsx:14",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "טקסט במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.heading_1",
     "text": "תבנית חדשה",
+    "location": "src/app/templates/new/page.tsx:16",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "כותרת העמוד",
+    "type": "heading",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.other_2",
+    "text": "מעלים PDF, מאשרים אילו פרטים ממלאים כל שדה, רואים את התוצאה, ומפעילים.",
+    "location": "src/app/templates/new/page.tsx:17",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.other_3",
+    "text": "דרך נוספת: לפתוח מסמך קיים ולבחור בו &quot;שמירה כתבנית&quot; — <Link>מסמך חדש</Link>.",
+    "location": "src/app/templates/new/page.tsx:22",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.list.button_1",
+    "text": "+ תבנית חדשה מ-PDF",
     "location": "src/app/templates/page.tsx:28",
     "screen": "תבניות",
     "context": "קישור-פעולה",
     "type": "button",
     "variables": [],
-    "notes": "same text also at: src/app/templates/page.tsx:42"
+    "notes": ""
   },
   {
     "key": "templates.list.other_1",
-    "text": "מעלים PDF, מציבים עליו את השדות, ובעמוד המסמך לוחצים &quot;שמירה כתבנית&quot; — מכאן ואילך אפשר לשלוח אותו לכל ספק או לקוח, כולל שליחה מרוכזת מתוך פרויקט.",
+    "text": "תבנית היא PDF עם שדות שממולאים אוטומטית וחתימה. מעלים PDF → מאשרים איזה פרט ממלא כל שדה → רואים תצוגה מקדימה → מפעילים. לוחצים על תבנית כדי לצפות בה, לערוך שדות או להחליף את הקובץ.",
     "location": "src/app/templates/page.tsx:32",
     "screen": "תבניות",
     "context": "פסקת הסבר במסך",
     "type": "other",
     "variables": [],
-    "notes": "glossary term — keep consistent: ספקים, לקוחות"
+    "notes": ""
   },
   {
     "key": "templates.list.empty_state_1",
@@ -3169,6 +3209,16 @@
     "key": "templates.list.empty_state_2",
     "text": "מעלים PDF, מציבים עליו שדות, ובעמוד המסמך לוחצים ״שמירה כתבנית״. מכאן ואילך כל מסמך חדש מהתבנית יתחיל עם השדות במקום.",
     "location": "src/app/templates/page.tsx:40",
+    "screen": "תבניות",
+    "context": "מצב ריק — מוצג כשאין נתונים להצגה",
+    "type": "empty_state",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.list.empty_state_3",
+    "text": "תבנית חדשה מ-PDF",
+    "location": "src/app/templates/page.tsx:42",
     "screen": "תבניות",
     "context": "מצב ריק — מוצג כשאין נתונים להצגה",
     "type": "empty_state",
@@ -3253,7 +3303,7 @@
     "context": "כפתור / פעולה (אחת מגרסאות טקסט מותנות)",
     "type": "button",
     "variables": [],
-    "notes": "same text also at: src/components/projects/DistributionWizard.tsx:393, src/components/projects/NewCampaignWizard.tsx:328"
+    "notes": "same text also at: src/components/projects/DistributionWizard.tsx:393, src/components/projects/NewCampaignWizard.tsx:342"
   },
   {
     "key": "ai.chat.button_3",
@@ -3538,7 +3588,7 @@
   {
     "key": "nav.shell.aria_4",
     "text": "תפריט ניווט",
-    "location": "src/components/AppShell.tsx:126",
+    "location": "src/components/AppShell.tsx:128",
     "screen": "ניווט ראשי (תפריט עליון / תפריט נייד)",
     "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
     "type": "aria",
@@ -3548,7 +3598,7 @@
   {
     "key": "nav.shell.aria_5",
     "text": "סגירת התפריט",
-    "location": "src/components/AppShell.tsx:136",
+    "location": "src/components/AppShell.tsx:138",
     "screen": "ניווט ראשי (תפריט עליון / תפריט נייד)",
     "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
     "type": "aria",
@@ -3558,7 +3608,7 @@
   {
     "key": "nav.shell.nav.0.label",
     "text": "בית",
-    "location": "src/components/AppShell.tsx:15",
+    "location": "src/components/AppShell.tsx:16",
     "screen": "ניווט ראשי (תפריט עליון / תפריט נייד)",
     "context": "פריט בתפריט הניווט",
     "type": "nav",
@@ -3568,57 +3618,57 @@
   {
     "key": "nav.shell.nav.1.label",
     "text": "ספקים",
-    "location": "src/components/AppShell.tsx:16",
-    "screen": "ניווט ראשי (תפריט עליון / תפריט נייד)",
-    "context": "פריט בתפריט הניווט",
-    "type": "nav",
-    "variables": [],
-    "notes": "glossary term — keep consistent: ספקים; same text also at: src/components/companies/CompanyList.tsx:84, src/components/documents/CompanyStep.tsx:381, src/components/groups/AddCompaniesDialog.tsx:79 (+12 more)"
-  },
-  {
-    "key": "nav.shell.nav.2.label",
-    "text": "לקוחות",
     "location": "src/components/AppShell.tsx:17",
     "screen": "ניווט ראשי (תפריט עליון / תפריט נייד)",
     "context": "פריט בתפריט הניווט",
     "type": "nav",
     "variables": [],
-    "notes": "glossary term — keep consistent: לקוחות; same text also at: src/components/companies/CompanyList.tsx:84, src/components/documents/CompanyStep.tsx:382, src/components/groups/AddCompaniesDialog.tsx:79 (+10 more)"
+    "notes": "glossary term — keep consistent: ספקים; same text also at: src/components/GlobalSearch.tsx:15, src/components/companies/CompanyList.tsx:85, src/components/documents/CompanyStep.tsx:381 (+18 more)"
   },
   {
-    "key": "nav.shell.nav.3.label",
-    "text": "קמפיינים",
+    "key": "nav.shell.nav.2.label",
+    "text": "לקוחות",
     "location": "src/components/AppShell.tsx:18",
     "screen": "ניווט ראשי (תפריט עליון / תפריט נייד)",
     "context": "פריט בתפריט הניווט",
     "type": "nav",
     "variables": [],
-    "notes": "same text also at: src/app/projects/page.tsx:51"
+    "notes": "glossary term — keep consistent: לקוחות; same text also at: src/components/GlobalSearch.tsx:15, src/components/companies/CompanyList.tsx:85, src/components/documents/CompanyStep.tsx:382 (+16 more)"
   },
   {
-    "key": "nav.shell.nav.4.label",
-    "text": "הסכמים",
+    "key": "nav.shell.nav.3.label",
+    "text": "קמפיינים",
     "location": "src/components/AppShell.tsx:19",
     "screen": "ניווט ראשי (תפריט עליון / תפריט נייד)",
     "context": "פריט בתפריט הניווט",
     "type": "nav",
     "variables": [],
-    "notes": "glossary term — keep consistent: הסכמים; same text also at: src/lib/campaigns.ts:36, src/app/companies/[id]/page.tsx:66, src/app/agreements/page.tsx:54 (+1 more)"
+    "notes": "same text also at: src/components/GlobalSearch.tsx:15, src/app/projects/page.tsx:51"
   },
   {
-    "key": "nav.shell.nav.5.label",
-    "text": "תבניות",
+    "key": "nav.shell.nav.4.label",
+    "text": "הסכמים",
     "location": "src/components/AppShell.tsx:20",
     "screen": "ניווט ראשי (תפריט עליון / תפריט נייד)",
     "context": "פריט בתפריט הניווט",
     "type": "nav",
     "variables": [],
-    "notes": "same text also at: src/app/templates/page.tsx:23"
+    "notes": "glossary term — keep consistent: הסכמים; same text also at: src/lib/campaigns.ts:36, src/app/companies/[id]/page.tsx:68, src/app/agreements/page.tsx:54 (+1 more)"
+  },
+  {
+    "key": "nav.shell.nav.5.label",
+    "text": "תבניות",
+    "location": "src/components/AppShell.tsx:21",
+    "screen": "ניווט ראשי (תפריט עליון / תפריט נייד)",
+    "context": "פריט בתפריט הניווט",
+    "type": "nav",
+    "variables": [],
+    "notes": "same text also at: src/components/GlobalSearch.tsx:15, src/app/templates/[id]/page.tsx:44, src/app/templates/page.tsx:23"
   },
   {
     "key": "nav.shell.nav.6.label",
     "text": "הגדרות",
-    "location": "src/components/AppShell.tsx:21",
+    "location": "src/components/AppShell.tsx:22",
     "screen": "ניווט ראשי (תפריט עליון / תפריט נייד)",
     "context": "פריט בתפריט הניווט",
     "type": "nav",
@@ -3628,7 +3678,7 @@
   {
     "key": "nav.shell.aria_1",
     "text": "פתיחת התפריט",
-    "location": "src/components/AppShell.tsx:61",
+    "location": "src/components/AppShell.tsx:62",
     "screen": "ניווט ראשי (תפריט עליון / תפריט נייד)",
     "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
     "type": "aria",
@@ -3638,7 +3688,7 @@
   {
     "key": "nav.shell.aria_2",
     "text": "XTRA SIGN — דף הבית",
-    "location": "src/components/AppShell.tsx:74",
+    "location": "src/components/AppShell.tsx:75",
     "screen": "ניווט ראשי (תפריט עליון / תפריט נייד)",
     "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
     "type": "aria",
@@ -3648,12 +3698,12 @@
   {
     "key": "nav.shell.aria_3",
     "text": "ניווט ראשי",
-    "location": "src/components/AppShell.tsx:95",
+    "location": "src/components/AppShell.tsx:96",
     "screen": "ניווט ראשי (תפריט עליון / תפריט נייד)",
     "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
     "type": "aria",
     "variables": [],
-    "notes": "same text also at: src/components/AppShell.tsx:142"
+    "notes": "same text also at: src/components/AppShell.tsx:147"
   },
   {
     "key": "canvas.editor.error_1",
@@ -4388,7 +4438,7 @@
     "context": "כפתור / פעולה",
     "type": "button",
     "variables": [],
-    "notes": ""
+    "notes": "same text also at: src/components/projects/ShareSettings.tsx:99"
   },
   {
     "key": "canvas.editor.aria_12",
@@ -4421,43 +4471,33 @@
     "notes": ""
   },
   {
-    "key": "companies.form.label_1",
-    "text": "שם ה${noun}",
-    "location": "src/components/companies/CompanyForm.tsx:143",
+    "key": "companies.form.heading_1",
+    "text": "היכן ליצור את ה${noun}?",
+    "location": "src/components/companies/CompanyForm.tsx:156",
     "screen": "ספק/לקוח → טופס פרטים",
-    "context": "תווית שדה / פריט",
-    "type": "label",
+    "context": "כותרת מקטע",
+    "type": "heading",
     "variables": [
       "${noun}"
     ],
     "notes": "placeholders must stay exactly as written"
   },
   {
-    "key": "companies.form.label_2",
-    "text": "איפה לשמור?",
-    "location": "src/components/companies/CompanyForm.tsx:166",
-    "screen": "ספק/לקוח → טופס פרטים",
-    "context": "כותרת קבוצת שדות",
-    "type": "label",
-    "variables": [],
-    "notes": "same text also at: src/components/documents/CompanyStep.tsx:324"
-  },
-  {
     "key": "companies.form.other_1",
-    "text": "XTRA Sign בלבד",
-    "location": "src/components/companies/CompanyForm.tsx:170",
+    "text": "ברירת המחדל היא XTRA Sign. רשומת CRM נוצרת ב-Fireberry ומופיעה כאן ברשימת CRM.",
+    "location": "src/components/companies/CompanyForm.tsx:157",
     "screen": "ספק/לקוח → טופס פרטים",
-    "context": "טקסט במסך",
+    "context": "פסקת הסבר במסך",
     "type": "other",
     "variables": [],
-    "notes": "glossary term — keep consistent: XTRA Sign; same text also at: src/components/companies/CompanyList.tsx:143, src/components/documents/CompanyStep.tsx:328"
+    "notes": "glossary term — keep consistent: CRM, XTRA Sign"
   },
   {
     "key": "companies.form.other_2",
-    "text": "ה${noun} ישמש למסמכים וחתימות במערכת הזו.",
-    "location": "src/components/companies/CompanyForm.tsx:170",
+    "text": "ה${noun} נשמר כאן בלבד, למסמכים ולחתימות.",
+    "location": "src/components/companies/CompanyForm.tsx:166",
     "screen": "ספק/לקוח → טופס פרטים",
-    "context": "טקסט במסך",
+    "context": "טקסט קצר במסך",
     "type": "other",
     "variables": [
       "${noun}"
@@ -4466,15 +4506,25 @@
   },
   {
     "key": "companies.form.other_3",
-    "text": "ה${noun} ייווצר או יקושר גם ל-Fireberry.",
-    "location": "src/components/companies/CompanyForm.tsx:171",
+    "text": "ה${noun} ייווצר גם ב-Fireberry ויקושר לרשומה כאן.",
+    "location": "src/components/companies/CompanyForm.tsx:175",
     "screen": "ספק/לקוח → טופס פרטים",
-    "context": "טקסט במסך",
+    "context": "טקסט קצר במסך",
     "type": "other",
     "variables": [
       "${noun}"
     ],
     "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "companies.form.other_4",
+    "text": "יצירה ב-CRM מתבצעת ב-Fireberry עצמו; הרשומה תסונכרן לכאן בסנכרון הבא.",
+    "location": "src/components/companies/CompanyForm.tsx:180",
+    "screen": "ספק/לקוח → טופס פרטים",
+    "context": "טקסט קצר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": "glossary term — keep consistent: CRM"
   },
   {
     "key": "companies.form.match_reason.taxid",
@@ -4485,16 +4535,6 @@
     "type": "status",
     "variables": [],
     "notes": "same text also at: src/components/documents/CompanyStep.tsx:20"
-  },
-  {
-    "key": "companies.form.other_4",
-    "text": "נראה שהחברה כבר קיימת ב-Fireberry",
-    "location": "src/components/companies/CompanyForm.tsx:199",
-    "screen": "ספק/לקוח → טופס פרטים",
-    "context": "פסקת הסבר במסך",
-    "type": "other",
-    "variables": [],
-    "notes": "same text also at: src/components/documents/CompanyStep.tsx:154"
   },
   {
     "key": "companies.form.match_reason.email",
@@ -4508,35 +4548,23 @@
   },
   {
     "key": "companies.form.other_5",
-    "text": "בחרו את הרשומה הנכונה כדי לא ליצור כפילות ב-CRM.",
+    "text": "נוצר ב:",
     "location": "src/components/companies/CompanyForm.tsx:200",
     "screen": "ספק/לקוח → טופס פרטים",
-    "context": "פסקת הסבר במסך",
+    "context": "טקסט קצר במסך",
     "type": "other",
     "variables": [],
-    "notes": "glossary term — keep consistent: CRM"
+    "notes": ""
   },
   {
-    "key": "companies.form.other_6",
-    "text": "ח.פ ${match.taxId}",
-    "location": "src/components/companies/CompanyForm.tsx:207",
+    "key": "companies.form.button_1",
+    "text": "שינוי",
+    "location": "src/components/companies/CompanyForm.tsx:205",
     "screen": "ספק/לקוח → טופס פרטים",
-    "context": "טקסט קצר במסך (אחת מגרסאות טקסט מותנות)",
-    "type": "other",
-    "variables": [
-      "${match.taxId}"
-    ],
-    "notes": "placeholders must stay exactly as written; same text also at: src/components/documents/CompanyStep.tsx:166"
-  },
-  {
-    "key": "companies.form.other_7",
-    "text": "ללא פרטים נוספים",
-    "location": "src/components/companies/CompanyForm.tsx:209",
-    "screen": "ספק/לקוח → טופס פרטים",
-    "context": "טקסט קצר במסך (ברירת מחדל כשאין ערך אחר)",
-    "type": "other",
+    "context": "כפתור / פעולה",
+    "type": "button",
     "variables": [],
-    "notes": "same text also at: src/components/documents/CompanyStep.tsx:171"
+    "notes": ""
   },
   {
     "key": "companies.form.match_reason.phone",
@@ -4549,14 +4577,16 @@
     "notes": "same text also at: src/components/documents/CompanyStep.tsx:22"
   },
   {
-    "key": "companies.form.button_1",
-    "text": "קישור לרשומה הזו",
-    "location": "src/components/companies/CompanyForm.tsx:219",
+    "key": "companies.form.label_1",
+    "text": "שם ה${noun}",
+    "location": "src/components/companies/CompanyForm.tsx:211",
     "screen": "ספק/לקוח → טופס פרטים",
-    "context": "כפתור / פעולה",
-    "type": "button",
-    "variables": [],
-    "notes": "same text also at: src/components/documents/CompanyStep.tsx:181"
+    "context": "תווית שדה / פריט",
+    "type": "label",
+    "variables": [
+      "${noun}"
+    ],
+    "notes": "placeholders must stay exactly as written"
   },
   {
     "key": "companies.form.match_reason.name",
@@ -4569,9 +4599,81 @@
     "notes": "same text also at: src/components/documents/CompanyStep.tsx:23"
   },
   {
+    "key": "companies.form.other_6",
+    "text": "הרשומה תיווצר גם ב-Fireberry",
+    "location": "src/components/companies/CompanyForm.tsx:241",
+    "screen": "ספק/לקוח → טופס פרטים",
+    "context": "טקסט קצר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "companies.form.other_7",
+    "text": "לפני היצירה נבדוק אם החברה כבר קיימת שם, כדי לא ליצור כפילות ב-CRM.",
+    "location": "src/components/companies/CompanyForm.tsx:242",
+    "screen": "ספק/לקוח → טופס פרטים",
+    "context": "טקסט קצר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": "glossary term — keep consistent: CRM"
+  },
+  {
+    "key": "companies.form.other_8",
+    "text": "נראה שהחברה כבר קיימת ב-Fireberry",
+    "location": "src/components/companies/CompanyForm.tsx:249",
+    "screen": "ספק/לקוח → טופס פרטים",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": "same text also at: src/components/documents/CompanyStep.tsx:154"
+  },
+  {
+    "key": "companies.form.other_9",
+    "text": "בחרו את הרשומה הנכונה כדי לא ליצור כפילות ב-CRM.",
+    "location": "src/components/companies/CompanyForm.tsx:250",
+    "screen": "ספק/לקוח → טופס פרטים",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": "glossary term — keep consistent: CRM"
+  },
+  {
+    "key": "companies.form.other_10",
+    "text": "ח.פ ${match.taxId}",
+    "location": "src/components/companies/CompanyForm.tsx:257",
+    "screen": "ספק/לקוח → טופס פרטים",
+    "context": "טקסט קצר במסך (אחת מגרסאות טקסט מותנות)",
+    "type": "other",
+    "variables": [
+      "${match.taxId}"
+    ],
+    "notes": "placeholders must stay exactly as written; same text also at: src/components/documents/CompanyStep.tsx:166"
+  },
+  {
+    "key": "companies.form.other_11",
+    "text": "ללא פרטים נוספים",
+    "location": "src/components/companies/CompanyForm.tsx:259",
+    "screen": "ספק/לקוח → טופס פרטים",
+    "context": "טקסט קצר במסך (ברירת מחדל כשאין ערך אחר)",
+    "type": "other",
+    "variables": [],
+    "notes": "same text also at: src/components/documents/CompanyStep.tsx:171"
+  },
+  {
     "key": "companies.form.button_2",
+    "text": "קישור לרשומה הזו",
+    "location": "src/components/companies/CompanyForm.tsx:269",
+    "screen": "ספק/לקוח → טופס פרטים",
+    "context": "כפתור / פעולה",
+    "type": "button",
+    "variables": [],
+    "notes": "same text also at: src/components/documents/CompanyStep.tsx:181"
+  },
+  {
+    "key": "companies.form.button_3",
     "text": "אף אחת לא מתאימה — שמירה ב-XTRA Sign בלבד",
-    "location": "src/components/companies/CompanyForm.tsx:234",
+    "location": "src/components/companies/CompanyForm.tsx:284",
     "screen": "ספק/לקוח → טופס פרטים",
     "context": "כפתור / פעולה",
     "type": "button",
@@ -4579,21 +4681,31 @@
     "notes": "glossary term — keep consistent: XTRA Sign; same text also at: src/components/documents/CompanyStep.tsx:199"
   },
   {
-    "key": "companies.form.button_3",
+    "key": "companies.form.button_4",
+    "text": "יצירה ב-XTRA Sign וב-Fireberry",
+    "location": "src/components/companies/CompanyForm.tsx:309",
+    "screen": "ספק/לקוח → טופס פרטים",
+    "context": "כפתור / פעולה (אחת מגרסאות טקסט מותנות)",
+    "type": "button",
+    "variables": [],
+    "notes": "glossary term — keep consistent: XTRA Sign"
+  },
+  {
+    "key": "companies.form.button_5",
     "text": "הוספת ${noun}",
-    "location": "src/components/companies/CompanyForm.tsx:259",
+    "location": "src/components/companies/CompanyForm.tsx:309",
     "screen": "ספק/לקוח → טופס פרטים",
     "context": "כפתור / פעולה (אחת מגרסאות טקסט מותנות)",
     "type": "button",
     "variables": [
       "${noun}"
     ],
-    "notes": "placeholders must stay exactly as written; same text also at: src/components/companies/CompanyList.tsx:176"
+    "notes": "placeholders must stay exactly as written; same text also at: src/components/companies/CompanyList.tsx:158"
   },
   {
     "key": "companies.header.other_1",
     "text": "מחובר ל-Fireberry ✓",
-    "location": "src/components/companies/CompanyHeader.tsx:137",
+    "location": "src/components/companies/CompanyHeader.tsx:142",
     "screen": "כרטיס ספק/לקוח → כותרת ופעולות",
     "context": "טקסט קצר במסך",
     "type": "other",
@@ -4603,7 +4715,7 @@
   {
     "key": "companies.header.other_2",
     "text": "סונכרן לאחרונה: {…}",
-    "location": "src/components/companies/CompanyHeader.tsx:140",
+    "location": "src/components/companies/CompanyHeader.tsx:146",
     "screen": "כרטיס ספק/לקוח → כותרת ופעולות",
     "context": "טקסט קצר במסך",
     "type": "other",
@@ -4615,7 +4727,7 @@
   {
     "key": "companies.header.button_1",
     "text": "פתח ב-CRM ↗",
-    "location": "src/components/companies/CompanyHeader.tsx:150",
+    "location": "src/components/companies/CompanyHeader.tsx:156",
     "screen": "כרטיס ספק/לקוח → כותרת ופעולות",
     "context": "קישור-פעולה",
     "type": "button",
@@ -4625,7 +4737,7 @@
   {
     "key": "companies.list.error_1",
     "text": "הסנכרון נכשל.",
-    "location": "src/components/companies/CompanyList.tsx:124",
+    "location": "src/components/companies/CompanyList.tsx:112",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "הודעת שגיאה שמוצגת אחרי פעולה שנכשלה (ברירת מחדל כשאין ערך אחר)",
     "type": "error",
@@ -4635,7 +4747,7 @@
   {
     "key": "companies.list.other_1",
     "text": "נוספו ${c.added} · עודכנו ${c.updated} · ללא שינוי ${c.unchanged}",
-    "location": "src/components/companies/CompanyList.tsx:128",
+    "location": "src/components/companies/CompanyList.tsx:116",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "טקסט במסך",
     "type": "other",
@@ -4649,7 +4761,7 @@
   {
     "key": "companies.list.other_2",
     "text": " · נכשלו ${c.failed}",
-    "location": "src/components/companies/CompanyList.tsx:129",
+    "location": "src/components/companies/CompanyList.tsx:117",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "טקסט במסך",
     "type": "other",
@@ -4661,7 +4773,7 @@
   {
     "key": "companies.list.error_2",
     "text": "הסנכרון נכשל. בדקו את החיבור לאינטרנט.",
-    "location": "src/components/companies/CompanyList.tsx:134",
+    "location": "src/components/companies/CompanyList.tsx:122",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "הודעת שגיאה שמוצגת אחרי פעולה שנכשלה",
     "type": "error",
@@ -4671,7 +4783,7 @@
   {
     "key": "companies.list.button_5",
     "text": "מסנכרן…",
-    "location": "src/components/companies/CompanyList.tsx:186",
+    "location": "src/components/companies/CompanyList.tsx:170",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "כיתוב כפתור בזמן פעולה (מצב טעינה) (אחת מגרסאות טקסט מותנות)",
     "type": "button",
@@ -4681,7 +4793,7 @@
   {
     "key": "companies.list.button_6",
     "text": "↻ סנכרון מ-Fireberry",
-    "location": "src/components/companies/CompanyList.tsx:186",
+    "location": "src/components/companies/CompanyList.tsx:170",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "כפתור / פעולה (אחת מגרסאות טקסט מותנות)",
     "type": "button",
@@ -4691,7 +4803,7 @@
   {
     "key": "companies.list.label_1",
     "text": "חיפוש ${pluralNoun}",
-    "location": "src/components/companies/CompanyList.tsx:192",
+    "location": "src/components/companies/CompanyList.tsx:176",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "תווית שדה / פריט",
     "type": "label",
@@ -4703,7 +4815,7 @@
   {
     "key": "companies.list.placeholder_1",
     "text": "חיפוש לפי שם, ח.פ או איש קשר",
-    "location": "src/components/companies/CompanyList.tsx:198",
+    "location": "src/components/companies/CompanyList.tsx:182",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "טקסט placeholder בתוך שדה קלט ריק",
     "type": "placeholder",
@@ -4713,7 +4825,7 @@
   {
     "key": "companies.list.heading_1",
     "text": "להתחיל סנכרון מ-Fireberry?",
-    "location": "src/components/companies/CompanyList.tsx:207",
+    "location": "src/components/companies/CompanyList.tsx:191",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "כותרת מקטע",
     "type": "heading",
@@ -4723,7 +4835,7 @@
   {
     "key": "companies.list.other_3",
     "text": "ייובאו {pluralNoun} חדשים ומעודכנים מה-CRM. הפעולה מייבאת רק את מה שהשתנה מאז הסנכרון האחרון.",
-    "location": "src/components/companies/CompanyList.tsx:209",
+    "location": "src/components/companies/CompanyList.tsx:193",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "פסקת הסבר במסך",
     "type": "other",
@@ -4735,7 +4847,7 @@
   {
     "key": "companies.list.button_7",
     "text": "כן, התחל סנכרון",
-    "location": "src/components/companies/CompanyList.tsx:213",
+    "location": "src/components/companies/CompanyList.tsx:197",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "כפתור / פעולה",
     "type": "button",
@@ -4745,7 +4857,7 @@
   {
     "key": "companies.list.button_8",
     "text": "לא",
-    "location": "src/components/companies/CompanyList.tsx:216",
+    "location": "src/components/companies/CompanyList.tsx:200",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "כפתור / פעולה",
     "type": "button",
@@ -4755,17 +4867,7 @@
   {
     "key": "companies.list.aria_1",
     "text": "סינון לפי פרויקט",
-    "location": "src/components/companies/CompanyList.tsx:235",
-    "screen": "ספקים / לקוחות (רשימה וסינון)",
-    "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
-    "type": "aria",
-    "variables": [],
-    "notes": ""
-  },
-  {
-    "key": "companies.list.aria_2",
-    "text": "סינון לפי מקור",
-    "location": "src/components/companies/CompanyList.tsx:269",
+    "location": "src/components/companies/CompanyList.tsx:219",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
     "type": "aria",
@@ -4775,7 +4877,7 @@
   {
     "key": "companies.list.other_4",
     "text": "נבחרו {selected.size}",
-    "location": "src/components/companies/CompanyList.tsx:289",
+    "location": "src/components/companies/CompanyList.tsx:249",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "טקסט קצר במסך",
     "type": "other",
@@ -4787,7 +4889,7 @@
   {
     "key": "companies.list.button_9",
     "text": "ניקוי הבחירה",
-    "location": "src/components/companies/CompanyList.tsx:291",
+    "location": "src/components/companies/CompanyList.tsx:251",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "כפתור / פעולה",
     "type": "button",
@@ -4797,7 +4899,7 @@
   {
     "key": "companies.list.label_2",
     "text": "צור פרויקט מהבחירה",
-    "location": "src/components/companies/CompanyList.tsx:295",
+    "location": "src/components/companies/CompanyList.tsx:255",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "תווית שדה / פריט",
     "type": "label",
@@ -4807,17 +4909,17 @@
   {
     "key": "companies.list.button_10",
     "text": "ייצוא ל-Excel",
-    "location": "src/components/companies/CompanyList.tsx:300",
+    "location": "src/components/companies/CompanyList.tsx:260",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "קישור-פעולה",
     "type": "button",
     "variables": [],
-    "notes": "same text also at: src/components/groups/GroupWorkspace.tsx:183, src/components/reports/ProjectReportView.tsx:177, src/components/reports/ReportPanel.tsx:108"
+    "notes": "same text also at: src/components/groups/GroupWorkspace.tsx:183, src/components/reports/ProjectReportView.tsx:177, src/components/reports/ReportPanel.tsx:95"
   },
   {
     "key": "companies.list.empty_state_1",
     "text": "לא נמצאו ${pluralNoun} מתאימים",
-    "location": "src/components/companies/CompanyList.tsx:309",
+    "location": "src/components/companies/CompanyList.tsx:269",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "מצב ריק — מוצג כשאין נתונים להצגה (אחת מגרסאות טקסט מותנות)",
     "type": "empty_state",
@@ -4828,8 +4930,20 @@
   },
   {
     "key": "companies.list.empty_state_2",
+    "text": "אין ${pluralNoun} מ-CRM",
+    "location": "src/components/companies/CompanyList.tsx:269",
+    "screen": "ספקים / לקוחות (רשימה וסינון)",
+    "context": "מצב ריק — מוצג כשאין נתונים להצגה (אחת מגרסאות טקסט מותנות)",
+    "type": "empty_state",
+    "variables": [
+      "${pluralNoun}"
+    ],
+    "notes": "glossary term — keep consistent: CRM; placeholders must stay exactly as written"
+  },
+  {
+    "key": "companies.list.empty_state_3",
     "text": "עדיין אין ${pluralNoun}",
-    "location": "src/components/companies/CompanyList.tsx:309",
+    "location": "src/components/companies/CompanyList.tsx:269",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "מצב ריק — מוצג כשאין נתונים להצגה (אחת מגרסאות טקסט מותנות)",
     "type": "empty_state",
@@ -4841,7 +4955,7 @@
   {
     "key": "companies.list.other_5",
     "text": "נסו חיפוש אחר, או נקו את הסינון.",
-    "location": "src/components/companies/CompanyList.tsx:313",
+    "location": "src/components/companies/CompanyList.tsx:273",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "פסקת הסבר במסך (אחת מגרסאות טקסט מותנות)",
     "type": "other",
@@ -4850,8 +4964,8 @@
   },
   {
     "key": "companies.list.other_6",
-    "text": "שנו את הסינון למעלה.",
-    "location": "src/components/companies/CompanyList.tsx:315",
+    "text": "סנכרנו מ-Fireberry כדי להביא אותם לכאן.",
+    "location": "src/components/companies/CompanyList.tsx:276",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "פסקת הסבר במסך (אחת מגרסאות טקסט מותנות)",
     "type": "other",
@@ -4860,43 +4974,42 @@
   },
   {
     "key": "companies.list.other_7",
-    "text": "הוסיפו ${noun} ראשון${crmEnabled ? ', או סנכרנו מ-Fireberry' : ''}, ואז צרו עבורו מסמך.",
-    "location": "src/components/companies/CompanyList.tsx:316",
-    "screen": "ספקים / לקוחות (רשימה וסינון)",
-    "context": "פסקת הסבר במסך (אחת מגרסאות טקסט מותנות)",
-    "type": "other",
-    "variables": [
-      "${noun}",
-      "${crmEnabled ? ', או סנכרנו מ-Fireberry' : ''}"
-    ],
-    "notes": "placeholders must stay exactly as written"
-  },
-  {
-    "key": "companies.list.other_8",
-    "text": ", או סנכרנו מ-Fireberry",
-    "location": "src/components/companies/CompanyList.tsx:316",
+    "text": "רשומות CRM מגיעות לכאן בסנכרון מ-Fireberry.",
+    "location": "src/components/companies/CompanyList.tsx:277",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "פסקת הסבר במסך (אחת מגרסאות טקסט מותנות)",
     "type": "other",
     "variables": [],
-    "notes": ""
+    "notes": "glossary term — keep consistent: CRM"
   },
   {
-    "key": "companies.list.aria_3",
+    "key": "companies.list.other_8",
+    "text": "הוסיפו ${noun} ראשון, ואז צרו עבורו מסמך.",
+    "location": "src/components/companies/CompanyList.tsx:278",
+    "screen": "ספקים / לקוחות (רשימה וסינון)",
+    "context": "פסקת הסבר במסך (אחת מגרסאות טקסט מותנות)",
+    "type": "other",
+    "variables": [
+      "${noun}"
+    ],
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "companies.list.aria_2",
     "text": "בחירת ${company.name}",
-    "location": "src/components/companies/CompanyList.tsx:332",
+    "location": "src/components/companies/CompanyList.tsx:294",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
     "type": "aria",
     "variables": [
       "${company.name}"
     ],
-    "notes": "placeholders must stay exactly as written; same text also at: src/components/companies/CompanyList.tsx:401, src/components/groups/GroupWorkspace.tsx:307, src/components/groups/GroupWorkspace.tsx:355"
+    "notes": "placeholders must stay exactly as written; same text also at: src/components/companies/CompanyList.tsx:361, src/components/groups/GroupWorkspace.tsx:307, src/components/groups/GroupWorkspace.tsx:355"
   },
   {
     "key": "companies.list.other_9",
     "text": "ממתינים: <strong>{company.pendingCount}</strong>",
-    "location": "src/components/companies/CompanyList.tsx:355",
+    "location": "src/components/companies/CompanyList.tsx:314",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "טקסט קצר במסך",
     "type": "other",
@@ -4908,7 +5021,7 @@
   {
     "key": "companies.list.other_10",
     "text": "נחתמו: <strong>{company.signedCount}</strong>",
-    "location": "src/components/companies/CompanyList.tsx:358",
+    "location": "src/components/companies/CompanyList.tsx:317",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "טקסט קצר במסך",
     "type": "other",
@@ -4918,21 +5031,21 @@
     "notes": "placeholders must stay exactly as written"
   },
   {
-    "key": "companies.list.aria_4",
-    "text": "בחירת כל ${filtered.length} השורות המוצגות",
-    "location": "src/components/companies/CompanyList.tsx:375",
+    "key": "companies.list.aria_3",
+    "text": "בחירת כל ${companies.length} השורות המוצגות",
+    "location": "src/components/companies/CompanyList.tsx:334",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
     "type": "aria",
     "variables": [
-      "${filtered.length}"
+      "${companies.length}"
     ],
     "notes": "placeholders must stay exactly as written"
   },
   {
     "key": "companies.list.button_4",
     "text": "פתיחה",
-    "location": "src/components/companies/CompanyList.tsx:68",
+    "location": "src/components/companies/CompanyList.tsx:70",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "כפתור / פעולה (בתוך דיאלוג)",
     "type": "button",
@@ -4942,32 +5055,32 @@
   {
     "key": "companies.list.button_2",
     "text": "עריכה",
-    "location": "src/components/companies/CompanyList.tsx:69",
-    "screen": "ספקים / לקוחות (רשימה וסינון)",
-    "context": "כפתור / פעולה (בתוך דיאלוג)",
-    "type": "button",
-    "variables": [],
-    "notes": "same text also at: src/components/documents/RowActions.tsx:93, src/components/companies/CompanyHeader.tsx:96, src/components/settings/UsersTable.tsx:151"
-  },
-  {
-    "key": "companies.list.button_3",
-    "text": "החזרה מהארכיון",
-    "location": "src/components/companies/CompanyList.tsx:70",
-    "screen": "ספקים / לקוחות (רשימה וסינון)",
-    "context": "כפתור / פעולה (בתוך דיאלוג; אחת מגרסאות טקסט מותנות)",
-    "type": "button",
-    "variables": [],
-    "notes": "same text also at: src/components/companies/CompanyHeader.tsx:104, src/components/deletion/DeleteDialog.tsx:145"
-  },
-  {
-    "key": "companies.list.button_1",
-    "text": "מחיקה",
     "location": "src/components/companies/CompanyList.tsx:71",
     "screen": "ספקים / לקוחות (רשימה וסינון)",
     "context": "כפתור / פעולה (בתוך דיאלוג)",
     "type": "button",
     "variables": [],
-    "notes": "same text also at: src/components/documents/RowActions.tsx:97, src/components/projects/ProjectRowMenu.tsx:29, src/components/DocumentActions.tsx:85 (+5 more)"
+    "notes": "same text also at: src/components/documents/RowActions.tsx:93, src/components/companies/CompanyHeader.tsx:101, src/components/settings/UsersTable.tsx:151"
+  },
+  {
+    "key": "companies.list.button_3",
+    "text": "החזרה מהארכיון",
+    "location": "src/components/companies/CompanyList.tsx:72",
+    "screen": "ספקים / לקוחות (רשימה וסינון)",
+    "context": "כפתור / פעולה (בתוך דיאלוג; אחת מגרסאות טקסט מותנות)",
+    "type": "button",
+    "variables": [],
+    "notes": "same text also at: src/components/companies/CompanyHeader.tsx:109, src/components/deletion/DeleteDialog.tsx:145"
+  },
+  {
+    "key": "companies.list.button_1",
+    "text": "מחיקה",
+    "location": "src/components/companies/CompanyList.tsx:73",
+    "screen": "ספקים / לקוחות (רשימה וסינון)",
+    "context": "כפתור / פעולה (בתוך דיאלוג)",
+    "type": "button",
+    "variables": [],
+    "notes": "same text also at: src/components/documents/RowActions.tsx:97, src/components/projects/ProjectRowMenu.tsx:29, src/components/DocumentActions.tsx:85 (+6 more)"
   },
   {
     "key": "companies.tabs.aria_1",
@@ -5181,9 +5294,9 @@
     "notes": "glossary term — keep consistent: CRM, XTRA Sign"
   },
   {
-    "key": "companies.source.label_1",
+    "key": "companies.source.source_view_labels.all",
     "text": "כל המקורות",
-    "location": "src/components/companies/SourceSwitch.tsx:43",
+    "location": "src/components/companies/SourceGate.tsx:12",
     "screen": "ספקים/לקוחות → מקור הרשומה (XTRA Sign / CRM)",
     "context": "תווית שדה / פריט",
     "type": "label",
@@ -5191,14 +5304,70 @@
     "notes": ""
   },
   {
-    "key": "companies.source.aria_1",
-    "text": "מקור הרשומות",
-    "location": "src/components/companies/SourceSwitch.tsx:47",
+    "key": "companies.source.help_1",
+    "text": "${plural} שמנוהלים במערכת",
+    "location": "src/components/companies/SourceGate.tsx:43",
     "screen": "ספקים/לקוחות → מקור הרשומה (XTRA Sign / CRM)",
-    "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
-    "type": "aria",
+    "context": "טקסט עזר / הסבר מתחת לשדה או לכותרת",
+    "type": "help",
+    "variables": [
+      "${plural}"
+    ],
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "companies.source.help_2",
+    "text": "${plural} שמקורם ב-Fireberry",
+    "location": "src/components/companies/SourceGate.tsx:44",
+    "screen": "ספקים/לקוחות → מקור הרשומה (XTRA Sign / CRM)",
+    "context": "טקסט עזר / הסבר מתחת לשדה או לכותרת",
+    "type": "help",
+    "variables": [
+      "${plural}"
+    ],
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "companies.source.heading_1",
+    "text": "אילו ${plural} להציג?",
+    "location": "src/components/companies/SourceGate.tsx:48",
+    "screen": "ספקים/לקוחות → מקור הרשומה (XTRA Sign / CRM)",
+    "context": "כותרת מקטע",
+    "type": "heading",
+    "variables": [
+      "${plural}"
+    ],
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "companies.source.other_1",
+    "text": "או <Link> כל המקורות </Link> — הדוח על שני המקורות יחד, בפירוט לפי מקור.",
+    "location": "src/components/companies/SourceGate.tsx:63",
+    "screen": "ספקים/לקוחות → מקור הרשומה (XTRA Sign / CRM)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
     "variables": [],
     "notes": ""
+  },
+  {
+    "key": "companies.source.other_2",
+    "text": "מקור:",
+    "location": "src/components/companies/SourceGate.tsx:86",
+    "screen": "ספקים/לקוחות → מקור הרשומה (XTRA Sign / CRM)",
+    "context": "טקסט קצר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": "same text also at: src/components/projects/DistributionWizard.tsx:219"
+  },
+  {
+    "key": "companies.source.button_1",
+    "text": "החלפה",
+    "location": "src/components/companies/SourceGate.tsx:90",
+    "screen": "ספקים/לקוחות → מקור הרשומה (XTRA Sign / CRM)",
+    "context": "קישור-פעולה",
+    "type": "button",
+    "variables": [],
+    "notes": "same text also at: src/components/composer/FindReplaceBar.tsx:65, src/components/composer/FindReplaceBar.tsx:65"
   },
   {
     "key": "composer.editor.field_meta.select.label",
@@ -5219,16 +5388,6 @@
     "type": "label",
     "variables": [],
     "notes": "same text also at: src/components/projects/AgreementPanel.tsx:45, src/components/companies/CrmDocumentImport.tsx:148"
-  },
-  {
-    "key": "composer.editor.placeholder_1",
-    "text": "חיפוש",
-    "location": "src/components/composer/FindReplaceBar.tsx:48",
-    "screen": "כתיבת מסמך (עורך טקסט)",
-    "context": "טקסט placeholder בתוך שדה קלט ריק",
-    "type": "placeholder",
-    "variables": [],
-    "notes": "same text also at: src/components/documents/InboxControls.tsx:73, src/components/projects/DistributionWizard.tsx:227, src/components/projects/NewCampaignWizard.tsx:264"
   },
   {
     "key": "composer.editor.aria_1",
@@ -5284,7 +5443,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.placeholder_2",
+    "key": "composer.editor.placeholder_1",
     "text": "החלפה ב…",
     "location": "src/components/composer/FindReplaceBar.tsx:61",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5305,16 +5464,6 @@
   },
   {
     "key": "composer.editor.button_3",
-    "text": "החלפה",
-    "location": "src/components/composer/FindReplaceBar.tsx:65",
-    "screen": "כתיבת מסמך (עורך טקסט)",
-    "context": "כפתור כלי בסרגל העריכה",
-    "type": "button",
-    "variables": [],
-    "notes": "same text also at: src/components/composer/FindReplaceBar.tsx:65"
-  },
-  {
-    "key": "composer.editor.button_4",
     "text": "החלפת הכול",
     "location": "src/components/composer/FindReplaceBar.tsx:66",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5324,7 +5473,7 @@
     "notes": "same text also at: src/components/composer/FindReplaceBar.tsx:66"
   },
   {
-    "key": "composer.editor.button_5",
+    "key": "composer.editor.button_4",
     "text": "סגירת החיפוש",
     "location": "src/components/composer/FindReplaceBar.tsx:67",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5364,7 +5513,7 @@
     "notes": "same text also at: src/components/composer/resizable-image.tsx:210"
   },
   {
-    "key": "composer.editor.button_29",
+    "key": "composer.editor.button_28",
     "text": "איפוס",
     "location": "src/components/composer/resizable-image.tsx:214",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5374,7 +5523,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_6",
+    "key": "composer.editor.button_5",
     "text": "הוספת שורה מעל",
     "location": "src/components/composer/TablePanel.tsx:108",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5384,7 +5533,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_7",
+    "key": "composer.editor.button_6",
     "text": "הוספת שורה מתחת",
     "location": "src/components/composer/TablePanel.tsx:113",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5394,7 +5543,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_8",
+    "key": "composer.editor.button_7",
     "text": "הוספת עמודה",
     "location": "src/components/composer/TablePanel.tsx:118",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5404,7 +5553,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_9",
+    "key": "composer.editor.button_8",
     "text": "מחיקת שורה",
     "location": "src/components/composer/TablePanel.tsx:126",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5414,7 +5563,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_10",
+    "key": "composer.editor.button_9",
     "text": "מחיקת עמודה",
     "location": "src/components/composer/TablePanel.tsx:131",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5424,7 +5573,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_11",
+    "key": "composer.editor.button_10",
     "text": "מיזוג תאים",
     "location": "src/components/composer/TablePanel.tsx:139",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5434,7 +5583,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_12",
+    "key": "composer.editor.button_11",
     "text": "פיצול תא",
     "location": "src/components/composer/TablePanel.tsx:145",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5444,7 +5593,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_13",
+    "key": "composer.editor.button_12",
     "text": "שורת כותרת",
     "location": "src/components/composer/TablePanel.tsx:151",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5454,7 +5603,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_14",
+    "key": "composer.editor.button_13",
     "text": "מחיקת הטבלה",
     "location": "src/components/composer/TablePanel.tsx:159",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5544,7 +5693,7 @@
     "notes": "same text also at: src/components/composer/TablePanel.tsx:93, src/components/composer/TablePanel.tsx:96"
   },
   {
-    "key": "composer.editor.placeholder_3",
+    "key": "composer.editor.placeholder_2",
     "text": "כתבו כאן את תוכן המסמך…",
     "location": "src/components/composer/UnifiedComposer.tsx:130",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5562,16 +5711,6 @@
     "type": "other",
     "variables": [],
     "notes": "glossary term — keep consistent: הסכמים"
-  },
-  {
-    "key": "composer.editor.error_1",
-    "text": "התמונה גדולה מדי (עד 2MB).",
-    "location": "src/components/composer/UnifiedComposer.tsx:201",
-    "screen": "כתיבת מסמך (עורך טקסט)",
-    "context": "הודעת שגיאה שמוצגת אחרי פעולה שנכשלה",
-    "type": "error",
-    "variables": [],
-    "notes": ""
   },
   {
     "key": "composer.editor.other_5",
@@ -5624,7 +5763,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_15",
+    "key": "composer.editor.button_14",
     "text": "קו חוצה",
     "location": "src/components/composer/UnifiedComposer.tsx:314",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5634,7 +5773,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_16",
+    "key": "composer.editor.button_15",
     "text": "כתב עילי",
     "location": "src/components/composer/UnifiedComposer.tsx:315",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5644,7 +5783,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_17",
+    "key": "composer.editor.button_16",
     "text": "כתב תחתי",
     "location": "src/components/composer/UnifiedComposer.tsx:316",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5654,7 +5793,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_18",
+    "key": "composer.editor.button_17",
     "text": "ניקוי עיצוב",
     "location": "src/components/composer/UnifiedComposer.tsx:337",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5674,7 +5813,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_19",
+    "key": "composer.editor.button_18",
     "text": "רשימה",
     "location": "src/components/composer/UnifiedComposer.tsx:352",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5684,7 +5823,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_20",
+    "key": "composer.editor.button_19",
     "text": "רשימה ממוספרת",
     "location": "src/components/composer/UnifiedComposer.tsx:353",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5694,7 +5833,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_21",
+    "key": "composer.editor.button_20",
     "text": "ציטוט",
     "location": "src/components/composer/UnifiedComposer.tsx:354",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5704,7 +5843,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_22",
+    "key": "composer.editor.button_21",
     "text": "הגדלת כניסה",
     "location": "src/components/composer/UnifiedComposer.tsx:355",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5714,7 +5853,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_23",
+    "key": "composer.editor.button_22",
     "text": "הקטנת כניסה",
     "location": "src/components/composer/UnifiedComposer.tsx:356",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5724,7 +5863,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_24",
+    "key": "composer.editor.button_23",
     "text": "הוספת טבלה",
     "location": "src/components/composer/UnifiedComposer.tsx:359",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5734,7 +5873,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_25",
+    "key": "composer.editor.button_24",
     "text": "הוספת תמונה",
     "location": "src/components/composer/UnifiedComposer.tsx:360",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5744,7 +5883,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_26",
+    "key": "composer.editor.button_25",
     "text": "קו מפריד",
     "location": "src/components/composer/UnifiedComposer.tsx:361",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5754,7 +5893,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_27",
+    "key": "composer.editor.button_26",
     "text": "מעבר עמוד",
     "location": "src/components/composer/UnifiedComposer.tsx:362",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -5764,7 +5903,7 @@
     "notes": ""
   },
   {
-    "key": "composer.editor.button_28",
+    "key": "composer.editor.button_27",
     "text": "חיפוש והחלפה",
     "location": "src/components/composer/UnifiedComposer.tsx:364",
     "screen": "כתיבת מסמך (עורך טקסט)",
@@ -6052,7 +6191,7 @@
     "context": "כיתוב כפתור בזמן פעולה (מצב טעינה) (אחת מגרסאות טקסט מותנות)",
     "type": "button",
     "variables": [],
-    "notes": "same text also at: src/components/UploadCard.tsx:95, src/components/documents/CrmWritebackButton.tsx:60"
+    "notes": "same text also at: src/components/UploadCard.tsx:95, src/components/documents/CrmWritebackButton.tsx:60, src/components/projects/ShareSettings.tsx:99"
   },
   {
     "key": "agreements.crm_writeback.button_2",
@@ -6375,7 +6514,7 @@
     "text": "זו",
     "location": "src/components/deletion/DeleteDialog.tsx:220",
     "screen": "דיאלוג מחיקה / ארכיון",
-    "context": "קטע דקדוקי (סיומת / תחילית) שמודבק בקוד למילה שכנה — אחת מגרסאות מותנות",
+    "context": "טקסט בדיאלוג / חלון אישור (אחת מגרסאות טקסט מותנות)",
     "type": "dialog",
     "variables": [],
     "notes": "same text also at: src/components/deletion/DeleteDialog.tsx:248"
@@ -6385,7 +6524,7 @@
     "text": "זה",
     "location": "src/components/deletion/DeleteDialog.tsx:220",
     "screen": "דיאלוג מחיקה / ארכיון",
-    "context": "קטע דקדוקי (סיומת / תחילית) שמודבק בקוד למילה שכנה — אחת מגרסאות מותנות",
+    "context": "טקסט בדיאלוג / חלון אישור (אחת מגרסאות טקסט מותנות)",
     "type": "dialog",
     "variables": [],
     "notes": "same text also at: src/components/deletion/DeleteDialog.tsx:248"
@@ -6580,12 +6719,12 @@
     "notes": "placeholders must stay exactly as written"
   },
   {
-    "key": "deletion.row_menu.other_1",
+    "key": "deletion.row_menu.aria_1",
     "text": "פעולות נוספות",
     "location": "src/components/deletion/RowMenu.tsx:12",
     "screen": "תפריט פעולות בשורה (מחיקה / ארכיון)",
-    "context": "טקסט במסך",
-    "type": "other",
+    "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
+    "type": "aria",
     "variables": [],
     "notes": ""
   },
@@ -6627,7 +6766,7 @@
     "context": "הודעת שגיאה שמוצגת אחרי פעולה שנכשלה",
     "type": "error",
     "variables": [],
-    "notes": "same text also at: src/components/TemplateList.tsx:32, src/components/companies/CompanyForm.tsx:131, src/components/companies/CompanyHeader.tsx:59 (+3 more)"
+    "notes": "same text also at: src/components/TemplateList.tsx:33, src/components/companies/CompanyForm.tsx:141, src/components/companies/CompanyHeader.tsx:61 (+3 more)"
   },
   {
     "key": "agreements.row_actions.button_2",
@@ -6647,7 +6786,7 @@
     "context": "כיתוב כפתור בזמן פעולה (מצב טעינה) (אחת מגרסאות טקסט מותנות)",
     "type": "button",
     "variables": [],
-    "notes": "same text also at: src/components/TemplateList.tsx:139, src/components/documents/CompanyStep.tsx:361, src/components/documents/UseTemplateButton.tsx:56 (+2 more)"
+    "notes": "same text also at: src/components/TemplateList.tsx:143, src/components/documents/CompanyStep.tsx:361, src/components/documents/UseTemplateButton.tsx:56 (+2 more)"
   },
   {
     "key": "agreements.row_actions.button_5",
@@ -6810,16 +6949,6 @@
     "notes": "glossary term — keep consistent: ספקים, לקוחות"
   },
   {
-    "key": "agreements.new.other_12",
-    "text": "מחפש…",
-    "location": "src/components/documents/CompanyPicker.tsx:126",
-    "screen": "מסמך חדש (העלאה / כתיבה / בחירת חברה)",
-    "context": "פסקת הסבר במסך",
-    "type": "other",
-    "variables": [],
-    "notes": "same text also at: src/components/documents/CompanyStep.tsx:410, src/components/groups/AddCompaniesDialog.tsx:121, src/components/projects/DistributionWizard.tsx:229"
-  },
-  {
     "key": "agreements.new.empty_state_2",
     "text": "לא נמצאו תוצאות.",
     "location": "src/components/documents/CompanyPicker.tsx:128",
@@ -6879,7 +7008,7 @@
     "context": "הודעת שגיאה שמוצגת אחרי פעולה שנכשלה (ברירת מחדל כשאין ערך אחר)",
     "type": "error",
     "variables": [],
-    "notes": "same text also at: src/components/groups/NewGroupButton.tsx:40, src/components/projects/NewCampaignWizard.tsx:102"
+    "notes": "same text also at: src/components/groups/NewGroupButton.tsx:40, src/components/projects/NewCampaignWizard.tsx:108"
   },
   {
     "key": "agreements.new.error_18",
@@ -6889,10 +7018,10 @@
     "context": "הודעת שגיאה שמוצגת אחרי פעולה שנכשלה",
     "type": "error",
     "variables": [],
-    "notes": "same text also at: src/components/groups/NewGroupButton.tsx:45, src/components/projects/NewCampaignWizard.tsx:115"
+    "notes": "same text also at: src/components/groups/NewGroupButton.tsx:45, src/components/projects/NewCampaignWizard.tsx:121"
   },
   {
-    "key": "agreements.new.other_13",
+    "key": "agreements.new.other_12",
     "text": "כדי לא ליצור כפילות ב-CRM — בחרו את הרשומה הנכונה, או חזרו לעריכה אם אף אחת לא מתאימה.",
     "location": "src/components/documents/CompanyStep.tsx:156",
     "screen": "מסמך חדש (העלאה / כתיבה / בחירת חברה)",
@@ -6912,7 +7041,7 @@
     "notes": "glossary term — keep consistent: ספקים, לקוחות"
   },
   {
-    "key": "agreements.new.other_14",
+    "key": "agreements.new.other_13",
     "text": "כל חברה נשמרת קודם כל ב-XTRA Sign. אפשר גם ליצור או לקשר אותה ל-Fireberry.",
     "location": "src/components/documents/CompanyStep.tsx:212",
     "screen": "מסמך חדש (העלאה / כתיבה / בחירת חברה)",
@@ -6922,7 +7051,7 @@
     "notes": "glossary term — keep consistent: XTRA Sign"
   },
   {
-    "key": "agreements.new.other_15",
+    "key": "agreements.new.other_14",
     "text": "נשמר ב-XTRA Sign. חיבור ל-Fireberry אינו זמין כרגע.",
     "location": "src/components/documents/CompanyStep.tsx:213",
     "screen": "מסמך חדש (העלאה / כתיבה / בחירת חברה)",
@@ -6932,7 +7061,7 @@
     "notes": "glossary term — keep consistent: XTRA Sign"
   },
   {
-    "key": "agreements.new.other_16",
+    "key": "agreements.new.other_15",
     "text": "שם החברה <span>*</span>",
     "location": "src/components/documents/CompanyStep.tsx:239",
     "screen": "מסמך חדש (העלאה / כתיבה / בחירת חברה)",
@@ -6940,6 +7069,26 @@
     "type": "other",
     "variables": [],
     "notes": ""
+  },
+  {
+    "key": "agreements.new.label_4",
+    "text": "איפה לשמור?",
+    "location": "src/components/documents/CompanyStep.tsx:324",
+    "screen": "מסמך חדש (העלאה / כתיבה / בחירת חברה)",
+    "context": "כותרת קבוצת שדות",
+    "type": "label",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "agreements.new.other_16",
+    "text": "XTRA Sign בלבד",
+    "location": "src/components/documents/CompanyStep.tsx:328",
+    "screen": "מסמך חדש (העלאה / כתיבה / בחירת חברה)",
+    "context": "טקסט במסך",
+    "type": "other",
+    "variables": [],
+    "notes": "glossary term — keep consistent: XTRA Sign"
   },
   {
     "key": "agreements.new.other_17",
@@ -7109,7 +7258,7 @@
     "context": "תווית סטטוס / אירוע בציר הזמן",
     "type": "status",
     "variables": [],
-    "notes": "same text also at: src/app/projects/[id]/page.tsx:183, src/components/TemplateList.tsx:170, src/components/deletion/DeleteDialog.tsx:95"
+    "notes": "same text also at: src/app/projects/[id]/page.tsx:183, src/components/TemplateList.tsx:174, src/components/templates/TemplateDetail.tsx:122 (+1 more)"
   },
   {
     "key": "agreements.table.other_3",
@@ -7193,7 +7342,7 @@
     "context": "לשונית / מסנן בראש הרשימה",
     "type": "tab",
     "variables": [],
-    "notes": "same text also at: src/components/reports/ReportPanel.tsx:42, src/components/reports/ReportPanel.tsx:213, src/components/reports/ReportPanel.tsx:80"
+    "notes": "same text also at: src/components/reports/ReportPanel.tsx:43, src/components/reports/ReportPanel.tsx:115, src/components/reports/ReportPanel.tsx:227 (+1 more)"
   },
   {
     "key": "agreements.filters.tabs.6.label",
@@ -7203,7 +7352,7 @@
     "context": "לשונית / מסנן בראש הרשימה",
     "type": "tab",
     "variables": [],
-    "notes": "same text also at: src/components/reports/ReportPanel.tsx:214, src/components/reports/ReportPanel.tsx:81"
+    "notes": "same text also at: src/components/reports/ReportPanel.tsx:228, src/components/reports/ReportPanel.tsx:82"
   },
   {
     "key": "agreements.filters.tabs.7.label",
@@ -8096,6 +8245,68 @@
     "type": "button",
     "variables": [],
     "notes": ""
+  },
+  {
+    "key": "nav.search.other_2",
+    "text": "מחפש…",
+    "location": "src/components/GlobalSearch.tsx:106",
+    "screen": "חיפוש גלובלי (בכותרת ובתפריט הנייד)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": "same text also at: src/components/documents/CompanyPicker.tsx:126, src/components/documents/CompanyStep.tsx:410, src/components/groups/AddCompaniesDialog.tsx:121 (+1 more)"
+  },
+  {
+    "key": "nav.search.other_3",
+    "text": "לא נמצא דבר עבור \"{q.trim()}\".",
+    "location": "src/components/GlobalSearch.tsx:107",
+    "screen": "חיפוש גלובלי (בכותרת ובתפריט הנייד)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [
+      "{q.trim()}"
+    ],
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "nav.search.kind_labels.agreement",
+    "text": "מסמכים",
+    "location": "src/components/GlobalSearch.tsx:15",
+    "screen": "חיפוש גלובלי (בכותרת ובתפריט הנייד)",
+    "context": "תווית שדה / פריט",
+    "type": "label",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "nav.search.other_1",
+    "text": "חיפוש",
+    "location": "src/components/GlobalSearch.tsx:71",
+    "screen": "חיפוש גלובלי (בכותרת ובתפריט הנייד)",
+    "context": "טקסט קצר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": "same text also at: src/components/composer/FindReplaceBar.tsx:48, src/components/documents/InboxControls.tsx:73, src/components/projects/DistributionWizard.tsx:227 (+1 more)"
+  },
+  {
+    "key": "nav.search.placeholder_1",
+    "text": "חיפוש ספק, לקוח, קמפיין או מסמך…",
+    "location": "src/components/GlobalSearch.tsx:95",
+    "screen": "חיפוש גלובלי (בכותרת ובתפריט הנייד)",
+    "context": "טקסט placeholder בתוך שדה קלט ריק",
+    "type": "placeholder",
+    "variables": [],
+    "notes": "glossary term — keep consistent: קמפיין, ספקים, לקוחות"
+  },
+  {
+    "key": "nav.search.aria_1",
+    "text": "חיפוש ספק, לקוח, קמפיין או מסמך",
+    "location": "src/components/GlobalSearch.tsx:96",
+    "screen": "חיפוש גלובלי (בכותרת ובתפריט הנייד)",
+    "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
+    "type": "aria",
+    "variables": [],
+    "notes": "glossary term — keep consistent: קמפיין, ספקים, לקוחות"
   },
   {
     "key": "groups.add_companies.label_1",
@@ -9130,7 +9341,7 @@
     "context": "טקסט קצר במסך",
     "type": "other",
     "variables": [],
-    "notes": "glossary term — keep consistent: קמפיין; same text also at: src/components/projects/NewCampaignWizard.tsx:175"
+    "notes": "glossary term — keep consistent: קמפיין; same text also at: src/components/projects/NewCampaignWizard.tsx:268"
   },
   {
     "key": "groups.new_group.placeholder_1",
@@ -9160,7 +9371,7 @@
     "context": "כפתור / פעולה",
     "type": "button",
     "variables": [],
-    "notes": "glossary term — keep consistent: קמפיין; same text also at: src/components/projects/NewCampaignWizard.tsx:124"
+    "notes": "glossary term — keep consistent: קמפיין; same text also at: src/components/projects/NewCampaignWizard.tsx:130"
   },
   {
     "key": "agreements.filters.aria_1",
@@ -9553,7 +9764,7 @@
     "context": "הודעת שגיאה שמוצגת אחרי פעולה שנכשלה",
     "type": "error",
     "variables": [],
-    "notes": ""
+    "notes": "same text also at: src/components/templates/TemplateUploadWizard.tsx:150"
   },
   {
     "key": "campaigns.agreement.error_2",
@@ -9587,16 +9798,6 @@
   },
   {
     "key": "campaigns.agreement.step_1",
-    "text": "העלאת PDF",
-    "location": "src/components/projects/AgreementPanel.tsx:207",
-    "screen": "קמפיין → ההסכם",
-    "context": "שם שלב באשף / במעקב ההתקדמות",
-    "type": "step",
-    "variables": [],
-    "notes": "same text also at: src/components/UploadCard.tsx:73"
-  },
-  {
-    "key": "campaigns.agreement.step_2",
     "text": "מיפוי שדות",
     "location": "src/components/projects/AgreementPanel.tsx:208",
     "screen": "קמפיין → ההסכם",
@@ -9606,7 +9807,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.agreement.step_3",
+    "key": "campaigns.agreement.step_2",
     "text": "בדיקה והפעלה",
     "location": "src/components/projects/AgreementPanel.tsx:209",
     "screen": "קמפיין → ההסכם",
@@ -9655,7 +9856,7 @@
     "context": "כיתוב כפתור בזמן פעולה (מצב טעינה) (אחת מגרסאות טקסט מותנות)",
     "type": "button",
     "variables": [],
-    "notes": ""
+    "notes": "same text also at: src/components/templates/TemplateUploadWizard.tsx:160"
   },
   {
     "key": "campaigns.agreement.button_3",
@@ -9665,7 +9866,7 @@
     "context": "כפתור / פעולה (אחת מגרסאות טקסט מותנות)",
     "type": "button",
     "variables": [],
-    "notes": ""
+    "notes": "same text also at: src/components/templates/TemplateUploadWizard.tsx:160"
   },
   {
     "key": "campaigns.agreement.button_4",
@@ -9732,7 +9933,7 @@
     "context": "אפשרות ברשימת בחירה",
     "type": "label",
     "variables": [],
-    "notes": ""
+    "notes": "same text also at: src/components/templates/TemplateUploadWizard.tsx:191"
   },
   {
     "key": "campaigns.agreement.other_9",
@@ -9822,7 +10023,7 @@
     "context": "כיתוב כפתור בזמן פעולה (מצב טעינה) (אחת מגרסאות טקסט מותנות)",
     "type": "button",
     "variables": [],
-    "notes": ""
+    "notes": "same text also at: src/components/templates/TemplateUploadWizard.tsx:242"
   },
   {
     "key": "campaigns.agreement.button_8",
@@ -9842,7 +10043,7 @@
     "context": "כפתור / פעולה",
     "type": "button",
     "variables": [],
-    "notes": ""
+    "notes": "same text also at: src/components/templates/TemplateUploadWizard.tsx:225"
   },
   {
     "key": "campaigns.agreement.type_labels.checkbox",
@@ -9862,7 +10063,7 @@
     "context": "כותרת מקטע",
     "type": "heading",
     "variables": [],
-    "notes": "glossary term — keep consistent: הסכמים; same text also at: src/components/projects/NewCampaignWizard.tsx:291"
+    "notes": "glossary term — keep consistent: הסכמים; same text also at: src/components/projects/NewCampaignWizard.tsx:299"
   },
   {
     "key": "campaigns.agreement.other_1",
@@ -10123,7 +10324,7 @@
     "context": "הודעת שגיאה (ברירת מחדל כשאין ערך אחר)",
     "type": "error",
     "variables": [],
-    "notes": "same text also at: src/components/projects/NotificationSettings.tsx:52, src/components/projects/ProjectSettings.tsx:119, src/components/projects/ProjectSettings.tsx:143 (+12 more)"
+    "notes": "same text also at: src/components/projects/NotificationSettings.tsx:52, src/components/projects/ProjectSettings.tsx:119, src/components/projects/ProjectSettings.tsx:143 (+13 more)"
   },
   {
     "key": "campaigns.settings.success_1",
@@ -10143,7 +10344,7 @@
     "context": "הודעת שגיאה",
     "type": "error",
     "variables": [],
-    "notes": "same text also at: src/components/projects/NotificationSettings.tsx:58, src/components/projects/ProjectSettings.tsx:152, src/components/projects/SelfServiceSettings.tsx:86 (+5 more)"
+    "notes": "same text also at: src/components/projects/NotificationSettings.tsx:58, src/components/projects/ProjectSettings.tsx:152, src/components/projects/SelfServiceSettings.tsx:86 (+6 more)"
   },
   {
     "key": "campaigns.settings.heading_1",
@@ -10173,7 +10374,7 @@
     "context": "טקסט קצר במסך",
     "type": "other",
     "variables": [],
-    "notes": "same text also at: src/components/projects/NewCampaignWizard.tsx:191"
+    "notes": "same text also at: src/components/projects/NewCampaignWizard.tsx:284"
   },
   {
     "key": "campaigns.settings.setting_1",
@@ -10328,16 +10529,6 @@
     "notes": "placeholders must stay exactly as written"
   },
   {
-    "key": "campaigns.distributions.error_5",
-    "text": "הפעולה נכשלה. נסו שוב.",
-    "location": "src/components/projects/DistributionsTab.tsx:62",
-    "screen": "קמפיין → הפצות",
-    "context": "הודעת שגיאה שמוצגת אחרי פעולה שנכשלה",
-    "type": "error",
-    "variables": [],
-    "notes": "same text also at: src/components/projects/LeadsPanel.tsx:60, src/components/projects/LeadsPanel.tsx:66"
-  },
-  {
     "key": "campaigns.distributions.button_1",
     "text": "<span>+</span>הפצה חדשה",
     "location": "src/components/projects/DistributionsTab.tsx:70",
@@ -10435,7 +10626,7 @@
     "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
     "type": "aria",
     "variables": [],
-    "notes": "same text also at: src/components/projects/NewCampaignWizard.tsx:143"
+    "notes": "same text also at: src/components/projects/NewCampaignWizard.tsx:144, src/components/templates/TemplateUploadWizard.tsx:129"
   },
   {
     "key": "campaigns.distribution_wizard.label_1",
@@ -10445,20 +10636,10 @@
     "context": "כותרת קבוצת שדות",
     "type": "label",
     "variables": [],
-    "notes": "glossary term — keep consistent: נמענים; same text also at: src/components/projects/NewCampaignWizard.tsx:244"
+    "notes": "glossary term — keep consistent: נמענים"
   },
   {
     "key": "campaigns.distribution_wizard.other_1",
-    "text": "מקור:",
-    "location": "src/components/projects/DistributionWizard.tsx:219",
-    "screen": "קמפיין → הפצות → אשף הפצה חדשה",
-    "context": "טקסט קצר במסך",
-    "type": "other",
-    "variables": [],
-    "notes": "same text also at: src/components/projects/NewCampaignWizard.tsx:256"
-  },
-  {
-    "key": "campaigns.distribution_wizard.other_2",
     "text": "רשומות CRM מסונכרנות מקומית; הבחירה לא משנה דבר ב-Fireberry.",
     "location": "src/components/projects/DistributionWizard.tsx:225",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10475,10 +10656,10 @@
     "context": "טקסט placeholder בתוך שדה קלט ריק",
     "type": "placeholder",
     "variables": [],
-    "notes": "same text also at: src/components/projects/NewCampaignWizard.tsx:264"
+    "notes": ""
   },
   {
-    "key": "campaigns.distribution_wizard.other_3",
+    "key": "campaigns.distribution_wizard.other_2",
     "text": "${results.length} תוצאות",
     "location": "src/components/projects/DistributionWizard.tsx:229",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10510,7 +10691,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distribution_wizard.other_4",
+    "key": "campaigns.distribution_wizard.other_3",
     "text": "נבחרו <strong>{chosen.size}</strong> · עם טלפון {withPhone} · עם אימייל {withEmail}",
     "location": "src/components/projects/DistributionWizard.tsx:246",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10534,7 +10715,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distribution_wizard.other_5",
+    "key": "campaigns.distribution_wizard.other_4",
     "text": "${withPhone} עם טלפון",
     "location": "src/components/projects/DistributionWizard.tsx:259",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10546,7 +10727,7 @@
     "notes": "placeholders must stay exactly as written"
   },
   {
-    "key": "campaigns.distribution_wizard.other_6",
+    "key": "campaigns.distribution_wizard.other_5",
     "text": "${withEmail} עם אימייל",
     "location": "src/components/projects/DistributionWizard.tsx:259",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10558,7 +10739,7 @@
     "notes": "placeholders must stay exactly as written"
   },
   {
-    "key": "campaigns.distribution_wizard.other_7",
+    "key": "campaigns.distribution_wizard.other_6",
     "text": "יגיעו ל-<strong>{reachable}</strong> מתוך {chosen.size} נמענים.{…}",
     "location": "src/components/projects/DistributionWizard.tsx:264",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10572,7 +10753,7 @@
     "notes": "glossary term — keep consistent: נמענים; placeholders must stay exactly as written"
   },
   {
-    "key": "campaigns.distribution_wizard.other_8",
+    "key": "campaigns.distribution_wizard.other_7",
     "text": " השאר יסומנו כ\"דולגו\" — חסר להם פרט קשר לערוץ שנבחר.",
     "location": "src/components/projects/DistributionWizard.tsx:264",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10592,7 +10773,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distribution_wizard.other_9",
+    "key": "campaigns.distribution_wizard.other_8",
     "text": "לקמפיין הזה אין עמוד ציבורי.",
     "location": "src/components/projects/DistributionWizard.tsx:279",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10602,7 +10783,7 @@
     "notes": "glossary term — keep consistent: קמפיין"
   },
   {
-    "key": "campaigns.distribution_wizard.other_10",
+    "key": "campaigns.distribution_wizard.other_9",
     "text": "הודעת SMS",
     "location": "src/components/projects/DistributionWizard.tsx:295",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10612,7 +10793,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distribution_wizard.other_11",
+    "key": "campaigns.distribution_wizard.other_10",
     "text": "{smsInfo.chars} תווים · {smsInfo.segments} {smsInfo.segments === 1 ? 'הודעה' : 'הודעות'} (הערכה, {smsInfo.encoding === 'ucs2' ? 'עברית' : 'לטינית'})",
     "location": "src/components/projects/DistributionWizard.tsx:299",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10627,7 +10808,7 @@
     "notes": "placeholders must stay exactly as written"
   },
   {
-    "key": "campaigns.distribution_wizard.other_12",
+    "key": "campaigns.distribution_wizard.other_11",
     "text": "הודעה",
     "location": "src/components/projects/DistributionWizard.tsx:299",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10637,7 +10818,7 @@
     "notes": "same text also at: src/components/projects/MessagesSettings.tsx:155"
   },
   {
-    "key": "campaigns.distribution_wizard.other_13",
+    "key": "campaigns.distribution_wizard.other_12",
     "text": "עברית",
     "location": "src/components/projects/DistributionWizard.tsx:299",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10647,7 +10828,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distribution_wizard.other_14",
+    "key": "campaigns.distribution_wizard.other_13",
     "text": "לטינית",
     "location": "src/components/projects/DistributionWizard.tsx:299",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10657,7 +10838,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distribution_wizard.other_15",
+    "key": "campaigns.distribution_wizard.other_14",
     "text": "חסר {{campaign_url}}",
     "location": "src/components/projects/DistributionWizard.tsx:300",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10669,7 +10850,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distribution_wizard.other_16",
+    "key": "campaigns.distribution_wizard.other_15",
     "text": "נושא האימייל",
     "location": "src/components/projects/DistributionWizard.tsx:312",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10679,7 +10860,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distribution_wizard.other_17",
+    "key": "campaigns.distribution_wizard.other_16",
     "text": "גוף האימייל",
     "location": "src/components/projects/DistributionWizard.tsx:316",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10689,7 +10870,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distribution_wizard.other_18",
+    "key": "campaigns.distribution_wizard.other_17",
     "text": "טקסט הכפתור",
     "location": "src/components/projects/DistributionWizard.tsx:325",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10699,7 +10880,7 @@
     "notes": "same text also at: src/components/projects/MessagesSettings.tsx:171"
   },
   {
-    "key": "campaigns.distribution_wizard.other_19",
+    "key": "campaigns.distribution_wizard.other_18",
     "text": "הכפתור מוביל אל: <span>{targetUrl || '—'}</span>",
     "location": "src/components/projects/DistributionWizard.tsx:328",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10711,7 +10892,7 @@
     "notes": "placeholders must stay exactly as written"
   },
   {
-    "key": "campaigns.distribution_wizard.other_20",
+    "key": "campaigns.distribution_wizard.other_19",
     "text": "שם ההפצה <span>*</span>",
     "location": "src/components/projects/DistributionWizard.tsx:337",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10741,7 +10922,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distribution_wizard.other_21",
+    "key": "campaigns.distribution_wizard.other_20",
     "text": "לשלוח עכשיו, מיד אחרי הבדיקה",
     "location": "src/components/projects/DistributionWizard.tsx:345",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10751,7 +10932,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distribution_wizard.other_22",
+    "key": "campaigns.distribution_wizard.other_21",
     "text": "לשמור כטיוטה ולשלוח מאוחר יותר מרשימת ההפצות",
     "location": "src/components/projects/DistributionWizard.tsx:349",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10761,7 +10942,7 @@
     "notes": "glossary term — keep consistent: הפצה"
   },
   {
-    "key": "campaigns.distribution_wizard.other_23",
+    "key": "campaigns.distribution_wizard.other_22",
     "text": "נמען שקיבל מאיתנו הודעה ב-{MIN_HOURS_BETWEEN_SENDS} השעות האחרונות ידולג, אלא אם מנהל יאשר אחרת בשלב הבא.",
     "location": "src/components/projects/DistributionWizard.tsx:353",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10773,7 +10954,7 @@
     "notes": "placeholders must stay exactly as written"
   },
   {
-    "key": "campaigns.distribution_wizard.other_24",
+    "key": "campaigns.distribution_wizard.other_23",
     "text": "{chosen.size} {audienceKind === 'supplier' ? 'ספקים' : 'לקוחות'} · יגיעו ל-{reachable}",
     "location": "src/components/projects/DistributionWizard.tsx:361",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10797,7 +10978,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distribution_wizard.other_25",
+    "key": "campaigns.distribution_wizard.other_24",
     "text": "עכשיו",
     "location": "src/components/projects/DistributionWizard.tsx:364",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10807,7 +10988,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distribution_wizard.other_26",
+    "key": "campaigns.distribution_wizard.other_25",
     "text": "אימייל · {email.subject}",
     "location": "src/components/projects/DistributionWizard.tsx:367",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10889,7 +11070,7 @@
     "notes": "same text also at: src/components/projects/MessagesSettings.tsx:187"
   },
   {
-    "key": "campaigns.distribution_wizard.other_27",
+    "key": "campaigns.distribution_wizard.other_26",
     "text": "הבדיקה נשלחת רק לפרטים שהזנתם כאן ומסומנת כבדיקה. הקהל לא מקבל דבר.",
     "location": "src/components/projects/DistributionWizard.tsx:375",
     "screen": "קמפיין → הפצות → אשף הפצה חדשה",
@@ -10971,7 +11152,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.form_builder.label_2",
+    "key": "campaigns.form_builder.label_1",
     "text": "שדות",
     "location": "src/components/projects/FormBuilder.tsx:127",
     "screen": "קמפיין → טופס ההצטרפות (בונה טפסים)",
@@ -10979,16 +11160,6 @@
     "type": "label",
     "variables": [],
     "notes": "same text also at: src/components/editor/FieldToolbar.tsx:31"
-  },
-  {
-    "key": "campaigns.form_builder.label_1",
-    "text": "תצוגה מקדימה",
-    "location": "src/components/projects/FormBuilder.tsx:128",
-    "screen": "קמפיין → טופס ההצטרפות (בונה טפסים)",
-    "context": "תווית שדה / פריט",
-    "type": "label",
-    "variables": [],
-    "notes": "same text also at: src/components/DocumentComposer.tsx:159, src/components/DocumentComposer.tsx:160, src/components/editor/FieldEditor.tsx:431 (+1 more)"
   },
   {
     "key": "campaigns.form_builder.button_2",
@@ -11440,7 +11611,7 @@
     "context": "תווית שדה / פריט",
     "type": "label",
     "variables": [],
-    "notes": "field name that also appears in exports/mails — keep consistent across screens; same text also at: src/lib/message-template.ts:52, src/server/projects/form-schema.ts:47, src/app/companies/[id]/page.tsx:133 (+10 more)"
+    "notes": "field name that also appears in exports/mails — keep consistent across screens; same text also at: src/lib/message-template.ts:52, src/server/projects/form-schema.ts:47, src/app/companies/[id]/page.tsx:135 (+10 more)"
   },
   {
     "key": "campaigns.leads.button_8",
@@ -11560,7 +11731,7 @@
     "context": "הודעת שגיאה (אחת מגרסאות טקסט מותנות)",
     "type": "error",
     "variables": [],
-    "notes": "same text also at: src/components/reports/RegistrationsTable.tsx:91, src/components/reports/RegistrationsTable.tsx:136, src/server/ai/tools/canvas.ts:261 (+9 more)"
+    "notes": "same text also at: src/components/projects/ShareSettings.tsx:48, src/components/reports/RegistrationsTable.tsx:91, src/components/reports/RegistrationsTable.tsx:136 (+10 more)"
   },
   {
     "key": "campaigns.settings_messages.other_4",
@@ -11790,7 +11961,7 @@
     "context": "פסקת הסבר במסך",
     "type": "other",
     "variables": [],
-    "notes": "same text also at: src/components/reports/RegistrationsTable.tsx:404"
+    "notes": "same text also at: src/components/projects/ShareSettings.tsx:74, src/components/reports/RegistrationsTable.tsx:404"
   },
   {
     "key": "campaigns.settings_messages.button_1",
@@ -11814,28 +11985,114 @@
   },
   {
     "key": "campaigns.wizard.other_1",
-    "text": "איך מצטרפים",
-    "location": "src/components/projects/NewCampaignWizard.tsx:144",
+    "text": "עסקים שעובדים אתכם: הסכמי ספק, הצטרפות, השתתפות.",
+    "location": "src/components/projects/NewCampaignWizard.tsx:160",
     "screen": "קמפיינים → אשף קמפיין חדש",
-    "context": "טקסט במסך (אחת מגרסאות טקסט מותנות)",
+    "context": "טקסט קצר במסך (אחת מגרסאות טקסט מותנות)",
     "type": "other",
     "variables": [],
-    "notes": ""
+    "notes": "glossary term — keep consistent: ספקים"
   },
   {
     "key": "campaigns.wizard.other_2",
-    "text": "למי ומה",
-    "location": "src/components/projects/NewCampaignWizard.tsx:144",
+    "text": "מי שקונה מכם: הסכמי לקוח, אישורים, הצטרפות למועדון.",
+    "location": "src/components/projects/NewCampaignWizard.tsx:160",
     "screen": "קמפיינים → אשף קמפיין חדש",
-    "context": "טקסט במסך (אחת מגרסאות טקסט מותנות)",
+    "context": "טקסט קצר במסך (אחת מגרסאות טקסט מותנות)",
     "type": "other",
+    "variables": [],
+    "notes": "glossary term — keep consistent: לקוחות"
+  },
+  {
+    "key": "campaigns.wizard.label_1",
+    "text": "מאיפה לבחור את ה{who}?",
+    "location": "src/components/projects/NewCampaignWizard.tsx:169",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "כותרת קבוצת שדות",
+    "type": "label",
+    "variables": [
+      "{who}"
+    ],
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "campaigns.wizard.help_1",
+    "text": "${who} שמנוהלים כאן.",
+    "location": "src/components/projects/NewCampaignWizard.tsx:172",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "טקסט עזר / הסבר מתחת לשדה או לכותרת",
+    "type": "help",
+    "variables": [
+      "${who}"
+    ],
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "campaigns.wizard.help_2",
+    "text": "${who} שמקורם ב-Fireberry (עותק מסונכרן; שום דבר לא נכתב ל-CRM).",
+    "location": "src/components/projects/NewCampaignWizard.tsx:173",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "טקסט עזר / הסבר מתחת לשדה או לכותרת",
+    "type": "help",
+    "variables": [
+      "${who}"
+    ],
+    "notes": "glossary term — keep consistent: CRM; placeholders must stay exactly as written"
+  },
+  {
+    "key": "campaigns.wizard.help_3",
+    "text": "עם סימון מקור לכל רשומה, בלי כפילויות.",
+    "location": "src/components/projects/NewCampaignWizard.tsx:174",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "טקסט עזר / הסבר מתחת לשדה או לכותרת",
+    "type": "help",
     "variables": [],
     "notes": ""
   },
   {
-    "key": "campaigns.wizard.step_1",
-    "text": "מה רוצים לעשות?",
-    "location": "src/components/projects/NewCampaignWizard.tsx:144",
+    "key": "campaigns.wizard.label_2",
+    "text": "שני המקורות",
+    "location": "src/components/projects/NewCampaignWizard.tsx:174",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "תווית שדה / פריט",
+    "type": "label",
+    "variables": [],
+    "notes": "same text also at: src/components/projects/NewCampaignWizard.tsx:317"
+  },
+  {
+    "key": "campaigns.wizard.other_3",
+    "text": "ייבוא מ-Excel/CSV ובחירה ידנית זמינים אחר כך, בלשונית \"קהל\" ובכל הפצה.",
+    "location": "src/components/projects/NewCampaignWizard.tsx:182",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": "glossary term — keep consistent: הפצה"
+  },
+  {
+    "key": "campaigns.wizard.placeholder_1",
+    "text": "חיפוש לפי שם, ח.פ., טלפון או אימייל (אפשר לדלג ולבחור אחר כך)",
+    "location": "src/components/projects/NewCampaignWizard.tsx:186",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "טקסט placeholder בתוך שדה קלט ריק",
+    "type": "placeholder",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.wizard.steps.0",
+    "text": "למי הקמפיין?",
+    "location": "src/components/projects/NewCampaignWizard.tsx:20",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "שם שלב באשף / במעקב ההתקדמות",
+    "type": "step",
+    "variables": [],
+    "notes": "glossary term — keep consistent: קמפיין"
+  },
+  {
+    "key": "campaigns.wizard.steps.1",
+    "text": "מאיפה הקהל?",
+    "location": "src/components/projects/NewCampaignWizard.tsx:20",
     "screen": "קמפיינים → אשף קמפיין חדש",
     "context": "שם שלב באשף / במעקב ההתקדמות",
     "type": "step",
@@ -11843,139 +12100,39 @@
     "notes": ""
   },
   {
-    "key": "campaigns.wizard.placeholder_1",
-    "text": "למשל: חודש התיירות הישראלית 2026",
-    "location": "src/components/projects/NewCampaignWizard.tsx:177",
+    "key": "campaigns.wizard.steps.2",
+    "text": "מה רוצים לעשות?",
+    "location": "src/components/projects/NewCampaignWizard.tsx:20",
     "screen": "קמפיינים → אשף קמפיין חדש",
-    "context": "טקסט placeholder בתוך שדה קלט ריק (אחת מגרסאות טקסט מותנות)",
-    "type": "placeholder",
+    "context": "שם שלב באשף / במעקב ההתקדמות",
+    "type": "step",
     "variables": [],
     "notes": ""
   },
   {
-    "key": "campaigns.wizard.placeholder_2",
-    "text": "למשל: הסכמי ספקים 2027",
-    "location": "src/components/projects/NewCampaignWizard.tsx:177",
+    "key": "campaigns.wizard.steps.3",
+    "text": "פרטים",
+    "location": "src/components/projects/NewCampaignWizard.tsx:20",
     "screen": "קמפיינים → אשף קמפיין חדש",
-    "context": "טקסט placeholder בתוך שדה קלט ריק (אחת מגרסאות טקסט מותנות)",
-    "type": "placeholder",
+    "context": "שם שלב באשף / במעקב ההתקדמות",
+    "type": "step",
     "variables": [],
-    "notes": "glossary term — keep consistent: ספקים"
+    "notes": "same text also at: src/app/companies/[id]/page.tsx:67"
   },
   {
-    "key": "campaigns.wizard.other_3",
-    "text": "תאריך התחלה (רשות)",
-    "location": "src/components/projects/NewCampaignWizard.tsx:181",
+    "key": "campaigns.wizard.empty_state_1",
+    "text": "לא נמצאו רשומות. אפשר להמשיך בלי לבחור ולהוסיף קהל אחר כך.",
+    "location": "src/components/projects/NewCampaignWizard.tsx:208",
     "screen": "קמפיינים → אשף קמפיין חדש",
-    "context": "טקסט קצר במסך",
-    "type": "other",
+    "context": "מצב ריק — מוצג כשאין נתונים להצגה",
+    "type": "empty_state",
     "variables": [],
     "notes": ""
   },
   {
     "key": "campaigns.wizard.other_4",
-    "text": "תאריך סיום (רשות)",
-    "location": "src/components/projects/NewCampaignWizard.tsx:185",
-    "screen": "קמפיינים → אשף קמפיין חדש",
-    "context": "טקסט קצר במסך",
-    "type": "other",
-    "variables": [],
-    "notes": ""
-  },
-  {
-    "key": "campaigns.wizard.other_5",
-    "text": "בתאריך הסיום ההרשמה נסגרת אוטומטית; אפשר לשנות זאת אחר כך בהגדרות.",
-    "location": "src/components/projects/NewCampaignWizard.tsx:189",
-    "screen": "קמפיינים → אשף קמפיין חדש",
-    "context": "פסקת הסבר במסך",
-    "type": "other",
-    "variables": [],
-    "notes": "glossary term — keep consistent: הרשמות"
-  },
-  {
-    "key": "campaigns.wizard.other_6",
-    "text": "אני",
-    "location": "src/components/projects/NewCampaignWizard.tsx:201",
-    "screen": "קמפיינים → אשף קמפיין חדש",
-    "context": "טקסט במסך",
-    "type": "other",
-    "variables": [],
-    "notes": ""
-  },
-  {
-    "key": "campaigns.wizard.label_1",
-    "text": "איך אנשים יצטרפו?",
-    "location": "src/components/projects/NewCampaignWizard.tsx:210",
-    "screen": "קמפיינים → אשף קמפיין חדש",
-    "context": "כותרת קבוצת שדות",
-    "type": "label",
-    "variables": [],
-    "notes": ""
-  },
-  {
-    "key": "campaigns.wizard.other_7",
-    "text": "עמוד קמפיין כבר מחובר לקמפיין אחר; קמפיין נוסף דורש חיבור על ידי מפתח.",
-    "location": "src/components/projects/NewCampaignWizard.tsx:219",
-    "screen": "קמפיינים → אשף קמפיין חדש",
-    "context": "טקסט קצר במסך",
-    "type": "other",
-    "variables": [],
-    "notes": "glossary term — keep consistent: קמפיין"
-  },
-  {
-    "key": "campaigns.wizard.label_2",
-    "text": "לאחר הרשמה",
-    "location": "src/components/projects/NewCampaignWizard.tsx:225",
-    "screen": "קמפיינים → אשף קמפיין חדש",
-    "context": "כותרת קבוצת שדות",
-    "type": "label",
-    "variables": [],
-    "notes": "glossary term — keep consistent: הרשמות"
-  },
-  {
-    "key": "campaigns.wizard.aria_1",
-    "text": "קובץ נטען בשלב ההפצה, ונשאר נמעני ההפצה בלבד",
-    "location": "src/components/projects/NewCampaignWizard.tsx:251",
-    "screen": "קמפיינים → אשף קמפיין חדש",
-    "context": "טולטיפ (title) על אלמנט",
-    "type": "aria",
-    "variables": [],
-    "notes": "glossary term — keep consistent: הפצה, נמענים"
-  },
-  {
-    "key": "campaigns.wizard.other_8",
-    "text": "Excel / CSV — בהפצה",
-    "location": "src/components/projects/NewCampaignWizard.tsx:252",
-    "screen": "קמפיינים → אשף קמפיין חדש",
-    "context": "טקסט קצר במסך",
-    "type": "other",
-    "variables": [],
-    "notes": "glossary term — keep consistent: הפצה"
-  },
-  {
-    "key": "campaigns.wizard.other_9",
-    "text": "רשומות ה-CRM מסונכרנות מקומית מ-Fireberry; הבחירה לא משנה דבר ב-CRM.",
-    "location": "src/components/projects/NewCampaignWizard.tsx:262",
-    "screen": "קמפיינים → אשף קמפיין חדש",
-    "context": "טקסט קצר במסך",
-    "type": "other",
-    "variables": [],
-    "notes": "glossary term — keep consistent: CRM"
-  },
-  {
-    "key": "campaigns.wizard.empty_state_1",
-    "text": "לא נמצאו תוצאות. אפשר להוסיף נמענים גם אחר כך, מלשונית \"קהל\".",
-    "location": "src/components/projects/NewCampaignWizard.tsx:286",
-    "screen": "קמפיינים → אשף קמפיין חדש",
-    "context": "מצב ריק — מוצג כשאין נתונים להצגה",
-    "type": "empty_state",
-    "variables": [],
-    "notes": "glossary term — keep consistent: נמענים"
-  },
-  {
-    "key": "campaigns.wizard.other_10",
     "text": "{chosen.size} נבחרו{chosen.size > 0 ? ` · ${validCount} עם טלפון או אימייל` : ''}",
-    "location": "src/components/projects/NewCampaignWizard.tsx:288",
+    "location": "src/components/projects/NewCampaignWizard.tsx:210",
     "screen": "קמפיינים → אשף קמפיין חדש",
     "context": "פסקת הסבר במסך",
     "type": "other",
@@ -11986,9 +12143,9 @@
     "notes": "placeholders must stay exactly as written"
   },
   {
-    "key": "campaigns.wizard.other_11",
+    "key": "campaigns.wizard.other_5",
     "text": " · ${validCount} עם טלפון או אימייל",
-    "location": "src/components/projects/NewCampaignWizard.tsx:288",
+    "location": "src/components/projects/NewCampaignWizard.tsx:210",
     "screen": "קמפיינים → אשף קמפיין חדש",
     "context": "פסקת הסבר במסך (אחת מגרסאות טקסט מותנות)",
     "type": "other",
@@ -11998,9 +12155,133 @@
     "notes": "placeholders must stay exactly as written"
   },
   {
+    "key": "campaigns.wizard.other_6",
+    "text": "לפרסם פעילות, לאסוף הרשמות, ובמידת הצורך להחתים את הנרשמים. עם או בלי הפצה.",
+    "location": "src/components/projects/NewCampaignWizard.tsx:223",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "טקסט קצר במסך (אחת מגרסאות טקסט מותנות)",
+    "type": "other",
+    "variables": [],
+    "notes": "glossary term — keep consistent: הפצה, הרשמות"
+  },
+  {
+    "key": "campaigns.wizard.other_7",
+    "text": "לשלוח הסכמים לחתימה ל${who} שכבר בחרתם. בלי דף נחיתה ובלי טופס.",
+    "location": "src/components/projects/NewCampaignWizard.tsx:223",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "טקסט קצר במסך (אחת מגרסאות טקסט מותנות)",
+    "type": "other",
+    "variables": [
+      "${who}"
+    ],
+    "notes": "glossary term — keep consistent: הסכמים; placeholders must stay exactly as written"
+  },
+  {
     "key": "campaigns.wizard.label_3",
+    "text": "איך אנשים יצטרפו?",
+    "location": "src/components/projects/NewCampaignWizard.tsx:230",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "כותרת קבוצת שדות",
+    "type": "label",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.wizard.other_8",
+    "text": "עמוד קמפיין כבר מחובר לקמפיין אחר; קמפיין נוסף דורש חיבור על ידי מפתח.",
+    "location": "src/components/projects/NewCampaignWizard.tsx:239",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "טקסט קצר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": "glossary term — keep consistent: קמפיין"
+  },
+  {
+    "key": "campaigns.wizard.label_4",
+    "text": "לאחר הרשמה",
+    "location": "src/components/projects/NewCampaignWizard.tsx:245",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "כותרת קבוצת שדות",
+    "type": "label",
+    "variables": [],
+    "notes": "glossary term — keep consistent: הרשמות"
+  },
+  {
+    "key": "campaigns.wizard.other_9",
+    "text": "הפצה ב-SMS/אימייל אינה סוג קמפיין — היא זמינה בשני המסלולים, מלשונית \"הפצות\".",
+    "location": "src/components/projects/NewCampaignWizard.tsx:260",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": "glossary term — keep consistent: קמפיין, הפצה"
+  },
+  {
+    "key": "campaigns.wizard.placeholder_2",
+    "text": "למשל: חודש התיירות הישראלית 2026",
+    "location": "src/components/projects/NewCampaignWizard.tsx:270",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "טקסט placeholder בתוך שדה קלט ריק (אחת מגרסאות טקסט מותנות)",
+    "type": "placeholder",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.wizard.placeholder_3",
+    "text": "למשל: הסכמי ${who} 2027",
+    "location": "src/components/projects/NewCampaignWizard.tsx:270",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "טקסט placeholder בתוך שדה קלט ריק (אחת מגרסאות טקסט מותנות)",
+    "type": "placeholder",
+    "variables": [
+      "${who}"
+    ],
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "campaigns.wizard.other_10",
+    "text": "תאריך התחלה (רשות)",
+    "location": "src/components/projects/NewCampaignWizard.tsx:274",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "טקסט קצר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.wizard.other_11",
+    "text": "תאריך סיום (רשות)",
+    "location": "src/components/projects/NewCampaignWizard.tsx:278",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "טקסט קצר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.wizard.other_12",
+    "text": "בתאריך הסיום ההרשמה נסגרת אוטומטית; אפשר לשנות זאת אחר כך בהגדרות.",
+    "location": "src/components/projects/NewCampaignWizard.tsx:282",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": "glossary term — keep consistent: הרשמות"
+  },
+  {
+    "key": "campaigns.wizard.other_13",
+    "text": "אני",
+    "location": "src/components/projects/NewCampaignWizard.tsx:294",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "טקסט במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.wizard.label_5",
     "text": "— לבחור בהמשך —",
-    "location": "src/components/projects/NewCampaignWizard.tsx:293",
+    "location": "src/components/projects/NewCampaignWizard.tsx:301",
     "screen": "קמפיינים → אשף קמפיין חדש",
     "context": "אפשרות ברשימת בחירה",
     "type": "label",
@@ -12008,21 +12289,63 @@
     "notes": ""
   },
   {
-    "key": "campaigns.wizard.other_12",
-    "text": "ל-{chosen.size - validCount} מהנבחרים חסר טלפון או אימייל — ניתן להשלים בכרטיס הספק לפני השליחה.",
-    "location": "src/components/projects/NewCampaignWizard.tsx:303",
+    "key": "campaigns.wizard.other_14",
+    "text": "ל-{chosen.size - validCount} מהנבחרים חסר טלפון או אימייל — ניתן להשלים בכרטיס הרשומה לפני השליחה.",
+    "location": "src/components/projects/NewCampaignWizard.tsx:312",
     "screen": "קמפיינים → אשף קמפיין חדש",
     "context": "פסקת הסבר במסך",
     "type": "other",
     "variables": [
       "{chosen.size - validCount}"
     ],
-    "notes": "glossary term — keep consistent: ספקים; placeholders must stay exactly as written"
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "campaigns.wizard.label_6",
+    "text": "למי",
+    "location": "src/components/projects/NewCampaignWizard.tsx:316",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "תווית בסיכום פרטים",
+    "type": "label",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.wizard.other_15",
+    "text": " · ${chosen.size} נבחרו",
+    "location": "src/components/projects/NewCampaignWizard.tsx:317",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "טקסט במסך (אחת מגרסאות טקסט מותנות)",
+    "type": "other",
+    "variables": [
+      "${chosen.size}"
+    ],
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "campaigns.wizard.other_16",
+    "text": " · הקהל ייבחר בהמשך",
+    "location": "src/components/projects/NewCampaignWizard.tsx:317",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "טקסט במסך (אחת מגרסאות טקסט מותנות)",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.wizard.label_7",
+    "text": "מסלול",
+    "location": "src/components/projects/NewCampaignWizard.tsx:318",
+    "screen": "קמפיינים → אשף קמפיין חדש",
+    "context": "תווית בסיכום פרטים",
+    "type": "label",
+    "variables": [],
+    "notes": ""
   },
   {
     "key": "campaigns.wizard.button_1",
     "text": "יצירת הקמפיין",
-    "location": "src/components/projects/NewCampaignWizard.tsx:332",
+    "location": "src/components/projects/NewCampaignWizard.tsx:346",
     "screen": "קמפיינים → אשף קמפיין חדש",
     "context": "כפתור / פעולה (אחת מגרסאות טקסט מותנות)",
     "type": "button",
@@ -12301,7 +12624,7 @@
     "context": "שם עצם שמוזרק לתוך משפטים (ספק/לקוח וכו׳) (בתוך דיאלוג)",
     "type": "label",
     "variables": [],
-    "notes": ""
+    "notes": "same text also at: src/components/projects/ProjectSettings.tsx:319"
   },
   {
     "key": "campaigns.settings_details.success_1",
@@ -12806,7 +13129,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.publish.other_3",
+    "key": "campaigns.publish.other_2",
     "text": "מדביקים את שתי השורות האלה בכל עמוד — הטופס יופיע שם, יתאים את גובהו לבד, ויעבוד גם בטלפון.",
     "location": "src/components/projects/PublishPanel.tsx:102",
     "screen": "קמפיין → פרסום (כתובת ציבורית)",
@@ -12816,7 +13139,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.publish.other_4",
+    "key": "campaigns.publish.other_3",
     "text": "אפשר להאזין לאירוע <code>xtra-form:submitted</code> אחרי שליחה מוצלחת.",
     "location": "src/components/projects/PublishPanel.tsx:107",
     "screen": "קמפיין → פרסום (כתובת ציבורית)",
@@ -12836,7 +13159,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.publish.button_2",
+    "key": "campaigns.publish.button_3",
     "text": "חיבור מותאם אישית (API) <span>{open === 'api' ? '−' : '+'}</span>",
     "location": "src/components/projects/PublishPanel.tsx:123",
     "screen": "קמפיין → פרסום (כתובת ציבורית)",
@@ -12848,7 +13171,7 @@
     "notes": "placeholders must stay exactly as written"
   },
   {
-    "key": "campaigns.publish.other_5",
+    "key": "campaigns.publish.other_4",
     "text": "לבניית עמוד נחיתה משלכם: שולחים JSON לכתובת הזו וכל שליחה הופכת לליד בפרויקט. מזהה הטופס ציבורי ומאפשר רק יצירת ליד — הוא לא חושף ולא משנה שום נתון.",
     "location": "src/components/projects/PublishPanel.tsx:129",
     "screen": "קמפיין → פרסום (כתובת ציבורית)",
@@ -12868,7 +13191,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.publish.other_6",
+    "key": "campaigns.publish.other_5",
     "text": "השדות",
     "location": "src/components/projects/PublishPanel.tsx:150",
     "screen": "קמפיין → פרסום (כתובת ציבורית)",
@@ -12898,17 +13221,17 @@
     "notes": ""
   },
   {
-    "key": "campaigns.publish.other_7",
+    "key": "campaigns.publish.other_6",
     "text": "כן",
     "location": "src/components/projects/PublishPanel.tsx:167",
     "screen": "קמפיין → פרסום (כתובת ציבורית)",
-    "context": "קטע דקדוקי (סיומת / תחילית) שמודבק בקוד למילה שכנה — אחת מגרסאות מותנות",
+    "context": "טקסט במסך (אחת מגרסאות טקסט מותנות)",
     "type": "other",
     "variables": [],
     "notes": "same text also at: src/server/notifications/campaign-mail.ts:36, src/server/projects/form-schema.ts:161, src/server/projects/form-schema.ts:159"
   },
   {
-    "key": "campaigns.publish.other_8",
+    "key": "campaigns.publish.other_7",
     "text": "גוף הבקשה — דוגמה",
     "location": "src/components/projects/PublishPanel.tsx:175",
     "screen": "קמפיין → פרסום (כתובת ציבורית)",
@@ -12918,7 +13241,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.publish.other_9",
+    "key": "campaigns.publish.other_8",
     "text": "JavaScript — דוגמה",
     "location": "src/components/projects/PublishPanel.tsx:181",
     "screen": "קמפיין → פרסום (כתובת ציבורית)",
@@ -12928,7 +13251,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.publish.other_10",
+    "key": "campaigns.publish.other_9",
     "text": "אפשר לצרף כותרת <code>Idempotency-Key</code> כדי ששליחה חוזרת של אותה בקשה לא תיצור ליד כפול. תשובת הצלחה: <code>201 { \"ok\": true }</code>; שגיאת ולידציה: <code>422</code> עם פירוט לפי שדה.",
     "location": "src/components/projects/PublishPanel.tsx:187",
     "screen": "קמפיין → פרסום (כתובת ציבורית)",
@@ -12938,7 +13261,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.publish.other_11",
+    "key": "campaigns.publish.other_10",
     "text": "הגבלת דומיינים (רשות)",
     "location": "src/components/projects/PublishPanel.tsx:192",
     "screen": "קמפיין → פרסום (כתובת ציבורית)",
@@ -12948,7 +13271,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.publish.other_12",
+    "key": "campaigns.publish.other_11",
     "text": "אם ממלאים — רק העמודים בדומיינים האלה יוכלו לשלוח מהדפדפן. שורה לכל דומיין, למשל: https://example.co.il",
     "location": "src/components/projects/PublishPanel.tsx:194",
     "screen": "קמפיין → פרסום (כתובת ציבורית)",
@@ -12968,17 +13291,17 @@
     "notes": ""
   },
   {
-    "key": "campaigns.publish.other_2",
+    "key": "campaigns.publish.button_1",
     "text": "העתקה",
     "location": "src/components/projects/PublishPanel.tsx:28",
     "screen": "קמפיין → פרסום (כתובת ציבורית)",
-    "context": "טקסט במסך",
-    "type": "other",
+    "context": "כפתור / פעולה",
+    "type": "button",
     "variables": [],
     "notes": ""
   },
   {
-    "key": "campaigns.publish.button_1",
+    "key": "campaigns.publish.button_2",
     "text": "הטמעה באתר שלכם <span>{open === 'embed' ? '−' : '+'}</span>",
     "location": "src/components/projects/PublishPanel.tsx:96",
     "screen": "קמפיין → פרסום (כתובת ציבורית)",
@@ -13246,6 +13569,198 @@
     "notes": "glossary term — keep consistent: קמפיין, הסכמים, ספקים"
   },
   {
+    "key": "campaigns.share.button_2",
+    "text": "התמונה הוסרה.",
+    "location": "src/components/projects/ShareSettings.tsx:101",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "כפתור / פעולה",
+    "type": "button",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.share.button_3",
+    "text": "הסרה",
+    "location": "src/components/projects/ShareSettings.tsx:101",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "כפתור / פעולה",
+    "type": "button",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.share.button_4",
+    "text": "הגדרות השיתוף נשמרו.",
+    "location": "src/components/projects/ShareSettings.tsx:106",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "כפתור / פעולה",
+    "type": "button",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.share.other_10",
+    "text": "כך זה ייראה",
+    "location": "src/components/projects/ShareSettings.tsx:111",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.share.other_11",
+    "text": "ללא תמונה",
+    "location": "src/components/projects/ShareSettings.tsx:117",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "טקסט במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.share.error_3",
+    "text": "טעינת הגדרות השיתוף נכשלה.",
+    "location": "src/components/projects/ShareSettings.tsx:33",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "הודעת שגיאה",
+    "type": "error",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.share.error_2",
+    "text": "הפעולה נכשלה. נסו שוב.",
+    "location": "src/components/projects/ShareSettings.tsx:54",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "הודעת שגיאה",
+    "type": "error",
+    "variables": [],
+    "notes": "same text also at: src/components/projects/DistributionsTab.tsx:62, src/components/projects/LeadsPanel.tsx:60, src/components/projects/LeadsPanel.tsx:66 (+1 more)"
+  },
+  {
+    "key": "campaigns.share.heading_1",
+    "text": "תצוגה מקדימה לשיתוף",
+    "location": "src/components/projects/ShareSettings.tsx:71",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "כותרת מקטע",
+    "type": "heading",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.share.other_1",
+    "text": "כך ייראה הקישור לעמוד הקמפיין כששולחים אותו בוואטסאפ, ב-SMS או ברשתות.",
+    "location": "src/components/projects/ShareSettings.tsx:72",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": "glossary term — keep consistent: קמפיין"
+  },
+  {
+    "key": "campaigns.share.other_2",
+    "text": "כותרת לשיתוף",
+    "location": "src/components/projects/ShareSettings.tsx:79",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "טקסט קצר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.share.other_3",
+    "text": "תיאור לשיתוף",
+    "location": "src/components/projects/ShareSettings.tsx:83",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "טקסט קצר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.share.other_4",
+    "text": "תמונה לשיתוף",
+    "location": "src/components/projects/ShareSettings.tsx:88",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.share.other_5",
+    "text": "מומלץ 1200×630, עד 2MB. {…}",
+    "location": "src/components/projects/ShareSettings.tsx:89",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [
+      "{…}"
+    ],
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "campaigns.share.other_6",
+    "text": "כרגע: התמונה המובנית של הקמפיין.",
+    "location": "src/components/projects/ShareSettings.tsx:89",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "פסקת הסבר במסך (אחת מגרסאות טקסט מותנות)",
+    "type": "other",
+    "variables": [],
+    "notes": "glossary term — keep consistent: קמפיין"
+  },
+  {
+    "key": "campaigns.share.other_7",
+    "text": "כרגע: תמונה שהועלתה.",
+    "location": "src/components/projects/ShareSettings.tsx:89",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "פסקת הסבר במסך (אחת מגרסאות טקסט מותנות)",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.share.other_8",
+    "text": "כרגע: ללא תמונה.",
+    "location": "src/components/projects/ShareSettings.tsx:89",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "פסקת הסבר במסך (אחת מגרסאות טקסט מותנות)",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.share.aria_1",
+    "text": "בחירת תמונה לשיתוף",
+    "location": "src/components/projects/ShareSettings.tsx:90",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
+    "type": "aria",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.share.other_9",
+    "text": "התמונה הועלתה.",
+    "location": "src/components/projects/ShareSettings.tsx:95",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "טקסט במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.share.button_1",
+    "text": "העלאת תמונה",
+    "location": "src/components/projects/ShareSettings.tsx:99",
+    "screen": "קמפיין → הגדרות → כרטיס שיתוף (תמונה וטקסט לרשתות)",
+    "context": "כפתור / פעולה (אחת מגרסאות טקסט מותנות)",
+    "type": "button",
+    "variables": [],
+    "notes": ""
+  },
+  {
     "key": "agreements.remind.error_4",
     "text": "שליחת התזכורת נכשלה. בדקו את החיבור לאינטרנט.",
     "location": "src/components/RemindButton.tsx:47",
@@ -13335,7 +13850,7 @@
     "context": "טקסט קצר במסך",
     "type": "other",
     "variables": [],
-    "notes": "same text also at: src/components/reports/ReportPanel.tsx:53"
+    "notes": "same text also at: src/components/reports/ReportPanel.tsx:54"
   },
   {
     "key": "reports.project_report.other_11",
@@ -13345,7 +13860,7 @@
     "context": "טקסט קצר במסך",
     "type": "other",
     "variables": [],
-    "notes": "same text also at: src/components/reports/ReportPanel.tsx:62"
+    "notes": "same text also at: src/components/reports/ReportPanel.tsx:63"
   },
   {
     "key": "reports.project_report.report_4",
@@ -13876,7 +14391,7 @@
     "notes": ""
   },
   {
-    "key": "reports.registrations_table.other_2",
+    "key": "reports.registrations_table.other_1",
     "text": "מוצגות ${rows.length} מתוך ${number.format(total)} — הקובץ המלא בייצוא",
     "location": "src/components/reports/RegistrationsTable.tsx:201",
     "screen": "קמפיין → הרשמות (טבלה, סינון ופעולות)",
@@ -13889,7 +14404,7 @@
     "notes": "placeholders must stay exactly as written"
   },
   {
-    "key": "reports.registrations_table.other_3",
+    "key": "reports.registrations_table.other_2",
     "text": "${number.format(rows.length)} הרשמות",
     "location": "src/components/reports/RegistrationsTable.tsx:201",
     "screen": "קמפיין → הרשמות (טבלה, סינון ופעולות)",
@@ -13901,7 +14416,7 @@
     "notes": "glossary term — keep consistent: הרשמות; placeholders must stay exactly as written"
   },
   {
-    "key": "reports.registrations_table.other_4",
+    "key": "reports.registrations_table.other_3",
     "text": "{selected.size} נבחרו",
     "location": "src/components/reports/RegistrationsTable.tsx:207",
     "screen": "קמפיין → הרשמות (טבלה, סינון ופעולות)",
@@ -13955,7 +14470,7 @@
     "notes": "glossary term — keep consistent: הרשמות"
   },
   {
-    "key": "reports.registrations_table.report_4",
+    "key": "reports.registrations_table.report_6",
     "text": "עסק",
     "location": "src/components/reports/RegistrationsTable.tsx:261",
     "screen": "קמפיין → הרשמות (טבלה, סינון ופעולות)",
@@ -13985,7 +14500,7 @@
     "notes": ""
   },
   {
-    "key": "reports.registrations_table.other_5",
+    "key": "reports.registrations_table.other_4",
     "text": "בודק מי מתאים לפעולה…",
     "location": "src/components/reports/RegistrationsTable.tsx:321",
     "screen": "קמפיין → הרשמות (טבלה, סינון ופעולות)",
@@ -13995,7 +14510,7 @@
     "notes": ""
   },
   {
-    "key": "reports.registrations_table.other_6",
+    "key": "reports.registrations_table.other_5",
     "text": "נוסח התזכורת של הקמפיין, עם קישור חתימה אישי חדש.",
     "location": "src/components/reports/RegistrationsTable.tsx:338",
     "screen": "קמפיין → הרשמות (טבלה, סינון ופעולות)",
@@ -14005,7 +14520,7 @@
     "notes": "glossary term — keep consistent: קמפיין"
   },
   {
-    "key": "reports.registrations_table.other_7",
+    "key": "reports.registrations_table.other_6",
     "text": "ההודעה המקורית נשלחת שוב, עם קישור חתימה אישי חדש.",
     "location": "src/components/reports/RegistrationsTable.tsx:338",
     "screen": "קמפיין → הרשמות (טבלה, סינון ופעולות)",
@@ -14015,7 +14530,7 @@
     "notes": ""
   },
   {
-    "key": "reports.registrations_table.other_8",
+    "key": "reports.registrations_table.other_7",
     "text": "קישור חדש עם תוקף חדש לפי הגדרות הקמפיין; המסמך חוזר להמתין לחתימה. נרשם ב-Audit.",
     "location": "src/components/reports/RegistrationsTable.tsx:338",
     "screen": "קמפיין → הרשמות (טבלה, סינון ופעולות)",
@@ -14025,7 +14540,7 @@
     "notes": "glossary term — keep consistent: קמפיין"
   },
   {
-    "key": "reports.registrations_table.other_9",
+    "key": "reports.registrations_table.other_8",
     "text": "אישור החתימה עם כפתור מאובטח להורדת המסמך.",
     "location": "src/components/reports/RegistrationsTable.tsx:338",
     "screen": "קמפיין → הרשמות (טבלה, סינון ופעולות)",
@@ -14097,7 +14612,7 @@
     "notes": ""
   },
   {
-    "key": "reports.registrations_table.dialog_2",
+    "key": "reports.registrations_table.dialog_1",
     "text": "פרטי העסק",
     "location": "src/components/reports/RegistrationsTable.tsx:419",
     "screen": "קמפיין → הרשמות (טבלה, סינון ופעולות)",
@@ -14137,7 +14652,7 @@
     "notes": "glossary term — keep consistent: ספקים"
   },
   {
-    "key": "reports.registrations_table.dialog_3",
+    "key": "reports.registrations_table.dialog_2",
     "text": "ההרשמה",
     "location": "src/components/reports/RegistrationsTable.tsx:436",
     "screen": "קמפיין → הרשמות (טבלה, סינון ופעולות)",
@@ -14147,7 +14662,7 @@
     "notes": "glossary term — keep consistent: הרשמות"
   },
   {
-    "key": "reports.registrations_table.report_5",
+    "key": "reports.registrations_table.report_7",
     "text": "תאריך ושעה",
     "location": "src/components/reports/RegistrationsTable.tsx:438",
     "screen": "קמפיין → הרשמות (טבלה, סינון ופעולות)",
@@ -14209,7 +14724,7 @@
     "notes": "same text also at: src/components/projects/CampaignOverview.tsx:33"
   },
   {
-    "key": "reports.registrations_table.report_6",
+    "key": "reports.registrations_table.report_8",
     "text": "תוקף הקישור",
     "location": "src/components/reports/RegistrationsTable.tsx:461",
     "screen": "קמפיין → הרשמות (טבלה, סינון ופעולות)",
@@ -14219,7 +14734,7 @@
     "notes": ""
   },
   {
-    "key": "reports.registrations_table.report_7",
+    "key": "reports.registrations_table.report_9",
     "text": "מהרשמה לחתימה",
     "location": "src/components/reports/RegistrationsTable.tsx:462",
     "screen": "קמפיין → הרשמות (טבלה, סינון ופעולות)",
@@ -14249,7 +14764,7 @@
     "notes": "same text also at: src/server/signing/pdf.ts:62"
   },
   {
-    "key": "reports.registrations_table.dialog_4",
+    "key": "reports.registrations_table.dialog_3",
     "text": "פעילות",
     "location": "src/components/reports/RegistrationsTable.tsx:478",
     "screen": "קמפיין → הרשמות (טבלה, סינון ופעולות)",
@@ -14279,22 +14794,22 @@
     "notes": "same text also at: src/lib/relative-time.ts:21"
   },
   {
-    "key": "reports.registrations_table.other_1",
+    "key": "reports.registrations_table.report_4",
     "text": "הרשמות בקמפיין",
     "location": "src/components/reports/RegistrationsTable.tsx:62",
     "screen": "קמפיין → הרשמות (טבלה, סינון ופעולות)",
-    "context": "טקסט במסך",
-    "type": "other",
+    "context": "תווית / כותרת בדוח",
+    "type": "report",
     "variables": [],
     "notes": "glossary term — keep consistent: קמפיין, הרשמות"
   },
   {
-    "key": "reports.registrations_table.dialog_1",
+    "key": "reports.registrations_table.report_5",
     "text": "לדחות את ההרשמה? הפרטים יישמרו אך לא ייווצר ",
     "location": "src/components/reports/RegistrationsTable.tsx:87",
     "screen": "קמפיין → הרשמות (טבלה, סינון ופעולות)",
-    "context": "טקסט בדיאלוג / חלון אישור",
-    "type": "dialog",
+    "context": "תווית / כותרת בדוח",
+    "type": "report",
     "variables": [],
     "notes": "glossary term — keep consistent: הרשמות"
   },
@@ -14341,9 +14856,19 @@
     "notes": "glossary term — keep consistent: לקוחות"
   },
   {
+    "key": "reports.panel.other_1",
+    "text": "כל המקורות — פירוט לפי מקור",
+    "location": "src/components/reports/ReportPanel.tsx:111",
+    "screen": "קמפיין → דוח (פאנל וייצוא)",
+    "context": "טקסט במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
     "key": "reports.panel.empty_state_1",
     "text": "אין הסכמים שנשלחו בטווח הזה.",
-    "location": "src/components/reports/ReportPanel.tsx:130",
+    "location": "src/components/reports/ReportPanel.tsx:144",
     "screen": "קמפיין → דוח (פאנל וייצוא)",
     "context": "מצב ריק — מוצג כשאין נתונים להצגה",
     "type": "empty_state",
@@ -14351,9 +14876,9 @@
     "notes": "glossary term — keep consistent: הסכמים"
   },
   {
-    "key": "reports.panel.other_1",
+    "key": "reports.panel.other_2",
     "text": "נשלח ${dateFormat.format(row.sentAt)}",
-    "location": "src/components/reports/ReportPanel.tsx:150",
+    "location": "src/components/reports/ReportPanel.tsx:164",
     "screen": "קמפיין → דוח (פאנל וייצוא)",
     "context": "פסקת הסבר במסך (אחת מגרסאות טקסט מותנות)",
     "type": "other",
@@ -14363,9 +14888,9 @@
     "notes": "placeholders must stay exactly as written"
   },
   {
-    "key": "reports.panel.other_2",
+    "key": "reports.panel.other_3",
     "text": " · נחתם ${dateFormat.format(row.completedAt)}",
-    "location": "src/components/reports/ReportPanel.tsx:151",
+    "location": "src/components/reports/ReportPanel.tsx:165",
     "screen": "קמפיין → דוח (פאנל וייצוא)",
     "context": "פסקת הסבר במסך (אחת מגרסאות טקסט מותנות)",
     "type": "other",
@@ -14375,9 +14900,9 @@
     "notes": "placeholders must stay exactly as written"
   },
   {
-    "key": "reports.panel.other_3",
+    "key": "reports.panel.other_4",
     "text": "מוצגים {rowLimit} ההסכמים האחרונים — הייצוא ל-Excel כולל את כולם.",
-    "location": "src/components/reports/ReportPanel.tsx:195",
+    "location": "src/components/reports/ReportPanel.tsx:209",
     "screen": "קמפיין → דוח (פאנל וייצוא)",
     "context": "פסקת הסבר במסך",
     "type": "other",
@@ -14387,9 +14912,9 @@
     "notes": "glossary term — keep consistent: הסכמים; placeholders must stay exactly as written"
   },
   {
-    "key": "reports.panel.other_4",
+    "key": "reports.panel.other_5",
     "text": "סטטוסים",
-    "location": "src/components/reports/ReportPanel.tsx:219",
+    "location": "src/components/reports/ReportPanel.tsx:233",
     "screen": "קמפיין → דוח (פאנל וייצוא)",
     "context": "טקסט במסך",
     "type": "other",
@@ -14397,9 +14922,9 @@
     "notes": ""
   },
   {
-    "key": "reports.panel.other_5",
+    "key": "reports.panel.other_6",
     "text": "חתימות לאורך זמן",
-    "location": "src/components/reports/ReportPanel.tsx:245",
+    "location": "src/components/reports/ReportPanel.tsx:259",
     "screen": "קמפיין → דוח (פאנל וייצוא)",
     "context": "טקסט במסך",
     "type": "other",
@@ -14409,7 +14934,7 @@
   {
     "key": "reports.panel.aria_1",
     "text": "שבוע ${weekFormat.format(point.week)}: ${point.signed} נחתמו",
-    "location": "src/components/reports/ReportPanel.tsx:251",
+    "location": "src/components/reports/ReportPanel.tsx:265",
     "screen": "קמפיין → דוח (פאנל וייצוא)",
     "context": "טולטיפ (title) על אלמנט",
     "type": "aria",
@@ -14422,22 +14947,22 @@
   {
     "key": "reports.panel.report_1",
     "text": "נשלחו",
-    "location": "src/components/reports/ReportPanel.tsx:39",
+    "location": "src/components/reports/ReportPanel.tsx:40",
     "screen": "קמפיין → דוח (פאנל וייצוא)",
     "context": "תווית / כותרת בדוח",
     "type": "report",
     "variables": [],
-    "notes": "same text also at: src/components/projects/DistributionsTab.tsx:128"
+    "notes": "same text also at: src/components/reports/ReportPanel.tsx:115, src/components/projects/DistributionsTab.tsx:128"
   },
   {
     "key": "reports.panel.report_2",
     "text": "אחוז חתימה",
-    "location": "src/components/reports/ReportPanel.tsx:43",
+    "location": "src/components/reports/ReportPanel.tsx:44",
     "screen": "קמפיין → דוח (פאנל וייצוא)",
     "context": "תווית / כותרת בדוח",
     "type": "report",
     "variables": [],
-    "notes": ""
+    "notes": "same text also at: src/components/reports/ReportPanel.tsx:115"
   },
   {
     "key": "agreements.save_as_template.error_1",
@@ -14477,7 +15002,7 @@
     "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
     "type": "aria",
     "variables": [],
-    "notes": "same text also at: src/components/SaveAsTemplate.tsx:79, src/components/TemplateList.tsx:99"
+    "notes": "same text also at: src/components/SaveAsTemplate.tsx:79, src/components/TemplateList.tsx:100, src/components/templates/TemplateDetail.tsx:59 (+1 more)"
   },
   {
     "key": "agreements.save_as_template.button_2",
@@ -14487,7 +15012,7 @@
     "context": "כיתוב כפתור בזמן פעולה (מצב טעינה) (אחת מגרסאות טקסט מותנות)",
     "type": "button",
     "variables": [],
-    "notes": "same text also at: src/components/canvas/CanvasEditor.tsx:266, src/components/canvas/CanvasEditor.tsx:275, src/components/companies/CompanyForm.tsx:259 (+16 more)"
+    "notes": "same text also at: src/components/canvas/CanvasEditor.tsx:266, src/components/canvas/CanvasEditor.tsx:275, src/components/companies/CompanyForm.tsx:309 (+18 more)"
   },
   {
     "key": "agreements.save_as_template.button_3",
@@ -14497,7 +15022,7 @@
     "context": "כפתור / פעולה (אחת מגרסאות טקסט מותנות)",
     "type": "button",
     "variables": [],
-    "notes": "same text also at: src/components/TemplateList.tsx:107, src/components/companies/CompanyForm.tsx:259, src/components/projects/LeadsPanel.tsx:326 (+4 more)"
+    "notes": "same text also at: src/components/TemplateList.tsx:108, src/components/companies/CompanyForm.tsx:309, src/components/projects/LeadsPanel.tsx:326 (+6 more)"
   },
   {
     "key": "agreements.save_as_template.button_4",
@@ -14507,7 +15032,7 @@
     "context": "כפתור / פעולה",
     "type": "button",
     "variables": [],
-    "notes": "same text also at: src/components/TemplateList.tsx:114, src/components/ai/ApprovalCard.tsx:102, src/components/canvas/CanvasEditor.tsx:240 (+22 more)"
+    "notes": "same text also at: src/components/TemplateList.tsx:115, src/components/ai/ApprovalCard.tsx:102, src/components/canvas/CanvasEditor.tsx:240 (+24 more)"
   },
   {
     "key": "agreements.send.button_2",
@@ -14767,7 +15292,7 @@
     "notes": ""
   },
   {
-    "key": "settings.organization.other_7",
+    "key": "settings.organization.other_5",
     "text": "צבע משני",
     "location": "src/components/settings/BrandKitForm.tsx:110",
     "screen": "הגדרות → ארגון ומיתוג",
@@ -14777,27 +15302,27 @@
     "notes": "same text also at: src/components/settings/BrandKitForm.tsx:114"
   },
   {
-    "key": "settings.organization.other_8",
+    "key": "settings.organization.label_3",
     "text": "גופן מועדף",
     "location": "src/components/settings/BrandKitForm.tsx:128",
     "screen": "הגדרות → ארגון ומיתוג",
-    "context": "טקסט במסך",
-    "type": "other",
+    "context": "תווית שדה / פריט",
+    "type": "label",
     "variables": [],
     "notes": ""
   },
   {
-    "key": "settings.organization.other_9",
+    "key": "settings.organization.label_4",
     "text": "שורת תחתית למסמכים",
     "location": "src/components/settings/BrandKitForm.tsx:129",
     "screen": "הגדרות → ארגון ומיתוג",
-    "context": "טקסט במסך",
-    "type": "other",
+    "context": "תווית שדה / פריט",
+    "type": "label",
     "variables": [],
     "notes": ""
   },
   {
-    "key": "settings.organization.other_10",
+    "key": "settings.organization.other_6",
     "text": "✓ נשמר",
     "location": "src/components/settings/BrandKitForm.tsx:147",
     "screen": "הגדרות → ארגון ומיתוג",
@@ -14817,22 +15342,22 @@
     "notes": ""
   },
   {
-    "key": "settings.organization.other_3",
+    "key": "settings.organization.label_1",
     "text": "שם משפטי (לחוזים)",
     "location": "src/components/settings/BrandKitForm.tsx:74",
     "screen": "הגדרות → ארגון ומיתוג",
-    "context": "טקסט במסך",
-    "type": "other",
+    "context": "תווית שדה / פריט",
+    "type": "label",
     "variables": [],
     "notes": ""
   },
   {
-    "key": "settings.organization.other_4",
+    "key": "settings.organization.label_2",
     "text": "כתובת הלוגו",
     "location": "src/components/settings/BrandKitForm.tsx:80",
     "screen": "הגדרות → ארגון ומיתוג",
-    "context": "טקסט במסך",
-    "type": "other",
+    "context": "תווית שדה / פריט",
+    "type": "label",
     "variables": [],
     "notes": ""
   },
@@ -14847,7 +15372,7 @@
     "notes": ""
   },
   {
-    "key": "settings.organization.other_5",
+    "key": "settings.organization.other_3",
     "text": "כשמבקשים מ-XTRA AI לעצב מסמך, הוא משתמש בצבעים האלה.",
     "location": "src/components/settings/BrandKitForm.tsx:87",
     "screen": "הגדרות → ארגון ומיתוג",
@@ -14857,7 +15382,7 @@
     "notes": ""
   },
   {
-    "key": "settings.organization.other_6",
+    "key": "settings.organization.other_4",
     "text": "צבע ראשי",
     "location": "src/components/settings/BrandKitForm.tsx:91",
     "screen": "הגדרות → ארגון ומיתוג",
@@ -15599,7 +16124,7 @@
     "notes": "OTP flow — do not change meaning without approval; placeholders must stay exactly as written"
   },
   {
-    "key": "signer.signature.other_3",
+    "key": "signer.signature.other_1",
     "text": "חתמו כאן באצבע או בעכבר",
     "location": "src/components/signer/SignaturePad.tsx:119",
     "screen": "עמוד חתימה → ציור חתימה",
@@ -15609,22 +16134,22 @@
     "notes": ""
   },
   {
-    "key": "signer.signature.other_1",
+    "key": "signer.signature.label_1",
     "text": "שטח חתימה",
     "location": "src/components/signer/SignaturePad.tsx:13",
     "screen": "עמוד חתימה → ציור חתימה",
-    "context": "טקסט במסך",
-    "type": "other",
+    "context": "תווית שדה / פריט",
+    "type": "label",
     "variables": [],
     "notes": "same text also at: src/components/signer/SignatureSheet.tsx:145"
   },
   {
-    "key": "signer.signature.other_2",
+    "key": "signer.signature.label_2",
     "text": "ניקוי וחתימה מחדש",
     "location": "src/components/signer/SignaturePad.tsx:14",
     "screen": "עמוד חתימה → ציור חתימה",
-    "context": "טקסט במסך",
-    "type": "other",
+    "context": "תווית שדה / פריט",
+    "type": "label",
     "variables": [],
     "notes": ""
   },
@@ -15669,7 +16194,7 @@
     "notes": ""
   },
   {
-    "key": "signer.signature.other_4",
+    "key": "signer.signature.other_2",
     "text": "לאחר האישור המסמך ייחתם ולא יהיה ניתן לערוך אותו.",
     "location": "src/components/signer/SignatureSheet.tsx:176",
     "screen": "עמוד חתימה → ציור חתימה",
@@ -15696,7 +16221,7 @@
     "context": "כפתור / פעולה (אחת מגרסאות טקסט מותנות)",
     "type": "button",
     "variables": [],
-    "notes": "same text also at: src/components/AppShell.tsx:117"
+    "notes": "same text also at: src/components/AppShell.tsx:119"
   },
   {
     "key": "signer.document.button_2",
@@ -15889,38 +16414,48 @@
   },
   {
     "key": "templates.list.button_2",
-    "text": "מסמך חדש מהתבנית",
-    "location": "src/components/TemplateList.tsx:139",
+    "text": "צפייה ועריכה",
+    "location": "src/components/TemplateList.tsx:135",
     "screen": "תבניות",
-    "context": "כפתור / פעולה (אחת מגרסאות טקסט מותנות)",
+    "context": "קישור-פעולה",
     "type": "button",
     "variables": [],
     "notes": ""
   },
   {
     "key": "templates.list.button_3",
+    "text": "מסמך חדש מהתבנית",
+    "location": "src/components/TemplateList.tsx:143",
+    "screen": "תבניות",
+    "context": "כפתור / פעולה (אחת מגרסאות טקסט מותנות)",
+    "type": "button",
+    "variables": [],
+    "notes": "same text also at: src/components/templates/TemplateDetail.tsx:82"
+  },
+  {
+    "key": "templates.list.button_4",
     "text": "שינוי שם",
-    "location": "src/components/TemplateList.tsx:149",
+    "location": "src/components/TemplateList.tsx:153",
     "screen": "תבניות",
     "context": "כפתור / פעולה",
     "type": "button",
     "variables": [],
-    "notes": ""
+    "notes": "same text also at: src/components/templates/TemplateDetail.tsx:66, src/components/templates/TemplateDetail.tsx:66"
   },
   {
     "key": "templates.list.other_2",
     "text": "חתימה אחת",
-    "location": "src/components/TemplateList.tsx:74",
+    "location": "src/components/TemplateList.tsx:75",
     "screen": "תבניות",
     "context": "טקסט במסך (אחת מגרסאות טקסט מותנות)",
     "type": "other",
     "variables": [],
-    "notes": "same text also at: src/components/ai/ResultCards.tsx:124, src/components/groups/BulkSendDialog.tsx:169"
+    "notes": "same text also at: src/components/ai/ResultCards.tsx:124, src/components/groups/BulkSendDialog.tsx:169, src/components/templates/TemplateDetail.tsx:70"
   },
   {
     "key": "templates.list.other_3",
     "text": "${template.signatureCount} חתימות",
-    "location": "src/components/TemplateList.tsx:76",
+    "location": "src/components/TemplateList.tsx:77",
     "screen": "תבניות",
     "context": "טקסט במסך (אחת מגרסאות טקסט מותנות)",
     "type": "other",
@@ -15932,10 +16467,451 @@
   {
     "key": "templates.list.other_4",
     "text": "ללא חתימה",
-    "location": "src/components/TemplateList.tsx:77",
+    "location": "src/components/TemplateList.tsx:78",
     "screen": "תבניות",
     "context": "טקסט במסך (אחת מגרסאות טקסט מותנות)",
     "type": "other",
+    "variables": [],
+    "notes": "same text also at: src/components/templates/TemplateDetail.tsx:70"
+  },
+  {
+    "key": "templates.detail.other_5",
+    "text": "לתבנית הזו אין עדיין שדות. בלי שדות אי אפשר למלא פרטים או לחתום — <Link>הציבו שדות בעורך</Link>.",
+    "location": "src/components/templates/TemplateDetail.tsx:103",
+    "screen": "תבנית (דף התבנית: שם, שדות, החלפת PDF, מסמך חדש)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.detail.error_1",
+    "text": "שינוי השם נכשל.",
+    "location": "src/components/templates/TemplateDetail.tsx:37",
+    "screen": "תבנית (דף התבנית: שם, שדות, החלפת PDF, מסמך חדש)",
+    "context": "הודעת שגיאה (ברירת מחדל כשאין ערך אחר)",
+    "type": "error",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.detail.success_1",
+    "text": "השם עודכן.",
+    "location": "src/components/templates/TemplateDetail.tsx:40",
+    "screen": "תבנית (דף התבנית: שם, שדות, החלפת PDF, מסמך חדש)",
+    "context": "הודעת הצלחה אחרי פעולה",
+    "type": "success",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.detail.other_1",
+    "text": "{pages.length} עמודים · {fields.length} שדות · {mapped} ממולאים אוטומטית · {…} {usedBy.length ? ` · בשימוש ב-${usedBy.length} קמפיינים` : ''}",
+    "location": "src/components/templates/TemplateDetail.tsx:70",
+    "screen": "תבנית (דף התבנית: שם, שדות, החלפת PDF, מסמך חדש)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [
+      "{pages.length}",
+      "{fields.length}",
+      "{mapped}",
+      "{…}",
+      "{usedBy.length ? ` · בשימוש ב-${usedBy.length} קמפיינים` : ''}"
+    ],
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "templates.detail.other_2",
+    "text": "${signatures} חתימות",
+    "location": "src/components/templates/TemplateDetail.tsx:70",
+    "screen": "תבנית (דף התבנית: שם, שדות, החלפת PDF, מסמך חדש)",
+    "context": "פסקת הסבר במסך (אחת מגרסאות טקסט מותנות)",
+    "type": "other",
+    "variables": [
+      "${signatures}"
+    ],
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "templates.detail.other_3",
+    "text": " · בשימוש ב-${usedBy.length} קמפיינים",
+    "location": "src/components/templates/TemplateDetail.tsx:71",
+    "screen": "תבנית (דף התבנית: שם, שדות, החלפת PDF, מסמך חדש)",
+    "context": "פסקת הסבר במסך (אחת מגרסאות טקסט מותנות)",
+    "type": "other",
+    "variables": [
+      "${usedBy.length}"
+    ],
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "templates.detail.button_1",
+    "text": "עריכת שדות",
+    "location": "src/components/templates/TemplateDetail.tsx:83",
+    "screen": "תבנית (דף התבנית: שם, שדות, החלפת PDF, מסמך חדש)",
+    "context": "קישור-פעולה",
+    "type": "button",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.detail.button_2",
+    "text": "החלפת PDF",
+    "location": "src/components/templates/TemplateDetail.tsx:84",
+    "screen": "תבנית (דף התבנית: שם, שדות, החלפת PDF, מסמך חדש)",
+    "context": "כפתור / פעולה",
+    "type": "button",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.detail.heading_1",
+    "text": "החלפת ה-PDF",
+    "location": "src/components/templates/TemplateDetail.tsx:93",
+    "screen": "תבנית (דף התבנית: שם, שדות, החלפת PDF, מסמך חדש)",
+    "context": "כותרת מקטע",
+    "type": "heading",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.detail.other_4",
+    "text": "גרסה חדשה של המסמך. הקמפיינים שמשתמשים בתבנית עוברים אליה; מסמכים שכבר נשלחו נשארים כפי שהם.",
+    "location": "src/components/templates/TemplateDetail.tsx:94",
+    "screen": "תבנית (דף התבנית: שם, שדות, החלפת PDF, מסמך חדש)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.error_2",
+    "text": "ההחלפה נכשלה.",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:110",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "הודעת שגיאה שמוצגת אחרי פעולה שנכשלה (ברירת מחדל כשאין ערך אחר)",
+    "type": "error",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.placeholder_1",
+    "text": "למשל: הסכם ספק 2027",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:141",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "טקסט placeholder בתוך שדה קלט ריק",
+    "type": "placeholder",
+    "variables": [],
+    "notes": "glossary term — keep consistent: הסכמים, ספקים"
+  },
+  {
+    "key": "templates.new_wizard.aria_1",
+    "text": "בחירת קובץ PDF",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:153",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
+    "type": "aria",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.other_4",
+    "text": "גררו לכאן קובץ PDF, או",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:154",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "פסקת הסבר במסך (אחת מגרסאות טקסט מותנות)",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.button_1",
+    "text": "החלפת קובץ",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:155",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "כפתור / פעולה (אחת מגרסאות טקסט מותנות)",
+    "type": "button",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.other_5",
+    "text": "PDF עד 25MB. שדות מילוי בקובץ (AcroForm) מזוהים אוטומטית; אם אין, מציבים שדות בעורך אחרי ההעלאה.",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:156",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.other_6",
+    "text": "ההחלפה שומרת גרסאות: מסמכים שכבר נשלחו או נחתמו שומרים את הגרסה שלהם. רק מסמכים חדשים ייעשו מהתבנית החדשה.",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:158",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.other_7",
+    "text": "בקובץ לא זוהו שדות מילוי.",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:169",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.other_8",
+    "text": "זה קורה כשה-PDF הוא סריקה או מסמך \"שטוח\" בלי שדות טופס. אפשר להמשיך בשתי דרכים:",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:170",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.other_9",
+    "text": "לפתוח את עורך השדות ולהציב את השדות (שם העסק, ח.פ., חתימה, תאריך…) ידנית על העמודים.",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:172",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "פריט ברשימה",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.other_10",
+    "text": "או להעלות קובץ אחר שבו שדות המילוי מוגדרים.",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:173",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "פריט ברשימה",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.button_2",
+    "text": "לפתיחת עורך השדות",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:176",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "קישור-פעולה",
+    "type": "button",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.button_3",
+    "text": "העלאת קובץ אחר",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:177",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "כפתור / פעולה",
+    "type": "button",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.other_11",
+    "text": "זוהו {detected.length} שדות. לכל שדה, בחרו איזה פרט ימולא בו אוטומטית:",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:182",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [
+      "{detected.length}"
+    ],
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "templates.new_wizard.other_12",
+    "text": "עמוד {f.page} · {f.type}",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:188",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "טקסט קצר במסך",
+    "type": "other",
+    "variables": [
+      "{f.page}",
+      "{f.type}"
+    ],
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "templates.new_wizard.aria_2",
+    "text": "פרט לשדה ${f.name}",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:190",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "תיאור נגישות לקורא מסך (aria) — לא נראה על המסך",
+    "type": "aria",
+    "variables": [
+      "${f.name}"
+    ],
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "templates.new_wizard.empty_state_1",
+    "text": "עדיין לא מופו: {missing.map((m) => m.label).join(', ')}. אפשר להמשיך ולהשלים בעורך השדות.",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:199",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "מצב ריק — מוצג כשאין נתונים להצגה",
+    "type": "empty_state",
+    "variables": [
+      "{missing.map((m) => m.label).join(', ')}"
+    ],
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "templates.new_wizard.button_4",
+    "text": "המשך לתצוגה מקדימה",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:201",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "כפתור / פעולה (אחת מגרסאות טקסט מותנות)",
+    "type": "button",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.button_5",
+    "text": "לעורך השדות",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:202",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "קישור-פעולה",
+    "type": "button",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.other_13",
+    "text": "כך ייראה המסמך. השדות המסומנים ימולאו מהפרטים שנרשמים; חתימה ותאריך מתמלאים בעת החתימה.",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:211",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.steps.0.label",
+    "text": "העלאת PDF",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:22",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "שם שלב באשף / במעקב ההתקדמות",
+    "type": "step",
+    "variables": [],
+    "notes": "same text also at: src/components/projects/AgreementPanel.tsx:207, src/components/UploadCard.tsx:73"
+  },
+  {
+    "key": "templates.new_wizard.button_6",
+    "text": "הכול תקין, להמשך",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:224",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "כפתור / פעולה",
+    "type": "button",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.steps.1.label",
+    "text": "זיהוי שדות ומיפוי",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:23",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "שם שלב באשף / במעקב ההתקדמות",
+    "type": "step",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.other_14",
+    "text": "החלפת התבנית",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:233",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "פסקת הסבר במסך (אחת מגרסאות טקסט מותנות)",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.other_15",
+    "text": "הפעלת התבנית",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:233",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "פסקת הסבר במסך (אחת מגרסאות טקסט מותנות)",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.other_16",
+    "text": "התבנית החדשה תחליף את הקודמת בכל קמפיין שהשתמש בה (הסכם ברירת המחדל וההסכם של עמוד ההרשמה). התבנית הקודמת יורדת מהרשימה; מסמכים שכבר נשלחו או נחתמו לא משתנים.",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:236",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "פסקת הסבר במסך (אחת מגרסאות טקסט מותנות)",
+    "type": "other",
+    "variables": [],
+    "notes": "glossary term — keep consistent: קמפיין, הרשמות, הסכמים"
+  },
+  {
+    "key": "templates.new_wizard.other_17",
+    "text": "התבנית תופיע ברשימת התבניות ותהיה זמינה לקמפיינים ולמסמכים חדשים.",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:237",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "פסקת הסבר במסך (אחת מגרסאות טקסט מותנות)",
+    "type": "other",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.steps.2.label",
+    "text": "תצוגה מקדימה",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:24",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "שם שלב באשף / במעקב ההתקדמות",
+    "type": "step",
+    "variables": [],
+    "notes": "same text also at: src/components/projects/FormBuilder.tsx:128, src/components/DocumentComposer.tsx:159, src/components/DocumentComposer.tsx:160 (+2 more)"
+  },
+  {
+    "key": "templates.new_wizard.other_18",
+    "text": "{rebound} קמפיינים הועברו לתבנית החדשה.",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:240",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "פסקת הסבר במסך",
+    "type": "other",
+    "variables": [
+      "{rebound}"
+    ],
+    "notes": "placeholders must stay exactly as written"
+  },
+  {
+    "key": "templates.new_wizard.button_7",
+    "text": "אישור והחלפה",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:242",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "כפתור / פעולה (אחת מגרסאות טקסט מותנות)",
+    "type": "button",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.new_wizard.steps.3.label",
+    "text": "אישור והפעלה",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:25",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "שם שלב באשף / במעקב ההתקדמות",
+    "type": "step",
+    "variables": [],
+    "notes": "same text also at: src/components/templates/TemplateUploadWizard.tsx:242"
+  },
+  {
+    "key": "templates.new_wizard.error_1",
+    "text": "לא הצלחנו להכין תצוגה מקדימה.",
+    "location": "src/components/templates/TemplateUploadWizard.tsx:89",
+    "screen": "תבניות → תבנית חדשה (אשף העלאת PDF)",
+    "context": "הודעת שגיאה שמוצגת אחרי פעולה שנכשלה (ברירת מחדל כשאין ערך אחר)",
+    "type": "error",
     "variables": [],
     "notes": ""
   },
@@ -16150,7 +17126,7 @@
     "notes": "same text also at: src/components/reports/RegistrationsTable.tsx:43"
   },
   {
-    "key": "ui.copy_button.button_1",
+    "key": "ui.copy_button.button_2",
     "text": "העתיקו:",
     "location": "src/components/ui/CopyButton.tsx:17",
     "screen": "כפתור העתקה",
@@ -16160,12 +17136,12 @@
     "notes": ""
   },
   {
-    "key": "ui.copy_button.other_1",
+    "key": "ui.copy_button.button_1",
     "text": "העתק",
     "location": "src/components/ui/CopyButton.tsx:6",
     "screen": "כפתור העתקה",
-    "context": "טקסט במסך",
-    "type": "other",
+    "context": "כפתור / פעולה",
+    "type": "button",
     "variables": [],
     "notes": ""
   },
@@ -16177,7 +17153,7 @@
     "context": "הודעת שגיאה שמוצגת אחרי פעולה שנכשלה (ברירת מחדל כשאין ערך אחר)",
     "type": "error",
     "variables": [],
-    "notes": "same text also at: src/components/UploadCard.tsx:55, src/components/documents/CrmWritebackButton.tsx:43, src/components/projects/AgreementPanel.tsx:163"
+    "notes": "same text also at: src/components/UploadCard.tsx:55, src/components/documents/CrmWritebackButton.tsx:43, src/components/projects/AgreementPanel.tsx:163 (+1 more)"
   },
   {
     "key": "agreements.new.error_13",
@@ -16217,7 +17193,7 @@
     "context": "כפתור / פעולה (אחת מגרסאות טקסט מותנות)",
     "type": "button",
     "variables": [],
-    "notes": ""
+    "notes": "same text also at: src/components/templates/TemplateUploadWizard.tsx:155"
   },
   {
     "key": "editor.field_types.agreement_roles.0.hints.3",
@@ -16347,7 +17323,7 @@
     "context": "תווית מתוך טבלת תוויות קבועה",
     "type": "label",
     "variables": [],
-    "notes": "glossary term — keep consistent: קמפיין"
+    "notes": "glossary term — keep consistent: קמפיין; same text also at: src/server/search/search.ts:82, src/components/projects/NewCampaignWizard.tsx:318"
   },
   {
     "key": "campaigns.labels.campaign_kinds.1.badge",
@@ -16377,7 +17353,7 @@
     "context": "תווית מתוך טבלת תוויות קבועה",
     "type": "label",
     "variables": [],
-    "notes": "glossary term — keep consistent: קמפיין"
+    "notes": "glossary term — keep consistent: קמפיין; same text also at: src/server/search/search.ts:82, src/components/projects/NewCampaignWizard.tsx:318"
   },
   {
     "key": "campaigns.labels.tab_labels.overview",
@@ -17300,7 +18276,7 @@
     "notes": ""
   },
   {
-    "key": "companies.form.other_8",
+    "key": "companies.form.other_12",
     "text": "ח.פ / ע.מ אמור להכיל ספרות.",
     "location": "src/lib/company-validation.ts:31",
     "screen": "ספק/לקוח → טופס פרטים",
@@ -17957,7 +18933,7 @@
     "context": "תווית שדה / פריט",
     "type": "label",
     "variables": [],
-    "notes": "name of a message variable in the variable picker; the {{key}} itself must not change; same text also at: src/server/reports/reports.ts:187, src/components/documents/DocumentsTable.tsx:72, src/components/reports/ReportPanel.tsx:163 (+1 more)"
+    "notes": "name of a message variable in the variable picker; the {{key}} itself must not change; same text also at: src/server/reports/reports.ts:187, src/components/documents/DocumentsTable.tsx:72, src/components/reports/ReportPanel.tsx:177 (+1 more)"
   },
   {
     "key": "messages.defaults.group_labels.company",
@@ -17977,7 +18953,7 @@
     "context": "תווית שדה / פריט",
     "type": "label",
     "variables": [],
-    "notes": "glossary term — keep consistent: קמפיין; name of a message variable in the variable picker; the {{key}} itself must not change; same text also at: src/components/reports/RegistrationsTable.tsx:440, src/server/mail/catalog.ts:103, src/server/mail/catalog.ts:125 (+7 more)"
+    "notes": "glossary term — keep consistent: קמפיין; name of a message variable in the variable picker; the {{key}} itself must not change; same text also at: src/components/reports/RegistrationsTable.tsx:440, src/server/mail/catalog.ts:103, src/server/mail/catalog.ts:125 (+6 more)"
   },
   {
     "key": "messages.defaults.group_labels.document",
@@ -18524,6 +19500,26 @@
     "type": "label",
     "variables": [],
     "notes": "Tourism 2026 self-service campaign"
+  },
+  {
+    "key": "public.registration_labels.self_service_skins.0.share.title",
+    "text": "הצטרפו לחודש התיירות הישראלית 2026",
+    "location": "src/lib/self-service-skins.ts:24",
+    "screen": "הרשמה עצמית — תוויות שדות וסקינים",
+    "context": "כותרת",
+    "type": "heading",
+    "variables": [],
+    "notes": "Tourism 2026 self-service campaign"
+  },
+  {
+    "key": "public.registration_labels.self_service_skins.0.share.description",
+    "text": "בעלי עסקים בתחום התיירות מוזמנים להכיר את פרטי ההשתתפות, להירשם ולחתום על הסכם ההצטרפות באופן דיגיטלי.",
+    "location": "src/lib/self-service-skins.ts:25",
+    "screen": "הרשמה עצמית — תוויות שדות וסקינים",
+    "context": "טקסט עזר / הסבר מתחת לשדה או לכותרת",
+    "type": "help",
+    "variables": [],
+    "notes": "glossary term — keep consistent: הסכמים; Tourism 2026 self-service campaign"
   },
   {
     "key": "agreements.whatsapp.other_1",
@@ -19836,7 +20832,7 @@
     "context": "כותרת עמודה בדוח / בקובץ Excel",
     "type": "report",
     "variables": [],
-    "notes": "same text also at: src/app/companies/[id]/page.tsx:131, src/server/companies/excel.ts:228, src/server/reports/reports.ts:185 (+4 more)"
+    "notes": "same text also at: src/app/companies/[id]/page.tsx:133, src/server/companies/excel.ts:228, src/server/reports/reports.ts:185 (+4 more)"
   },
   {
     "key": "reports.companies_excel.headers.1",
@@ -20919,7 +21915,7 @@
     "notes": "glossary term — keep consistent: הסכמים; placeholders must stay exactly as written"
   },
   {
-    "key": "campaigns.distributions.error_6",
+    "key": "campaigns.distributions.error_5",
     "text": "יש להזין שם להפצה.",
     "location": "src/server/distributions/distributions.ts:111",
     "screen": "קמפיין → הפצות",
@@ -20929,7 +21925,7 @@
     "notes": "glossary term — keep consistent: הפצה"
   },
   {
-    "key": "campaigns.distributions.error_7",
+    "key": "campaigns.distributions.error_6",
     "text": "יש לבחור לפחות ערוץ אחד.",
     "location": "src/server/distributions/distributions.ts:113",
     "screen": "קמפיין → הפצות",
@@ -20939,7 +21935,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distributions.error_8",
+    "key": "campaigns.distributions.error_7",
     "text": "יש להזין כתובת תקינה (https://…).",
     "location": "src/server/distributions/distributions.ts:116",
     "screen": "קמפיין → הפצות",
@@ -20949,7 +21945,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distributions.error_9",
+    "key": "campaigns.distributions.error_8",
     "text": "הודעת ה-SMS חייבת לכלול את המשתנה {{campaign_url}}.",
     "location": "src/server/distributions/distributions.ts:128",
     "screen": "קמפיין → הפצות",
@@ -20961,7 +21957,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distributions.error_10",
+    "key": "campaigns.distributions.error_9",
     "text": "הודעת האימייל חייבת לכלול קישור.",
     "location": "src/server/distributions/distributions.ts:129",
     "screen": "קמפיין → הפצות",
@@ -20971,7 +21967,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distributions.error_11",
+    "key": "campaigns.distributions.error_10",
     "text": "יש לבחור לפחות נמען אחד.",
     "location": "src/server/distributions/distributions.ts:132",
     "screen": "קמפיין → הפצות",
@@ -20981,7 +21977,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distributions.error_12",
+    "key": "campaigns.distributions.error_11",
     "text": "אפשר לשלוח עד ${MAX_RECIPIENTS} נמענים בהפצה אחת.",
     "location": "src/server/distributions/distributions.ts:133",
     "screen": "קמפיין → הפצות",
@@ -20993,7 +21989,7 @@
     "notes": "glossary term — keep consistent: הפצה, נמענים; placeholders must stay exactly as written"
   },
   {
-    "key": "campaigns.distributions.error_13",
+    "key": "campaigns.distributions.error_12",
     "text": "מועד התזמון אינו תקין.",
     "location": "src/server/distributions/distributions.ts:135",
     "screen": "קמפיין → הפצות",
@@ -21003,7 +21999,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distributions.error_14",
+    "key": "campaigns.distributions.error_13",
     "text": "לקמפיין אין עדיין עמוד ציבורי. הפעילו את עמוד הקמפיין בהגדרות או בחרו \"כתובת אחרת\".",
     "location": "src/server/distributions/distributions.ts:162",
     "screen": "קמפיין → הפצות",
@@ -21013,7 +22009,7 @@
     "notes": "glossary term — keep consistent: קמפיין"
   },
   {
-    "key": "campaigns.distributions.error_15",
+    "key": "campaigns.distributions.error_14",
     "text": "לא נמצאו נמענים.",
     "location": "src/server/distributions/distributions.ts:169",
     "screen": "קמפיין → הפצות",
@@ -21023,7 +22019,7 @@
     "notes": "glossary term — keep consistent: נמענים"
   },
   {
-    "key": "campaigns.distributions.error_16",
+    "key": "campaigns.distributions.error_15",
     "text": "אין טלפון או אימייל לערוצים שנבחרו",
     "location": "src/server/distributions/distributions.ts:196",
     "screen": "קמפיין → הפצות",
@@ -21033,7 +22029,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distributions.error_17",
+    "key": "campaigns.distributions.error_16",
     "text": "לקמפיין אין עמוד ציבורי לשלוח אליו.",
     "location": "src/server/distributions/distributions.ts:271",
     "screen": "קמפיין → הפצות",
@@ -21053,16 +22049,16 @@
     "notes": "same text also at: src/server/distributions/distributions.ts:303, src/server/distributions/distributions.ts:303"
   },
   {
-    "key": "campaigns.distributions.other_7",
+    "key": "campaigns.distributions.sms_1",
     "text": "[בדיקה] ${rendered.sms}",
     "location": "src/server/distributions/distributions.ts:307",
     "screen": "קמפיין → הפצות",
-    "context": "טקסט במסך",
-    "type": "other",
+    "context": "טקסט הודעת SMS",
+    "type": "sms",
     "variables": [
       "${rendered.sms}"
     ],
-    "notes": "placeholders must stay exactly as written"
+    "notes": "SMS: Hebrew is sent as UCS-2 — 70 chars fit one segment (67 per segment when split); fixed text is 8 chars before placeholders are filled; placeholders must stay exactly as written"
   },
   {
     "key": "campaigns.distributions.email_subject_1",
@@ -21077,7 +22073,7 @@
     "notes": "placeholders must stay exactly as written"
   },
   {
-    "key": "campaigns.distributions.error_18",
+    "key": "campaigns.distributions.error_17",
     "text": "יש להזין טלפון או אימייל לבדיקה.",
     "location": "src/server/distributions/distributions.ts:315",
     "screen": "קמפיין → הפצות",
@@ -21087,7 +22083,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distributions.error_19",
+    "key": "campaigns.distributions.error_18",
     "text": "שליחת הבדיקה נכשלה: ${failed.map((f) => (f.ok ? '' : f.error)).join(', ')}",
     "location": "src/server/distributions/distributions.ts:316",
     "screen": "קמפיין → הפצות",
@@ -21099,7 +22095,7 @@
     "notes": "placeholders must stay exactly as written"
   },
   {
-    "key": "campaigns.distributions.error_20",
+    "key": "campaigns.distributions.error_19",
     "text": "ההפצה כבר נשלחה.",
     "location": "src/server/distributions/distributions.ts:320",
     "screen": "קמפיין → הפצות",
@@ -21109,7 +22105,7 @@
     "notes": "glossary term — keep consistent: הפצה"
   },
   {
-    "key": "campaigns.distributions.error_21",
+    "key": "campaigns.distributions.error_20",
     "text": "רק מנהל יכול לעקוף את מגבלת 24 השעות.",
     "location": "src/server/distributions/distributions.ts:321",
     "screen": "קמפיין → הפצות",
@@ -21119,7 +22115,7 @@
     "notes": ""
   },
   {
-    "key": "campaigns.distributions.error_22",
+    "key": "campaigns.distributions.error_21",
     "text": "נשלחה הודעה ב-${MIN_HOURS_BETWEEN_SENDS} השעות האחרונות",
     "location": "src/server/distributions/distributions.ts:345",
     "screen": "קמפיין → הפצות",
@@ -21131,7 +22127,7 @@
     "notes": "placeholders must stay exactly as written"
   },
   {
-    "key": "campaigns.distributions.error_23",
+    "key": "campaigns.distributions.error_22",
     "text": "אפשר למחוק רק טיוטה. הפצה שנשלחה נשארת בהיסטוריה.",
     "location": "src/server/distributions/distributions.ts:395",
     "screen": "קמפיין → הפצות",
@@ -21175,7 +22171,7 @@
     "notes": "placeholders must stay exactly as written"
   },
   {
-    "key": "agreements.new.label_4",
+    "key": "agreements.new.label_5",
     "text": "עמוד ${index + 1} מתוך ${pages.length}",
     "location": "src/server/documents/compose.ts:227",
     "screen": "מסמך חדש (העלאה / כתיבה / בחירת חברה)",
@@ -22322,7 +23318,7 @@
     "context": "טקסט בגוף המייל",
     "type": "email_body",
     "variables": [],
-    "notes": "field name that also appears in exports/mails — keep consistent across screens; same text also at: src/app/companies/[id]/page.tsx:146, src/components/companies/CompanyForm.tsx:152"
+    "notes": "field name that also appears in exports/mails — keep consistent across screens; same text also at: src/app/companies/[id]/page.tsx:148, src/components/companies/CompanyForm.tsx:220"
   },
   {
     "key": "mail.team.email_subject_1",
@@ -22369,7 +23365,7 @@
     "notes": ""
   },
   {
-    "key": "settings.organization.other_11",
+    "key": "settings.organization.other_7",
     "text": "ח.פ ${profile.taxId}",
     "location": "src/server/organization/profile.ts:99",
     "screen": "הגדרות → ארגון ומיתוג",
@@ -22545,16 +23541,16 @@
     "notes": ""
   },
   {
-    "key": "campaigns.settings_messages.other_16",
+    "key": "campaigns.settings_messages.sms_1",
     "text": "[בדיקה] ${preview.sms.text}",
     "location": "src/server/projects/messages.ts:178",
     "screen": "קמפיין → הגדרות → הודעות",
-    "context": "טקסט במסך",
-    "type": "other",
+    "context": "טקסט הודעת SMS",
+    "type": "sms",
     "variables": [
       "${preview.sms.text}"
     ],
-    "notes": "placeholders must stay exactly as written"
+    "notes": "SMS: Hebrew is sent as UCS-2 — 70 chars fit one segment (67 per segment when split); fixed text is 8 chars before placeholders are filled; placeholders must stay exactly as written"
   },
   {
     "key": "campaigns.settings_messages.email_subject_1",
@@ -22735,6 +23731,26 @@
     "type": "heading",
     "variables": [],
     "notes": "Tourism 2026 self-service campaign"
+  },
+  {
+    "key": "campaigns.server.error_2",
+    "text": "יש להעלות תמונה בפורמט PNG, JPEG או WebP.",
+    "location": "src/server/projects/share.ts:80",
+    "screen": "קמפיין — הודעות שרת",
+    "context": "הודעת שגיאה שמוחזרת מהשרת ומוצגת למשתמש",
+    "type": "error",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "campaigns.server.error_1",
+    "text": "התמונה גדולה מדי (עד 2MB).",
+    "location": "src/server/projects/share.ts:81",
+    "screen": "קמפיין — הודעות שרת",
+    "context": "הודעת שגיאה שמוחזרת מהשרת ומוצגת למשתמש",
+    "type": "error",
+    "variables": [],
+    "notes": "same text also at: src/components/composer/UnifiedComposer.tsx:201"
   },
   {
     "key": "reports.excel.status_labels.pending.label",
@@ -23438,17 +24454,17 @@
     "notes": "Tourism 2026 self-service campaign"
   },
   {
-    "key": "pdf.certificate.legal_1",
+    "key": "pdf.certificate.error_1",
     "text": "אין אישור חתימה למסמך שאינו חתום.",
     "location": "src/server/signing/certificate.ts:26",
     "screen": "PDF: עמוד אישור חתימה (מצורף למסמך החתום)",
-    "context": "טקסט בעמוד אישור החתימה שמצורף ל-PDF החתום",
-    "type": "legal",
+    "context": "הודעת שגיאה שמוחזרת מהשרת ומוצגת למשתמש",
+    "type": "error",
     "variables": [],
-    "notes": "do not change meaning without approval"
+    "notes": ""
   },
   {
-    "key": "pdf.certificate.legal_2",
+    "key": "pdf.certificate.legal_1",
     "text": "קוד חד-פעמי ב-SMS",
     "location": "src/server/signing/certificate.ts:61",
     "screen": "PDF: עמוד אישור חתימה (מצורף למסמך החתום)",
@@ -23458,7 +24474,7 @@
     "notes": "do not change meaning without approval"
   },
   {
-    "key": "pdf.certificate.legal_3",
+    "key": "pdf.certificate.legal_2",
     "text": "לא בוצע",
     "location": "src/server/signing/certificate.ts:61",
     "screen": "PDF: עמוד אישור חתימה (מצורף למסמך החתום)",
@@ -23593,7 +24609,7 @@
     "notes": "OTP flow — do not change meaning without approval"
   },
   {
-    "key": "pdf.certificate.legal_4",
+    "key": "pdf.certificate.legal_3",
     "text": "אישור חתימה",
     "location": "src/server/signing/pdf.ts:182",
     "screen": "PDF: עמוד אישור חתימה (מצורף למסמך החתום)",
@@ -23603,7 +24619,7 @@
     "notes": "do not change meaning without approval"
   },
   {
-    "key": "pdf.certificate.legal_5",
+    "key": "pdf.certificate.legal_4",
     "text": "מזהה מסמך",
     "location": "src/server/signing/pdf.ts:186",
     "screen": "PDF: עמוד אישור חתימה (מצורף למסמך החתום)",
@@ -23613,7 +24629,7 @@
     "notes": "do not change meaning without approval"
   },
   {
-    "key": "pdf.certificate.legal_6",
+    "key": "pdf.certificate.legal_5",
     "text": "אופן האימות",
     "location": "src/server/signing/pdf.ts:190",
     "screen": "PDF: עמוד אישור חתימה (מצורף למסמך החתום)",
@@ -23623,7 +24639,7 @@
     "notes": "do not change meaning without approval"
   },
   {
-    "key": "pdf.certificate.legal_7",
+    "key": "pdf.certificate.legal_6",
     "text": "זמן האימות",
     "location": "src/server/signing/pdf.ts:191",
     "screen": "PDF: עמוד אישור חתימה (מצורף למסמך החתום)",
@@ -23633,7 +24649,7 @@
     "notes": "do not change meaning without approval"
   },
   {
-    "key": "pdf.certificate.legal_8",
+    "key": "pdf.certificate.legal_7",
     "text": "זמן החתימה",
     "location": "src/server/signing/pdf.ts:192",
     "screen": "PDF: עמוד אישור חתימה (מצורף למסמך החתום)",
@@ -23643,7 +24659,7 @@
     "notes": "do not change meaning without approval"
   },
   {
-    "key": "pdf.certificate.legal_9",
+    "key": "pdf.certificate.legal_8",
     "text": "טביעת המסמך החתום · SHA-256",
     "location": "src/server/signing/pdf.ts:204",
     "screen": "PDF: עמוד אישור חתימה (מצורף למסמך החתום)",
@@ -23653,7 +24669,7 @@
     "notes": "do not change meaning without approval"
   },
   {
-    "key": "pdf.certificate.legal_10",
+    "key": "pdf.certificate.legal_9",
     "text": "הופק על ידי XTRA Sign",
     "location": "src/server/signing/pdf.ts:219",
     "screen": "PDF: עמוד אישור חתימה (מצורף למסמך החתום)",
@@ -23701,6 +24717,26 @@
     "type": "legal",
     "variables": [],
     "notes": "do not change meaning without approval"
+  },
+  {
+    "key": "templates.replace.error_2",
+    "text": "זו אותה תבנית.",
+    "location": "src/server/templates/replace.ts:14",
+    "screen": "תבנית → החלפת קובץ ה-PDF",
+    "context": "הודעת שגיאה שמוחזרת מהשרת ומוצגת למשתמש",
+    "type": "error",
+    "variables": [],
+    "notes": ""
+  },
+  {
+    "key": "templates.replace.error_3",
+    "text": "לתבנית החדשה אין קובץ.",
+    "location": "src/server/templates/replace.ts:16",
+    "screen": "תבנית → החלפת קובץ ה-PDF",
+    "context": "הודעת שגיאה שמוחזרת מהשרת ומוצגת למשתמש",
+    "type": "error",
+    "variables": [],
+    "notes": ""
   },
   {
     "key": "templates.list.error_6",
@@ -23920,12 +24956,12 @@
     "notes": "glossary term — keep consistent: XTRA Sign"
   },
   {
-    "key": "settings.users.other_4",
+    "key": "settings.users.email_body_1",
     "text": "שלום ${name}, נפתח עבורך חשבון ב-XTRA SIGN. לכניסה: ${base} — הזינו את מספר הטלפון שלכם ותקבלו קוד ב-SMS.",
     "location": "src/server/users/users.ts:135",
     "screen": "הגדרות → משתמשים",
-    "context": "טקסט במסך",
-    "type": "other",
+    "context": "טקסט בגוף המייל",
+    "type": "email_body",
     "variables": [
       "${name}",
       "${base}"
@@ -23973,7 +25009,7 @@
     "notes": ""
   },
   {
-    "key": "settings.users.other_5",
+    "key": "settings.users.other_4",
     "text": "<p style=\"margin:0 0 8px\">שלום ${escape(name)},</p>\n<p style=\"margin:0 0 24px;font-size:18px;font-weight:bold\">נפתח עבורך חשבון ב-XTRA SIGN</p>\n<p style=\"margin:0 0 24px;color:#64748b\">אין צורך בסיסמה. בכניסה מזינים את מספר הטלפון ומקבלים קוד חד-פעמי ב-SMS.</p>\n${button(url, 'כניסה למערכת')}\n<p style=\"margin:24px 0 0;font-size:12px;color:#64748b\">אם לא ציפית להודעה הזו, אפשר להתעלם ממנה.</p>",
     "location": "src/server/users/users.ts:364",
     "screen": "הגדרות → משתמשים",
