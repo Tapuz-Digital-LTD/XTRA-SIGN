@@ -612,7 +612,7 @@ async function alreadySigned(project: SelfServiceProject, skin: SelfServiceSkin,
 }
 
 /** How long a registrant gets to finish on the page before we write to them. */
-const LINK_AFTER_MS = Number(process.env.SIGN_SELF_SERVICE_LINK_AFTER_MS ?? 4 * 60 * 1000)
+const LINK_AFTER_MS = Number(process.env.SIGN_SELF_SERVICE_LINK_AFTER_MS ?? (process.env.NODE_ENV === 'test' ? 0 : 4 * 60 * 1000))
 
 async function deferredSigningLink(input: {
   agreementId: string

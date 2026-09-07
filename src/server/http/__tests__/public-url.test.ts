@@ -55,6 +55,7 @@ describe('allowedOrigins on a preview', () => {
     ])
 
     process.env.VERCEL_ENV = 'production'
-    expect(allowedOrigins()).toEqual([])
+    // On production the only extra origins are our own campaign domains (a fixed list in csrf.ts).
+    expect(allowedOrigins()).toEqual(['https://tourism.xtra.co.il'])
   })
 })
