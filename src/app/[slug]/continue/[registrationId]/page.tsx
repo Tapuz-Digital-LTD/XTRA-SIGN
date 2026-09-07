@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { and, eq } from 'drizzle-orm'
+import { redirect } from 'next/navigation'
 import { getDb, schema } from '@/server/db'
+import { resumeSigning } from '@/server/self-service/resume'
 import { CampaignFrame } from '../../CampaignFrame'
 import { RenewSigning } from '../../RenewSigning'
 import { campaignProject, type SearchParams } from '../../resolve'
@@ -20,6 +22,12 @@ export default async function ContinuePage({ params, searchParams }: { params: P
   const [lead] = /^[0-9a-f-]{36}$/i.test(registrationId)
     ? await getDb().select({ id: schema.projectLeads.id }).from(schema.projectLeads).where(and(eq(schema.projectLeads.id, registrationId), eq(schema.projectLeads.groupId, project.groupId))).limit(1)
     : []
+  if (lead) {
+    // Already verified on this phone → straight back into the same agreement.
+    const quiet = await resumeSigning(project, { registrationId: lead.id }, { quietIfVerified: true })
+    if (quiet.ok && quiet.kind === 'ready' && quiet.quiet) redirect(`/${slug}/sign/${quiet.token}`)
+    if (quiet.ok && quiet.kind === 'already_signed') redirect(`/${slug}/thanks/${quiet.token}`)
+  }
   return (
     <CampaignFrame slug={slug} title="המשך חתימה">
       {lead ? (

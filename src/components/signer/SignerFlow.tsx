@@ -22,6 +22,7 @@ export function SignerFlow({
   maskedPhone,
   hasPhone,
   verified,
+  startAtCode = false,
   pages,
   fields,
 }: {
@@ -31,10 +32,12 @@ export function SignerFlow({
   maskedPhone: string | null
   hasPhone: boolean
   verified: boolean
+  /** Arriving from "ממשיכים לחתימה": the code step is the first thing shown. */
+  startAtCode?: boolean
   pages: PageGeometry[]
   fields: PlacedField[]
 }) {
-  const [stage, setStage] = useState<Stage>(verified ? 'start' : 'intro')
+  const [stage, setStage] = useState<Stage>(verified ? 'start' : startAtCode && hasPhone ? 'verify' : 'intro')
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(fields.map((f) => [f.id, f.value ?? ''])),
   )
@@ -130,7 +133,7 @@ export function SignerFlow({
   if (stage === 'verify') {
     return (
       <Centered>
-        <OtpStep token={token} maskedPhone={maskedPhone} onVerified={() => setStage('start')} />
+        <OtpStep token={token} maskedPhone={maskedPhone} onVerified={() => setStage('start')} autoSend={startAtCode} />
       </Centered>
     )
   }

@@ -1,9 +1,11 @@
 import { redirect } from 'next/navigation'
+import { ContinueSigning } from '@/components/signer/ContinueSigning'
 import { SignerFlow } from '@/components/signer/SignerFlow'
 import { AUDIT_EVENTS } from '@/server/audit'
 import { selfServiceOriginOf } from '@/server/self-service/agreement-skin'
 import { getDb, schema } from '@/server/db'
 import { loadFields, loadPageGeometry } from '@/server/documents/save-fields'
+import { describeExpired, renewQuietly } from '@/server/signing/continue'
 import { hasVerifiedSession, isSignable, resolveSigningToken } from '@/server/signing/session'
 import { maskPhone } from '@/lib/phone'
 import { eq } from 'drizzle-orm'
@@ -16,13 +18,21 @@ import { eq } from 'drizzle-orm'
  */
 export const dynamic = 'force-dynamic'
 
-export default async function SignPage({ params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params
+export default async function SignPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ continue?: string }> }) {
+  const [{ token }, query] = await Promise.all([params, searchParams])
   const context = await resolveSigningToken(token)
 
-  // Unknown, expired and revoked all render the same page — distinguishing them
-  // would tell someone guessing tokens which ones exist.
-  if (!context) return <LinkUnavailable />
+  if (!context) {
+    // The permission behind the link ran out. A browser that already proved
+    // the phone continues with no screen; anyone else gets one button that
+    // sends the code again. Unknown and revoked links get one plain page —
+    // distinguishing them would tell someone guessing tokens which ones exist.
+    const quiet = await renewQuietly(token)
+    if (quiet) redirect(quiet.path)
+    const expired = await describeExpired(token)
+    if (!expired || expired.closed) return <LinkUnavailable closed={Boolean(expired?.closed)} />
+    return <ContinueSigning token={token} maskedPhone={expired.maskedPhone} title={expired.title} signed={expired.signed} />
+  }
 
   // A self-service agreement has its own branded pages (ADR 0001); the link
   // in the campaign's SMS lands here and continues there.
@@ -32,7 +42,7 @@ export default async function SignPage({ params }: { params: Promise<{ token: st
   const verified = await hasVerifiedSession(context)
 
   if (!isSignable(context.status)) {
-    return <AlreadyDone title={context.title} status={context.status} />
+    return <AlreadyDone title={context.title} status={context.status} token={token} />
   }
 
   const db = getDb()
@@ -64,6 +74,7 @@ export default async function SignPage({ params }: { params: Promise<{ token: st
       maskedPhone={maskPhone(context.recipientPhone)}
       hasPhone={Boolean(context.recipientPhone)}
       verified={verified}
+      startAtCode={query.continue === '1'}
       pages={pages}
       fields={fields}
     />
@@ -80,18 +91,18 @@ function Shell({ children }: { children: React.ReactNode }) {
   )
 }
 
-function LinkUnavailable() {
+function LinkUnavailable({ closed }: { closed: boolean }) {
   return (
     <Shell>
-      <h1 className="text-lg font-semibold text-fg">הקישור אינו זמין</h1>
+      <h1 className="text-lg font-semibold text-fg">{closed ? 'המסמך הזה כבר אינו פתוח לחתימה' : 'הקישור הזה כבר לא פעיל'}</h1>
       <p className="mt-2 text-sm text-muted">
-        ייתכן שפג תוקפו או שהמסמך כבר טופל. אפשר לפנות לשולח המסמך ולבקש קישור חדש.
+        {closed ? 'אם לדעתכם זו טעות, פנו לשולח המסמך.' : 'אם קיבלתם הודעה חדשה יותר, פתחו את הקישור שבה. אחרת, פנו לשולח המסמך ובקשו קישור.'}
       </p>
     </Shell>
   )
 }
 
-function AlreadyDone({ title, status }: { title: string; status: string }) {
+function AlreadyDone({ title, status, token }: { title: string; status: string; token: string }) {
   const message =
     status === 'signed'
       ? 'המסמך כבר נחתם.'
@@ -108,6 +119,11 @@ function AlreadyDone({ title, status }: { title: string; status: string }) {
       </p>
       <h1 className="mt-2 text-lg font-semibold text-fg">{message}</h1>
       <p className="mt-2 text-sm text-muted">{title}</p>
+      {status === 'signed' ? (
+        <a href={`/api/sign/${token}/download`} className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-brand px-6 text-sm font-medium text-white">
+          הורדת המסמך החתום
+        </a>
+      ) : null}
     </Shell>
   )
 }

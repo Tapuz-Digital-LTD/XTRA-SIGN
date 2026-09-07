@@ -21,7 +21,12 @@ import { OPEN_STATUSES } from '@/lib/status'
 /** Same `__Host-` reasoning as the staff session cookie. */
 export const SIGNING_COOKIE =
   process.env.NODE_ENV === 'production' ? '__Host-xtra_sign_signer' : 'xtra_sign_signer'
-const SESSION_TTL_MS = 60 * 60 * 1000
+/**
+ * A week: the phone that received the code is the phone the signer comes back
+ * on. Someone who stops halfway and returns in three days continues without a
+ * second code; the session dies with the signature or the week, whichever first.
+ */
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
 export type SigningContext = {
   recipientId: string
@@ -145,12 +150,19 @@ export async function createSigningSession(input: {
 }
 
 /**
- * True when this browser has already proved possession for this token.
+ * True when this browser has already proved possession for this signer.
  *
- * This is what makes a refresh or a reopened tab skip the OTP: the proof lives
- * server-side and the cookie is just an opaque handle to it.
+ * This is what makes a refresh, a reopened tab or a link renewed behind the
+ * scenes skip the OTP: the proof lives server-side and the cookie is just an
+ * opaque handle to it. Bound to the recipient, not to one token: a recipient
+ * belongs to exactly one agreement, so the proof cannot be replayed against
+ * another document, and a fresh token on the same agreement keeps it.
  */
-export async function hasVerifiedSession(context: SigningContext): Promise<boolean> {
+export async function hasVerifiedSession(context: Pick<SigningContext, 'recipientId'>): Promise<boolean> {
+  return hasVerifiedSessionFor(context.recipientId)
+}
+
+export async function hasVerifiedSessionFor(recipientId: string): Promise<boolean> {
   const store = await cookies()
   const secret = store.get(SIGNING_COOKIE)?.value
   if (!secret) return false
@@ -162,8 +174,7 @@ export async function hasVerifiedSession(context: SigningContext): Promise<boole
     .where(
       and(
         eq(schema.signingSessions.sessionHash, hashToken(secret)),
-        eq(schema.signingSessions.recipientId, context.recipientId),
-        eq(schema.signingSessions.signingTokenId, context.tokenId),
+        eq(schema.signingSessions.recipientId, recipientId),
         gt(schema.signingSessions.expiresAt, new Date()),
       ),
     )
