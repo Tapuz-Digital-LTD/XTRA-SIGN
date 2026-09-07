@@ -83,7 +83,7 @@ const STATUS_SETS: Record<StatusFilter, SQL> = {
   expired: sql`a.status = 'expired'`,
   failed: sql`(${schema.projectLeads.status} = 'failed' or a.status in ('canceled', 'declined'))`,
   /** A person must act: a lead waiting for approval. */
-  attention: sql`${schema.projectLeads.status} = 'new'`,
+  attention: sql`(${schema.projectLeads.status} = 'new' or ${schema.projectLeads.meta}->>'linking' = 'needed')`,
   /** Registered, no agreement (yet): saved for handling, approved, or in progress. */
   registered: sql`(a.id is null and ${schema.projectLeads.status} <> 'failed')`,
 }

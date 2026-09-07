@@ -128,3 +128,15 @@ export function registrationsOpen(campaign: { endsAt: Date | string | null; regi
 }
 
 export const REGISTRATIONS_CLOSED_MESSAGE = 'ההרשמה לקמפיין הסתיימה.'
+
+/** Where a campaign saves the people who register: here only, or linked to a synced CRM company. */
+export type RegistrationTarget = 'xtra_sign' | 'crm'
+
+export function isRegistrationTarget(value: unknown): value is RegistrationTarget {
+  return value === 'xtra_sign' || value === 'crm'
+}
+
+export const REGISTRATION_TARGETS: { key: RegistrationTarget; label: string; blurb: (noun: string) => string }[] = [
+  { key: 'xtra_sign', label: 'XTRA Sign', blurb: (noun) => `ה${noun} שנרשמים יישמרו במערכת בלבד, ללא חיפוש או עדכון ב-CRM.` },
+  { key: 'crm', label: 'CRM', blurb: () => 'המערכת תנסה לאתר חברה קיימת בנתוני ה-CRM המסונכרנים (לפי ח.פ.) ותקשר אליה את ההרשמה. מידע ב-CRM לא יעודכן אוטומטית.' },
+]

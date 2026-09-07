@@ -437,6 +437,8 @@ export const groups = pgTable(
     goal: text('goal'),
     /** How people enter: 'audience' | 'form' | 'embed' | 'api' | 'custom'. */
     entryMethod: text('entry_method'),
+    /** Where registrants are saved: 'xtra_sign' (default, local only) | 'crm' (link to a synced CRM company by tax id). */
+    registrationTarget: text('registration_target'),
     startsAt: timestamp('starts_at', { withTimezone: true }),
     endsAt: timestamp('ends_at', { withTimezone: true }),
     /** A public campaign past its end date closes registrations unless told otherwise. */

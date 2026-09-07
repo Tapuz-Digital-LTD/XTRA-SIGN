@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto'
-import { and, desc, eq, gt, inArray, isNull, lt, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm'
 import { maskPhone, toIsraeliNationalFormat } from '@/lib/phone'
 import { validateRegistration, type RegistrationValues } from '@/lib/self-service-registration'
 import { skinByKey, type SelfServiceSkin } from '@/lib/self-service-skins'
+import type { RegistrationTarget } from '@/lib/campaigns'
 import type { StaffSession } from '@/server/auth/session'
 import { createCompany } from '@/server/companies/companies'
 import { getDb, schema } from '@/server/db'
@@ -130,8 +131,12 @@ export async function startSelfServiceSigning(input: RegistrationInput): Promise
 
   try {
     // ── Supplier ────────────────────────────────────────────────────────────
-    const supplier = await resolveSupplier(session, data)
+    const supplier = await resolveSupplier(session, data, project.registrationTarget)
     await addCompanies({ session, groupId: project.groupId, companyIds: [supplier.id] })
+    if (supplier.needsLinking) {
+      // Saved safely on a local row; the registrations screen shows it as needing a CRM link.
+      await db.update(schema.projectLeads).set({ meta: sql`coalesce(${schema.projectLeads.meta}, '{}'::jsonb) || '{"linking":"needed"}'::jsonb` }).where(eq(schema.projectLeads.id, registration.id))
+    }
 
     // ── One open agreement per supplier per project ─────────────────────────
     const existing = await findProjectAgreement(project, supplier.id)
@@ -381,7 +386,7 @@ async function markRegistration(
     .where(eq(schema.projectLeads.id, id))
 }
 
-type ResolvedSupplier = { id: string; matchedOn: 'taxId' | 'phone' | 'email' | null; nameHint: { id: string; name: string } | null }
+export type ResolvedSupplier = { id: string; matchedOn: 'taxId' | 'phone' | 'email' | null; nameHint: { id: string; name: string } | null; /** CRM mode found no single company by tax id: the registration sits on a local row and a person should link it. */ needsLinking?: boolean }
 
 /**
  * The supplier this registration is about.
@@ -392,10 +397,34 @@ type ResolvedSupplier = { id: string; matchedOn: 'taxId' | 'phone' | 'email' | n
  * match — it is reported so a person can look — and the row created is a
  * separate supplier.
  */
-async function resolveSupplier(session: StaffSession, data: RegistrationValues): Promise<ResolvedSupplier> {
+export async function resolveSupplier(session: StaffSession, data: RegistrationValues, target: RegistrationTarget = 'xtra_sign'): Promise<ResolvedSupplier> {
   const db = getDb()
   const c = schema.companies
-  const scope = and(eq(c.organizationId, session.organizationId), eq(c.kind, 'supplier'), isNull(c.deletedAt))
+  const national = data.phone.slice(-9)
+  const taxIdMatch = sql`regexp_replace(coalesce(${c.taxId}, ''), '\\D', '', 'g') = ${data.taxId}`
+
+  if (target === 'crm') {
+    // CRM: only the synced mirror, only by the one reliable identifier. One
+    // match links; none or several is a question for a person, not a guess.
+    const mirror = and(eq(c.organizationId, session.organizationId), eq(c.kind, 'supplier'), isNull(c.deletedAt), isNotNull(c.crmRecordId))
+    const matches = await db.select({ id: c.id }).from(c).where(and(mirror, taxIdMatch)).orderBy(c.createdAt).limit(2)
+    if (matches.length === 1) return { id: matches[0].id, matchedOn: 'taxId', nameHint: null }
+    const local = await resolveLocal(session, data)
+    return { ...local, needsLinking: true }
+  }
+  return resolveLocal(session, data)
+}
+
+/**
+ * XTRA Sign only: the company is looked for among the rows made here — never
+ * among the CRM mirror — strongest signal first, each normalised so a hyphen
+ * or a country code cannot split one business into two. A name alone is
+ * never a match; it is reported so a person can look.
+ */
+async function resolveLocal(session: StaffSession, data: RegistrationValues): Promise<ResolvedSupplier> {
+  const db = getDb()
+  const c = schema.companies
+  const scope = and(eq(c.organizationId, session.organizationId), eq(c.kind, 'supplier'), isNull(c.deletedAt), isNull(c.crmRecordId))
   const national = data.phone.slice(-9)
 
   const attempts: { on: ResolvedSupplier['matchedOn']; where: ReturnType<typeof sql> }[] = [

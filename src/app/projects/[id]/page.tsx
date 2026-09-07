@@ -139,6 +139,7 @@ export default async function ProjectPage({
               campaignKind,
               goal: shape.goal,
               entry: shape.entry,
+              registrationTarget: project.registrationTarget === 'crm' ? 'crm' : 'xtra_sign',
               startsAt: project.startsAt?.toISOString() ?? null,
               endsAt: project.endsAt?.toISOString() ?? null,
               registrationsAfterEnd: project.registrationsAfterEnd,
@@ -149,6 +150,7 @@ export default async function ProjectPage({
             templates={(await listTemplates(session)).map((t) => ({ id: t.id, name: t.name }))}
             setup={query.setup}
               section={query.section}
+              registrantsNoun={project.kind === 'customer' ? 'לקוחות' : 'ספקים'}
             />
         ) : null}
       </div>

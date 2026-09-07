@@ -267,6 +267,13 @@
       "when": 1788769486963,
       "tag": "0037_campaign_goal_entry",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1788772178703,
+      "tag": "0038_registration_target",
+      "breakpoints": true
     }
   ]
 }

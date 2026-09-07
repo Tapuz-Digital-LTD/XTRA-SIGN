@@ -5,6 +5,7 @@ import { NotificationSettings } from '@/components/projects/NotificationSettings
 import { MessagesSettings } from '@/components/projects/MessagesSettings'
 import { CampaignSettings, type CampaignSettingsValue } from '@/components/projects/CampaignSettings'
 import { ShareSettings } from '@/components/projects/ShareSettings'
+import { RegistrationTargetSetting } from '@/components/projects/RegistrationTargetSetting'
 import type { ProjectNotificationSettings } from '@/lib/project-notifications'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -56,6 +57,7 @@ export function ProjectSettings({
   templates,
   setup,
   section: initialSection,
+  registrantsNoun = 'ספקים',
 }: {
   projectId: string
   projectName: string
@@ -74,6 +76,7 @@ export function ProjectSettings({
   /** What the wizard asked to finish here, if anything. */
   setup?: string
   section?: string
+  registrantsNoun?: 'ספקים' | 'לקוחות'
 }) {
   const router = useRouter()
   const isSection = (s: string | undefined): s is SettingsSection => SETTINGS_SECTIONS.some((x) => x.key === s)
@@ -223,6 +226,7 @@ export function ProjectSettings({
       {section === 'page' ? (
         <>
           <SelfServiceSettings projectId={projectId} config={selfService} publicSlug={publicSlug} publicBase={publicBase} agreement={agreement} owners={owners} currentUserId={currentUserId} />
+          <RegistrationTargetSetting projectId={projectId} value={campaign.registrationTarget} noun={registrantsNoun} />
           <ShareSettings projectId={projectId} campaignName={name} publicUrl={publicSlug.current ? `${publicBase}/${publicSlug.current}` : url} />
           <section className={card}>
             <div className="flex flex-wrap items-center justify-between gap-3">
