@@ -13,6 +13,7 @@ import { crmObjectTypeFor, getCompany } from '@/server/companies/companies'
 import { listBusinessDocuments } from '@/server/crm/business-documents'
 import { countDocuments, listDocuments, type ListFilter } from '@/server/documents/queries'
 import { groupsForCompany } from '@/server/groups/groups'
+import { tagsForCompanies } from '@/server/tags/tags'
 
 const DOC_FILTERS: { key: ListFilter; label: string }[] = [
   { key: 'all', label: 'הכול' },
@@ -51,7 +52,7 @@ export default async function CompanyPage({
     ? (query.filter as ListFilter)
     : 'all'
 
-  const [documents, counts, quotes, memberOf] = await Promise.all([
+  const [documents, counts, quotes, memberOf, tagMap] = await Promise.all([
     listDocuments(session, { companyId: id, filter, pageSize: 100 }),
     countDocuments(session, { companyId: id }),
     // Only when that tab is open: it is a live CRM call, not a local count.
@@ -62,6 +63,7 @@ export default async function CompanyPage({
         }).catch(() => [])
       : Promise.resolve([]),
     groupsForCompany(session, id),
+    tagsForCompanies(session.organizationId, [id]),
   ])
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
@@ -83,7 +85,7 @@ export default async function CompanyPage({
         </Link>
       </div>
 
-      <CompanyHeader company={company} noun={noun} crmAppUrl={process.env.FIREBERRY_APP_URL ?? null} isAdmin={session.isAdmin} startEditing={query.edit === '1'} />
+      <CompanyHeader company={company} noun={noun} crmAppUrl={process.env.FIREBERRY_APP_URL ?? null} isAdmin={session.isAdmin} startEditing={query.edit === '1'} tags={tagMap.get(id) ?? []} />
 
       {/* The projects this company is in. Each is a link into the project,
           so a chip answers "who else is in here?" in one click. */}
