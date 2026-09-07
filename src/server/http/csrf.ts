@@ -45,7 +45,7 @@ export function allowedOrigins(): string[] {
   const configured = [
     process.env.SIGN_PUBLIC_URL,
     ...(process.env.SIGN_EXTRA_ORIGINS?.split(',') ?? []),
-    ...CAMPAIGN_ORIGINS,
+    ...(process.env.VERCEL_ENV === 'production' ? CAMPAIGN_ORIGINS : []),
   ]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value))

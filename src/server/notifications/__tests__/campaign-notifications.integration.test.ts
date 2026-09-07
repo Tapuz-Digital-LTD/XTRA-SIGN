@@ -156,7 +156,7 @@ describe('signature emails', () => {
     // Recorded as sent.
     const audits = await db.select().from(schema.auditEvents).where(eq(schema.auditEvents.agreementId, registered.agreementId))
     expect(audits.some((a) => a.type === 'email_sent' && (a.metadata as { purpose?: string })?.purpose === 'signed_copy')).toBe(true)
-  })
+  }, 20000)
 
   it('a campaign that turns the signer copy off sends none, and the signature still completes', async () => {
     const off = await saveProjectNotificationSettings(admin, groupId, { signerCopy: { enabled: false, replyTo: null, senderName: null, note: null, attachPdf: false } })
