@@ -81,7 +81,7 @@ export function LoginForm({ captcha }: { captcha?: CaptchaPublicConfig | null })
       // A full navigation, not a client transition: the session cookie was
       // just set, and every page above this one is rendered on the server.
       setTimeout(() => {
-        router.replace('/documents')
+        router.replace('/')
         router.refresh()
       }, 650)
     } catch {

@@ -11,14 +11,14 @@ import { captchaPublicConfig } from '@/server/security/captcha'
  * with the keyboard open; nothing is fixed to the bottom.
  */
 export default async function LoginPage() {
-  if (await getSession()) redirect('/documents')
+  if (await getSession()) redirect('/')
 
   return (
     <div className="min-h-dvh bg-bg lg:grid lg:grid-cols-[1fr_minmax(0,560px)]">
       <aside className="hidden bg-[radial-gradient(120%_120%_at_0%_0%,#1d4ed8_0%,#0c3257_60%,#071f38_100%)] p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="flex items-center gap-2" dir="ltr">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/xtra-logo.png" alt="XTRA" className="h-8 w-auto brightness-0 invert" />
+          <span className="inline-flex items-center rounded-lg bg-white px-2.5 py-1.5"><img src="/xtra-logo.png" alt="XTRA" className="h-6 w-auto" /></span>
           <span className="text-lg font-bold tracking-wide">SIGN</span>
         </div>
         <div className="max-w-md">

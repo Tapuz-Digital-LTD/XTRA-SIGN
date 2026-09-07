@@ -222,15 +222,11 @@ export async function startSelfServiceSigning(input: RegistrationInput): Promise
       maskedPhone: maskPhone(data.phone) ?? '',
       otp,
       afterResponse: async () => {
-        await deliverSigningLink({
-          agreementId,
-          recipient: issued.recipient,
-          channels: ['sms', 'email'],
-          signingUrl: issued.signingUrl,
-          documentTitle: issued.title,
-          actor: session.email,
-          copy: signingLinkCopy(project, skin),
-        }).catch((error) => log.error('self-service link delivery failed', { agreementId, error: String(error) }))
+        // The signer is on the page right now, typing the code. The "come
+        // back and sign" message is for the one who leaves: it goes out only
+        // if the agreement is still unsigned a few minutes from now (the
+        // daily run catches anything this misses).
+        void deferredSigningLink({ agreementId, recipient: issued.recipient, signingUrl: issued.signingUrl, title: issued.title, actor: session.email, project, skin })
 
         const mail = await registrationEmail({
           projectId: project.groupId,
@@ -578,6 +574,7 @@ async function reissue(
         documentTitle: context.title,
         actor: session.email,
         copy: signingLinkCopy(project, skin),
+        event: 'registration_completed',
       }).catch((error) => log.error('self-service link redelivery failed', { agreementId, error: String(error) }))
     },
   }
@@ -611,6 +608,37 @@ async function alreadySigned(project: SelfServiceProject, skin: SelfServiceSkin,
         await new InforuEmailProvider().send({ to: recipient.email, ...(await copy.email(recipient.name, url, { organizationName: project.projectName, brand })), recipientName: recipient.name })
       }
     },
+  }
+}
+
+/** How long a registrant gets to finish on the page before we write to them. */
+const LINK_AFTER_MS = Number(process.env.SIGN_SELF_SERVICE_LINK_AFTER_MS ?? 4 * 60 * 1000)
+
+async function deferredSigningLink(input: {
+  agreementId: string
+  recipient: { id: string; name: string; phone: string | null; email: string | null }
+  signingUrl: string
+  title: string
+  actor: string
+  project: SelfServiceProject
+  skin: SelfServiceSkin
+}) {
+  try {
+    await new Promise((r) => setTimeout(r, LINK_AFTER_MS))
+    const [row] = await getDb().select({ status: schema.agreements.status }).from(schema.agreements).where(eq(schema.agreements.id, input.agreementId)).limit(1)
+    if (!row || !['sent', 'viewed'].includes(row.status)) return
+    await deliverSigningLink({
+      agreementId: input.agreementId,
+      recipient: input.recipient,
+      channels: [...(input.recipient.phone ? (['sms'] as const) : []), ...(input.recipient.email ? (['email'] as const) : [])],
+      signingUrl: input.signingUrl,
+      documentTitle: input.title,
+      actor: input.actor,
+      copy: signingLinkCopy(input.project, input.skin),
+      event: 'registration_completed',
+    })
+  } catch (error) {
+    log.error('self-service link delivery failed', { agreementId: input.agreementId, error: String(error) })
   }
 }
 
