@@ -12,25 +12,29 @@ import puppeteer from 'puppeteer-core'
 const CHROME = process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const asset = (name: string) => `data:image/webp;base64,${readFileSync(`public/tourism-2026/${name}`).toString('base64')}`
 
-const html = `<!doctype html><html dir="rtl"><head><meta charset="utf-8"><style>
+const html = `<!doctype html><html dir="rtl" lang="he"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
   html,body{margin:0;width:1200px;height:630px;font-family:Heebo,Arial,sans-serif}
-  .stage{position:relative;width:1200px;height:630px;background:#0c3257;
-    background-image:radial-gradient(120% 140% at 100% 0%, #16457a 0%, #0c3257 55%, #071f38 100%)}
-  .band{position:absolute;inset:0;background:linear-gradient(174.5deg, transparent 0 66%, #45b2ed 66% 100%)}
-  .band2{position:absolute;inset:0;background:linear-gradient(174.5deg, transparent 0 84%, #ff95c5 84% 100%);width:640px}
-  .logo{position:absolute;top:44px;right:56px;height:78px}
-  .headline{position:absolute;top:150px;right:56px;width:640px}
-  .sub{position:absolute;top:388px;right:60px;width:600px;color:#eef2f6;font-size:30px;line-height:1.35;font-weight:500}
-  .sub b{color:#ff95c5}
-  .char{position:absolute;left:24px;bottom:-96px;height:640px}
-  .pill{position:absolute;bottom:40px;right:60px;background:#fff;color:#0c3257;font-weight:700;font-size:26px;padding:14px 28px;border-radius:999px}
+  .stage{position:relative;width:1200px;height:630px;background:#0c3257;overflow:hidden}
+  .stripe{position:absolute;left:0;right:0;bottom:0;height:22px;background:#45b2ed}
+  .stripe2{position:absolute;left:0;right:0;bottom:22px;height:8px;background:#ff95c5}
+  .logo{position:absolute;top:44px;right:60px;height:74px}
+  .kicker{position:absolute;top:158px;right:60px;color:#ff95c5;font-size:34px;font-weight:700;letter-spacing:.2px}
+  .title{position:absolute;top:206px;right:60px;width:700px;color:#ffffff;font-size:72px;line-height:1.08;font-weight:900}
+  .sub{position:absolute;top:400px;right:60px;width:700px;color:#eef2f6;font-size:27px;line-height:1.4;font-weight:500}
+  .pill{position:absolute;bottom:64px;right:60px;background:#45b2ed;color:#0c3257;font-weight:800;font-size:26px;padding:14px 30px;border-radius:999px}
+  .charbox{position:absolute;left:44px;bottom:30px;width:262px;height:560px;overflow:hidden}
+  .patch{position:absolute;left:226px;bottom:30px;width:120px;height:78px;background:#0c3257}
+  .char{height:560px}
 </style></head><body><div class="stage">
-  <div class="band"></div><div class="band2"></div>
   <img class="logo" src="${asset('logo.webp')}" alt="">
-  <img class="headline" src="${asset('headline.webp')}" alt="">
-  <div class="sub">בעלי עסקים בתחום התיירות מוזמנים להצטרף, להירשם <b>ולחתום דיגיטלית</b> על הסכם ההצטרפות.</div>
-  <div class="pill">הרשמה וחתימה בכמה דקות ←</div>
-  <img class="char" src="${asset('character.webp')}" alt="">
+  <div class="kicker">קול קורא לעסקי תיירות</div>
+  <div class="title">חודש התיירות הישראלית 2026</div>
+  <div class="sub">הרשמה וחתימה דיגיטלית על הסכם ההצטרפות — בכמה דקות, מהנייד.</div>
+  <div class="pill">להרשמה ולחתימה ←</div>
+  <div class="charbox"><img class="char" src="${asset('character.webp')}" alt=""></div><div class="patch"></div>
+  <div class="stripe2"></div><div class="stripe"></div>
 </div></body></html>`
 
 async function main() {
@@ -38,7 +42,7 @@ async function main() {
   const page = await browser.newPage()
   await page.setViewport({ width: 1200, height: 630, deviceScaleFactor: 1 })
   writeFileSync('/private/tmp/claude-501/-Users-macbookpro-dev-xtra-sign/d84c6f07-f66b-44a5-8ca9-6bd5b84d8740/scratchpad/og.html', html)
-  await page.goto('file:///private/tmp/claude-501/-Users-macbookpro-dev-xtra-sign/d84c6f07-f66b-44a5-8ca9-6bd5b84d8740/scratchpad/og.html', { waitUntil: 'load' })
+  await page.goto('file:///private/tmp/claude-501/-Users-macbookpro-dev-xtra-sign/d84c6f07-f66b-44a5-8ca9-6bd5b84d8740/scratchpad/og.html', { waitUntil: 'networkidle0' })
   // Data-URI images decode after "load"; wait for every one before the shot.
   await page.evaluate(() => Promise.all(Array.from(document.images).map((img) => (img.complete ? Promise.resolve() : new Promise((r) => { img.onload = r; img.onerror = r })))))
   await page.evaluate(() => Promise.all(Array.from(document.images).map((img) => img.decode().catch(() => null))))
@@ -50,7 +54,8 @@ async function main() {
     const soft = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--disable-gpu', '--use-gl=swiftshader', '--enable-unsafe-swiftshader'] })
     const p2 = await soft.newPage()
     await p2.setViewport({ width: 1200, height: 630, deviceScaleFactor: 1 })
-    await p2.goto('file:///private/tmp/claude-501/-Users-macbookpro-dev-xtra-sign/d84c6f07-f66b-44a5-8ca9-6bd5b84d8740/scratchpad/og.html', { waitUntil: 'load' })
+    await p2.goto('file:///private/tmp/claude-501/-Users-macbookpro-dev-xtra-sign/d84c6f07-f66b-44a5-8ca9-6bd5b84d8740/scratchpad/og.html', { waitUntil: 'networkidle0' })
+    await p2.evaluate(() => (document as unknown as { fonts: { ready: Promise<unknown> } }).fonts.ready)
     await p2.evaluate(() => Promise.all(Array.from(document.images).map((img) => img.decode().catch(() => null))))
     png = (await p2.screenshot({ type: 'png' })) as Buffer
     await soft.close()
