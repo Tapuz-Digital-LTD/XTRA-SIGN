@@ -1,17 +1,19 @@
-import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { and, eq, isNull, or, sql } from 'drizzle-orm'
 import { AppShell } from '@/components/AppShell'
+import { BackLink } from '@/components/nav/BackLink'
 import { TemplateDetail } from '@/components/templates/TemplateDetail'
+import { readReturnTo } from '@/lib/return-to'
 import { ForbiddenError, getSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
 import { templateLayout } from '@/server/templates/templates'
 
 /** תבניות → תבנית: see it, rename it, edit its fields, replace its PDF, make a document from it. */
-export default async function TemplatePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function TemplatePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ returnTo?: string }> }) {
   const session = await getSession()
   if (!session) redirect('/login')
   const { id } = await params
+  const returnTo = readReturnTo((await searchParams).returnTo)
   let layout: Awaited<ReturnType<typeof templateLayout>>
   try {
     layout = await templateLayout(session, id)
@@ -40,10 +42,8 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
 
   return (
     <AppShell>
-      <nav className="text-sm text-muted" aria-label="פירורי לחם">
-        <Link href="/templates" className="hover:underline">תבניות</Link> <span aria-hidden="true">›</span> {layout.name}
-      </nav>
-      <div className="mt-2">
+      <BackLink returnTo={returnTo} fallback="/templates" />
+      <div>
         <TemplateDetail id={id} name={layout.name} pages={layout.pages} fields={layout.fields as never} isAdmin={session.isAdmin} usedBy={usedBy} />
       </div>
     </AppShell>

@@ -1,7 +1,8 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ProjectRowMenu } from '@/components/projects/ProjectRowMenu'
+import { currentUrlFor, withReturnTo } from '@/lib/return-to'
 import { audienceLabel, entryLabel, goalLabel, type CampaignGoal, type CampaignKind, type EntryMethod } from '@/lib/campaigns'
 
 /**
@@ -53,6 +54,8 @@ function kindChip(project: { goal: CampaignGoal; entry: EntryMethod }) {
 
 export function ProjectsList({ projects, isAdmin }: { projects: ProjectRow[]; isAdmin: boolean }) {
   const router = useRouter()
+  // The campaigns list as filtered: a campaign opened from it comes back here.
+  const here = currentUrlFor(usePathname(), useSearchParams())
 
   return (
     <>
@@ -61,7 +64,7 @@ export function ProjectsList({ projects, isAdmin }: { projects: ProjectRow[]; is
         {projects.map((project) => (
           <li
             key={project.id}
-            onClick={() => router.push(`/projects/${project.id}`)}
+            onClick={() => router.push(withReturnTo(`/projects/${project.id}`, here))}
             className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-card)] border border-line bg-surface p-4"
           >
             <div className="min-w-0 flex-1">
@@ -104,7 +107,7 @@ export function ProjectsList({ projects, isAdmin }: { projects: ProjectRow[]; is
             {projects.map((project) => (
               <tr
                 key={project.id}
-                onClick={() => router.push(`/projects/${project.id}`)}
+                onClick={() => router.push(withReturnTo(`/projects/${project.id}`, here))}
                 className="cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-bg"
               >
                 <td className="px-4 py-3" title={project.name}>

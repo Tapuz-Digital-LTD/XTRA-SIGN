@@ -2,16 +2,18 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { FieldEditor } from '@/components/editor/FieldEditor'
+import { readReturnTo, withReturnTo } from '@/lib/return-to'
 import { ForbiddenError, getSession } from '@/server/auth/session'
 import { authorizeAgreementAccess } from '@/server/documents/authorization'
 import { loadFields, loadPageGeometry } from '@/server/documents/save-fields'
 import { getDocumentDetail } from '@/server/documents/queries'
 
-export default async function EditDocumentPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditDocumentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ returnTo?: string }> }) {
   const session = await getSession()
   if (!session) redirect('/login')
 
   const { id } = await params
+  const returnTo = readReturnTo((await searchParams).returnTo)
 
   let agreement
   try {
@@ -23,7 +25,7 @@ export default async function EditDocumentPage({ params }: { params: Promise<{ i
 
   // A sent or signed document is frozen. Editing it would change what the
   // signer agreed to; a change means a new version, not an edit in place.
-  if (agreement.status !== 'draft') redirect(`/documents/${id}`)
+  if (agreement.status !== 'draft') redirect(withReturnTo(`/documents/${id}`, returnTo))
 
   const [doc, pages, fields] = await Promise.all([
     getDocumentDetail(id),
@@ -45,7 +47,7 @@ export default async function EditDocumentPage({ params }: { params: Promise<{ i
           ולהעלות אותו מחדש כ-PDF.
         </p>
         <div className="mt-4 text-center">
-          <Link href={`/documents/${id}`} className="text-sm text-brand underline">
+          <Link href={withReturnTo(`/documents/${id}`, returnTo)} className="text-sm text-brand underline">
             חזרה למסמך
           </Link>
         </div>

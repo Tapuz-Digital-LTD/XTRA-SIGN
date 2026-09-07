@@ -3,12 +3,13 @@
 import { DeleteDialog } from '@/components/deletion/DeleteDialog'
 import { RowMenu } from '@/components/deletion/RowMenu'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { CompanyForm } from '@/components/companies/CompanyForm'
 import { LINKED_NOTE, SourceBadge, isLinked } from '@/components/companies/SourceBadge'
 import { withSource } from '@/components/companies/SourceGate'
 import { AddToGroupButton } from '@/components/groups/AddToGroupButton'
+import { currentUrlFor, withReturnTo } from '@/lib/return-to'
 import { NewGroupButton } from '@/components/groups/NewGroupButton'
 import { BulkBar } from '@/components/tags/BulkBar'
 import { TagChips } from '@/components/tags/TagChips'
@@ -62,6 +63,8 @@ export function CompanyList({
   tagsMode?: TagsMode
 }) {
   const router = useRouter()
+  // This list, filters and all: a card opened from it comes back here.
+  const here = currentUrlFor(usePathname(), useSearchParams())
   const [removing, setRemoving] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -79,8 +82,8 @@ export function CompanyList({
   const menuFor = (company: CompanyListItem) => (
     <RowMenu
       items={[
-        { label: 'פתיחה', onSelect: () => router.push(`/companies/${company.id}`) },
-        { label: 'עריכה', onSelect: () => router.push(`/companies/${company.id}?edit=1`) },
+        { label: 'פתיחה', onSelect: () => router.push(withReturnTo(`/companies/${company.id}`, here)) },
+        { label: 'עריכה', onSelect: () => router.push(withReturnTo(`/companies/${company.id}?edit=1`, here)) },
         { label: archivedView ? 'החזרה מהארכיון' : 'ארכיון', onSelect: () => void setArchived(company.id, !archivedView) },
         { label: 'מחיקה', danger: true, onSelect: () => setRemoving(company.id) },
       ]}
@@ -305,7 +308,7 @@ export function CompanyList({
                       aria-label={`בחירת ${company.name}`}
                     />
                     <span className="min-w-0">
-                      <Link href={`/companies/${company.id}`} className="block truncate font-medium text-fg hover:underline">
+                      <Link href={withReturnTo(`/companies/${company.id}`, here)} className="block truncate font-medium text-fg hover:underline">
                         {company.name}
                       </Link>
                       <span className="mt-0.5 block truncate text-xs text-muted">
@@ -361,7 +364,7 @@ export function CompanyList({
                 {companies.map((company) => (
                   <tr
                     key={company.id}
-                    onClick={() => router.push(`/companies/${company.id}`)}
+                    onClick={() => router.push(withReturnTo(`/companies/${company.id}`, here))}
                     className="cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-bg"
                   >
                     <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>

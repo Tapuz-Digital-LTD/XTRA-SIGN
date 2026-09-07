@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 import { StatusBadge } from '@/components/StatusBadge'
 import { describeActivity } from '@/lib/relative-time'
+import { currentUrlFor, withReturnTo } from '@/lib/return-to'
 import type { DocumentListItem } from '@/server/documents/queries'
 import { AttentionAction, AttentionDrawer, SEVERITY_CLASS } from './AttentionDrawer'
 import { RowActions } from './RowActions'
@@ -41,7 +42,9 @@ export function DocumentsTable({
   selectable?: boolean
 }) {
   const router = useRouter()
-  const open = (id: string) => router.push(`/documents/${id}`)
+  // This list, filters and page included: a document opened from it comes back here.
+  const here = currentUrlFor(usePathname(), useSearchParams())
+  const open = (id: string) => router.push(withReturnTo(`/documents/${id}`, here))
   const at = new Date(now)
   const [drawerId, setDrawerId] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -80,7 +83,7 @@ export function DocumentsTable({
             <div className="flex items-start gap-2 p-3">
               {selectable ? <span className="pt-1">{checkbox(doc)}</span> : null}
               <div className="min-w-0 flex-1">
-                <Link href={`/documents/${doc.id}`} className="block text-start">
+                <Link href={withReturnTo(`/documents/${doc.id}`, here)} className="block text-start">
                   <span className="block truncate text-sm font-medium text-fg">{doc.title}</span>
                   <span className="mt-1 flex flex-wrap items-center gap-1.5">
                     <CompanyChip doc={doc} />
@@ -103,6 +106,7 @@ export function DocumentsTable({
                 ) : null}
               </div>
               <RowActions
+                returnTo={here}
                 isAdmin={isAdmin}
                 documentId={doc.id}
                 status={doc.status}
@@ -152,7 +156,7 @@ export function DocumentsTable({
                   {/* A real link, so the row can be focused, opened in a new
                       tab, and reached without a mouse. */}
                   <Link
-                    href={`/documents/${doc.id}`}
+                    href={withReturnTo(`/documents/${doc.id}`, here)}
                     onClick={(e) => e.stopPropagation()}
                     className="block truncate font-medium text-fg hover:underline"
                   >
@@ -195,6 +199,7 @@ export function DocumentsTable({
                 </td>
                 <td className="sticky end-0 bg-surface px-2 py-3 align-top" onClick={(e) => e.stopPropagation()}>
                   <RowActions
+                    returnTo={here}
                     isAdmin={isAdmin}
                     documentId={doc.id}
                     status={doc.status}

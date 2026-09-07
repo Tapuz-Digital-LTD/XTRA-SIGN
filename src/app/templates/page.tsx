@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { EmptyState } from '@/components/EmptyState'
+import { ScrollRestore } from '@/components/nav/ScrollRestore'
 import { TemplateList } from '@/components/TemplateList'
 import { getSession } from '@/server/auth/session'
 import { listTemplates } from '@/server/templates/templates'
@@ -19,6 +20,7 @@ export default async function TemplatesPage() {
 
   return (
     <AppShell>
+      <ScrollRestore />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight text-fg">תבניות</h1>
         <Link

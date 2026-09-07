@@ -4,6 +4,7 @@ import { AppShell } from '@/components/AppShell'
 import { EmptyState } from '@/components/EmptyState'
 import { DocumentsTable } from '@/components/documents/DocumentsTable'
 import { InboxControls } from '@/components/documents/InboxControls'
+import { ScrollRestore } from '@/components/nav/ScrollRestore'
 import { getSession } from '@/server/auth/session'
 import { listDocuments, type ListFilter } from '@/server/documents/queries'
 
@@ -50,6 +51,7 @@ export default async function AgreementsPage({
 
   return (
     <AppShell>
+      <ScrollRestore />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight text-fg">הסכמים</h1>
         <Link

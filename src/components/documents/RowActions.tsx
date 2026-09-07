@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { withReturnTo } from '@/lib/return-to'
 import type { AgreementStatus } from '@/lib/status'
 import { DeleteDialog } from '@/components/deletion/DeleteDialog'
 
@@ -21,12 +22,15 @@ export function RowActions({
   companyId,
   hasCompany,
   isAdmin = false,
+  returnTo = null,
 }: {
   documentId: string
   status: AgreementStatus
   companyId: string | null
   hasCompany: boolean
   isAdmin?: boolean
+  /** The list this row is on, so a card opened from the menu comes back to it. */
+  returnTo?: string | null
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -74,7 +78,7 @@ export function RowActions({
     }
   }
 
-  const go = (href: string) => () => router.push(href)
+  const go = (href: string) => () => router.push(withReturnTo(href, returnTo))
   const lifecycle = (action: 'cancel' | 'duplicate' | 'new-version', confirmText?: string) => () => {
     if (confirmText && !window.confirm(confirmText)) return
     void call(

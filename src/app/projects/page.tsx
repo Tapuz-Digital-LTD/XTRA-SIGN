@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { EmptyState } from '@/components/EmptyState'
+import { ScrollRestore } from '@/components/nav/ScrollRestore'
 import { NewCampaignWizard } from '@/components/projects/NewCampaignWizard'
 import { ProjectsList } from '@/components/projects/ProjectsList'
 import { ProjectsSearch } from '@/components/projects/ProjectsSearch'
@@ -46,6 +47,7 @@ export default async function CampaignsPage({
 
   return (
     <AppShell>
+      <ScrollRestore />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-fg">קמפיינים</h1>

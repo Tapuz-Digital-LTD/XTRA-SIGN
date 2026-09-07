@@ -1,11 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { RowMenu, type RowMenuItem } from '@/components/deletion/RowMenu'
 import { Drawer } from '@/components/ui/Drawer'
 import { LinkCompanyPanel } from '@/components/invitations/LinkCompanyPanel'
+import { currentUrlFor, withReturnTo } from '@/lib/return-to'
 import type { ActionPlan, ActionResult, RegistrationAction, RegistrationDetail } from '@/server/reports/registration-actions'
 import type { ProjectReportData } from './ProjectReportView'
 import { EditLeadDialog } from '@/components/projects/LeadsPanel'
@@ -86,7 +87,10 @@ export function RegistrationsTable({
   const [taskOverrides, setTaskOverrides] = useState<Record<string, TaskSummary>>({})
   const [taskVersion, setTaskVersion] = useState(0)
   const [marking, setMarking] = useState<string[] | null>(null)
-  const taskFilter = useSearchParams().get('taskFilter')
+  const searchParams = useSearchParams()
+  const taskFilter = searchParams.get('taskFilter')
+  // This report, filters and all: a card opened from it comes back here.
+  const here = currentUrlFor(usePathname(), searchParams)
 
   const taskOf = (r: Row): TaskSummary | null => taskOverrides[r.id] ?? r.task
   const setTask = (leadId: string, task: TaskSummary) => {
@@ -203,8 +207,8 @@ export function RegistrationsTable({
     needsPerson(r) ? { label: `אשר והפוך ל${audienceNoun}`, onSelect: () => void leadAction(r, 'approve') } : null,
     needsPerson(r) ? { label: 'ערוך פרטים', onSelect: () => setEditing(r) } : null,
     needsPerson(r) ? { label: 'דחה', danger: true, onSelect: () => void leadAction(r, 'reject') } : null,
-    r.companyId ? { label: 'פתח ספק', onSelect: () => router.push(`/companies/${r.companyId}`) } : null,
-    r.agreement ? { label: isSigned(r) ? 'צפייה בהסכם' : 'פתח הסכם', onSelect: () => router.push(`/documents/${r.agreement!.id}`) } : null,
+    r.companyId ? { label: 'פתח ספק', onSelect: () => router.push(withReturnTo(`/companies/${r.companyId}`, here)) } : null,
+    r.agreement ? { label: isSigned(r) ? 'צפייה בהסכם' : 'פתח הסכם', onSelect: () => router.push(withReturnTo(`/documents/${r.agreement!.id}`, here)) } : null,
     isSigned(r) && r.agreement ? { label: 'הורדת המסמך החתום', onSelect: () => window.open(`/api/documents/${r.agreement!.id}/download`, '_blank') } : null,
     isSigned(r) ? { label: 'שלח עותק במייל', onSelect: () => ask('send_signed_copy', [r.id]) } : null,
     isSigned(r) ? { label: 'שתף קישור מאובטח', onSelect: () => void share(r, 'whatsapp') } : null,
@@ -213,7 +217,7 @@ export function RegistrationsTable({
     status(r) === 'expired' ? { label: 'חדש קישור לחתימה', onSelect: () => ask('renew', [r.id]) } : null,
     canRemind(r) ? { label: 'שתף ב-WhatsApp', onSelect: () => void share(r, 'whatsapp') } : null,
     canRemind(r) || isSigned(r) ? { label: 'העתק קישור', onSelect: () => void share(r, 'copy') } : null,
-    failed(r) && r.companyId ? { label: 'ערוך פרטי קשר', onSelect: () => router.push(`/companies/${r.companyId}?edit=1`) } : null,
+    failed(r) && r.companyId ? { label: 'ערוך פרטי קשר', onSelect: () => router.push(withReturnTo(`/companies/${r.companyId}?edit=1`, here)) } : null,
   ]
 
   const quick = (r: Row) =>
@@ -226,7 +230,7 @@ export function RegistrationsTable({
         שלח תזכורת
       </button>
     ) : isSigned(r) && r.agreement ? (
-      <Link href={`/documents/${r.agreement.id}`} className={buttonClass}>
+      <Link href={withReturnTo(`/documents/${r.agreement.id}`, here)} className={buttonClass}>
         פתח מסמך
       </Link>
     ) : failed(r) && r.agreement ? (
@@ -471,6 +475,7 @@ function RegistrationDrawer({
 }) {
   const [detail, setDetail] = useState<RegistrationDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const here = currentUrlFor(usePathname(), useSearchParams())
 
   useEffect(() => {
     if (!id) return
@@ -530,7 +535,7 @@ function RegistrationDrawer({
               { label: 'אימייל', value: detail.business.email, dir: 'ltr' },
             ])}
             {detail.business.companyId ? (
-              <Link href={`/companies/${detail.business.companyId}`} className="mt-2 inline-block text-xs text-brand hover:underline">
+              <Link href={withReturnTo(`/companies/${detail.business.companyId}`, here)} className="mt-2 inline-block text-xs text-brand hover:underline">
                 פתח את הספק ←
               </Link>
             ) : null}
@@ -577,7 +582,7 @@ function RegistrationDrawer({
                 { label: 'מהרשמה לחתימה', value: detail.agreement.timeToSign },
               ])}
               <div className="mt-2 flex flex-wrap gap-3 text-xs">
-                <Link href={`/documents/${detail.agreement.id}`} className="text-brand hover:underline">
+                <Link href={withReturnTo(`/documents/${detail.agreement.id}`, here)} className="text-brand hover:underline">
                   פתח את ההסכם ←
                 </Link>
                 {detail.agreement.status === 'signed' ? (

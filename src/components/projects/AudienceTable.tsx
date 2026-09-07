@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { TaskBadge } from '@/components/follow-up/TaskBadge'
@@ -9,6 +9,7 @@ import { TaskPanel } from '@/components/follow-up/TaskPanel'
 import { CopyButton } from '@/components/ui/CopyButton'
 import { Drawer } from '@/components/ui/Drawer'
 import { LinkCompanyPanel } from '@/components/invitations/LinkCompanyPanel'
+import { currentUrlFor, withReturnTo } from '@/lib/return-to'
 import type { TaskSummary } from '@/server/follow-up/labels'
 import type { AudienceRow, AudienceView, CallOutcome, SendHistoryItem } from '@/server/invitations/invitations'
 import { InviteDialog } from './InviteDialog'
@@ -388,7 +389,7 @@ function useActions(row: AudienceRow, projectId: string, onNotice: (n: { tone: '
       if (channel === 'whatsapp') return run(label, () => post(`/api/projects/${projectId}/registrations/${row.id}/share-link`, { via: 'whatsapp' }))
       return run(label, () => post(`/api/projects/${projectId}/registrations/actions`, { ids: [row.id], action: 'remind', channels: [channel] }))
     }
-    return run(label, () => post(`/api/invitations/${row.id}/send`, { channel }))
+    return run(label, () => post(`/api/invitations/${row.id}/send`, { channel, attemptKey: `${crypto.randomUUID()}:${channel}` }))
   }
 
   async function confirmWhatsapp(sent: boolean) {
@@ -422,6 +423,7 @@ function RowMenu({ row, projectId, onOpen, onNotice }: { row: AudienceRow; proje
   const [open, setOpen] = useState(false)
   const [style, setStyle] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0, top: 0 })
   const { busy, send, whatsapp, confirmWhatsapp } = useActions(row, projectId, onNotice)
+  const here = currentUrlFor(usePathname(), useSearchParams())
 
   useEffect(() => {
     if (!open) return
@@ -439,8 +441,8 @@ function RowMenu({ row, projectId, onOpen, onNotice }: { row: AudienceRow; proje
           ...(row.phone ? [{ label: 'WhatsApp', run: () => void send('whatsapp') }] : []),
         ]
       : []),
-    ...(row.agreementId ? [{ label: 'פתח הסכם', run: () => window.open(`/documents/${row.agreementId}`, '_self') }] : []),
-    ...(row.companyId ? [{ label: 'פתח ספק/לקוח', run: () => window.open(`/companies/${row.companyId}`, '_self') }] : [{ label: 'הוסף כספק/לקוח', run: onOpen }]),
+    ...(row.agreementId ? [{ label: 'פתח הסכם', run: () => window.open(withReturnTo(`/documents/${row.agreementId}`, here), '_self') }] : []),
+    ...(row.companyId ? [{ label: 'פתח ספק/לקוח', run: () => window.open(withReturnTo(`/companies/${row.companyId}`, here), '_self') }] : [{ label: 'הוסף כספק/לקוח', run: onOpen }]),
   ]
 
   return (
@@ -494,6 +496,7 @@ function RowMenu({ row, projectId, onOpen, onNotice }: { row: AudienceRow; proje
 function PersonDrawer({ row, projectId, team, onClose, onNotice }: { row: AudienceRow; projectId: string; team: Team[]; onClose: () => void; onNotice: (n: { tone: 'ok' | 'error'; text: string }) => void }) {
   const router = useRouter()
   const { busy, send, whatsapp, confirmWhatsapp, hasAgreement } = useActions(row, projectId, onNotice)
+  const here = currentUrlFor(usePathname(), useSearchParams())
   const [history, setHistory] = useState<SendHistoryItem[] | null>(null)
   const [link, setLink] = useState<string | null>(null)
   const [assignee, setAssignee] = useState(row.assignee?.id ?? '')
@@ -558,7 +561,7 @@ function PersonDrawer({ row, projectId, team, onClose, onNotice }: { row: Audien
             <>
               <dt className="text-muted">ספק/לקוח</dt>
               <dd>
-                <Link href={`/companies/${row.companyId}`} className="text-brand underline">
+                <Link href={withReturnTo(`/companies/${row.companyId}`, here)} className="text-brand underline">
                   {row.companyName}
                 </Link>
               </dd>
@@ -596,7 +599,7 @@ function PersonDrawer({ row, projectId, team, onClose, onNotice }: { row: Audien
               </button>
             ) : null}
             {row.agreementId ? (
-              <Link href={`/documents/${row.agreementId}`} className={`${bigButton} border border-line bg-surface text-fg hover:border-brand`}>
+              <Link href={withReturnTo(`/documents/${row.agreementId}`, here)} className={`${bigButton} border border-line bg-surface text-fg hover:border-brand`}>
                 פתח הסכם
               </Link>
             ) : null}

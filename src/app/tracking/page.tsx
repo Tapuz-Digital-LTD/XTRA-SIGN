@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
+import { ScrollRestore } from '@/components/nav/ScrollRestore'
 import { AudienceTable } from '@/components/projects/AudienceTable'
 import { getSession } from '@/server/auth/session'
 import { listAudienceAll, type AudienceView } from '@/server/invitations/invitations'
@@ -30,6 +31,7 @@ export default async function TrackingPage({ searchParams }: { searchParams: Pro
 
   return (
     <AppShell>
+      <ScrollRestore />
       <h1 className="text-2xl font-bold tracking-tight text-fg">מעקב</h1>
       <p className="mt-1 text-sm text-muted">כל מי שהוזמן או נרשם, מכל הקמפיינים ומשליחות ישירות. לחיצה על שורה פותחת את כל הפרטים והפעולות.</p>
 

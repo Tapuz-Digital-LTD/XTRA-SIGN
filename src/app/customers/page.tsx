@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { CompanyList } from '@/components/companies/CompanyList'
 import { CompanyTabs } from '@/components/companies/CompanyTabs'
+import { ScrollRestore } from '@/components/nav/ScrollRestore'
 import { SourceBar, SourceGate, withSource } from '@/components/companies/SourceGate'
 import { getSession } from '@/server/auth/session'
 import { listCompanies, parseCompanySource, parseTagFilter } from '@/server/companies/companies'
@@ -49,6 +50,7 @@ export default async function CustomersPage({
       <p className="mt-1 text-sm text-muted">
         כל לקוח במקום אחד — הפרטים שלו וכל המסמכים שנשלחו אליו לחתימה.
       </p>
+      <ScrollRestore />
       <SourceBar base="/customers" source={source} params={{ q, group, view, tags, tagsMode }} />
       <CompanyTabs base="/customers" active="list" listLabel="לקוחות" source={source} />
       <div className="mt-3 flex justify-end">

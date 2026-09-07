@@ -3,6 +3,9 @@ import { notFound, redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { DocumentsTable } from '@/components/documents/DocumentsTable'
 import { GroupWorkspace } from '@/components/groups/GroupWorkspace'
+import { BackLink } from '@/components/nav/BackLink'
+import { ScrollRestore } from '@/components/nav/ScrollRestore'
+import { readReturnTo, withReturnTo } from '@/lib/return-to'
 import { AudienceTable } from '@/components/projects/AudienceTable'
 import { listAudience, type AudienceView } from '@/server/invitations/invitations'
 import { ProjectSettings } from '@/components/projects/ProjectSettings'
@@ -37,7 +40,7 @@ export default async function ProjectPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ tab?: string; q?: string; from?: string; to?: string; status?: string; source?: string; range?: string; setup?: string; new?: string; section?: string }>
+  searchParams: Promise<{ tab?: string; q?: string; from?: string; to?: string; status?: string; source?: string; range?: string; setup?: string; new?: string; section?: string; returnTo?: string }>
 }) {
   const session = await getSession()
   if (!session) redirect('/login')
@@ -67,15 +70,14 @@ export default async function ProjectPage({
   ])
   const newLeadCount = leads.filter((l) => l.status === 'new').length
 
-  const href = (next: Tab) => `/projects/${id}${next === 'overview' ? '' : `?tab=${next}`}`
+  // "חזרה" goes to the campaigns list as it was filtered; the tabs keep it.
+  const returnTo = readReturnTo(query.returnTo)
+  const href = (next: Tab) => withReturnTo(`/projects/${id}${next === 'overview' ? '' : `?tab=${next}`}`, returnTo)
 
   return (
     <AppShell>
-      <div className="mb-4">
-        <Link href="/projects" className="text-sm text-muted underline-offset-4 hover:text-fg hover:underline">
-          → לכל הקמפיינים
-        </Link>
-      </div>
+      <ScrollRestore />
+      <BackLink returnTo={returnTo} fallback="/projects" />
 
       <div>
         <div className="flex flex-wrap items-center gap-2">
