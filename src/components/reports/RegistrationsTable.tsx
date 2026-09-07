@@ -1,13 +1,17 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { RowMenu, type RowMenuItem } from '@/components/deletion/RowMenu'
 import { Drawer } from '@/components/ui/Drawer'
 import type { ActionPlan, ActionResult, RegistrationAction, RegistrationDetail } from '@/server/reports/registration-actions'
 import type { ProjectReportData } from './ProjectReportView'
 import { EditLeadDialog } from '@/components/projects/LeadsPanel'
+import { TaskBadge } from '@/components/follow-up/TaskBadge'
+import { TaskFilterChips } from '@/components/follow-up/TaskFilterChips'
+import { TaskPanel } from '@/components/follow-up/TaskPanel'
+import type { TaskSummary } from '@/server/follow-up/labels'
 
 /**
  * Registrations as a summary you can act on: five columns, a status chip,
@@ -76,6 +80,21 @@ export function RegistrationsTable({
   const [pending, setPending] = useState<Pending | null>(null)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
+  // Follow-up tasks: the chip on a row changes before the server answers,
+  // so the row keeps its own copy until the next refresh.
+  const [taskOverrides, setTaskOverrides] = useState<Record<string, TaskSummary>>({})
+  const [taskVersion, setTaskVersion] = useState(0)
+  const [marking, setMarking] = useState<string[] | null>(null)
+  const taskFilter = useSearchParams().get('taskFilter')
+
+  const taskOf = (r: Row): TaskSummary | null => taskOverrides[r.id] ?? r.task
+  const setTask = (leadId: string, task: TaskSummary) => {
+    setTaskOverrides((o) => ({ ...o, [leadId]: task }))
+    setTaskVersion((v) => v + 1)
+  }
+  // ponytail: filtered over the rows on screen (200 at most). Beyond that,
+  // add a taskFilter condition to rowConditions and pass query.taskFilter from the page.
+  const visible = taskFilter ? rows.filter((r) => taskOf(r)?.status === taskFilter) : rows
 
   const status = (r: Row) => r.agreement?.status ?? r.registrationStatus
   const canRemind = (r: Row) => status(r) === 'sent' || status(r) === 'viewed'
@@ -146,6 +165,38 @@ export function RegistrationsTable({
     }
   }
 
+  async function markDone() {
+    if (!marking) return
+    setBusy(true)
+    try {
+      const response = await fetch(`/api/projects/${projectId}/tasks/bulk`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskIds: marking, status: 'done' }),
+      })
+      const data = (await response.json().catch(() => null)) as { updated?: number; error?: { message?: string } } | null
+      if (!response.ok || !data) {
+        setNotice({ tone: 'error', text: data?.error?.message ?? 'הפעולה נכשלה.' })
+        return
+      }
+      setNotice({ tone: 'ok', text: `${data.updated ?? 0} משימות סומנו כהוקמו.` })
+      setMarking(null)
+      setSelected(new Set())
+      setTaskVersion((v) => v + 1)
+      router.refresh()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const openTaskIds = (ids: Iterable<string>) =>
+    [...ids].map((id) => rows.find((r) => r.id === id)).map((r) => (r ? taskOf(r) : null)).filter((t): t is TaskSummary => Boolean(t && (t.status === 'pending' || t.status === 'in_progress'))).map((t) => t.id)
+
+  const taskBadge = (r: Row) => {
+    const task = taskOf(r)
+    return isSigned(r) && task ? <TaskBadge projectId={projectId} task={task} onChange={(t) => setTask(r.id, t)} onError={(text) => setNotice({ tone: 'error', text })} /> : null
+  }
+
   const menuFor = (r: Row): (RowMenuItem | null)[] => [
     { label: 'פתח פרטים', onSelect: () => setOpenId(r.id) },
     needsPerson(r) ? { label: `אשר והפוך ל${audienceNoun}`, onSelect: () => void leadAction(r, 'approve') } : null,
@@ -183,8 +234,8 @@ export function RegistrationsTable({
       </button>
     ) : null
 
-  const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id))
-  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.id)))
+  const allSelected = visible.length > 0 && visible.every((r) => selected.has(r.id))
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(visible.map((r) => r.id)))
   const toggle = (id: string) =>
     setSelected((s) => {
       const next = new Set(s)
@@ -202,6 +253,10 @@ export function RegistrationsTable({
         </p>
       </div>
 
+      <div className="mt-3 empty:hidden">
+        <TaskFilterChips projectId={projectId} version={taskVersion} />
+      </div>
+
       {selected.size > 0 ? (
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-bg px-3 py-2 text-sm">
           <span className="text-fg">{selected.size} נבחרו</span>
@@ -214,6 +269,11 @@ export function RegistrationsTable({
           <button type="button" onClick={() => ask('send_signed_copy', [...selected])} className={buttonClass}>
             שלח עותק חתום במייל
           </button>
+          {openTaskIds(selected).length > 0 ? (
+            <button type="button" onClick={() => setMarking(openTaskIds(selected))} className={buttonClass}>
+              סמן כהוקם
+            </button>
+          ) : null}
           <button type="button" onClick={() => setSelected(new Set())} className="text-xs text-muted hover:underline">
             ניקוי הבחירה
           </button>
@@ -226,13 +286,13 @@ export function RegistrationsTable({
         </p>
       ) : null}
 
-      {rows.length === 0 ? (
+      {visible.length === 0 ? (
         <p className="mt-6 text-center text-sm text-muted">אין הרשמות בטווח ובסינון שנבחרו.</p>
       ) : (
         <>
           {/* phones: one card per registration */}
           <ul className="mt-3 flex flex-col gap-2 md:hidden">
-            {rows.map((r) => (
+            {visible.map((r) => (
               <li key={r.id} className="rounded-lg border border-line bg-bg p-3">
                 <div className="flex items-start gap-2">
                   <input type="checkbox" className="mt-1 size-4" checked={selected.has(r.id)} onChange={() => toggle(r.id)} aria-label={`בחירת ${r.businessName}`} />
@@ -245,7 +305,12 @@ export function RegistrationsTable({
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${TONE[r.statusTone]}`}>{r.statusLabel}</span>
                   <RowMenu items={menuFor(r)} />
                 </div>
-                {quick(r) ? <div className="mt-2">{quick(r)}</div> : null}
+                {quick(r) || taskBadge(r) ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {quick(r)}
+                    {taskBadge(r)}
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -269,7 +334,7 @@ export function RegistrationsTable({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
+                {visible.map((r) => (
                   <tr key={r.id} className="cursor-pointer border-t border-line hover:bg-bg" onClick={() => setOpenId(r.id)}>
                     <td className="py-2" onClick={(e) => e.stopPropagation()}>
                       <input type="checkbox" className="size-4" checked={selected.has(r.id)} onChange={() => toggle(r.id)} aria-label={`בחירת ${r.businessName}`} />
@@ -281,6 +346,7 @@ export function RegistrationsTable({
                     <td className="truncate py-2 pe-3 text-fg">{r.contactName || '—'}</td>
                     <td className="py-2 pe-3">
                       <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${TONE[r.statusTone]}`}>{r.statusLabel}</span>
+                      {taskBadge(r) ? <div className="mt-1" onClick={(e) => e.stopPropagation()}>{taskBadge(r)}</div> : null}
                     </td>
                     <td className="whitespace-nowrap py-2 pe-3 tabular-nums text-muted">{dateTime.format(new Date(r.createdAt))}</td>
                     <td className="truncate py-2 pe-3 text-muted">{r.source.label}</td>
@@ -298,7 +364,15 @@ export function RegistrationsTable({
         </>
       )}
 
-      <RegistrationDrawer projectId={projectId} id={openId} onClose={() => setOpenId(null)} onAct={(action, id) => ask(action, [id])} onShare={(id, via) => { const r = rows.find((x) => x.id === id); if (r) void share(r, via) }} />
+      <RegistrationDrawer
+        projectId={projectId}
+        id={openId}
+        task={openId ? (() => { const r = rows.find((x) => x.id === openId); return r && isSigned(r) ? taskOf(r) : null })() : null}
+        onTaskSaved={(t) => { if (openId) setTask(openId, t) }}
+        onClose={() => setOpenId(null)}
+        onAct={(action, id) => ask(action, [id])}
+        onShare={(id, via) => { const r = rows.find((x) => x.id === id); if (r) void share(r, via) }}
+      />
       {editing ? (
         <EditLeadDialog
           projectId={projectId}
@@ -310,6 +384,24 @@ export function RegistrationsTable({
             router.refresh()
           }}
         />
+      ) : null}
+
+      {marking ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 sm:items-center sm:p-4" onClick={() => setMarking(null)}>
+          <div role="dialog" aria-modal="true" aria-labelledby="mk-title" className="w-full max-w-md rounded-t-2xl bg-surface p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 id="mk-title" className="text-base font-semibold text-fg">סימון כהוקם</h3>
+            <p className="mt-2 text-sm text-fg">{marking.length === 1 ? 'משימה אחת תסומן כהוקמה באתר.' : `${marking.length} משימות יסומנו כהוקמו באתר.`}</p>
+            <p className="mt-2 text-xs text-muted">ההסכמים עצמם לא משתנים — רק מצב ההקמה.</p>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button type="button" onClick={() => setMarking(null)} className={buttonClass}>
+                ביטול
+              </button>
+              <button type="button" disabled={busy} onClick={() => void markDone()} className={primaryClass}>
+                {busy ? 'מסמן…' : `סמן כהוקם (${marking.length})`}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {pending ? (
@@ -355,12 +447,16 @@ export function RegistrationsTable({
 function RegistrationDrawer({
   projectId,
   id,
+  task,
+  onTaskSaved,
   onClose,
   onAct,
   onShare,
 }: {
   projectId: string
   id: string | null
+  task: TaskSummary | null
+  onTaskSaved: (task: TaskSummary) => void
   onClose: () => void
   onAct: (action: RegistrationAction, id: string) => void
   onShare: (id: string, via: 'whatsapp' | 'copy') => void
@@ -471,6 +567,13 @@ function RegistrationDrawer({
                   </a>
                 ) : null}
               </div>
+            </section>
+          ) : null}
+
+          {task ? (
+            <section>
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">הקמת מוצר באתר</h4>
+              <TaskPanel key={task.id} projectId={projectId} task={task} onSaved={onTaskSaved} />
             </section>
           ) : null}
 

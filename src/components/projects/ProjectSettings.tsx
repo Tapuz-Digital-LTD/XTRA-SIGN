@@ -1,6 +1,7 @@
 'use client'
 
 import { DeleteDialog } from '@/components/deletion/DeleteDialog'
+import { FollowUpSettings } from '@/components/follow-up/FollowUpSettings'
 import { NotificationSettings } from '@/components/projects/NotificationSettings'
 import { MessagesSettings } from '@/components/projects/MessagesSettings'
 import { CampaignSettings, type CampaignSettingsValue } from '@/components/projects/CampaignSettings'
@@ -309,6 +310,7 @@ export function ProjectSettings({
             <textarea value={allowedOrigins} onChange={(e) => setAllowedOrigins(e.target.value)} rows={3} dir="ltr" placeholder="https://www.example.co.il" className="mt-2 w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-fg outline-none focus:border-brand" />
             <div className="mt-4">{saveBar}</div>
           </section>
+          <FollowUpSettings projectId={projectId} isAdmin={isAdmin} />
           <section className={`${card} border-red-200`}>
             <h2 className="text-base font-semibold text-fg">מחיקת הקמפיין</h2>
             <p className="mt-1 text-sm text-muted">קמפיין עם הסכמים חתומים עובר לארכיון ולא נמחק; ההיסטוריה נשמרת.</p>

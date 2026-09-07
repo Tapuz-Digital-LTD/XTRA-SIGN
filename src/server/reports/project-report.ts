@@ -4,6 +4,8 @@ import { classifySource, type Utm } from '@/lib/campaign-events'
 import { formatDuration } from '@/lib/format-duration'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
+import { summarizeTask, type TaskSummary } from '@/server/follow-up/labels'
+import { tasksForLeads } from '@/server/follow-up/tasks'
 import { authorizeGroup } from '@/server/groups/groups'
 import { selfServiceOf } from '@/server/projects/self-service'
 
@@ -53,6 +55,8 @@ export type RegistrationRow = {
   agreement: { id: string; status: string; sentAt: Date | null; completedAt: Date | null } | null
   /** Registration → signature, in seconds. */
   secondsToSign: number | null
+  /** The follow-up task a signature created, when the campaign asks for one. */
+  task: TaskSummary | null
 }
 
 export type ProjectReport = {
@@ -446,6 +450,7 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
   const rows = await getDb()
     .select({
       id: schema.projectLeads.id,
+      organizationId: schema.projectLeads.organizationId,
       createdAt: schema.projectLeads.createdAt,
       status: schema.projectLeads.status,
       data: schema.projectLeads.data,
@@ -462,6 +467,8 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
     .where(rowConditions(groupId, filters))
     .orderBy(sql`${schema.projectLeads.createdAt} desc`)
     .limit(limit)
+
+  const tasks = rows.length ? await tasksForLeads(rows[0].organizationId, rows.map((r) => r.id)) : new Map<string, never[]>()
 
   return rows.map((r) => {
     const d = (r.data && typeof r.data === 'object' ? r.data : {}) as Record<string, unknown>
@@ -488,6 +495,8 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
         ? { id: r.agreementId, status: r.agreementStatus ?? '', sentAt: r.sentAt ? new Date(r.sentAt) : null, completedAt }
         : null,
       secondsToSign: completedAt ? Math.max(0, Math.round((completedAt.getTime() - createdAt.getTime()) / 1000)) : null,
+      // ponytail: one built-in kind today, so the first task is the task.
+      task: tasks.get(r.id)?.map(summarizeTask)[0] ?? null,
     }
   })
 }

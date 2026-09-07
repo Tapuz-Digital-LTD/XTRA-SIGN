@@ -36,6 +36,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       linkTtlDays: typeof body.linkTtlDays === 'number' ? body.linkTtlDays : undefined,
       ownerUserId: typeof body.ownerUserId === 'string' || body.ownerUserId === null ? (body.ownerUserId as string | null) : undefined,
       defaultTemplateId: typeof body.defaultTemplateId === 'string' || body.defaultTemplateId === null ? (body.defaultTemplateId as string | null) : undefined,
+      followUpConfig: body.followUpConfig && typeof body.followUpConfig === 'object' ? (body.followUpConfig as { afterSign: string[] }) : undefined,
     })
     if (!result.ok) return NextResponse.json({ error: { message: result.message } }, { status: 400 })
     return NextResponse.json({ ok: true })

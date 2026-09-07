@@ -3,6 +3,7 @@ import { ForbiddenError, type StaffSession } from '@/server/auth/session'
 import type { CompanyKind, CompanySource } from '@/server/companies/companies'
 import { getDb, schema } from '@/server/db'
 import { isUuid } from '@/server/documents/authorization'
+import { cleanFollowUpConfig } from '@/server/follow-up/tasks'
 import { describeCampaign, isCampaignGoal, isCampaignKind, isCampaignStatus, isEntryMethod, isRegistrationTarget, kindForEntry, type CampaignGoal, type CampaignKind, type CampaignStatus, type EntryMethod, type RegistrationTarget } from '@/lib/campaigns'
 
 /**
@@ -110,6 +111,8 @@ export async function listGroups(
         eq(schema.groups.organizationId, session.organizationId),
         isNull(schema.groups.deletedAt),
         options.archived ? isNotNull(schema.groups.archivedAt) : isNull(schema.groups.archivedAt),
+        // Internal contexts (direct signings) are never listed as campaigns.
+        isNull(schema.groups.systemKey),
         kind ? or(eq(schema.groups.kind, kind), isNull(schema.groups.kind)) : undefined,
         options.campaignKind ? eq(schema.groups.campaignKind, options.campaignKind) : undefined,
         options.goal ? eq(schema.groups.goal, options.goal) : undefined,
@@ -237,6 +240,8 @@ export type CampaignFields = {
   linkTtlDays?: number
   ownerUserId?: string | null
   defaultTemplateId?: string | null
+  /** Which follow-up tasks a signature creates, e.g. { afterSign: ['site_product'] }. */
+  followUpConfig?: { afterSign: string[] }
 }
 
 function cleanCampaignFields(input: CampaignFields) {
@@ -257,6 +262,7 @@ function cleanCampaignFields(input: CampaignFields) {
   if (input.linkTtlDays !== undefined) out.linkTtlDays = Number.isInteger(input.linkTtlDays) && input.linkTtlDays >= 1 && input.linkTtlDays <= 365 ? input.linkTtlDays : 30
   if (input.ownerUserId !== undefined) out.ownerUserId = input.ownerUserId && isUuid(input.ownerUserId) ? input.ownerUserId : null
   if (input.defaultTemplateId !== undefined) out.defaultTemplateId = input.defaultTemplateId && isUuid(input.defaultTemplateId) ? input.defaultTemplateId : null
+  if (input.followUpConfig !== undefined) out.followUpConfig = cleanFollowUpConfig(input.followUpConfig)
   return out
 }
 
