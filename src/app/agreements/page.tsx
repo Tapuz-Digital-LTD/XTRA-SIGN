@@ -53,7 +53,10 @@ export default async function AgreementsPage({
     <AppShell>
       <ScrollRestore />
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight text-fg">הסכמים</h1>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-fg">הסכמים</h1>
+          <p className="mt-1 text-sm text-muted">מצאו מי דורש טיפול, סננו את הנתונים ובצעו פעולות ישירות.</p>
+        </div>
         <Link
           href="/documents/new"
           className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90"
@@ -79,7 +82,7 @@ export default async function AgreementsPage({
           ) : (
             <EmptyState
               title="עדיין אין הסכמים"
-              description="כל מסמך שנשלח לחתימה יופיע כאן — עם החברה שאליה הוא שייך, מי החותם ומה הסטטוס."
+              description="כל מסמך שתשלחו לחתימה יופיע כאן, עם החברה, החותם ומצב החתימה."
               actionIcon="+"
               actionLabel="שלח מסמך לחתימה"
               actionHref="/documents/new"

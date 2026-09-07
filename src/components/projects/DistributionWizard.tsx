@@ -29,6 +29,15 @@ const input = 'mt-1 h-11 w-full rounded-lg border border-line bg-bg px-3 text-sm
 const textarea = 'mt-1 w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-fg outline-none focus:border-brand'
 const chip = (on: boolean) => `inline-flex min-h-9 items-center rounded-full border px-3 text-sm font-medium ${on ? 'border-brand bg-brand text-white' : 'border-line bg-surface text-fg'}`
 
+/** One sentence per step: what you do here, or what happens next. */
+const STEP_INTROS: Record<(typeof DISTRIBUTION_STEPS)[number], string> = {
+  audience: 'בוחרים את מי שיקבל את ההודעה; אפשר לחפש ולסמן כמה שרוצים.',
+  channels: 'ההודעה תישלח בערוצים שתסמנו, רק למי שיש לו את פרט הקשר המתאים.',
+  content: 'כאן כותבים מה הנמענים יקבלו ולאן הקישור מוביל.',
+  schedule: 'נותנים להפצה שם ומחליטים אם לשלוח עכשיו או לשמור כטיוטה.',
+  review: 'בדקו שהכול נכון, שלחו בדיקה לעצמכם, ורק אז שלחו לקהל.',
+}
+
 const DISTRIBUTION_VARIABLES = VARIABLE_CATALOG.filter((v) => ['signer_name', 'first_name', 'company_name', 'campaign_name', 'campaign_url', 'campaign_start', 'campaign_end', 'distribution_name'].includes(v.key))
 
 export function DistributionWizard({
@@ -205,6 +214,7 @@ export function DistributionWizard({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <p className="mb-3 text-sm text-muted">{STEP_INTROS[DISTRIBUTION_STEPS[step]]}</p>
           {step === 0 ? (
             <fieldset>
               <legend className="text-sm font-medium text-fg">מאיפה לבחור נמענים?</legend>

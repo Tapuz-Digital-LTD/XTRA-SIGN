@@ -27,21 +27,18 @@ export default async function TemplatesPage() {
           href="/templates/new"
           className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90"
         >
-          + תבנית חדשה מ-PDF
+          + תבנית חדשה
         </Link>
       </div>
-      <p className="mt-1 text-sm text-muted">
-        תבנית היא PDF עם שדות שממולאים אוטומטית וחתימה. מעלים PDF → מאשרים איזה פרט ממלא כל שדה → רואים
-        תצוגה מקדימה → מפעילים. לוחצים על תבנית כדי לצפות בה, לערוך שדות או להחליף את הקובץ.
-      </p>
+      <p className="mt-1 text-sm text-muted">מסמכים מוכנים שאפשר להשתמש בהם שוב לשליחת הסכמים.</p>
 
       <div className="mt-6">
         {templates.length === 0 ? (
           <EmptyState
             title="עדיין אין תבניות"
-            description="מעלים PDF, מציבים עליו שדות, ובעמוד המסמך לוחצים ״שמירה כתבנית״. מכאן ואילך כל מסמך חדש מהתבנית יתחיל עם השדות במקום."
+            description="כשתעלו PDF ותפעילו אותו כתבנית, הוא יופיע כאן ויהיה זמין לשליחה."
             actionIcon="+"
-            actionLabel="תבנית חדשה מ-PDF"
+            actionLabel="תבנית חדשה"
             actionHref="/templates/new"
           />
         ) : (

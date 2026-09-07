@@ -99,7 +99,7 @@ export function FollowUpSettings({ projectId, isAdmin }: { projectId: string; is
   return (
     <section className={card} aria-labelledby="fu-title">
       <h2 id="fu-title" className="text-base font-semibold text-fg">משימות המשך</h2>
-      <p className="mt-1 text-sm text-muted">אחרי חתימה, ליצור משימה:</p>
+      <p className="mt-1 text-sm text-muted">כאן קובעים אילו משימות ייפתחו לצוות אוטומטית אחרי כל חתימה.</p>
       {afterSign === null ? (
         <p className="mt-3 text-sm text-muted">טוען…</p>
       ) : (

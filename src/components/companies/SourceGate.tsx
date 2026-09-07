@@ -40,8 +40,8 @@ export function SourceGate({
   allowAll?: boolean
 }) {
   const cards: { key: CompanySource; label: string; description: string }[] = [
-    { key: 'xtra', label: 'XTRA Sign', description: `${plural} שמנוהלים במערכת` },
-    { key: 'crm', label: 'CRM', description: `${plural} שמקורם ב-Fireberry` },
+    { key: 'xtra', label: 'XTRA Sign', description: 'רשומות שנוצרו כאן, בלי חיבור ל-CRM.' },
+    { key: 'crm', label: 'CRM', description: 'רשומות שמסונכרנות מה-CRM לקריאה; שינויים נעשים שם.' },
   ]
   return (
     <section className="mt-6" aria-labelledby="source-gate">

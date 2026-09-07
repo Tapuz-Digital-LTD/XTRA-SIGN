@@ -289,8 +289,25 @@ export function CompanyList({
                 ? crmEnabled
                   ? 'סנכרנו מ-Fireberry כדי להביא אותם לכאן.'
                   : 'רשומות CRM מגיעות לכאן בסנכרון מ-Fireberry.'
-                : `הוסיפו ${noun} ראשון, ואז צרו עבורו מסמך.`}
+                : `כשתוסיפו ${noun}, הוא יופיע כאן עם כל המסמכים שנשלחו אליו.`}
           </p>
+          {/* A real way out of the empty state: the same add / sync / clear the full screen offers. */}
+          {search.trim() ? (
+            <button type="button" onClick={() => setQuery('')} className="mt-4 inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition hover:border-brand">
+              ניקוי החיפוש
+            </button>
+          ) : source === 'crm' ? (
+            crmEnabled ? (
+              <button type="button" onClick={() => setConfirmSync(true)} disabled={syncing} className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-60">
+                {syncing ? 'מסנכרן…' : 'סנכרון מ-Fireberry'}
+              </button>
+            ) : null
+          ) : (
+            <button type="button" onClick={() => setAdding(true)} className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)]">
+              <span aria-hidden="true" className="me-1">+</span>
+              הוספה
+            </button>
+          )}
         </div>
       ) : (
         <>

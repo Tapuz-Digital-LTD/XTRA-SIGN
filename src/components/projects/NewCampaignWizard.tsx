@@ -25,6 +25,11 @@ export type WizardTemplate = { id: string; name: string }
 
 const STEPS = ['מטרה', 'קהל', 'כניסה', 'פרטים']
 const DEFAULT_ENTRY: Record<CampaignGoal, EntryMethod> = { inquiries: 'form', signing: 'audience' }
+/** The approved wording for the goal cards; the shared GOALS blurb stays for older screens. */
+const GOAL_BLURBS: Record<CampaignGoal, string> = {
+  inquiries: 'אספו פרטים מאנשים המעוניינים להצטרף, והמשיכו לטיפול או לחתימה לפי הגדרות הקמפיין.',
+  signing: 'שלחו הסכם לנמענים שבחרתם, או תנו לאנשים להירשם ולחתום בעצמם דרך טופס.',
+}
 
 const primary = 'inline-flex min-h-12 items-center justify-center rounded-xl bg-brand px-6 text-base font-semibold text-white transition hover:opacity-90 disabled:opacity-50'
 const secondary = 'inline-flex min-h-12 items-center justify-center rounded-xl border border-line bg-surface px-5 text-base font-medium text-fg transition hover:border-brand disabled:opacity-50'
@@ -105,7 +110,8 @@ export function NewCampaignWizard({ templates, autoOpen = false }: { owners?: Wi
       <div role="dialog" aria-modal="true" aria-labelledby="ncw-title" onClick={(e) => e.stopPropagation()} className="flex max-h-[92dvh] w-full max-w-xl flex-col rounded-t-2xl bg-surface shadow-xl sm:rounded-2xl">
         <div className="border-b border-line px-6 py-4">
           <h2 id="ncw-title" className="text-lg font-semibold text-fg">קמפיין חדש</h2>
-          <ol className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm" aria-label="שלבים">
+          <p className="mt-1 text-sm text-muted">ארבע שאלות קצרות, והקמפיין מוכן לעבודה.</p>
+          <ol className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm" aria-label="שלבים">
             {STEPS.map((label, i) => (
               <li key={label} className={i === step ? 'font-semibold text-brand' : i < step ? 'text-fg' : 'text-muted'} aria-current={i === step ? 'step' : undefined}>
                 {i + 1}. {label}
@@ -121,7 +127,7 @@ export function NewCampaignWizard({ templates, autoOpen = false }: { owners?: Wi
               {GOALS.map((g) => (
                 <button key={g.key} type="button" onClick={() => pickGoal(g.key)} aria-pressed={goal === g.key} className={card(goal === g.key, true)}>
                   <span className="block text-lg font-semibold text-fg">{g.key === 'inquiries' ? 'איסוף פניות (לידים)' : 'להחתים אנשים על מסמכים'}</span>
-                  <span className="mt-1 block text-base leading-relaxed text-muted">{g.blurb}</span>
+                  <span className="mt-1 block text-base leading-relaxed text-muted">{GOAL_BLURBS[g.key]}</span>
                 </button>
               ))}
               <CampaignComparison />
@@ -131,6 +137,7 @@ export function NewCampaignWizard({ templates, autoOpen = false }: { owners?: Wi
           {step === 1 ? (
             <div className="flex flex-col gap-3">
               <p className="text-lg font-semibold text-fg">למי הקמפיין מיועד?</p>
+              <p className="text-base text-muted">הבחירה קובעת מי יופיע ברשימות הקמפיין וכמי יישמרו הנרשמים.</p>
               <div role="radiogroup" aria-label="למי הקמפיין מיועד?" className="grid gap-3 sm:grid-cols-3">
                 {AUDIENCE_KINDS.map((a) => (
                   <button key={a.key} type="button" role="radio" aria-checked={audience === a.key} onClick={() => setAudience(a.key)} className={card(audience === a.key)}>
@@ -145,6 +152,7 @@ export function NewCampaignWizard({ templates, autoOpen = false }: { owners?: Wi
           {step === 2 && goal ? (
             <div className="flex flex-col gap-3">
               <p className="text-lg font-semibold text-fg">איך אנשים ייכנסו לקמפיין?</p>
+              <p className="text-base text-muted">בוחרים מאיפה יגיעו האנשים; את שאר ההגדרות אפשר לשנות אחר כך מתוך הקמפיין.</p>
               <div role="radiogroup" aria-label="איך אנשים ייכנסו לקמפיין?" className="flex flex-col gap-3">
                 {ENTRY_METHODS.filter((m) => m.goals.includes(goal)).map((m) => (
                   <button key={m.key} type="button" role="radio" aria-checked={entry === m.key} onClick={() => setEntry(m.key)} className={card(entry === m.key)}>
@@ -158,6 +166,7 @@ export function NewCampaignWizard({ templates, autoOpen = false }: { owners?: Wi
 
           {step === 3 && goal ? (
             <div className="flex flex-col gap-4">
+              <p className="text-base text-muted">{goal === 'signing' ? 'נשאר רק לתת שם לקמפיין ולבחור את המסמך לחתימה.' : 'נשאר רק לתת שם לקמפיין.'}</p>
               <label className="block text-base">
                 <span className="text-fg">איך נקרא לקמפיין?</span>
                 <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder={goal === 'inquiries' ? 'למשל: פניות ספקים 2027' : 'למשל: הסכמי ספקים 2027'} className={input} />
@@ -179,10 +188,10 @@ export function NewCampaignWizard({ templates, autoOpen = false }: { owners?: Wi
               ) : null}
               <p className="text-base leading-relaxed text-muted">
                 {goal === 'inquiries'
-                  ? 'תקבלו קישור לטופס מוכן לשיתוף. כל פנייה תופיע בקמפיין ותחכה לטיפול. אפשר גם להטמיע את הטופס באתר, לחבר דרך API או להפיץ ב-SMS ואימייל — הכול מתוך הקמפיין.'
+                  ? 'אחרי היצירה תקבלו קישור לטופס, וכל פנייה חדשה תופיע בקמפיין ותמתין לטיפול.'
                   : hasForm(entry)
-                    ? 'תקבלו קישור לטופס. כל מי שנרשם עובר ישירות לחתימה על המסמך ומקבל עותק חתום במייל.'
-                    : 'אחרי היצירה בוחרים את האנשים בלשונית "קהל" ושולחים להם את המסמך לחתימה, כל אחד בנפרד.'}
+                    ? 'אחרי היצירה תקבלו קישור לטופס; מי שנרשם עובר ישירות לחתימה ומקבל עותק חתום במייל.'
+                    : 'אחרי היצירה בוחרים את האנשים בלשונית ״קהל״ ושולחים לכל אחד את המסמך לחתימה.'}
               </p>
             </div>
           ) : null}

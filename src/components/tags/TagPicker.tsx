@@ -117,7 +117,7 @@ export function TagPicker({ companyId, tags: initial }: { companyId: string; tag
             </button>
           </span>
         ))}
-        {tags.length === 0 ? <span className="text-sm text-muted">אין תגים עדיין.</span> : null}
+        {tags.length === 0 ? <span className="text-sm text-muted">עדיין אין תגים. דרך פשוטה לארגן ספקים ולקוחות ולמצוא אותם במהירות.</span> : null}
       </div>
 
       <div className="relative max-w-sm">

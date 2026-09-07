@@ -51,7 +51,7 @@ export default async function CampaignsPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-fg">קמפיינים</h1>
-          <p className="mt-1 text-sm text-muted">כאן פותחים קמפיין, רואים מי נרשם ומי חתם, ושולחים מסמכים ותזכורות.</p>
+          <p className="mt-1 text-sm text-muted">כל הקמפיינים שלכם: לאיסוף פניות או להחתמה על מסמכים.</p>
         </div>
         <NewCampaignWizard
           owners={owners.filter((u) => !u.disabled).map((u) => ({ id: u.id, name: u.name, email: u.email }))}
@@ -91,7 +91,7 @@ export default async function CampaignsPage({
           ) : (
             <EmptyState
               title="עדיין אין קמפיינים"
-              description="קמפיין אוסף פניות דרך טופס, או מחתים אנשים על מסמכים. מתחילים בשאלה אחת: מה תרצו לעשות?"
+              description="כשתפתחו קמפיין, הוא יופיע כאן עם מי שנרשם ומי שחתם."
               actionIcon="+"
               actionLabel="קמפיין חדש"
               actionHref="/projects?new=1"

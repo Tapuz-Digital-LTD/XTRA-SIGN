@@ -30,7 +30,7 @@ export function TagFilter({ tags, selected, mode }: { tags: Tag[]; selected: str
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2" aria-label="סינון לפי תגים">
-      <span className="text-xs text-muted">תגים:</span>
+      <span className="text-xs text-muted" title="דרך פשוטה לארגן ספקים ולקוחות ולמצוא אותם במהירות.">תגים:</span>
       <div className="-mx-1 flex max-w-full gap-1.5 overflow-x-auto px-1 pb-1">
         {tags.map((tag) => {
           const on = selected.includes(tag.id)

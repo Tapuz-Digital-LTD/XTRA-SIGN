@@ -80,6 +80,7 @@ export function InboxControls({ filter, search, attentionCount }: { filter: List
             key={tab.key}
             type="button"
             aria-current={filter === tab.key ? 'true' : undefined}
+            title={tab.key === 'attention' ? 'רק מה שדורש פעולה מכם' : undefined}
             onClick={() => apply({ filter: tab.key })}
             className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-sm transition ${
               filter === tab.key ? 'bg-brand text-white' : 'text-muted hover:bg-slate-100 hover:text-fg'
@@ -98,6 +99,7 @@ export function InboxControls({ filter, search, attentionCount }: { filter: List
           </button>
         ))}
       </nav>
+      {filter === 'attention' ? <p className="text-xs text-muted">רק מה שדורש פעולה מכם.</p> : null}
     </div>
   )
 }

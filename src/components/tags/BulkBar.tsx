@@ -15,6 +15,17 @@ export type BulkRow = {
 
 const TITLES: Record<BulkAction, string> = { add_tags: 'הוספת תגים', remove_tags: 'הסרת תגים', notes: 'הוספת הערה' }
 
+/** One sentence under the title: what will happen to the selected records. */
+const INTROS: Record<BulkAction, string> = {
+  add_tags: 'דרך פשוטה לארגן ספקים ולקוחות ולמצוא אותם במהירות.',
+  remove_tags: 'התגים שתבחרו יוסרו מכל הרשומות שנבחרו.',
+  notes: 'ההערה תתווסף כשורה חדשה להערות של כל רשומה, מתחת למה שכבר כתוב.',
+}
+
+/** The count line: what the action will touch, in its own words. */
+const outcome = (action: BulkAction, n: number) =>
+  action === 'add_tags' ? `התגים שתבחרו יתווספו ל-${n} רשומות.` : action === 'remove_tags' ? `התגים שתבחרו יוסרו מ-${n} רשומות.` : `ההערה תתווסף ל-${n} רשומות.`
+
 const keyOf = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase()
 
 /** A CSV cell: quoted, with inner quotes doubled. */
@@ -176,9 +187,10 @@ function BulkDialog({ action, companyIds, rows, onClose, onDone }: { action: Bul
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
+          <p className="text-sm text-muted">{INTROS[action]}</p>
           {action === 'notes' ? (
             <>
-              <label htmlFor="bulk-note" className="text-sm text-fg">ההערה תתווסף כשורה חדשה להערות של כל רשומה. מה שכתוב כבר נשאר.</label>
+              <label htmlFor="bulk-note" className="sr-only">הערה</label>
               <textarea id="bulk-note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={500} className="w-full rounded-lg border border-line bg-surface p-3 text-sm" placeholder="למשל: נשלח תזכורת בטלפון" />
             </>
           ) : tags.length === 0 && action === 'remove_tags' ? (
@@ -222,7 +234,7 @@ function BulkDialog({ action, companyIds, rows, onClose, onDone }: { action: Bul
           ) : null}
 
           <p className="text-sm text-muted" role="status">
-            {eligible === null ? 'בודק…' : `הפעולה תחול על ${eligible} רשומות`}
+            {eligible === null ? 'בודק…' : outcome(action, eligible)}
           </p>
           {result ? <p role="status" className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">{result}</p> : null}
           {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}

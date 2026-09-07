@@ -33,7 +33,7 @@ export default async function TrackingPage({ searchParams }: { searchParams: Pro
     <AppShell>
       <ScrollRestore />
       <h1 className="text-2xl font-bold tracking-tight text-fg">מעקב</h1>
-      <p className="mt-1 text-sm text-muted">כל מי שהוזמן או נרשם, מכל הקמפיינים ומשליחות ישירות. לחיצה על שורה פותחת את כל הפרטים והפעולות.</p>
+      <p className="mt-1 text-sm text-muted">מצאו מי דורש טיפול, סננו את הנתונים ובצעו פעולות ישירות.</p>
 
       <form method="get" action="/tracking" className="mt-4 flex flex-wrap items-end gap-2">
         {view !== 'all' ? <input type="hidden" name="view" value={view} /> : null}
@@ -76,6 +76,10 @@ export default async function TrackingPage({ searchParams }: { searchParams: Pro
           סינון
         </button>
       </form>
+      <details className="mt-2 text-xs text-muted">
+        <summary className="inline-flex min-h-9 cursor-pointer items-center text-brand underline-offset-4 hover:underline">מה זה ״חתימה ישירה״?</summary>
+        <p className="mt-1">מסמכים שנשלחו לחתימה מחוץ לקמפיין, כולל נמענים שעדיין אינם במאגר.</p>
+      </details>
 
       <div className="mt-4">
         <AudienceTable projectId="" rows={result.rows} counts={result.counts} view={view} q={query.q ?? ''} askKind={false} dueToday={0} global basePath="/tracking" extraParams={extra} />

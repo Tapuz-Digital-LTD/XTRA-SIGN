@@ -107,7 +107,7 @@ export function GlobalSearch({ compact = false }: { compact?: boolean }) {
       {open && q.trim().length >= 2 ? (
         <div id={listId} role="listbox" className="absolute inset-x-0 top-full z-40 mt-1 max-h-[70vh] overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-lg">
           {busy && ordered.length === 0 ? <p className="px-3 py-3 text-sm text-muted">מחפש…</p> : null}
-          {!busy && ordered.length === 0 ? <p className="px-3 py-3 text-sm text-muted">לא נמצא דבר עבור "{q.trim()}".</p> : null}
+          {!busy && ordered.length === 0 ? <p className="px-3 py-3 text-sm text-muted">לא נמצא דבר עבור ״{q.trim()}״ — נסו שם, ח.פ או טלפון.</p> : null}
           {ORDER.map((kind) => {
             const group = ordered.filter((h) => h.kind === kind)
             if (group.length === 0) return null

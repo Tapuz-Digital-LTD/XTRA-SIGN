@@ -136,6 +136,7 @@ export function TemplateUploadWizard({ mode, replaceId, defaultName = '' }: { mo
 
       {step === 'upload' ? (
         <div className="flex flex-col gap-3">
+          <p className="text-sm text-muted">בוחרים את קובץ ה-PDF ונותנים לתבנית שם.</p>
           <label className="block text-sm">
             <span className="text-muted">שם התבנית</span>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="למשל: הסכם ספק 2027" className={input} />
@@ -153,7 +154,7 @@ export function TemplateUploadWizard({ mode, replaceId, defaultName = '' }: { mo
             <input ref={fileRef} type="file" accept="application/pdf" className="sr-only" aria-label="בחירת קובץ PDF" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
             <p className="text-sm text-fg">{file ? file.name : 'גררו לכאן קובץ PDF, או'}</p>
             <button type="button" onClick={() => fileRef.current?.click()} className={`${secondary} mt-3`}>{file ? 'החלפת קובץ' : 'בחירת קובץ'}</button>
-            <p className="mt-2 text-xs text-muted">PDF עד 25MB. שדות מילוי בקובץ (AcroForm) מזוהים אוטומטית; אם אין, מציבים שדות בעורך אחרי ההעלאה.</p>
+            <p className="mt-2 text-xs text-muted">PDF עד 25MB; שדות מילוי שקיימים בקובץ מזוהים אוטומטית, ואם אין — מציבים אותם בעורך אחרי ההעלאה.</p>
           </div>
           {mode === 'replace' ? <p className="text-xs text-muted">ההחלפה שומרת גרסאות: מסמכים שכבר נשלחו או נחתמו שומרים את הגרסה שלהם. רק מסמכים חדשים ייעשו מהתבנית החדשה.</p> : null}
           <div className="flex gap-2">
@@ -167,7 +168,7 @@ export function TemplateUploadWizard({ mode, replaceId, defaultName = '' }: { mo
           {detected.length === 0 ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
               <p className="font-semibold">בקובץ לא זוהו שדות מילוי.</p>
-              <p className="mt-1">זה קורה כשה-PDF הוא סריקה או מסמך "שטוח" בלי שדות טופס. אפשר להמשיך בשתי דרכים:</p>
+              <p className="mt-1">זה קורה כשה-PDF הוא סריקה או מסמך ״שטוח״ בלי שדות טופס. אפשר להמשיך בשתי דרכים:</p>
               <ul className="mt-2 list-disc ps-5">
                 <li>לפתוח את עורך השדות ולהציב את השדות (שם העסק, ח.פ., חתימה, תאריך…) ידנית על העמודים.</li>
                 <li>או להעלות קובץ אחר שבו שדות המילוי מוגדרים.</li>
@@ -208,7 +209,7 @@ export function TemplateUploadWizard({ mode, replaceId, defaultName = '' }: { mo
 
       {step === 'preview' && templateId && layout ? (
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-muted">כך ייראה המסמך. השדות המסומנים ימולאו מהפרטים שנרשמים; חתימה ותאריך מתמלאים בעת החתימה.</p>
+          <p className="text-sm text-muted">כך ייראה המסמך: השדות המסומנים ימולאו אוטומטית מהפרטים, וחתימה ותאריך — בעת החתימה.</p>
           <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto rounded-lg border border-line bg-slate-100 p-3">
             {layout.pages.map((p) => (
               <PdfPage key={p.pageNumber} url={`/api/templates/${templateId}/file`} pageNumber={p.pageNumber} widthPt={p.widthPt} heightPt={p.heightPt} className="relative w-full overflow-hidden rounded-lg border border-line bg-white shadow-sm">

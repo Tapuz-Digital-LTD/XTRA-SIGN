@@ -131,6 +131,7 @@ export function QuickSendDialog({ templates, onClose }: { templates: Template[];
             <h2 id="qs-title" className="text-xl font-bold text-fg">
               {step === 'done' ? 'המסמך נשלח' : 'שלח מסמך לחתימה'}
             </h2>
+            {step !== 'done' ? <p className="mt-1 text-sm text-muted">בוחרים למי, איזה מסמך ואיך לשלוח — הנמען מקבל קישור אישי לחתימה.</p> : null}
             {step !== 'done' ? (
               <ol className="mt-2 flex gap-2 text-xs text-muted" aria-label="שלבים">
                 {steps.map((s, i) => (

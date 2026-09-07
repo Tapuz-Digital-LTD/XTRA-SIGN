@@ -48,6 +48,7 @@ export default async function HomePage() {
   return (
     <AppShell>
       <h1 className="text-2xl font-bold tracking-tight text-fg">שלום, {session.name.split(' ')[0]}</h1>
+      <p className="mt-1 text-sm text-muted">מכאן שולחים מסמך לחתימה לנמען אחד, או פותחים קמפיין לאיסוף פניות ולהחתמה של רבים.</p>
 
       {/* The two things this system exists for. */}
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -63,7 +64,7 @@ export default async function HomePage() {
 
       <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Counter href="/agreements?filter=pending" label="ממתינים לחתימה" value={data.counts.pending} />
-        <Counter href="/projects" label="לידים חדשים" value={data.newLeads} />
+        <Counter href="/projects" label="פניות חדשות" value={data.newLeads} />
         <Counter href="/agreements?filter=pending" label="עומדים לפוג" value={data.expiringSoon} />
         <Counter href="/agreements?filter=attention" label="דורשים טיפול" value={data.attentionCount} />
       </div>
@@ -77,7 +78,7 @@ export default async function HomePage() {
         </div>
         {data.recentActivity.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-muted">
-            עדיין אין פעילות. שליחת המסמך הראשון לחתימה תופיע כאן.
+            עדיין אין פעילות — המסמך הראשון שתשלחו לחתימה יופיע כאן.
           </p>
         ) : (
           <ul className="divide-y divide-line">

@@ -31,11 +31,11 @@ import type { SelfServiceConfig } from '@/server/projects/self-service'
  */
 
 export const SETTINGS_SECTIONS = [
-  { key: 'general', label: 'כללי', blurb: 'שם, סוג, תאריכים, בעלים' },
-  { key: 'page', label: 'עמוד והרשמה', blurb: 'כתובת, טופס, הטמעה, שיתוף, הסכם' },
-  { key: 'messages', label: 'הודעות', blurb: 'מה הנמענים מקבלים' },
-  { key: 'notifications', label: 'התראות', blurb: 'מי בצוות מקבל עדכון ומתי' },
-  { key: 'advanced', label: 'מתקדם', blurb: 'מקורות מורשים, מחיקה' },
+  { key: 'general', label: 'כללי', blurb: 'שם, סוג, תאריכים, בעלים', intro: 'שם הקמפיין, התאריכים שלו, מצבו ומי אחראי עליו.' },
+  { key: 'page', label: 'עמוד והרשמה', blurb: 'כתובת, טופס, הטמעה, שיתוף, הסכם', intro: 'העמוד והטופס שדרכם אנשים נרשמים, ואיך משתפים אותם.' },
+  { key: 'messages', label: 'הודעות', blurb: 'מה הנמענים מקבלים', intro: 'הנוסח שהנמענים מקבלים ב-SMS ובאימייל בכל שלב.' },
+  { key: 'notifications', label: 'התראות', blurb: 'מי בצוות מקבל עדכון ומתי', intro: 'מי בצוות מקבל עדכון כשמשהו קורה בקמפיין.' },
+  { key: 'advanced', label: 'מתקדם', blurb: 'מקורות מורשים, מחיקה', intro: 'הגדרות שנוגעים בהן לעתים רחוקות: מקורות מורשים, משימות המשך ומחיקה.' },
 ] as const
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]['key']
 
@@ -206,6 +206,7 @@ export function ProjectSettings({
           ))}
         </ul>
       </nav>
+      <p className="-mt-2 text-sm text-muted">{SETTINGS_SECTIONS.find((s) => s.key === section)?.intro}</p>
 
       {section === 'general' ? (
         <>

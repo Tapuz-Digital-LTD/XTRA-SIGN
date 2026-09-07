@@ -14,7 +14,7 @@ export default async function EmailTemplatesPage() {
   return (
     <AppShell>
       <h1 className="text-2xl font-bold tracking-tight text-fg">תבניות מייל</h1>
-      <p className="mt-1 text-sm text-muted">כך נראים המיילים שהמערכת שולחת, עם נתוני דוגמה. אפשר לשלוח כל אחד מהם לכתובת שלכם לבדיקה.</p>
+      <p className="mt-1 text-sm text-muted">כך נראים המיילים שהמערכת שולחת, ואפשר לשלוח כל אחד מהם לכתובת שלכם לבדיקה.</p>
       <SettingsNav />
       <div className="mt-4">
         <EmailPreview templates={MAIL_TEMPLATES} />

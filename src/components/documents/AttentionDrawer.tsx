@@ -292,6 +292,7 @@ export function AttentionDrawer({ doc, open, onClose }: { doc: AttentionDoc | nu
       {/* `sm:max-w-lg` spelled out here so Tailwind emits it: the shared Drawer
           builds that class name dynamically and would otherwise stay full-width. */}
       <div className="flex flex-col gap-6 text-sm sm:max-w-lg">
+        <p className="text-muted">מה קרה, מה לעשות, ובלחיצה אחת זה מטופל.</p>
         <section>
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">מה קרה</h3>
           {loadError ? (

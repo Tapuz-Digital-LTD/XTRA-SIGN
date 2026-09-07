@@ -14,7 +14,7 @@ export default async function SecuritySettingsPage() {
   return (
     <AppShell>
       <h1 className="text-2xl font-bold tracking-tight text-fg">אבטחת טפסים והתחברות</h1>
-      <p className="mt-1 text-sm text-muted">הפעלה, כיבוי והחלפת חשבון Google — מכאן, בלי פריסה.</p>
+      <p className="mt-1 text-sm text-muted">כאן מפעילים ומכבים את ההגנה מפני רובוטים על הטפסים הציבוריים ועל ההתחברות.</p>
       <SettingsNav />
       <div className="mt-4">
         <SecuritySettingsForm initial={await getCaptchaAdminView(session)} />

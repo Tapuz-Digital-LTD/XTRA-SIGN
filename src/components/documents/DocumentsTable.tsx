@@ -72,6 +72,19 @@ export function DocumentsTable({
     />
   )
 
+  // Screens that embed the table without their own empty state still say what has not happened yet, and where to do it.
+  if (documents.length === 0) {
+    return (
+      <div className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center">
+        <p className="text-base font-semibold text-fg">עדיין אין הסכמים</p>
+        <p className="mt-1 text-sm text-muted">כל מסמך שתשלחו לחתימה יופיע כאן עם מצב החתימה שלו.</p>
+        <Link href="/" className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90">
+          שלח מסמך לחתימה
+        </Link>
+      </div>
+    )
+  }
+
   return (
     <>
       {selectable ? <BulkResendBar documents={documents} selected={selected} onToggleAll={toggleAll} allSelected={allSelected} /> : null}

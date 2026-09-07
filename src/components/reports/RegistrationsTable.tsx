@@ -67,6 +67,7 @@ export function RegistrationsTable({
   total,
   title = 'הרשמות בקמפיין',
   audienceNoun = 'ספק',
+  publicUrl,
 }: {
   projectId: string
   rows: Row[]
@@ -74,6 +75,8 @@ export function RegistrationsTable({
   title?: string
   /** What an approved lead becomes: ספק or לקוח. */
   audienceNoun?: 'ספק' | 'לקוח'
+  /** The campaign's public page, offered from the empty state when nobody has registered yet. */
+  publicUrl?: string | null
 }) {
   const router = useRouter()
   const [editing, setEditing] = useState<Row | null>(null)
@@ -292,7 +295,20 @@ export function RegistrationsTable({
       ) : null}
 
       {visible.length === 0 ? (
-        <p className="mt-6 text-center text-sm text-muted">אין הרשמות בטווח ובסינון שנבחרו.</p>
+        // Nothing at all, no filter: say what has not happened yet, and offer the page people would fill.
+        total === 0 && !taskFilter ? (
+          <div className="mt-4 rounded-lg border border-dashed border-line bg-bg px-6 py-10 text-center">
+            <p className="text-base font-semibold text-fg">עדיין אין הרשמות</p>
+            <p className="mt-1 text-sm text-muted">כאשר אנשים ימלאו את טופס הקמפיין, ההרשמות שלהם יופיעו כאן.</p>
+            {publicUrl ? (
+              <a href={publicUrl} target="_blank" rel="noreferrer" className={`${primaryClass} mt-4`}>
+                צפייה בעמוד הקמפיין
+              </a>
+            ) : null}
+          </div>
+        ) : (
+          <p className="mt-6 text-center text-sm text-muted">אין הרשמות בטווח ובסינון שנבחרו.</p>
+        )
       ) : (
         <>
           {/* phones: one card per registration */}
@@ -509,6 +525,7 @@ function RegistrationDrawer({
 
   return (
     <Drawer open={Boolean(id)} onClose={onClose} title={detail ? detail.business.name || 'הרשמה' : 'הרשמה'}>
+      <p className="mb-4 text-sm text-muted">כל מה שידוע על ההרשמה הזו, והפעולות שאפשר לעשות ממנה.</p>
       {error ? <p role="alert" className="text-sm text-red-700">{error}</p> : null}
       {!detail && !error ? <p className="text-sm text-muted">טוען…</p> : null}
       {detail ? (

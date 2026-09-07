@@ -16,10 +16,7 @@ export default async function UsersPage() {
   return (
     <AppShell>
       <h1 className="text-2xl font-bold tracking-tight text-fg">משתמשים</h1>
-      <p className="mt-1 text-sm text-muted">
-        משתמשים נוספים למערכת על ידי מנהל בלבד. הכניסה היא באמצעות קוד חד-פעמי
-        שנשלח ב-SMS למספר הטלפון שהוגדר — אין סיסמאות במערכת.
-      </p>
+      <p className="mt-1 text-sm text-muted">מי יכול להיכנס למערכת; הכניסה בקוד חד-פעמי ב-SMS, בלי סיסמאות.</p>
 
       <SettingsNav />
       <div className="mt-4">

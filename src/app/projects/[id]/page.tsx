@@ -333,15 +333,6 @@ async function RegistrationsTab({
   const field = 'min-h-11 rounded-lg border border-line bg-surface px-3 text-sm text-fg outline-none focus:border-brand'
   return (
     <div className="flex flex-col gap-4">
-      {total === 0 && !query.q && !query.status ? (
-        <div className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center">
-          <p className="text-base font-semibold text-fg">עדיין אין הרשמות</p>
-          <p className="mt-2 text-sm text-muted">כאשר אנשים ימלאו את טופס הקמפיין, ההרשמות שלהם יופיעו כאן.</p>
-          {publicUrl ? (
-            <a href={publicUrl} target="_blank" rel="noreferrer" className="mt-5 inline-flex min-h-12 items-center rounded-xl bg-brand px-5 text-base font-semibold text-white hover:opacity-90">
-              צפייה בעמוד הקמפיין
-            </a>
-          ) : null}
         </div>
       ) : null}
       <form method="get" action={`/projects/${projectId}`} className="flex flex-wrap items-end gap-2">
@@ -368,7 +359,7 @@ async function RegistrationsTab({
           </Link>
         </p>
       ) : null}
-      <RegistrationsTable rows={serializeRows(rows)} total={total} projectId={projectId} title="הרשמות" audienceNoun={audienceNoun} />
+      <RegistrationsTable rows={serializeRows(rows)} total={total} projectId={projectId} title="הרשמות" audienceNoun={audienceNoun} publicUrl={publicUrl} />
     </div>
   )
 }

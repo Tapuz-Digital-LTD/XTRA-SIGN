@@ -59,6 +59,7 @@ export function TaskPanel({ projectId, task, onSaved }: { projectId: string; tas
 
   return (
     <div className="flex flex-col gap-3">
+      <p className="text-sm text-muted">כאן מעדכנים איפה ההקמה עומדת, מי מטפל ועד מתי.</p>
       <fieldset>
         <legend className="text-sm text-muted">מצב ההקמה</legend>
         <div className="mt-1 grid grid-cols-2 gap-2">
