@@ -42,12 +42,10 @@ function statusChip(project: ProjectRow) {
   return <span className="whitespace-nowrap rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">פעיל</span>
 }
 
+/** One badge, never wrapped: what the campaign is for. How people come in is a quiet line under the name. */
 function kindChip(project: { goal: CampaignGoal; entry: EntryMethod }) {
   return (
-    <span className="inline-flex flex-col items-start gap-1">
-      <span className={`rounded-full px-2 py-0.5 text-xs font-medium leading-tight ${project.goal === 'signing' ? 'bg-blue-50 text-blue-800' : 'bg-emerald-50 text-emerald-800'}`}>{goalLabel(project.goal)}</span>
-      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs leading-tight text-slate-700">{entryLabel(project.entry)}</span>
-    </span>
+    <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${project.goal === 'signing' ? 'bg-blue-50 text-blue-800' : 'bg-emerald-50 text-emerald-800'}`}>{goalLabel(project.goal)}</span>
   )
 }
 
@@ -89,13 +87,13 @@ export function ProjectsList({ projects, isAdmin }: { projects: ProjectRow[]; is
         <table className="w-full min-w-[52rem] table-fixed text-start text-sm">
           <thead>
             <tr className="border-b border-line text-xs text-muted">
-              <th className="w-[28%] px-4 py-3 text-start font-medium">קמפיין</th>
-              <th className="w-[9%] px-3 py-3 text-start font-medium">סוג</th>
+              <th className="w-[26%] px-4 py-3 text-start font-medium">קמפיין</th>
+              <th className="w-[14%] px-3 py-3 text-start font-medium">סוג</th>
               <th className="w-[10%] px-3 py-3 text-start font-medium">סטטוס</th>
               <th className="w-[10%] px-3 py-3 text-center font-medium">נמענים</th>
               <th className="w-[9%] px-3 py-3 text-center font-medium">הרשמות</th>
               <th className="w-[9%] px-3 py-3 text-center font-medium">נחתמו</th>
-              <th className="w-[15%] px-4 py-3 text-start font-medium">פעילות אחרונה</th>
+              <th className="w-[12%] px-4 py-3 text-start font-medium">פעילות אחרונה</th>
               <th className="w-14 px-2 py-3" />
             </tr>
           </thead>
@@ -106,8 +104,9 @@ export function ProjectsList({ projects, isAdmin }: { projects: ProjectRow[]; is
                 onClick={() => router.push(`/projects/${project.id}`)}
                 className="cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-bg"
               >
-                <td className="truncate px-4 py-3 font-medium text-fg" title={project.name}>
-                  {project.name}
+                <td className="px-4 py-3" title={project.name}>
+                  <span className="block truncate font-medium text-fg">{project.name}</span>
+                  <span className="block truncate text-xs text-muted">{entryLabel(project.entry)}</span>
                 </td>
                 <td className="px-3 py-3">{kindChip(project)}</td>
                 <td className="px-3 py-3">{statusChip(project)}</td>
