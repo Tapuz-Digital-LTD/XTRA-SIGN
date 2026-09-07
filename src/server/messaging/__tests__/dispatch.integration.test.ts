@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { beforeAll, describe, expect, it } from 'vitest'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
-import { dispatch, suppressContact, type DispatchLead } from '../dispatch'
+import { dispatch, RESERVATION_TTL_MS, suppressContact, type DispatchLead } from '../dispatch'
 
 /**
  * Every person-addressed message passes one door: the same attempt never
@@ -126,5 +126,21 @@ describe('dispatch', () => {
     // An unconfirmed open does not block trying again.
     const again = await dispatch({ session: rep, lead: l, processStatus: 'invited', channel: 'whatsapp', event: 'invitation', render: async () => ({ to: l.phone!, subject: null, body: 'היי' }) })
     expect(again.ok).toBe(true)
+  })
+
+  it('a reservation nobody finished expires: the next attempt takes the slot and the old row reads as a failure', async () => {
+    const l = await lead()
+    await db.insert(schema.messageSends).values({ organizationId: orgId, groupId, leadId: l.id, channel: 'sms', event: 'invitation', recipient: l.phone!, body: 'x', ok: false, error: 'reserved', sentAt: new Date(Date.now() - RESERVATION_TTL_MS - 1000) })
+    const fresh = await db.insert(schema.messageSends).values({ organizationId: orgId, groupId, leadId: l.id, channel: 'email', event: 'invitation', recipient: 'a@b.co', body: 'x', ok: false, error: 'reserved' }).returning({ id: schema.messageSends.id })
+    // The stale SMS reservation gives way; the fresh email one (another channel) is untouched.
+    const result = await send(l, { attemptKey: 'take-1' })
+    expect(result.ok && result.state === 'sent').toBe(true)
+    const rows = await rowsFor(l.id)
+    expect(rows.find((r) => r.channel === 'sms' && r.error === 'abandoned')).toBeTruthy()
+    expect(rows.find((r) => r.id === fresh[0].id)?.error).toBe('reserved')
+    // A reservation still within its time is respected.
+    const emailLead = { ...l, email: 'a@b.co' }
+    const blocked = await dispatch({ session: rep, lead: emailLead, processStatus: 'invited', channel: 'email', event: 'invitation', render: async () => ({ to: 'a@b.co', subject: 's', body: 'b' }), send: okProvider })
+    expect(!blocked.ok && blocked.state === 'cooldown').toBe(true)
   })
 })

@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, isNull, or, sql } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
 import { buildShareMessage, buildWhatsAppShareUrl } from '@/lib/whatsapp-share'
 import { getCompany } from '@/server/companies/companies'
@@ -77,17 +77,30 @@ export async function quickSend(session: StaffSession, input: { operationId: str
 
   try {
     // ── what ─────────────────────────────────────────────────────────────
-    const created = await createDocumentFromTemplate({ session, templateId: input.templateId, companyId, unfiled: companyId ? undefined : { name }, ip: input.ip, userAgent: input.userAgent })
-    if (!created.ok) return await fail(leadId, created.message)
-    const agreementId = created.agreementId
+    let agreementId = claim.resumeAgreementId
+    if (!agreementId) {
+      const created = await createDocumentFromTemplate({ session, templateId: input.templateId, companyId, unfiled: companyId ? undefined : { name }, ip: input.ip, userAgent: input.userAgent })
+      if (!created.ok) return await fail(leadId, created.message)
+      agreementId = created.agreementId
+      // The document exists: recorded on the claim at once, so a retry after
+      // any later failure resumes with this document and never makes another.
+      await db.update(schema.projectLeads).set({ agreementId, lastActivityAt: new Date() }).where(eq(schema.projectLeads.id, leadId))
+    }
+
+    const [current] = await db.select({ status: schema.agreements.status }).from(schema.agreements).where(eq(schema.agreements.id, agreementId)).limit(1)
+    if (!current) return await fail(leadId, 'המסמך לא נמצא.')
+    if (current.status !== 'draft') {
+      // A resumed attempt whose first run already sent: nothing to send again.
+      await db.update(schema.projectLeads).set({ status: 'converted', lastActivityAt: new Date() }).where(eq(schema.projectLeads.id, leadId))
+      return await replayResult(session, leadId, agreementId, input.channel)
+    }
 
     const recipient = await saveRecipient({ session, agreementId, name, company: companyName, phone: contact.phone, email: contact.email })
     if (!recipient.ok) return await fail(leadId, recipient.message)
 
     await handEmptyFieldsToSigner(session, agreementId)
 
-    // The document exists: from here a retry replays, never recreates.
-    await db.update(schema.projectLeads).set({ agreementId, status: 'converted', lastActivityAt: new Date() }).where(eq(schema.projectLeads.id, leadId))
+    await db.update(schema.projectLeads).set({ status: 'converted', lastActivityAt: new Date() }).where(eq(schema.projectLeads.id, leadId))
 
     // ── how ──────────────────────────────────────────────────────────────
     if (input.channel === 'whatsapp') {
@@ -115,7 +128,7 @@ export async function quickSend(session: StaffSession, input: { operationId: str
   }
 }
 
-type ClaimResult = { ok: true; leadId: string; replay: QuickSendSuccess | null } | { ok: false; message: string; state?: 'in_progress' }
+type ClaimResult = { ok: true; leadId: string; replay: QuickSendSuccess | null; resumeAgreementId: string | null } | { ok: false; message: string; state?: 'in_progress' }
 
 /**
  * Insert-or-find under the operation key. A fresh claim proceeds; a claim
@@ -144,7 +157,7 @@ async function claimOperation(session: StaffSession, groupId: string, operationI
     })
     .onConflictDoNothing()
     .returning({ id: schema.projectLeads.id })
-  if (inserted[0]) return { ok: true, leadId: inserted[0].id, replay: null }
+  if (inserted[0]) return { ok: true, leadId: inserted[0].id, replay: null, resumeAgreementId: null }
 
   const find = async () => (await db.select().from(schema.projectLeads).where(and(eq(schema.projectLeads.groupId, groupId), eq(schema.projectLeads.idempotencyKey, idempotencyKey))).limit(1))[0]
   let row = await find()
@@ -157,18 +170,20 @@ async function claimOperation(session: StaffSession, groupId: string, operationI
     row = (await find()) ?? row
   }
 
-  if (row.agreementId) return { ok: true, leadId: row.id, replay: await replayResult(session, row.id, row.agreementId, who.channel) }
+  // Done: the first attempt's result, read back.
+  if (row.status === 'converted' && row.agreementId) return { ok: true, leadId: row.id, replay: await replayResult(session, row.id, row.agreementId, who.channel), resumeAgreementId: null }
   if (row.status === 'pending' && Date.now() - row.createdAt.getTime() < STALE_CLAIM_MS) return { ok: false, state: 'in_progress', message: 'השליחה עדיין מתבצעת. עוד רגע.' }
 
-  // Failed or abandoned: this attempt takes the row over. The compare on
-  // status makes two late retries race for one winner.
+  // Failed or abandoned: this attempt takes the row over — and the document
+  // it may already have made comes with it, so nothing is created twice.
+  // The compare on status makes two late retries race for one winner.
   const taken = await db
     .update(schema.projectLeads)
     .set({ status: 'pending', createdAt: new Date(), lastActivityAt: new Date(), meta: sql`coalesce(${schema.projectLeads.meta}, '{}'::jsonb) - 'error'` })
-    .where(and(eq(schema.projectLeads.id, row.id), eq(schema.projectLeads.status, row.status), isNull(schema.projectLeads.agreementId)))
-    .returning({ id: schema.projectLeads.id })
+    .where(and(eq(schema.projectLeads.id, row.id), eq(schema.projectLeads.status, row.status), sql`${schema.projectLeads.createdAt} = ${row.createdAt}`))
+    .returning({ id: schema.projectLeads.id, agreementId: schema.projectLeads.agreementId })
   if (!taken[0]) return { ok: false, state: 'in_progress', message: 'השליחה עדיין מתבצעת. עוד רגע.' }
-  return { ok: true, leadId: row.id, replay: null }
+  return { ok: true, leadId: row.id, replay: null, resumeAgreementId: taken[0].agreementId }
 }
 
 /** The first attempt's outcome, read back from what it recorded. */
@@ -177,7 +192,7 @@ async function replayResult(session: StaffSession, leadId: string, agreementId: 
   const [last] = await db
     .select({ id: schema.messageSends.id, channel: schema.messageSends.channel, ok: schema.messageSends.ok, error: schema.messageSends.error, body: schema.messageSends.body, recipient: schema.messageSends.recipient })
     .from(schema.messageSends)
-    .where(and(eq(schema.messageSends.organizationId, session.organizationId), eq(schema.messageSends.leadId, leadId), eq(schema.messageSends.isTest, false)))
+    .where(and(eq(schema.messageSends.organizationId, session.organizationId), or(eq(schema.messageSends.leadId, leadId), eq(schema.messageSends.agreementId, agreementId)), eq(schema.messageSends.isTest, false)))
     .orderBy(desc(schema.messageSends.sentAt))
     .limit(1)
   if (channel === 'whatsapp' && last?.channel === 'whatsapp') {
@@ -193,7 +208,7 @@ async function fail(leadId: string, message: string): Promise<QuickSendResult> {
   await getDb()
     .update(schema.projectLeads)
     .set({ status: 'failed', lastActivityAt: new Date(), meta: sql`coalesce(${schema.projectLeads.meta}, '{}'::jsonb) || ${JSON.stringify({ error: message.slice(0, 300) })}::jsonb` })
-    .where(and(eq(schema.projectLeads.id, leadId), isNull(schema.projectLeads.agreementId)))
+    .where(eq(schema.projectLeads.id, leadId))
   return { ok: false, message }
 }
 

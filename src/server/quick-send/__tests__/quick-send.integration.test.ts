@@ -1,8 +1,9 @@
 import { and, eq } from 'drizzle-orm'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
 import { createComposedDocument } from '@/server/documents/compose'
+import * as saveFieldsModule from '@/server/documents/save-fields'
 import { loadFields, saveFields } from '@/server/documents/save-fields'
 import { listGroups } from '@/server/groups/groups'
 import { DIRECT_SIGNING_KEY, listAudience } from '@/server/invitations/invitations'
@@ -163,5 +164,25 @@ describe('quick send', () => {
     const one = await quickSend(session, { operationId: op(), recipient: { name: 'עסק א', phone: '0500001111', kind: 'supplier' }, templateId, channel: 'sms' })
     const two = await quickSend(session, { operationId: op(), recipient: { name: 'עסק ב', phone: '0500001111', kind: 'customer' }, templateId, channel: 'sms' })
     expect(one.ok && two.ok && one.agreementId !== two.agreementId).toBe(true)
+  })
+
+  it('a failure after the document was made: the retry resumes with that document, no second one', async () => {
+    const operationId = op()
+    const agreementsBefore = (await db.select({ id: schema.agreements.id }).from(schema.agreements).where(eq(schema.agreements.organizationId, orgId))).length
+    const spy = vi.spyOn(saveFieldsModule, 'saveRecipient').mockResolvedValueOnce({ ok: false, message: 'תקלה זמנית' })
+    const broken = await quickSend(session, { operationId, recipient: { name: 'חצי דרך', phone: '0500002222', kind: 'supplier' }, templateId, channel: 'sms' })
+    spy.mockRestore()
+    expect(broken.ok).toBe(false)
+    const [row] = await db.select().from(schema.projectLeads).where(and(eq(schema.projectLeads.organizationId, orgId), eq(schema.projectLeads.phone, '+972500002222')))
+    expect(row.status).toBe('failed')
+    expect(row.agreementId).not.toBeNull()
+    const again = await quickSend(session, { operationId, recipient: { name: 'חצי דרך', phone: '0500002222', kind: 'supplier' }, templateId, channel: 'sms' })
+    expect(again.ok).toBe(true)
+    if (!again.ok) return
+    expect(again.agreementId).toBe(row.agreementId)
+    const agreementsAfter = (await db.select({ id: schema.agreements.id }).from(schema.agreements).where(eq(schema.agreements.organizationId, orgId))).length
+    expect(agreementsAfter - agreementsBefore).toBe(1)
+    const [sent] = await db.select({ status: schema.agreements.status }).from(schema.agreements).where(eq(schema.agreements.id, again.agreementId))
+    expect(sent.status).toBe('sent')
   })
 })

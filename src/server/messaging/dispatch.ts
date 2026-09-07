@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, or } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, lt, or } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
 import { consume } from '@/server/http/rate-limit'
@@ -27,6 +27,9 @@ import { log } from '@/server/log'
 
 export const COOLDOWN_HOURS = 24
 const RESERVED = 'reserved'
+const ABANDONED = 'abandoned'
+/** How long a reservation may sit without an outcome before another attempt may take the slot. */
+export const RESERVATION_TTL_MS = 2 * 60_000
 
 export type DispatchEvent = 'invitation' | 'reminder'
 export type DispatchChannel = 'sms' | 'email' | 'whatsapp'
@@ -135,6 +138,14 @@ export async function dispatch(input: DispatchInput): Promise<DispatchResult> {
   const existing = await findByAttempt()
   if (existing) return replay(existing)
 
+  // A reservation nobody finished (a crash between the row and the provider)
+  // is given up after a couple of minutes: marked abandoned, so it stops
+  // holding the slot and shows up as a failure to retry, never as a send.
+  await db
+    .update(schema.messageSends)
+    .set({ error: ABANDONED })
+    .where(and(eq(schema.messageSends.leadId, lead.id), eq(schema.messageSends.channel, channel), eq(schema.messageSends.event, event), eq(schema.messageSends.error, RESERVED), lt(schema.messageSends.sentAt, new Date(Date.now() - RESERVATION_TTL_MS))))
+
   const since = new Date(Date.now() - COOLDOWN_HOURS * 60 * 60 * 1000)
   const [recent] = await db
     .select({ id: schema.messageSends.id, sentAt: schema.messageSends.sentAt, error: schema.messageSends.error })
@@ -189,9 +200,12 @@ export async function dispatch(input: DispatchInput): Promise<DispatchResult> {
   }
   const sendId = row.id
 
-  await db.update(schema.projectLeads).set({ lastActivityAt: new Date() }).where(eq(schema.projectLeads.id, lead.id))
+  const touch = () => db.update(schema.projectLeads).set({ lastActivityAt: new Date() }).where(eq(schema.projectLeads.id, lead.id)).catch(() => undefined)
 
-  if (channel === 'whatsapp' || !input.send) return { ok: true, state: 'opened', sendId, to: rendered.to, body: rendered.body }
+  if (channel === 'whatsapp' || !input.send) {
+    await touch()
+    return { ok: true, state: 'opened', sendId, to: rendered.to, body: rendered.body }
+  }
 
   let result: ProviderResult
   try {
@@ -203,6 +217,7 @@ export async function dispatch(input: DispatchInput): Promise<DispatchResult> {
     .update(schema.messageSends)
     .set({ ok: result.ok, providerMessageId: result.providerMessageId, error: result.ok ? null : (result.error ?? 'השליחה נכשלה') })
     .where(eq(schema.messageSends.id, sendId))
+  await touch()
   if (!result.ok) {
     log.warn('dispatch: provider refused', { leadId: lead.id, channel, event, error: result.error })
     return { ok: false, state: 'failed', message: humanize(result.error), sendId }
@@ -211,7 +226,7 @@ export async function dispatch(input: DispatchInput): Promise<DispatchResult> {
 }
 
 export function humanize(error: string | null | undefined): string {
-  if (!error || error === RESERVED) return 'השליחה לא הושלמה. נסו שוב בעוד רגע.'
+  if (!error || error === RESERVED || error === ABANDONED) return 'השליחה לא הושלמה. נסו שוב בעוד רגע.'
   if (/mailing list|invalid|not valid|address/i.test(error)) return 'הכתובת לא התקבלה אצל ספק ההודעות. בדקו את הפרטים ונסו שוב.'
   if (/credentials|missing|SIGN_LOG_NOTIFICATIONS/i.test(error)) return 'שירות ההודעות אינו מוגדר בסביבה הזו, ההודעה נרשמה בלבד.'
   return 'השליחה נכשלה. נסו שוב בעוד רגע.'

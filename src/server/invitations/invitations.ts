@@ -321,7 +321,7 @@ export async function whatsappInvitation(session: StaffSession, leadId: string, 
       const rendered = await renderInvitation(session, lead.groupId, lead, link)
       return { to: lead.phone!, subject: null, body: rendered.sms ?? `שלום ${rendered.name}, מצורף קישור אישי: ${link}`, variables: rendered.vars }
     },
-  })
+  }).catch((error): DispatchResultLike => ({ ok: false, state: 'failed', message: error instanceof Error ? error.message : 'השליחה נכשלה.' }))
   if (!result.ok) return { ok: false, message: result.message, state: result.state }
   await db_touch(lead.id, lead.inviteChannel ?? 'whatsapp')
   const url = buildWhatsAppShareUrl({ recipientName: nameOf(lead.data), signingLink: link, phoneE164: lead.phone }).replace(/\?text=.*$/, `?text=${encodeURIComponent(result.body)}`)
