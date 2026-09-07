@@ -124,7 +124,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
 
   const path = basePath ?? `/projects/${projectId}`
   const href = (patch: Record<string, string | undefined>) => {
-    const p = new URLSearchParams(global ? extraParams ?? {} : { tab: 'audience' })
+    const p = new URLSearchParams(global ? extraParams ?? {} : { tab: 'invitations' })
     const next: { view?: string; q?: string; due?: string } = { view, q, ...patch }
     if (next.view && next.view !== 'all') p.set('view', next.view)
     if (next.q) p.set('q', next.q)
@@ -136,8 +136,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
   return (
     <section className="flex flex-col gap-4">
       {!global ? (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-fg">קהל הקמפיין</h2>
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <button type="button" onClick={() => setInviteOpen(true)} className={`${bigButton} bg-brand text-white hover:opacity-90`}>
             + שליחת הזמנה
           </button>
@@ -154,7 +153,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
           ))}
         </nav>
         <form method="get" action={path} className="flex min-w-0 flex-1 gap-2">
-          {global ? Object.entries(extraParams ?? {}).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />) : <input type="hidden" name="tab" value="audience" />}
+          {global ? Object.entries(extraParams ?? {}).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />) : <input type="hidden" name="tab" value="invitations" />}
           {view !== 'all' ? <input type="hidden" name="view" value={view} /> : null}
           <input type="search" name="q" defaultValue={q} placeholder="חיפוש לפי שם או טלפון" aria-label="חיפוש בקהל" className="min-h-11 min-w-0 flex-1 rounded-xl border border-line bg-surface px-4 text-base text-fg outline-none focus:border-brand" />
           <button type="submit" className="inline-flex min-h-11 items-center rounded-xl border border-line bg-surface px-4 text-sm font-medium text-fg hover:border-brand">
@@ -229,8 +228,8 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
 
       {rows.length === 0 ? (
         <div className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center">
-          <p className="text-base font-semibold text-fg">{q || view !== 'all' ? 'לא נמצא אף אחד בתצוגה הזו' : 'עדיין לא הזמנתם אף אחד'}</p>
-          <p className="mt-2 text-sm text-muted">{q || view !== 'all' ? 'נסו תצוגה אחרת או חיפוש אחר.' : 'שם + טלפון + ערוץ, וההזמנה יוצאת עם קישור אישי.'}</p>
+          <p className="text-base font-semibold text-fg">{q || view !== 'all' ? 'לא נמצא אף אחד בתצוגה הזו' : global ? 'עדיין אין הזמנות או הרשמות למעקב' : 'עדיין לא נשלחו הזמנות'}</p>
+          <p className="mt-2 text-sm text-muted">{q || view !== 'all' ? 'נסו תצוגה אחרת או חיפוש אחר.' : global ? 'הזמנות מקמפיינים ושליחות ישירות יופיעו כאן ברגע שיישלחו.' : 'שלחו קישור אישי לספק או ללקוח, גם אם הוא עדיין אינו נמצא במערכת.'}</p>
           {!q && view === 'all' && !global ? (
             <button type="button" onClick={() => setInviteOpen(true)} className={`${bigButton} mt-5 bg-brand text-white`}>
               + שליחת הזמנה

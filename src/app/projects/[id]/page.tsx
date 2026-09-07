@@ -7,6 +7,7 @@ import { BackLink } from '@/components/nav/BackLink'
 import { ScrollRestore } from '@/components/nav/ScrollRestore'
 import { readReturnTo, withReturnTo } from '@/lib/return-to'
 import { AudienceTable } from '@/components/projects/AudienceTable'
+import { TabPicker } from '@/components/projects/TabPicker'
 import { listAudience, type AudienceView } from '@/server/invitations/invitations'
 import { ProjectSettings } from '@/components/projects/ProjectSettings'
 import { ForbiddenError, getSession } from '@/server/auth/session'
@@ -23,7 +24,7 @@ import { parseProjectReportFilters, projectReport, registrationCount, registrati
 import { RegistrationsTable } from '@/components/reports/RegistrationsTable'
 import { ProjectReportView, type ProjectReportData } from '@/components/reports/ProjectReportView'
 import { missingRoles } from '@/lib/agreement-roles'
-import { describeCampaign, entryLabel, goalLabel, isCampaignKind, LEGACY_TABS, TAB_LABELS, tabsFor, type CampaignKind, type CampaignTab } from '@/lib/campaigns'
+import { describeCampaign, entryLabel, goalLabel, isCampaignKind, LEGACY_TABS, TAB_INTROS, TAB_LABELS, tabsFor, type CampaignKind, type CampaignTab } from '@/lib/campaigns'
 import { CampaignOverview } from '@/components/projects/CampaignOverview'
 import { DistributionsTab } from '@/components/projects/DistributionsTab'
 import type { PlacedField } from '@/lib/fields'
@@ -97,7 +98,10 @@ export default async function ProjectPage({
         </p>
       </div>
 
-      <nav className="-mx-1 mt-5 flex gap-1 overflow-x-auto border-b border-line px-1" aria-label="לשוניות הפרויקט">
+      <div className="mt-5">
+        <TabPicker current={tab} options={TABS.map((key) => ({ key, label: TAB_LABELS[key], href: href(key), badge: key === 'registrations' ? newLeadCount : undefined }))} />
+      </div>
+      <nav className="-mx-1 mt-2 hidden gap-1 border-b border-line px-1 md:flex md:flex-wrap" aria-label="לשוניות הפרויקט">
         {TABS.map((key) => (
           <Link
             key={key}
@@ -118,10 +122,15 @@ export default async function ProjectPage({
       </nav>
 
       <div className="mt-5">
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-fg">{TAB_LABELS[tab]}</h2>
+          <p className="mt-1 text-sm text-muted">{TAB_INTROS[tab]}</p>
+        </div>
         {tab === 'overview' ? <CampaignOverview project={{ id, name: project.name, campaignKind, publicUrl: campaignKind === 'public' ? await publicAddress(session, id) : null }} companies={companies} leads={leads} /> : null}
-        {tab === 'audience' ? <SuppliersTab projectId={id} projectName={project.name} companies={companies} search={query.q ?? ''} session={session} query={query} askKind={project.kind === null} /> : null}
+        {tab === 'audience' ? <SuppliersTab projectId={id} projectName={project.name} companies={companies} search={query.q ?? ''} session={session} /> : null}
+        {tab === 'invitations' ? <InvitationsTab projectId={id} session={session} query={query} askKind={project.kind === null} /> : null}
         {tab === 'distributions' ? <DistributionsTab projectId={id} campaignKind={campaignKind} publicUrl={campaignKind === 'public' ? await publicAddress(session, id) : null} isAdmin={session.isAdmin} openNew={query.new === '1'} /> : null}
-        {tab === 'registrations' ? <RegistrationsTab projectId={id} query={query} session={session} audienceNoun={project.kind === 'customer' ? 'לקוח' : 'ספק'} /> : null}
+        {tab === 'registrations' ? <RegistrationsTab projectId={id} query={query} session={session} audienceNoun={project.kind === 'customer' ? 'לקוח' : 'ספק'} publicUrl={await publicAddress(session, id)} /> : null}
         {tab === 'agreements' ? <AgreementsTab projectId={id} session={session} /> : null}
         {tab === 'reports' ? <ReportsTab projectId={id} query={query} session={session} /> : null}
         {tab === 'settings' ? (
@@ -165,42 +174,47 @@ export default async function ProjectPage({
   )
 }
 
+/** הזמנות ומעקב — the people we reached by name and phone, from the send to the signature. */
+async function InvitationsTab({
+  projectId,
+  session,
+  query,
+  askKind,
+}: {
+  projectId: string
+  session: NonNullable<Awaited<ReturnType<typeof getSession>>>
+  query: Record<string, string | undefined>
+  askKind: boolean
+}) {
+  const view: AudienceView = (['all', 'invited', 'waiting', 'registered', 'signed'] as const).includes(query.view as AudienceView) ? (query.view as AudienceView) : 'all'
+  const [audience, due] = await Promise.all([
+    listAudience(session, projectId, { view, q: query.q, followUpDue: query.due === '1' }),
+    listAudience(session, projectId, { followUpDue: true, limit: 200 }),
+  ])
+  return <AudienceTable projectId={projectId} rows={audience.rows} counts={audience.counts} view={view} q={query.q ?? ''} askKind={askKind} dueToday={query.due === '1' ? 0 : due.total} />
+}
+
+/** קהל — suppliers and customers already in the system, attached to the campaign. */
 async function SuppliersTab({
   projectId,
   projectName,
   companies,
   search,
   session,
-  query,
-  askKind,
 }: {
   projectId: string
   projectName: string
   companies: Awaited<ReturnType<typeof listGroupCompanies>>
   search: string
   session: NonNullable<Awaited<ReturnType<typeof getSession>>>
-  query: Record<string, string | undefined>
-  askKind: boolean
 }) {
-  const view: AudienceView = (['all', 'invited', 'waiting', 'registered', 'signed'] as const).includes(query.view as AudienceView) ? (query.view as AudienceView) : 'all'
-  const [templates, batches, audience, due] = await Promise.all([
-    listTemplates(session),
-    listBatches(session, projectId),
-    listAudience(session, projectId, { view, q: query.q, followUpDue: query.due === '1' }),
-    listAudience(session, projectId, { followUpDue: true, limit: 200 }),
-  ])
+  const [templates, batches] = await Promise.all([listTemplates(session), listBatches(session, projectId)])
   const usable = templates
     .filter((t) => t.signatureCount > 0 && t.pageCount !== null)
     .map((t) => ({ id: t.id, name: t.name, signatureCount: t.signatureCount }))
 
   return (
     <>
-      <AudienceTable projectId={projectId} rows={audience.rows} counts={audience.counts} view={view} q={query.q ?? ''} askKind={askKind} dueToday={query.due === '1' ? 0 : due.total} />
-
-      <section className="mt-10">
-        <h2 className="text-lg font-semibold text-fg">ספקים ולקוחות בקמפיין — שליחה מרוכזת</h2>
-        <p className="mt-1 text-sm text-muted">רשומות קיימות מהמאגר שצורפו לקמפיין, ושליחת הסכם לכמה מהן בבת אחת.</p>
-      </section>
       <GroupWorkspace groupId={projectId} groupName={projectName} companies={companies} templates={usable} search={search} />
 
       {batches.length > 0 ? (
@@ -236,9 +250,18 @@ async function AgreementsTab({
   const result = await listDocuments(session, { groupId: projectId, pageSize: 100 })
   if (result.items.length === 0) {
     return (
-      <p className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center text-sm text-muted">
-        עדיין לא נשלחו הסכמים מהפרויקט הזה. שולחים מתוך לשונית הספקים.
-      </p>
+      <div className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center">
+        <p className="text-base font-semibold text-fg">עדיין לא נשלחו הסכמים</p>
+        <p className="mt-2 text-sm text-muted">שולחים הסכם לספקים ולקוחות מתוך הקהל, או קישור אישי מתוך הזמנות ומעקב.</p>
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <Link href={`/projects/${projectId}?tab=audience`} className="inline-flex min-h-12 items-center rounded-xl bg-brand px-5 text-base font-semibold text-white hover:opacity-90">
+            לקהל הקמפיין
+          </Link>
+          <Link href={`/projects/${projectId}?tab=invitations`} className="inline-flex min-h-12 items-center rounded-xl border border-line bg-surface px-5 text-base font-medium text-fg hover:border-brand">
+            שליחת הזמנה אישית
+          </Link>
+        </div>
+      </div>
     )
   }
   return <DocumentsTable documents={result.items} now={result.now} isAdmin={session.isAdmin} />
@@ -292,11 +315,13 @@ async function RegistrationsTab({
   query,
   session,
   audienceNoun,
+  publicUrl,
 }: {
   projectId: string
   query: Record<string, string | undefined>
   session: StaffSession
   audienceNoun: 'ספק' | 'לקוח'
+  publicUrl: string | null
 }) {
   const filters = parseProjectReportFilters({ status: query.status, q: query.q })
   const [rows, total, attention] = await Promise.all([
@@ -308,6 +333,17 @@ async function RegistrationsTab({
   const field = 'min-h-11 rounded-lg border border-line bg-surface px-3 text-sm text-fg outline-none focus:border-brand'
   return (
     <div className="flex flex-col gap-4">
+      {total === 0 && !query.q && !query.status ? (
+        <div className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center">
+          <p className="text-base font-semibold text-fg">עדיין אין הרשמות</p>
+          <p className="mt-2 text-sm text-muted">כאשר אנשים ימלאו את טופס הקמפיין, ההרשמות שלהם יופיעו כאן.</p>
+          {publicUrl ? (
+            <a href={publicUrl} target="_blank" rel="noreferrer" className="mt-5 inline-flex min-h-12 items-center rounded-xl bg-brand px-5 text-base font-semibold text-white hover:opacity-90">
+              צפייה בעמוד הקמפיין
+            </a>
+          ) : null}
+        </div>
+      ) : null}
       <form method="get" action={`/projects/${projectId}`} className="flex flex-wrap items-end gap-2">
         <input type="hidden" name="tab" value="registrations" />
         <input type="search" name="q" defaultValue={query.q ?? ''} placeholder="חיפוש לפי עסק, איש קשר, ח.פ., טלפון או אימייל" aria-label="חיפוש בהרשמות" className={`${field} min-w-0 flex-1`} />
