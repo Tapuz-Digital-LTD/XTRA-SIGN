@@ -3,7 +3,7 @@ import { ForbiddenError, type StaffSession } from '@/server/auth/session'
 import type { CompanyKind, CompanySource } from '@/server/companies/companies'
 import { getDb, schema } from '@/server/db'
 import { isUuid } from '@/server/documents/authorization'
-import { describeCampaign, isCampaignGoal, isCampaignKind, isEntryMethod, isRegistrationTarget, kindForEntry, type CampaignGoal, type CampaignKind, type EntryMethod, type RegistrationTarget } from '@/lib/campaigns'
+import { describeCampaign, isCampaignGoal, isCampaignKind, isCampaignStatus, isEntryMethod, isRegistrationTarget, kindForEntry, type CampaignGoal, type CampaignKind, type CampaignStatus, type EntryMethod, type RegistrationTarget } from '@/lib/campaigns'
 
 /**
  * Groups: a hand-picked list of companies to work with together.
@@ -228,6 +228,9 @@ export type CampaignFields = {
   goal?: CampaignGoal
   entryMethod?: EntryMethod
   registrationTarget?: RegistrationTarget
+  status?: CampaignStatus
+  endedMessage?: string | null
+  allowCompletionAfterEnd?: boolean
   startsAt?: Date | null
   endsAt?: Date | null
   registrationsAfterEnd?: boolean
@@ -241,6 +244,9 @@ function cleanCampaignFields(input: CampaignFields) {
   if (input.campaignKind !== undefined && isCampaignKind(input.campaignKind)) out.campaignKind = input.campaignKind
   if (input.goal !== undefined && isCampaignGoal(input.goal)) out.goal = input.goal
   if (input.registrationTarget !== undefined && isRegistrationTarget(input.registrationTarget)) out.registrationTarget = input.registrationTarget
+  if (input.status !== undefined && isCampaignStatus(input.status)) out.status = input.status
+  if (input.endedMessage !== undefined) out.endedMessage = input.endedMessage ? String(input.endedMessage).trim().slice(0, 600) || null : null
+  if (input.allowCompletionAfterEnd !== undefined) out.allowCompletionAfterEnd = Boolean(input.allowCompletionAfterEnd)
   if (input.entryMethod !== undefined && isEntryMethod(input.entryMethod)) {
     out.entryMethod = input.entryMethod
     out.campaignKind = kindForEntry(input.entryMethod)

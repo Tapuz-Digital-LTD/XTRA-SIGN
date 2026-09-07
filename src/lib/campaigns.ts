@@ -121,13 +121,40 @@ export const TAB_LABELS: Record<CampaignTab, string> = {
 export const LEGACY_TABS: Record<string, CampaignTab> = { suppliers: 'audience', leads: 'registrations' }
 
 /** Registrations are open unless the campaign ended and did not ask to stay open. */
-export function registrationsOpen(campaign: { endsAt: Date | string | null; registrationsAfterEnd: boolean }, now = new Date()): boolean {
+export type CampaignStatus = 'active' | 'paused' | 'ended'
+
+export function isCampaignStatus(value: unknown): value is CampaignStatus {
+  return value === 'active' || value === 'paused' || value === 'ended'
+}
+
+export const CAMPAIGN_STATUSES: { key: CampaignStatus; label: string; blurb: string }[] = [
+  { key: 'active', label: 'פעיל', blurb: 'העמוד פתוח ואפשר להירשם.' },
+  { key: 'paused', label: 'מושהה', blurb: 'ההרשמה עצורה זמנית; העמוד מציג הודעה ואפשר לפתוח מחדש בכל רגע.' },
+  { key: 'ended', label: 'הסתיים', blurb: 'ההרשמה נסגרה; העמוד מציג את עמוד הסיום. אפשר לפתוח מחדש אם צריך.' },
+]
+
+/**
+ * Registrations are open when the campaign is active and either has no end
+ * date, asked to stay open past it, or has not reached it yet. A paused or
+ * ended campaign is closed whatever its dates say.
+ */
+export function registrationsOpen(campaign: { endsAt: Date | string | null; registrationsAfterEnd: boolean; status?: string | null }, now = new Date()): boolean {
+  if (campaign.status && campaign.status !== 'active') return false
   if (!campaign.endsAt) return true
   if (campaign.registrationsAfterEnd) return true
   return new Date(campaign.endsAt).getTime() > now.getTime()
 }
 
+/** Why the page is closed, in the words it shows. */
+export function closedState(campaign: { endsAt: Date | string | null; registrationsAfterEnd: boolean; status?: string | null }, now = new Date()): 'paused' | 'ended' | null {
+  if (registrationsOpen(campaign, now)) return null
+  return campaign.status === 'paused' ? 'paused' : 'ended'
+}
+
 export const REGISTRATIONS_CLOSED_MESSAGE = 'ההרשמה לקמפיין הסתיימה.'
+export const REGISTRATIONS_PAUSED_MESSAGE = 'ההרשמה מושהית זמנית.'
+export const DEFAULT_ENDED_TEXT = 'תודה על ההתעניינות. ההרשמה לקמפיין זה הסתיימה ואינה פתוחה עוד להצטרפות.'
+export const DEFAULT_PAUSED_TEXT = 'ההרשמה לקמפיין עצורה לזמן קצר. נשמח לראותכם שוב בקרוב.'
 
 /** Where a campaign saves the people who register: here only, or linked to a synced CRM company. */
 export type RegistrationTarget = 'xtra_sign' | 'crm'

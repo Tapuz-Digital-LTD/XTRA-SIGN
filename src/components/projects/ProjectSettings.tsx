@@ -6,6 +6,7 @@ import { MessagesSettings } from '@/components/projects/MessagesSettings'
 import { CampaignSettings, type CampaignSettingsValue } from '@/components/projects/CampaignSettings'
 import { ShareSettings } from '@/components/projects/ShareSettings'
 import { RegistrationTargetSetting } from '@/components/projects/RegistrationTargetSetting'
+import { CampaignStatusSetting } from '@/components/projects/CampaignStatusSetting'
 import type { ProjectNotificationSettings } from '@/lib/project-notifications'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -219,6 +220,7 @@ export function ProjectSettings({
             </label>
             <div className="mt-4">{saveBar}</div>
           </section>
+          <CampaignStatusSetting projectId={projectId} value={{ status: campaign.status, endedMessage: campaign.endedMessage, allowCompletionAfterEnd: campaign.allowCompletionAfterEnd }} publicUrl={publicSlug.current ? `${publicBase}/${publicSlug.current}` : null} isAdmin={isAdmin} />
           <CampaignSettings projectId={projectId} value={campaign} owners={owners} templates={templates} />
         </>
       ) : null}

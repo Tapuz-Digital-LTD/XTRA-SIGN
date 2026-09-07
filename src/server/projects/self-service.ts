@@ -6,7 +6,7 @@ import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
 import { authorizeGroup } from '@/server/groups/groups'
 import { currentSlugOf, ensurePublicSlug, resolvePublicSlug } from './public-slug'
-import { type RegistrationTarget, registrationsOpen } from '@/lib/campaigns'
+import { closedState, type RegistrationTarget, registrationsOpen } from '@/lib/campaigns'
 
 /**
  * A project's self-service onboarding settings.
@@ -183,6 +183,13 @@ export type SelfServiceProject = {
   registrationsOpen: boolean
   /** Where registrants are saved: here only (default), or linked to a synced CRM company by tax id. */
   registrationTarget: RegistrationTarget
+  /** Why the public page is closed, or null while open. */
+  closed: 'paused' | 'ended' | null
+  endedMessage: string | null
+  /** After the end, may an existing registration still finish signing? */
+  completionAllowed: boolean
+  /** For the closed page's way home. */
+  orgWebsite: string | null
   notifyEmails: string[]
   config: SelfServiceConfig
   template: { id: string; name: string; sourceFileKey: string; fields: PlacedField[] }
@@ -290,6 +297,10 @@ export async function loadSelfServiceProject(groupId: string): Promise<SelfServi
     publicSlug,
     registrationsOpen: registrationsOpen(group),
     registrationTarget: group.registrationTarget === 'crm' ? 'crm' : 'xtra_sign',
+    closed: closedState(group),
+    endedMessage: group.endedMessage ?? null,
+    completionAllowed: registrationsOpen(group) || group.allowCompletionAfterEnd !== false,
+    orgWebsite: (await organizationWebsite(group.organizationId)) ?? null,
     notifyEmails: Array.isArray(group.notifyEmails)
       ? (group.notifyEmails as unknown[]).filter((e): e is string => typeof e === 'string')
       : [],
@@ -302,4 +313,10 @@ export async function loadSelfServiceProject(groupId: string): Promise<SelfServi
     },
     owner,
   }
+}
+
+async function organizationWebsite(organizationId: string): Promise<string | null> {
+  const [org] = await getDb().select({ website: schema.organizations.website }).from(schema.organizations).where(eq(schema.organizations.id, organizationId)).limit(1)
+  const site = org?.website?.trim()
+  return site && /^https?:\/\//i.test(site) ? site : site ? `https://${site}` : null
 }
