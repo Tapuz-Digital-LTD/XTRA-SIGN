@@ -52,6 +52,8 @@ async function main() {
       if (process.env.CREATE === '1' && width === 1440) {
         await page.type('[role="dialog"] input[maxlength="120"]', 'בדיקה — הזמנה אישית')
         await page.type('[role="dialog"] input[inputmode="tel"]', '0500000123')
+        // Only the chosen channel's field is on screen: SMS by default shows the phone only.
+        if (await page.$('[role="dialog"] input[inputmode="email"]')) throw new Error('email field shown while SMS is chosen')
         // A campaign for both suppliers and customers asks which one this is.
         const kindRadio = await page.$('[role="dialog"] input[name="inv-kind"]')
         if (kindRadio) await kindRadio.evaluate((el) => (el.parentElement as HTMLElement).click())

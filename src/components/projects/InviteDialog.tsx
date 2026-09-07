@@ -47,10 +47,15 @@ export function InviteDialog({ projectId, askKind, onClose }: { projectId: strin
     }
   }, [onClose])
 
+  // Only the field the chosen channel uses is sent or checked; a value typed
+  // for another channel is kept on screen but never sent without choosing it.
+  const sentPhone = channel === 'email' ? null : phone.trim() || null
+  const sentEmail = channel === 'email' ? email.trim() || null : null
+
   async function checkExisting() {
     const p = new URLSearchParams()
-    if (phone.trim()) p.set('phone', phone.trim())
-    if (email.trim()) p.set('email', email.trim())
+    if (sentPhone) p.set('phone', sentPhone)
+    if (sentEmail) p.set('email', sentEmail)
     if (!p.toString()) return
     try {
       const response = await fetch(`/api/projects/${projectId}/invitations?${p}`)
@@ -65,15 +70,15 @@ export function InviteDialog({ projectId, askKind, onClose }: { projectId: strin
   async function submit() {
     setError(null)
     if (!name.trim()) return setError('הזינו שם.')
-    if (channel === 'email' && !email.trim()) return setError('לשליחה באימייל צריך כתובת אימייל.')
-    if (channel !== 'email' && !phone.trim()) return setError('לשליחה ב-SMS או ב-WhatsApp צריך מספר טלפון.')
+    if (channel === 'email' && !sentEmail) return setError('הזינו כתובת אימייל.')
+    if (channel !== 'email' && !sentPhone) return setError('הזינו מספר טלפון נייד.')
     if (askKind && !kind) return setError('בחרו אם זה ספק או לקוח.')
     setBusy(true)
     try {
       const response = await fetch(`/api/projects/${projectId}/invitations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ operationId: operationId.current, name: name.trim(), phone: phone.trim() || null, email: email.trim() || null, kind: kind || null, channel }),
+        body: JSON.stringify({ operationId: operationId.current, name: name.trim(), phone: sentPhone, email: sentEmail, kind: kind || null, channel }),
       })
       const data = await response.json().catch(() => null)
       if (!response.ok || !data?.ok) {
@@ -169,16 +174,6 @@ export function InviteDialog({ projectId, askKind, onClose }: { projectId: strin
               <span className="font-medium text-fg">שם העסק או איש הקשר</span>
               <input ref={nameRef} value={name} onChange={(e) => setName(e.target.value)} className={input} autoComplete="off" maxLength={120} />
             </label>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block text-sm">
-                <span className="font-medium text-fg">טלפון נייד</span>
-                <input value={phone} onChange={(e) => setPhone(e.target.value)} onBlur={() => void checkExisting()} className={input} inputMode="tel" dir="ltr" placeholder="050-0000000" autoComplete="off" />
-              </label>
-              <label className="block text-sm">
-                <span className="font-medium text-fg">אימייל</span>
-                <input value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => void checkExisting()} className={input} inputMode="email" dir="ltr" autoComplete="off" />
-              </label>
-            </div>
             {askKind ? (
               <div role="radiogroup" aria-label="ספק או לקוח" className="grid grid-cols-2 gap-2">
                 {(
@@ -194,6 +189,43 @@ export function InviteDialog({ projectId, askKind, onClose }: { projectId: strin
                 ))}
               </div>
             ) : null}
+
+            <div>
+              <span className="block text-sm font-medium text-fg">איך לשלוח?</span>
+              <div role="radiogroup" aria-label="דרך שליחה" className="mt-1 grid grid-cols-3 gap-2">
+                {(
+                  [
+                    ['sms', 'SMS'],
+                    ['whatsapp', 'WhatsApp'],
+                    ['email', 'אימייל'],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key} className={`flex min-h-12 cursor-pointer items-center justify-center rounded-xl border-2 text-base font-semibold ${channel === key ? 'border-brand bg-blue-50 text-fg' : 'border-line bg-bg text-fg hover:border-brand'}`}>
+                    <input type="radio" name="inv-channel" className="sr-only" checked={channel === key} onChange={() => { setChannel(key); setExisting([]); setError(null) }} />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {channel === 'email' ? (
+              <label className="block text-sm">
+                <span className="font-medium text-fg">כתובת אימייל</span>
+                <input value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => void checkExisting()} className={input} inputMode="email" dir="ltr" autoComplete="off" />
+              </label>
+            ) : (
+              <label className="block text-sm">
+                <span className="font-medium text-fg">מספר טלפון נייד</span>
+                <input value={phone} onChange={(e) => setPhone(e.target.value)} onBlur={() => void checkExisting()} className={input} inputMode="tel" dir="ltr" placeholder="050-0000000" autoComplete="off" />
+              </label>
+            )}
+            <p className="text-sm text-muted">
+              {channel === 'sms'
+                ? 'ההודעה תישלח ב-SMS בלבד. אפשר לשלוח שוב בערוץ אחר מתוך פרטי ההזמנה.'
+                : channel === 'whatsapp'
+                  ? 'WhatsApp ייפתח אצלכם עם ההודעה מוכנה. אחרי השליחה תאשרו כאן שההודעה יצאה.'
+                  : 'ההודעה תישלח באימייל בלבד. אפשר לשלוח שוב בערוץ אחר מתוך פרטי ההזמנה.'}
+            </p>
 
             {existing.length > 0 && !ignoreExisting ? (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -218,24 +250,6 @@ export function InviteDialog({ projectId, askKind, onClose }: { projectId: strin
               </div>
             ) : null}
 
-            <div role="radiogroup" aria-label="ערוץ שליחה" className="grid grid-cols-3 gap-2">
-              {(
-                [
-                  ['sms', 'SMS'],
-                  ['email', 'אימייל'],
-                  ['whatsapp', 'WhatsApp'],
-                ] as const
-              ).map(([key, label]) => (
-                <label key={key} className={`flex min-h-12 cursor-pointer items-center justify-center rounded-xl border-2 text-base font-semibold ${channel === key ? 'border-brand bg-blue-50 text-fg' : 'border-line bg-bg text-fg hover:border-brand'}`}>
-                  <input type="radio" name="inv-channel" className="sr-only" checked={channel === key} onChange={() => setChannel(key)} />
-                  {label}
-                </label>
-              ))}
-            </div>
-            <p className="text-xs text-muted">
-              {channel === 'whatsapp' ? 'WhatsApp נפתח בטלפון או במחשב שלכם עם ההודעה מוכנה; אחרי השליחה תאשרו כאן שההודעה יצאה.' : 'ההודעה נשלחת מהנוסח של הקמפיין (הגדרות ← הודעות) עם קישור אישי לעמוד הקמפיין.'}
-            </p>
-
             {error ? (
               <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
                 {error}
@@ -243,7 +257,7 @@ export function InviteDialog({ projectId, askKind, onClose }: { projectId: strin
             ) : null}
 
             <button type="submit" disabled={busy || (existing.length > 0 && !ignoreExisting)} className="inline-flex min-h-14 w-full items-center justify-center rounded-xl bg-brand text-lg font-semibold text-white hover:opacity-90 disabled:opacity-50">
-              {busy ? 'שולחים…' : channel === 'whatsapp' ? 'פתיחת WhatsApp' : 'שליחה'}
+              {busy ? 'שולחים…' : channel === 'sms' ? 'שלח הזמנה ב-SMS' : channel === 'whatsapp' ? 'המשך ל-WhatsApp' : 'שלח הזמנה באימייל'}
             </button>
           </form>
         ) : null}
