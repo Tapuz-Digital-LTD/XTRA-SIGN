@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireSession } from '@/server/auth/session'
 import { deleteEntity, getDeletionImpact, isDeletionMode, isEntityType, requestAdminDeletion } from '@/server/deletion/policy'
+import { purgeEntity } from '@/server/deletion/purge'
 import { assertSameOrigin } from '@/server/http/csrf'
 import { templateFailure } from '@/server/http/template-errors'
 import { clientIp } from '@/server/log'
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
     if (!isEntityType(type) || !id || !/^[0-9a-f-]{36}$/i.test(id)) {
       return NextResponse.json({ error: { message: 'נתונים לא תקינים.' } }, { status: 400 })
     }
-    return NextResponse.json(await getDeletionImpact(session, type, id))
+    return NextResponse.json({ ...(await getDeletionImpact(session, type, id)), isOwner: session.isOwner === true })
   } catch (error) {
     return failure(error)
   }
@@ -38,6 +39,14 @@ export async function POST(request: Request) {
     if (body?.mode === 'request') {
       await requestAdminDeletion(session, type, id, ip)
       return NextResponse.json({ ok: true, message: 'הבקשה נשלחה למנהלי המערכת.' })
+    }
+    if (body?.mode === 'purge') {
+      if (!session.isOwner) return NextResponse.json({ error: { message: 'מחיקה מלאה שמורה לבעלי הארגון בלבד.' } }, { status: 403 })
+      if (body.acknowledged !== true || (body as { confirm?: unknown }).confirm !== 'מחק') return NextResponse.json({ error: { message: 'יש להקליד "מחק" כדי לאשר מחיקה מלאה.' } }, { status: 400 })
+      const purged = await purgeEntity(session, type, id)
+      if (!purged.ok) return NextResponse.json({ error: { message: purged.message } }, { status: 400 })
+      const rows = Object.values(purged.removed).reduce((a, b) => a + b, 0)
+      return NextResponse.json({ ok: true, action: 'purge', message: `נמחק לצמיתות: ${rows} רשומות ו-${purged.files} קבצים.` })
     }
     if (!isDeletionMode(body?.mode)) return NextResponse.json({ error: { message: 'נתונים לא תקינים.' } }, { status: 400 })
     const result = await deleteEntity(session, type, id, { mode: body.mode, acknowledged: body.acknowledged === true, ip })

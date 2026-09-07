@@ -19,6 +19,8 @@ export type StaffSession = {
   email: string
   name: string
   isAdmin: boolean
+  /** The organization's owner: the one account that may delete anything outright. */
+  isOwner?: boolean
 }
 
 /**
@@ -69,9 +71,11 @@ export async function getSession(): Promise<StaffSession | null> {
       email: schema.users.email,
       name: schema.users.name,
       isAdmin: schema.users.isAdmin,
+      ownerUserId: schema.organizations.ownerUserId,
     })
     .from(schema.userSessions)
     .innerJoin(schema.users, eq(schema.users.id, schema.userSessions.userId))
+    .innerJoin(schema.organizations, eq(schema.organizations.id, schema.users.organizationId))
     .where(
       and(
         eq(schema.userSessions.sessionHash, hashToken(token)),
@@ -84,7 +88,10 @@ export async function getSession(): Promise<StaffSession | null> {
     )
     .limit(1)
 
-  return rows[0] ?? null
+  const row = rows[0]
+  if (!row) return null
+  const { ownerUserId, ...session } = row
+  return { ...session, isOwner: ownerUserId === row.userId }
 }
 
 export async function destroySession(): Promise<void> {
