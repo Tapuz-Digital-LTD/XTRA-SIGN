@@ -1,5 +1,8 @@
 import { CampaignTracker } from './CampaignTracker'
 import { CtaLink } from './CtaLink'
+import { ClosedView } from './ClosedView'
+import { skinByKey } from '@/lib/self-service-skins'
+import { getSession } from '@/server/auth/session'
 import { FloatingCta } from './FloatingCta'
 import { campaignProject, type SearchParams } from './resolve'
 
@@ -65,6 +68,9 @@ export default async function TourismCallPage({
 }) {
   const [{ slug }, query] = await Promise.all([params, searchParams])
   const project = await campaignProject(slug, '', query)
+  const preview = query.preview === 'ended' || query.preview === 'paused' ? (query.preview as 'ended' | 'paused') : null
+  const closed = project.closed ?? (preview && (await getSession()) ? preview : null)
+  if (closed) return <ClosedView slug={slug} state={closed} campaignName={project.projectName} message={project.endedMessage} logoSrc={`${skinByKey(project.config.skin)?.assetsPath ?? ''}/logo.webp`} website={project.orgWebsite} />
   const carried = new URLSearchParams()
   for (const key of UTM_KEYS) {
     const value = query[key]

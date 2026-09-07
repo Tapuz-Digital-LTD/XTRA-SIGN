@@ -15,6 +15,9 @@ export type CampaignSettingsValue = {
   goal: CampaignGoal
   entry: EntryMethod
   registrationTarget: 'xtra_sign' | 'crm'
+  status: 'active' | 'paused' | 'ended'
+  endedMessage: string
+  allowCompletionAfterEnd: boolean
   startsAt: string | null
   endsAt: string | null
   registrationsAfterEnd: boolean

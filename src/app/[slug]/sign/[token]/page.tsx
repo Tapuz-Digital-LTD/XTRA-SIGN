@@ -7,7 +7,10 @@ import { AUDIT_EVENTS } from '@/server/audit'
 import { getDb, schema } from '@/server/db'
 import { selfServiceOriginOf } from '@/server/self-service/agreement-skin'
 import { hasVerifiedSession, isSignable, resolveSigningToken } from '@/server/signing/session'
-import { CampaignFrame, CampaignNotice } from '../../CampaignFrame'
+import { CampaignFrame } from '../../CampaignFrame'
+import { ClosedView } from '../../ClosedView'
+import { RenewSigning } from '../../RenewSigning'
+import { skinByKey } from '@/lib/self-service-skins'
 import { JoinAndSign } from '../../JoinAndSign'
 import { campaignProject, type SearchParams } from '../../resolve'
 
@@ -34,7 +37,10 @@ export default async function ResumeSigningPage({
   const project = await campaignProject(slug, `/sign/${token}`, query)
   const context = await resolveSigningToken(token)
 
-  if (!context) return <Expired slug={slug} />
+  if (!context) return <Renew slug={slug} formId={project.formId} token={token} />
+  if (!project.completionAllowed && context.status !== 'signed') {
+    return <ClosedView slug={slug} state={project.closed ?? 'ended'} campaignName={project.projectName} message={project.endedMessage} logoSrc={`${skinByKey(project.config.skin)?.assetsPath ?? ''}/logo.webp`} website={project.orgWebsite} />
+  }
 
   // A link that belongs to another project's agreement is sent through the
   // engine's own door, which knows where it lives.
@@ -42,7 +48,7 @@ export default async function ResumeSigningPage({
   if (origin?.projectId !== project.groupId) redirect(`/sign/${token}`)
 
   if (context.status === 'signed') redirect(`/${slug}/thanks/${token}`)
-  if (!isSignable(context.status)) return <Expired slug={slug} />
+  if (!isSignable(context.status)) return <Renew slug={slug} formId={project.formId} token={token} />
 
   const db = getDb()
   const [agreement] = await db
@@ -51,7 +57,7 @@ export default async function ResumeSigningPage({
     .where(eq(schema.agreements.id, context.agreementId))
     .limit(1)
   const snapshot = (agreement?.mergeSnapshot as { values?: RegistrationValues } | null)?.values
-  if (!snapshot) return <Expired slug={slug} />
+  if (!snapshot) return <Renew slug={slug} formId={project.formId} token={token} />
   // Shown, not edited: the phone reads as a person writes it, not as E.164.
   const national = toIsraeliNationalFormat(snapshot.phone)
   const values: RegistrationValues = { ...snapshot, phone: national ? `${national.slice(0, 3)}-${national.slice(3)}` : snapshot.phone }
@@ -85,14 +91,10 @@ export default async function ResumeSigningPage({
   )
 }
 
-function Expired({ slug }: { slug: string }) {
+function Renew({ slug, formId, token }: { slug: string; formId: string; token: string }) {
   return (
-    <CampaignFrame slug={slug} title="הצטרפות וחתימה">
-      <CampaignNotice
-        slug={slug}
-        title="תוקף הקישור הסתיים"
-        text="ניתן לפנות לצוות הפרויקט לקבלת קישור חדש: tour@xtra.co.il"
-      />
+    <CampaignFrame slug={slug} title="המשך חתימה">
+      <RenewSigning slug={slug} formId={formId} token={token} />
     </CampaignFrame>
   )
 }

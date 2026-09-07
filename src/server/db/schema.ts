@@ -439,6 +439,12 @@ export const groups = pgTable(
     entryMethod: text('entry_method'),
     /** Where registrants are saved: 'xtra_sign' (default, local only) | 'crm' (link to a synced CRM company by tax id). */
     registrationTarget: text('registration_target'),
+    /** 'active' | 'paused' | 'ended' — set by hand; the end date is a separate, optional close. */
+    status: text('status').default('active').notNull(),
+    /** What the public page says once registrations are closed. */
+    endedMessage: text('ended_message'),
+    /** After the campaign ends, may someone who already registered still finish signing? */
+    allowCompletionAfterEnd: boolean('allow_completion_after_end').default(true).notNull(),
     startsAt: timestamp('starts_at', { withTimezone: true }),
     endsAt: timestamp('ends_at', { withTimezone: true }),
     /** A public campaign past its end date closes registrations unless told otherwise. */

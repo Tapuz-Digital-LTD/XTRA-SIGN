@@ -91,6 +91,23 @@ export async function resolveSigningToken(token: string): Promise<SigningContext
   }
 }
 
+/**
+ * The agreement behind a token whether or not the token is still valid —
+ * only for handing out a fresh one. Revoked tokens stay dead.
+ */
+export async function resolveTokenForRenewal(token: string): Promise<{ agreementId: string; recipientId: string; status: SigningContext['status']; organizationId: string; expired: boolean } | null> {
+  if (!token || token.length < 20 || token.length > 200) return null
+  const [row] = await getDb()
+    .select({ recipientId: schema.recipients.id, agreementId: schema.agreements.id, status: schema.agreements.status, organizationId: schema.agreements.organizationId, expiresAt: schema.signingTokens.expiresAt })
+    .from(schema.signingTokens)
+    .innerJoin(schema.recipients, eq(schema.recipients.id, schema.signingTokens.recipientId))
+    .innerJoin(schema.agreements, eq(schema.agreements.id, schema.recipients.agreementId))
+    .where(and(eq(schema.signingTokens.tokenHash, hashToken(token)), isNull(schema.signingTokens.revokedAt)))
+    .limit(1)
+  if (!row) return null
+  return { agreementId: row.agreementId, recipientId: row.recipientId, status: row.status, organizationId: row.organizationId, expired: row.expiresAt.getTime() <= Date.now() }
+}
+
 export function isSignable(status: SigningContext['status']): boolean {
   return OPEN_STATUSES.includes(status)
 }
