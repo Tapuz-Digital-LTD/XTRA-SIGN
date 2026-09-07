@@ -73,7 +73,7 @@ export function DocumentsTable({ documents, now, isAdmin = false }: { documents:
               <th className="w-[12%] px-4 py-3 text-start font-medium">סטטוס</th>
               <th className="w-[14%] px-4 py-3 text-start font-medium">פעילות אחרונה</th>
               <th className="w-[9%] px-4 py-3 text-start font-medium">יוצר</th>
-              <th className="sticky end-0 w-[3%] bg-surface px-2 py-3"></th>
+              <th className="sticky end-0 w-14 bg-surface px-2 py-3"></th>
             </tr>
           </thead>
           <tbody>
