@@ -25,6 +25,7 @@ const html = `<!doctype html><html dir="rtl" lang="he"><head><meta charset="utf-
   .sub{position:absolute;top:400px;right:60px;width:700px;color:#eef2f6;font-size:27px;line-height:1.4;font-weight:500}
   .pill{position:absolute;bottom:64px;right:60px;background:#45b2ed;color:#0c3257;font-weight:800;font-size:26px;padding:14px 30px;border-radius:999px}
   .charbox{position:absolute;left:44px;bottom:30px;width:262px;height:560px;overflow:hidden}
+  .patch{position:absolute;left:226px;bottom:30px;width:120px;height:78px;background:#0c3257}
   .char{height:560px}
 </style></head><body><div class="stage">
   <img class="logo" src="${asset('logo.webp')}" alt="">
@@ -32,7 +33,7 @@ const html = `<!doctype html><html dir="rtl" lang="he"><head><meta charset="utf-
   <div class="title">חודש התיירות הישראלית 2026</div>
   <div class="sub">הרשמה וחתימה דיגיטלית על הסכם ההצטרפות — בכמה דקות, מהנייד.</div>
   <div class="pill">להרשמה ולחתימה ←</div>
-  <div class="charbox"><img class="char" src="${asset('character.webp')}" alt=""></div>
+  <div class="charbox"><img class="char" src="${asset('character.webp')}" alt=""></div><div class="patch"></div>
   <div class="stripe2"></div><div class="stripe"></div>
 </div></body></html>`
 
