@@ -30,13 +30,13 @@ export function ProjectsSearch({ search, archived }: { search: string; archived:
   return (
     <div className="relative min-w-0 flex-1 sm:max-w-xs">
       <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 end-3 flex items-center text-muted">⌕</span>
-      <label htmlFor="project-search" className="sr-only">חיפוש פרויקטים</label>
+      <label htmlFor="project-search" className="sr-only">חיפוש קמפייןים</label>
       <input
         id="project-search"
         type="search"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="חיפוש פרויקט"
+        placeholder="חיפוש קמפיין"
         className="min-h-11 w-full rounded-lg border border-line bg-surface pe-9 ps-3 text-sm text-fg outline-none focus:border-brand"
       />
     </div>
