@@ -1400,3 +1400,27 @@ export const contactSuppressions = pgTable(
   },
   (t) => [uniqueIndex('contact_suppressions_unique').on(t.organizationId, t.channel, t.address)],
 )
+
+/**
+ * A saved report: a name over a report-builder definition (entity, clauses,
+ * columns, sort). Personal by default; shared reports are the team's
+ * morning list. The definition never carries permissions — the engine
+ * applies the organisation and data-source rules on every run.
+ */
+export const savedReports = pgTable(
+  'saved_reports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    ownerUserId: uuid('owner_user_id').notNull(),
+    name: text('name').notNull(),
+    entity: text('entity').notNull(),
+    definition: jsonb('definition').notNull(),
+    shared: boolean('shared').default(false).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('saved_reports_org_idx').on(t.organizationId, t.updatedAt)],
+)

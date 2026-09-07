@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
 import { ForbiddenError, type StaffSession } from '@/server/auth/session'
 import type { CompanyKind, CompanySource } from '@/server/companies/companies'
 import { getDb, schema } from '@/server/db'
+import { submittedRegistration } from '@/server/projects/registration-rules'
 import { isUuid } from '@/server/documents/authorization'
 import { cleanFollowUpConfig } from '@/server/follow-up/tasks'
 import { describeCampaign, isCampaignGoal, isCampaignKind, isCampaignStatus, isEntryMethod, isRegistrationTarget, kindForEntry, type CampaignGoal, type CampaignKind, type CampaignStatus, type EntryMethod, type RegistrationTarget } from '@/lib/campaigns'
@@ -171,7 +172,7 @@ export async function listProjects(
   const registrationRows = await getDb()
     .select({ groupId: schema.projectLeads.groupId, n: sql<number>`count(*)` })
     .from(schema.projectLeads)
-    .where(and(eq(schema.projectLeads.organizationId, session.organizationId), sql`${schema.projectLeads.status} <> 'pending'`))
+    .where(and(eq(schema.projectLeads.organizationId, session.organizationId), submittedRegistration()))
     .groupBy(schema.projectLeads.groupId)
   const registrations = new Map(registrationRows.map((r) => [r.groupId, Number(r.n)]))
 
