@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { AgreementStatus } from '@/lib/status'
 import { DeleteDialog } from '@/components/deletion/DeleteDialog'
 
@@ -34,11 +35,14 @@ export function RowActions({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
     const close = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false)
+      const target = event.target as Node
+      if (ref.current?.contains(target) || menuRef.current?.contains(target)) return
+      setOpen(false)
     }
     const escape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false)
@@ -171,12 +175,16 @@ export function RowActions({
         ⋯
       </button>
 
-      {open ? (
+      {open ? createPortal(
         <div
+          ref={menuRef}
           role="menu"
+          dir="rtl"
           onClick={(e) => e.stopPropagation()}
-          // Fixed, measured from the button: the table scrolls sideways and
-          // an absolutely positioned menu would be clipped by it.
+          // Fixed, measured from the button, and rendered at the body: the
+          // table scrolls sideways and its sticky actions cells each paint
+          // their own layer, so a menu left inside the row is clipped by the
+          // container and covered by the rows below it.
           style={menuStyle}
           className="fixed z-40 w-56 overflow-hidden rounded-lg border border-line bg-surface py-1 shadow-lg"
         >
@@ -199,7 +207,8 @@ export function RowActions({
               {error}
             </p>
           ) : null}
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </div>
   )
