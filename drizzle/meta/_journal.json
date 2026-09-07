@@ -260,6 +260,13 @@
       "when": 1788768614961,
       "tag": "0036_organization_owner",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1788769486963,
+      "tag": "0037_campaign_goal_entry",
+      "breakpoints": true
     }
   ]
 }

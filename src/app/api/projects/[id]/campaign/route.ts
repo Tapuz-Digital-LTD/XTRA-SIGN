@@ -3,7 +3,7 @@ import { requireSession } from '@/server/auth/session'
 import { updateCampaign } from '@/server/groups/groups'
 import { assertSameOrigin } from '@/server/http/csrf'
 import { templateFailure } from '@/server/http/template-errors'
-import { isCampaignKind } from '@/lib/campaigns'
+import { isCampaignGoal, isCampaignKind, isEntryMethod } from '@/lib/campaigns'
 
 /** The campaign's own settings: kind, dates, registrations after the end, link lifetime, owner, default agreement. */
 export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -24,6 +24,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       name: typeof body.name === 'string' ? body.name : undefined,
       description: typeof body.description === 'string' || body.description === null ? (body.description as string | null) : undefined,
       campaignKind: isCampaignKind(body.campaignKind) ? body.campaignKind : undefined,
+      goal: isCampaignGoal(body.goal) ? body.goal : undefined,
+      entryMethod: isEntryMethod(body.entryMethod) ? body.entryMethod : undefined,
       startsAt: day(body.startsAt),
       endsAt: day(body.endsAt),
       registrationsAfterEnd: typeof body.registrationsAfterEnd === 'boolean' ? body.registrationsAfterEnd : undefined,

@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { CAMPAIGN_KINDS, type CampaignKind } from '@/lib/campaigns'
+import { ENTRY_METHODS, GOALS, hasForm, type CampaignGoal, type CampaignKind, type EntryMethod } from '@/lib/campaigns'
 
 /**
  * The campaign itself: what kind it is, when it runs, whether registrations
@@ -12,6 +12,8 @@ import { CAMPAIGN_KINDS, type CampaignKind } from '@/lib/campaigns'
 
 export type CampaignSettingsValue = {
   campaignKind: CampaignKind
+  goal: CampaignGoal
+  entry: EntryMethod
   startsAt: string | null
   endsAt: string | null
   registrationsAfterEnd: boolean
@@ -34,7 +36,8 @@ export function CampaignSettings({
   templates: { id: string; name: string }[]
 }) {
   const router = useRouter()
-  const [kind, setKind] = useState<CampaignKind>(value.campaignKind)
+  const [goal, setGoal] = useState<CampaignGoal>(value.goal)
+  const [entry, setEntry] = useState<EntryMethod>(value.entry)
   const [startsAt, setStartsAt] = useState(value.startsAt?.slice(0, 10) ?? '')
   const [endsAt, setEndsAt] = useState(value.endsAt?.slice(0, 10) ?? '')
   const [afterEnd, setAfterEnd] = useState(value.registrationsAfterEnd)
@@ -52,7 +55,8 @@ export function CampaignSettings({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          campaignKind: kind,
+          goal,
+          entryMethod: entry,
           startsAt: startsAt || null,
           endsAt: endsAt || null,
           registrationsAfterEnd: afterEnd,
@@ -80,14 +84,21 @@ export function CampaignSettings({
       <h2 className="text-base font-semibold text-fg">הקמפיין</h2>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <label className="block text-sm">
-          <span className="text-muted">סוג הקמפיין</span>
-          <select value={kind} onChange={(e) => setKind(e.target.value as CampaignKind)} className={input}>
-            {CAMPAIGN_KINDS.map((k) => (
-              <option key={k.key} value={k.key}>
-                {k.label}
-              </option>
+          <span className="text-muted">מה הקמפיין עושה</span>
+          <select value={goal} onChange={(e) => setGoal(e.target.value as CampaignGoal)} className={input}>
+            {GOALS.map((g) => (
+              <option key={g.key} value={g.key}>{g.label}</option>
             ))}
           </select>
+        </label>
+        <label className="block text-sm">
+          <span className="text-muted">איך אנשים נכנסים</span>
+          <select value={entry} onChange={(e) => setEntry(e.target.value as EntryMethod)} className={input}>
+            {ENTRY_METHODS.filter((m) => m.goals.includes(goal)).map((m) => (
+              <option key={m.key} value={m.key}>{m.label}</option>
+            ))}
+          </select>
+          <span className="mt-1 block text-xs text-muted">שינוי כאן משנה רק את המסלול והלשוניות. הרשמות והסכמים שכבר נוצרו נשארים כפי שהם.</span>
         </label>
         <label className="block text-sm">
           <span className="text-muted">בעלים</span>
@@ -112,7 +123,7 @@ export function CampaignSettings({
           <span className="text-muted">תאריך סיום</span>
           <input type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} min={startsAt || undefined} className={input} />
         </label>
-        {kind === 'public' ? (
+        {hasForm(entry) ? (
           <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-fg sm:col-span-2">
             <input type="checkbox" className="size-4" checked={afterEnd} onChange={(e) => setAfterEnd(e.target.checked)} />
             אפשר הרשמות גם לאחר תאריך הסיום

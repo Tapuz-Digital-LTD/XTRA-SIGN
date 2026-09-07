@@ -3,7 +3,7 @@ import { ForbiddenError, type StaffSession } from '@/server/auth/session'
 import type { CompanyKind, CompanySource } from '@/server/companies/companies'
 import { getDb, schema } from '@/server/db'
 import { isUuid } from '@/server/documents/authorization'
-import { isCampaignKind, type CampaignKind } from '@/lib/campaigns'
+import { describeCampaign, isCampaignGoal, isCampaignKind, isEntryMethod, kindForEntry, type CampaignGoal, type CampaignKind, type EntryMethod } from '@/lib/campaigns'
 
 /**
  * Groups: a hand-picked list of companies to work with together.
@@ -26,6 +26,8 @@ export type GroupListItem = {
   /** null for the groups that predate the split; they belong to both. */
   kind: 'supplier' | 'customer' | null
   campaignKind: CampaignKind
+  goal: CampaignGoal
+  entry: EntryMethod
   startsAt: Date | null
   endsAt: Date | null
   companyCount: number
@@ -70,7 +72,7 @@ export async function listGroups(
    * `source` counts only that side's companies, so the chips on the XTRA Sign
    * view never count a CRM row.
    */
-  options: { archived?: boolean; search?: string; campaignKind?: CampaignKind; source?: CompanySource } = {},
+  options: { archived?: boolean; search?: string; campaignKind?: CampaignKind; goal?: CampaignGoal; source?: CompanySource } = {},
 ): Promise<GroupListItem[]> {
   const term = options.search?.trim()
   const like = term ? `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null
@@ -85,6 +87,8 @@ export async function listGroups(
       createdAt: schema.groups.createdAt,
       kind: schema.groups.kind,
       campaignKind: schema.groups.campaignKind,
+      goal: schema.groups.goal,
+      entryMethod: schema.groups.entryMethod,
       startsAt: schema.groups.startsAt,
       endsAt: schema.groups.endsAt,
       companyCount: sql<number>`count(${schema.companies.id})`,
@@ -108,6 +112,7 @@ export async function listGroups(
         options.archived ? isNotNull(schema.groups.archivedAt) : isNull(schema.groups.archivedAt),
         kind ? or(eq(schema.groups.kind, kind), isNull(schema.groups.kind)) : undefined,
         options.campaignKind ? eq(schema.groups.campaignKind, options.campaignKind) : undefined,
+        options.goal ? eq(schema.groups.goal, options.goal) : undefined,
         like
           ? sql`(${schema.groups.name} ilike ${like} or ${schema.groups.description} ilike ${like})`
           : undefined,
@@ -120,6 +125,8 @@ export async function listGroups(
       schema.groups.createdAt,
       schema.groups.kind,
       schema.groups.campaignKind,
+      schema.groups.goal,
+      schema.groups.entryMethod,
       schema.groups.startsAt,
       schema.groups.endsAt,
     )
@@ -129,6 +136,7 @@ export async function listGroups(
     ...row,
     kind: (row.kind as 'supplier' | 'customer' | null) ?? null,
     campaignKind: isCampaignKind(row.campaignKind) ? row.campaignKind : 'signature',
+    ...describeCampaign({ goal: row.goal, entryMethod: row.entryMethod, campaignKind: row.campaignKind }),
     startsAt: row.startsAt,
     endsAt: row.endsAt,
     companyCount: Number(row.companyCount),
@@ -152,7 +160,7 @@ export type ProjectListItem = GroupListItem & {
  */
 export async function listProjects(
   session: StaffSession,
-  options: { archived?: boolean; search?: string; campaignKind?: CampaignKind } = {},
+  options: { archived?: boolean; search?: string; campaignKind?: CampaignKind; goal?: CampaignGoal } = {},
 ): Promise<ProjectListItem[]> {
   const groups = await listGroups(session, undefined, options)
   if (groups.length === 0) return []
@@ -217,6 +225,8 @@ export async function setProjectArchived(
 
 export type CampaignFields = {
   campaignKind?: CampaignKind
+  goal?: CampaignGoal
+  entryMethod?: EntryMethod
   startsAt?: Date | null
   endsAt?: Date | null
   registrationsAfterEnd?: boolean
@@ -228,6 +238,11 @@ export type CampaignFields = {
 function cleanCampaignFields(input: CampaignFields) {
   const out: Partial<typeof schema.groups.$inferInsert> = {}
   if (input.campaignKind !== undefined && isCampaignKind(input.campaignKind)) out.campaignKind = input.campaignKind
+  if (input.goal !== undefined && isCampaignGoal(input.goal)) out.goal = input.goal
+  if (input.entryMethod !== undefined && isEntryMethod(input.entryMethod)) {
+    out.entryMethod = input.entryMethod
+    out.campaignKind = kindForEntry(input.entryMethod)
+  }
   if (input.startsAt !== undefined) out.startsAt = input.startsAt
   if (input.endsAt !== undefined) out.endsAt = input.endsAt
   if (input.registrationsAfterEnd !== undefined) out.registrationsAfterEnd = Boolean(input.registrationsAfterEnd)

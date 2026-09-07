@@ -1,86 +1,52 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import { AFTER_REGISTRATION_OPTIONS, CAMPAIGN_KINDS, JOIN_METHODS, type AfterRegistration, type CampaignKind, type JoinMethod } from '@/lib/campaigns'
+import { useState } from 'react'
+import { GOALS, type CampaignGoal } from '@/lib/campaigns'
 
 /**
- * "קמפיין חדש" in four questions, in the order a person thinks them:
- * who is it for, where do they come from, what do we want to do, and the
- * few details. Creating works at once; the audience and every message can
- * be added later from inside the campaign.
+ * "קמפיין חדש" asks only what it must, in the words a person thinks:
+ *
+ *   1. What do you want to do?  — collect details from people / have
+ *      people sign documents
+ *   2. (signing only) Who signs? — people I choose / anyone who registers
+ *      through a form
+ *   3. A name, and for signing the agreement (or "later")
+ *
+ * Everything else — the audience, dates, how the form is embedded, the
+ * words of every message, distributions — has a good default and lives
+ * inside the campaign for whenever it is needed.
  */
 
 export type WizardOwner = { id: string; name: string; email: string }
 export type WizardTemplate = { id: string; name: string }
 
-type Company = { id: string; name: string; kind: 'supplier' | 'customer'; taxId: string | null; fromCrm?: boolean; contactPhone?: string | null; contactEmail?: string | null }
-type Source = 'xtra' | 'crm' | 'all'
+type Signers = 'audience' | 'form'
 
-const STEPS = ['למי הקמפיין?', 'מאיפה הקהל?', 'מה רוצים לעשות?', 'פרטים']
+const primary = 'inline-flex min-h-12 items-center justify-center rounded-xl bg-brand px-6 text-base font-semibold text-white transition hover:opacity-90 disabled:opacity-50'
+const secondary = 'inline-flex min-h-12 items-center justify-center rounded-xl border border-line bg-surface px-5 text-base font-medium text-fg transition hover:border-brand disabled:opacity-50'
+const input = 'mt-1 h-12 w-full rounded-xl border border-line bg-bg px-4 text-base text-fg outline-none focus:border-brand'
+const bigCard = (on: boolean) => `flex min-h-28 w-full flex-col justify-center rounded-2xl border-2 p-5 text-start transition ${on ? 'border-brand bg-blue-50' : 'border-line bg-bg hover:border-brand'}`
 
-const primary = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50'
-const secondary = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition hover:border-brand disabled:opacity-50'
-const input = 'mt-1 h-11 w-full rounded-lg border border-line bg-bg px-3 text-sm text-fg outline-none focus:border-brand'
-const bigCard = (on: boolean) => `rounded-xl border p-4 text-start transition ${on ? 'border-brand bg-blue-50' : 'border-line bg-bg hover:border-brand'}`
-
-export function NewCampaignWizard({
-  owners,
-  templates,
-  currentUserId,
-  autoOpen = false,
-  customPageBound = false,
-}: {
-  owners: WizardOwner[]
-  templates: WizardTemplate[]
-  currentUserId: string
-  autoOpen?: boolean
-  /** True when a developer already bound a bespoke page to some campaign. */
-  customPageBound?: boolean
-}) {
+export function NewCampaignWizard({ templates, autoOpen = false }: { owners?: WizardOwner[]; templates: WizardTemplate[]; currentUserId?: string; autoOpen?: boolean; customPageBound?: boolean }) {
   const router = useRouter()
   const [open, setOpen] = useState(autoOpen)
-  const [step, setStep] = useState(1)
-  const [audienceKind, setAudienceKind] = useState<'supplier' | 'customer' | null>(null)
-  const [source, setSource] = useState<Source | null>(null)
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<Company[]>([])
-  const [chosen, setChosen] = useState<Map<string, Company>>(new Map())
-  const [kind, setKind] = useState<CampaignKind | null>(null)
-  const [joinMethod, setJoinMethod] = useState<JoinMethod>('form')
-  const [after, setAfter] = useState<AfterRegistration>('save')
+  const [goal, setGoal] = useState<CampaignGoal | null>(null)
+  const [signers, setSigners] = useState<Signers | null>(null)
   const [name, setName] = useState('')
-  const [startsAt, setStartsAt] = useState('')
-  const [endsAt, setEndsAt] = useState('')
-  const [ownerUserId, setOwnerUserId] = useState(currentUserId)
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!open || step !== 2 || !audienceKind || !source) return
-    const controller = new AbortController()
-    const timer = setTimeout(() => {
-      fetch(`/api/companies?kind=${audienceKind}&q=${encodeURIComponent(query)}&limit=50${source === 'all' ? '' : `&source=${source}`}`, { signal: controller.signal })
-        .then((r) => (r.ok ? r.json() : { companies: [] }))
-        .then((data: { companies?: Company[] }) => setResults(data?.companies ?? []))
-        .catch(() => setResults([]))
-    }, 250)
-    return () => {
-      clearTimeout(timer)
-      controller.abort()
-    }
-  }, [open, step, audienceKind, source, query])
+  const steps = goal === 'signing' ? ['מה תרצו לעשות?', 'מי חותם?', 'שם ומסמך'] : ['מה תרצו לעשות?', 'שם']
+  const step = goal === null ? 0 : goal === 'signing' && signers === null ? 1 : steps.length - 1
+  const entry = goal === 'inquiries' ? 'form' : signers === 'audience' ? 'audience' : 'form'
+  const handling = goal === 'signing' && signers === 'form' ? 'auto_sign' : 'save'
 
   function reset() {
-    setStep(1)
-    setAudienceKind(null)
-    setSource(null)
-    setKind(null)
+    setGoal(null)
+    setSigners(null)
     setName('')
-    setStartsAt('')
-    setEndsAt('')
-    setChosen(new Map())
     setError(null)
   }
 
@@ -91,17 +57,7 @@ export function NewCampaignWizard({
       const response = await fetch('/api/groups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          kind: audienceKind ?? 'supplier',
-          campaignKind: kind,
-          startsAt: startsAt || undefined,
-          endsAt: endsAt || undefined,
-          ownerUserId: ownerUserId || undefined,
-          defaultTemplateId: kind === 'signature' && templateId ? templateId : undefined,
-          joinMethod: kind === 'public' ? joinMethod : undefined,
-          companyIds: chosen.size > 0 ? [...chosen.keys()] : undefined,
-        }),
+        body: JSON.stringify({ name, goal, entryMethod: entry, handling, templateId: goal === 'signing' && templateId ? templateId : undefined }),
       })
       const data = await response.json().catch(() => null)
       if (!response.ok) {
@@ -109,13 +65,13 @@ export function NewCampaignWizard({
         return
       }
       const next =
-        kind === 'public'
-          ? after === 'auto_sign'
-            ? `/projects/${data.id}?tab=settings&setup=self-service`
-            : joinMethod === 'custom'
-              ? `/projects/${data.id}?tab=settings&setup=custom-page`
-              : `/projects/${data.id}?tab=settings&setup=${joinMethod}`
-          : `/projects/${data.id}`
+        goal === 'inquiries'
+          ? `/projects/${data.id}?tab=settings&section=page&setup=form`
+          : signers === 'form'
+            ? templateId
+              ? `/projects/${data.id}?tab=settings&section=page&setup=self-service`
+              : `/projects/${data.id}?tab=settings&section=page&setup=agreement`
+            : `/projects/${data.id}?tab=audience&setup=audience`
       router.push(next)
     } catch {
       setError('היצירה נכשלה. נסו שוב.')
@@ -132,219 +88,91 @@ export function NewCampaignWizard({
     )
   }
 
-  const validCount = [...chosen.values()].filter((c) => c.contactPhone || c.contactEmail).length
-  const canContinue = step === 1 ? audienceKind !== null : step === 2 ? source !== null : step === 3 ? kind !== null : name.trim().length > 0 && (!startsAt || !endsAt || endsAt >= startsAt)
-  const who = audienceKind === 'customer' ? 'לקוחות' : 'ספקים'
-
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={() => setOpen(false)}>
       <div role="dialog" aria-modal="true" aria-labelledby="ncw-title" onClick={(e) => e.stopPropagation()} className="flex max-h-[92dvh] w-full max-w-xl flex-col rounded-t-2xl bg-surface shadow-xl sm:rounded-2xl">
-        <div className="border-b border-line px-5 py-4">
-          <h2 id="ncw-title" className="text-base font-semibold text-fg">קמפיין חדש</h2>
-          <ol className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label="שלבים">
-            {STEPS.map((label, i) => (
-              <li key={label} className={i + 1 === step ? 'font-semibold text-brand' : i + 1 < step ? 'text-fg' : 'text-muted'} aria-current={i + 1 === step ? 'step' : undefined}>
+        <div className="border-b border-line px-6 py-4">
+          <h2 id="ncw-title" className="text-lg font-semibold text-fg">קמפיין חדש</h2>
+          <ol className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm" aria-label="שלבים">
+            {steps.map((label, i) => (
+              <li key={label} className={i === step ? 'font-semibold text-brand' : i < step ? 'text-fg' : 'text-muted'} aria-current={i === step ? 'step' : undefined}>
                 {i + 1}. {label}
               </li>
             ))}
           </ol>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          {step === 1 ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {(['supplier', 'customer'] as const).map((k) => (
-                <button key={k} type="button" onClick={() => { setAudienceKind(k); setChosen(new Map()) }} aria-pressed={audienceKind === k} className={bigCard(audienceKind === k)}>
-                  <span className="text-2xl" aria-hidden="true">{k === 'supplier' ? '🏪' : '🧑‍💼'}</span>
-                  <span className="mt-2 block text-base font-semibold text-fg">{k === 'supplier' ? 'ספקים' : 'לקוחות'}</span>
-                  <span className="mt-1 block text-sm text-muted">{k === 'supplier' ? 'עסקים שעובדים אתכם: הסכמי ספק, הצטרפות, השתתפות.' : 'מי שקונה מכם: הסכמי לקוח, אישורים, הצטרפות למועדון.'}</span>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          {step === 0 ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-base text-fg">מה תרצו לעשות?</p>
+              {GOALS.map((g) => (
+                <button key={g.key} type="button" onClick={() => { setGoal(g.key); setSigners(null) }} aria-pressed={goal === g.key} className={bigCard(goal === g.key)}>
+                  <span className="block text-lg font-semibold text-fg">{g.key === 'inquiries' ? 'לאסוף פרטים מאנשים' : 'להחתים אנשים על מסמכים'}</span>
+                  <span className="mt-1 block text-base leading-relaxed text-muted">{g.blurb}</span>
                 </button>
               ))}
             </div>
           ) : null}
 
-          {step === 2 ? (
-            <div className="flex flex-col gap-4">
-              <fieldset>
-                <legend className="text-sm font-medium text-fg">מאיפה לבחור את ה{who}?</legend>
-                <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                  {([
-                    { key: 'xtra', label: 'XTRA Sign', blurb: `${who} שמנוהלים כאן.` },
-                    { key: 'crm', label: 'CRM', blurb: `${who} שמקורם ב-Fireberry (עותק מסונכרן; שום דבר לא נכתב ל-CRM).` },
-                    { key: 'all', label: 'שני המקורות', blurb: 'עם סימון מקור לכל רשומה, בלי כפילויות.' },
-                  ] as const).map((s) => (
-                    <button key={s.key} type="button" onClick={() => { setSource(s.key); setChosen(new Map()) }} aria-pressed={source === s.key} className={bigCard(source === s.key)}>
-                      <span className="block text-sm font-semibold text-fg">{s.label}</span>
-                      <span className="mt-1 block text-xs text-muted">{s.blurb}</span>
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-2 text-xs text-muted">ייבוא מ-Excel/CSV ובחירה ידנית זמינים אחר כך, בלשונית "קהל" ובכל הפצה.</p>
-              </fieldset>
-              {source ? (
-                <div>
-                  <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="חיפוש לפי שם, ח.פ., טלפון או אימייל (אפשר לדלג ולבחור אחר כך)" className={input} aria-label="חיפוש" />
-                  <ul className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-line">
-                    {results.map((c) => (
-                      <li key={c.id}>
-                        <label className="flex min-h-11 cursor-pointer items-center gap-2 px-3 text-sm text-fg hover:bg-bg">
-                          <input
-                            type="checkbox"
-                            className="size-4"
-                            checked={chosen.has(c.id)}
-                            onChange={(e) => {
-                              const next = new Map(chosen)
-                              if (e.target.checked) next.set(c.id, c)
-                              else next.delete(c.id)
-                              setChosen(next)
-                            }}
-                          />
-                          <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${c.fromCrm ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'}`}>{c.fromCrm ? 'CRM' : 'XTRA Sign'}</span>
-                          {c.taxId ? <span className="text-xs text-muted" dir="ltr">{c.taxId}</span> : null}
-                        </label>
-                      </li>
-                    ))}
-                    {results.length === 0 ? <li className="px-3 py-3 text-sm text-muted">לא נמצאו רשומות. אפשר להמשיך בלי לבחור ולהוסיף קהל אחר כך.</li> : null}
-                  </ul>
-                  <p className="mt-2 text-xs text-muted">{chosen.size} נבחרו{chosen.size > 0 ? ` · ${validCount} עם טלפון או אימייל` : ''}</p>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          {step === 3 ? (
-            <div className="flex flex-col gap-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {CAMPAIGN_KINDS.map((k) => (
-                  <button key={k.key} type="button" onClick={() => setKind(k.key)} aria-pressed={kind === k.key} className={bigCard(kind === k.key)}>
-                    <span className="text-2xl" aria-hidden="true">{k.key === 'public' ? '📣' : '✍️'}</span>
-                    <span className="mt-2 block text-base font-semibold text-fg">{k.label}</span>
-                    <span className="mt-1 block text-sm text-muted">{k.key === 'public' ? 'לפרסם פעילות, לאסוף הרשמות, ובמידת הצורך להחתים את הנרשמים. עם או בלי הפצה.' : `לשלוח הסכמים לחתימה ל${who} שכבר בחרתם. בלי דף נחיתה ובלי טופס.`}</span>
-                  </button>
-                ))}
-              </div>
-              {kind === 'public' ? (
-                <>
-                  <fieldset>
-                    <legend className="text-sm font-medium text-fg">איך אנשים יצטרפו?</legend>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                      {JOIN_METHODS.map((m) => (
-                        <label key={m.key} className={`flex cursor-pointer flex-col rounded-xl border p-3 transition ${joinMethod === m.key ? 'border-brand bg-blue-50' : 'border-line bg-bg hover:border-brand'}`}>
-                          <span className="flex items-center gap-2 text-sm font-medium text-fg">
-                            <input type="radio" name="join" className="size-4" checked={joinMethod === m.key} onChange={() => setJoinMethod(m.key)} />
-                            {m.label}
-                          </span>
-                          <span className="mt-1 text-xs text-muted">{m.blurb}</span>
-                          {m.key === 'custom' && customPageBound ? <span className="mt-1 text-xs text-green-700">עמוד קמפיין כבר מחובר לקמפיין אחר; קמפיין נוסף דורש חיבור על ידי מפתח.</span> : null}
-                        </label>
-                      ))}
-                    </div>
-                  </fieldset>
-                  <fieldset>
-                    <legend className="text-sm font-medium text-fg">לאחר הרשמה</legend>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                      {AFTER_REGISTRATION_OPTIONS.map((o) => (
-                        <label key={o.key} className={`flex cursor-pointer flex-col rounded-xl border p-3 transition ${after === o.key ? 'border-brand bg-blue-50' : 'border-line bg-bg hover:border-brand'}`}>
-                          <span className="flex items-center gap-2 text-sm font-medium text-fg">
-                            <input type="radio" name="after" className="size-4" checked={after === o.key} onChange={() => setAfter(o.key)} />
-                            {o.label}
-                          </span>
-                          <span className="mt-1 text-xs text-muted">{o.blurb}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </fieldset>
-                </>
-              ) : null}
-              <p className="text-xs text-muted">הפצה ב-SMS/אימייל אינה סוג קמפיין — היא זמינה בשני המסלולים, מלשונית "הפצות".</p>
-            </div>
-          ) : null}
-
-          {step === 4 ? (
+          {step === 1 && goal === 'signing' ? (
             <div className="flex flex-col gap-3">
-              <label className="block text-sm">
-                <span className="text-muted">
-                  שם הקמפיין <span className="text-red-700">*</span>
-                </span>
-                <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder={kind === 'public' ? 'למשל: חודש התיירות הישראלית 2026' : `למשל: הסכמי ${who} 2027`} className={input} />
-              </label>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="block text-sm">
-                  <span className="text-muted">תאריך התחלה (רשות)</span>
-                  <input type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} className={input} />
-                </label>
-                <label className="block text-sm">
-                  <span className="text-muted">תאריך סיום (רשות)</span>
-                  <input type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} min={startsAt || undefined} className={input} />
-                </label>
-              </div>
-              {kind === 'public' && endsAt ? <p className="text-xs text-muted">בתאריך הסיום ההרשמה נסגרת אוטומטית; אפשר לשנות זאת אחר כך בהגדרות.</p> : null}
-              <label className="block text-sm">
-                <span className="text-muted">בעלים</span>
-                {owners.length > 0 ? (
-                  <select value={ownerUserId} onChange={(e) => setOwnerUserId(e.target.value)} className={input}>
-                    {owners.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.name} · {o.email}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input value="אני" readOnly className={input} />
-                )}
-              </label>
-              {kind === 'signature' ? (
-                <label className="block text-sm">
-                  <span className="text-muted">ההסכם לחתימה</span>
-                  <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} className={input}>
-                    <option value="">— לבחור בהמשך —</option>
-                    {templates.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
-              {chosen.size > 0 && validCount < chosen.size ? (
-                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  ל-{chosen.size - validCount} מהנבחרים חסר טלפון או אימייל — ניתן להשלים בכרטיס הרשומה לפני השליחה.
-                </p>
-              ) : null}
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-lg border border-line bg-bg p-3 text-xs">
-                <dt className="text-muted">למי</dt><dd className="text-fg">{who}</dd>
-                <dt className="text-muted">מקור</dt><dd className="text-fg">{source === 'xtra' ? 'XTRA Sign' : source === 'crm' ? 'CRM' : 'שני המקורות'}{chosen.size ? ` · ${chosen.size} נבחרו` : ' · הקהל ייבחר בהמשך'}</dd>
-                <dt className="text-muted">מסלול</dt><dd className="text-fg">{kind === 'public' ? 'קמפיין ציבורי' : 'קמפיין חתימות'}</dd>
-              </dl>
+              <p className="text-base text-fg">מי חותם?</p>
+              <button type="button" onClick={() => setSigners('audience')} aria-pressed={signers === 'audience'} className={bigCard(signers === 'audience')}>
+                <span className="block text-lg font-semibold text-fg">אנשים שאבחר</span>
+                <span className="mt-1 block text-base leading-relaxed text-muted">ספקים או לקוחות מהמערכת או מה-CRM. כל אחד מקבל את ההסכם שלו לחתימה. בוחרים אותם אחר כך, בלשונית "קהל".</span>
+              </button>
+              <button type="button" onClick={() => setSigners('form')} aria-pressed={signers === 'form'} className={bigCard(signers === 'form')}>
+                <span className="block text-lg font-semibold text-fg">כל מי שיירשם דרך טופס</span>
+                <span className="mt-1 block text-base leading-relaxed text-muted">מי שממלא את הטופס נוצר כספק/לקוח, מקבל את ההסכם, מאמת טלפון וחותם — בלי שלב ידני.</span>
+              </button>
             </div>
           ) : null}
 
-          {error ? (
-            <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-              {error}
-            </p>
+          {step === steps.length - 1 && goal ? (
+            <div className="flex flex-col gap-4">
+              <label className="block text-base">
+                <span className="text-fg">איך נקרא לקמפיין?</span>
+                <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder={goal === 'inquiries' ? 'למשל: פניות ספקים 2027' : 'למשל: הסכמי ספקים 2027'} className={input} />
+              </label>
+              {goal === 'signing' ? (
+                <label className="block text-base">
+                  <span className="text-fg">איזה מסמך חותמים?</span>
+                  {templates.length > 0 ? (
+                    <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} className={input}>
+                      {templates.map((t) => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                      <option value="">אעלה את המסמך אחר כך</option>
+                    </select>
+                  ) : (
+                    <span className="mt-1 block rounded-xl border border-dashed border-line bg-bg px-4 py-3 text-base text-muted">עדיין אין מסמכים במערכת. אחרי היצירה תוכלו להעלות PDF של ההסכם מתוך הקמפיין.</span>
+                  )}
+                </label>
+              ) : null}
+              <p className="text-base leading-relaxed text-muted">
+                {goal === 'inquiries'
+                  ? 'תקבלו קישור לטופס מוכן לשיתוף. כל פנייה תופיע בקמפיין ותחכה לטיפול. אפשר גם להטמיע את הטופס באתר, לחבר דרך API או להפיץ ב-SMS ואימייל — הכול מתוך הקמפיין.'
+                  : signers === 'form'
+                    ? 'תקבלו קישור לטופס. כל מי שנרשם עובר ישירות לחתימה על המסמך ומקבל עותק חתום במייל.'
+                    : 'אחרי היצירה בוחרים את האנשים בלשונית "קהל" ושולחים להם את המסמך לחתימה, כל אחד בנפרד.'}
+              </p>
+            </div>
           ) : null}
+
+          {error ? <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-base text-red-800">{error}</p> : null}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-5 py-3">
-          <button type="button" onClick={() => { setOpen(false); reset() }} className="text-sm text-muted hover:underline">
-            ביטול
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-6 py-4">
+          <button type="button" onClick={() => { setOpen(false); reset() }} className="text-base text-muted hover:underline">ביטול</button>
           <div className="flex gap-2">
-            {step > 1 ? (
-              <button type="button" onClick={() => setStep(step - 1)} className={secondary}>
-                חזרה
-              </button>
+            {step > 0 ? (
+              <button type="button" onClick={() => (step === 1 || goal === 'inquiries' ? setGoal(null) : setSigners(null))} className={secondary}>חזרה</button>
             ) : null}
-            {step < STEPS.length ? (
-              <button type="button" disabled={!canContinue} onClick={() => setStep(step + 1)} className={primary}>
-                המשך
-              </button>
+            {step < steps.length - 1 ? (
+              <button type="button" disabled={step === 0 ? goal === null : signers === null} onClick={() => { if (step === 0 && goal === 'inquiries') return; }} className={`${primary} ${step === 0 && goal === 'inquiries' ? 'hidden' : ''}`} aria-hidden={step === 0 && goal === 'inquiries'}>המשך</button>
             ) : (
-              <button type="button" disabled={busy || !canContinue} onClick={() => void create()} className={primary}>
-                {busy ? 'יוצר…' : 'יצירת הקמפיין'}
-              </button>
+              <button type="button" disabled={busy || !name.trim()} onClick={() => void create()} className={primary}>{busy ? 'יוצר…' : 'יצירת הקמפיין'}</button>
             )}
           </div>
         </div>

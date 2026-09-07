@@ -433,6 +433,10 @@ export const groups = pgTable(
      * default to 'signature' and were classified once by what they used.
      */
     campaignKind: text('campaign_kind').default('signature').notNull(),
+    /** What the campaign is for: 'inquiries' (collect and handle) or 'signing' (get documents signed). */
+    goal: text('goal'),
+    /** How people enter: 'audience' | 'form' | 'embed' | 'api' | 'custom'. */
+    entryMethod: text('entry_method'),
     startsAt: timestamp('starts_at', { withTimezone: true }),
     endsAt: timestamp('ends_at', { withTimezone: true }),
     /** A public campaign past its end date closes registrations unless told otherwise. */

@@ -18,7 +18,7 @@ import { parseProjectReportFilters, projectReport, registrationCount, registrati
 import { RegistrationsTable } from '@/components/reports/RegistrationsTable'
 import { ProjectReportView, type ProjectReportData } from '@/components/reports/ProjectReportView'
 import { missingRoles } from '@/lib/agreement-roles'
-import { isCampaignKind, kindLabel, LEGACY_TABS, TAB_LABELS, TABS_BY_KIND, type CampaignKind, type CampaignTab } from '@/lib/campaigns'
+import { describeCampaign, entryLabel, goalLabel, isCampaignKind, LEGACY_TABS, TAB_LABELS, tabsFor, type CampaignKind, type CampaignTab } from '@/lib/campaigns'
 import { CampaignOverview } from '@/components/projects/CampaignOverview'
 import { DistributionsTab } from '@/components/projects/DistributionsTab'
 import type { PlacedField } from '@/lib/fields'
@@ -51,7 +51,9 @@ export default async function ProjectPage({
     throw error
   }
   const campaignKind: CampaignKind = isCampaignKind(project.campaignKind) ? project.campaignKind : 'signature'
-  const TABS = TABS_BY_KIND[campaignKind]
+  const selfService = (project.landingConfig as { selfService?: { enabled?: boolean; skin?: string | null } } | null)?.selfService
+  const shape = describeCampaign({ goal: project.goal, entryMethod: project.entryMethod, campaignKind: project.campaignKind, selfServiceEnabled: selfService?.enabled === true, selfServiceSkin: selfService?.skin ?? null, landingEnabled: project.landingEnabled })
+  const TABS = tabsFor(shape.entry)
   const requested = LEGACY_TABS[query.tab ?? ''] ?? query.tab
   const tab: Tab = (TABS as readonly string[]).includes(requested ?? '') ? (requested as Tab) : 'overview'
 
@@ -76,7 +78,8 @@ export default async function ProjectPage({
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-bold tracking-tight text-fg">{project.name}</h1>
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${campaignKind === 'public' ? 'bg-violet-50 text-violet-800' : 'bg-blue-50 text-blue-800'}`}>{kindLabel(campaignKind)}</span>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${shape.goal === 'signing' ? 'bg-blue-50 text-blue-800' : 'bg-emerald-50 text-emerald-800'}`}>{goalLabel(shape.goal)}</span>
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{entryLabel(shape.entry)}</span>
           {project.archivedAt ? <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">בארכיון</span> : null}
         </div>
         {/* One quiet line, not a dashboard: how many, how it's going. */}
@@ -134,6 +137,8 @@ export default async function ProjectPage({
             notifications={await getProjectNotificationSettings(session, id)}
             campaign={{
               campaignKind,
+              goal: shape.goal,
+              entry: shape.entry,
               startsAt: project.startsAt?.toISOString() ?? null,
               endsAt: project.endsAt?.toISOString() ?? null,
               registrationsAfterEnd: project.registrationsAfterEnd,

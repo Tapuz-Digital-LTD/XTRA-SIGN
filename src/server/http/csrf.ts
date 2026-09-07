@@ -33,11 +33,19 @@ export class CsrfError extends Error {
   }
 }
 
+/**
+ * Campaign domains of our own that serve public pages and post registrations
+ * from them. Public names, not secrets; SIGN_EXTRA_ORIGINS adds more without
+ * a deploy.
+ */
+const CAMPAIGN_ORIGINS = ['https://tourism.xtra.co.il']
+
 /** Hosts allowed to originate a mutation. */
 export function allowedOrigins(): string[] {
   const configured = [
     process.env.SIGN_PUBLIC_URL,
     ...(process.env.SIGN_EXTRA_ORIGINS?.split(',') ?? []),
+    ...CAMPAIGN_ORIGINS,
   ]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value))
