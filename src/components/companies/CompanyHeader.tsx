@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { CompanyForm } from '@/components/companies/CompanyForm'
 import { LINKED_NOTE, SourceBadge, isLinked, sourceOf } from '@/components/companies/SourceBadge'
-import { withSource } from '@/components/companies/SourceSwitch'
+import { withSource } from '@/components/companies/SourceGate'
 import type { CompanyRow } from '@/server/companies/companies'
 
 /**

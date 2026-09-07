@@ -2,10 +2,10 @@ import { mkdirSync } from 'node:fs'
 import puppeteer from 'puppeteer-core'
 
 /**
- * Suppliers, one source at a time: the XTRA Sign list, the CRM list, the
- * "where to create" chooser, the form after choosing XTRA Sign, and the
- * reports on "כל המקורות" — at a phone width and on a desktop, with the
- * no-sideways-scroll check.
+ * Suppliers, one source at a time: the two-card gate, the XTRA Sign list, the
+ * CRM list, the "where to create" chooser, the form after choosing XTRA Sign,
+ * the reports gate and the reports on "כל המקורות" — at a phone width and on
+ * a desktop, with the no-sideways-scroll check.
  *
  *   SESSION=<token> E2E_BASE=http://localhost:3057 npx tsx scripts/qa/companies-source-shots.ts
  */
@@ -48,11 +48,12 @@ async function main() {
       await page.setViewport({ width, height: 900 })
       await page.setCookie({ name: 'xtra_sign_session', value: SESSION, url: BASE })
 
-      await shot(page, '/suppliers', 'suppliers-xtra', width)
+      await shot(page, '/suppliers', 'suppliers-gate', width)
+      await shot(page, '/suppliers?source=xtra', 'suppliers-xtra', width)
       await shot(page, '/suppliers?source=crm', 'suppliers-crm', width)
 
       // The chooser, then the form after picking XTRA Sign. Nothing is submitted.
-      await page.goto(`${BASE}/suppliers`, { waitUntil: 'networkidle0', timeout: 90000 })
+      await page.goto(`${BASE}/suppliers?source=xtra`, { waitUntil: 'networkidle0', timeout: 90000 })
       await clickButton(page, 'הוספת ספק')
       await page.waitForFunction(() => document.body.textContent?.includes('היכן ליצור'))
       await page.screenshot({ path: `${OUT}/create-chooser-${width}.png` })
@@ -62,6 +63,7 @@ async function main() {
       await page.screenshot({ path: `${OUT}/create-form-xtra-${width}.png` })
       await check(page, `create form xtra ${width}`)
 
+      await shot(page, '/suppliers/reports', 'reports-gate', width)
       await shot(page, '/suppliers/reports?source=all', 'reports-all', width)
       await page.close()
     }

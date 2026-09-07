@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { DeleteDialog } from '@/components/deletion/DeleteDialog'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -116,7 +117,7 @@ export function TemplateList({ templates }: { templates: TemplateListItem[] }) {
                   </form>
                 ) : (
                   <>
-                    <p className="truncate text-sm font-medium text-fg">{template.name}</p>
+                    <Link href={`/templates/${template.id}`} className="block truncate text-sm font-medium text-fg hover:underline">{template.name}</Link>
                     <p className="truncate text-xs text-muted">
                       {details}
                       {template.createdByName ? ` · ${template.createdByName}` : ''}
@@ -130,6 +131,9 @@ export function TemplateList({ templates }: { templates: TemplateListItem[] }) {
               </div>
 
               <div className="flex shrink-0 flex-wrap gap-2">
+                <Link href={`/templates/${template.id}`} className="inline-flex min-h-11 items-center rounded-lg border border-line bg-white px-3 text-sm text-fg transition-colors hover:bg-slate-50">
+                  צפייה ועריכה
+                </Link>
                 <button
                   type="button"
                   disabled={busy}

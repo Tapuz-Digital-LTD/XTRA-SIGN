@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { CompanyList } from '@/components/companies/CompanyList'
 import { CompanyTabs } from '@/components/companies/CompanyTabs'
-import { SourceSwitch, withSource } from '@/components/companies/SourceSwitch'
+import { SourceBar, SourceGate, withSource } from '@/components/companies/SourceGate'
 import { getSession } from '@/server/auth/session'
 import { listCompanies, parseCompanySource } from '@/server/companies/companies'
 import { getCrmProvider } from '@/server/crm/fireberry'
@@ -18,8 +18,21 @@ export default async function SuppliersPage({
   if (!session) redirect('/login')
   const { q, group, view, source: sourceParam } = await searchParams
   const source = parseCompanySource(sourceParam)
-  const archived = view === 'archive'
 
+  // No side chosen: ask, and list nothing. The choice then lives in the URL.
+  if (!source) {
+    return (
+      <AppShell>
+        <h1 className="text-2xl font-bold tracking-tight text-fg">ספקים</h1>
+        <p className="mt-1 text-sm text-muted">
+          כל ספק במקום אחד — הפרטים שלו וכל המסמכים שנשלחו אליו לחתימה.
+        </p>
+        <SourceGate base="/suppliers" plural="ספקים" params={{ q, group, view }} />
+      </AppShell>
+    )
+  }
+
+  const archived = view === 'archive'
   // Both queries take the source: the rows and the group chips' counts are
   // about one side only.
   const [companies, groups] = await Promise.all([
@@ -33,9 +46,7 @@ export default async function SuppliersPage({
       <p className="mt-1 text-sm text-muted">
         כל ספק במקום אחד — הפרטים שלו וכל המסמכים שנשלחו אליו לחתימה.
       </p>
-      <div className="mt-4">
-        <SourceSwitch base="/suppliers" source={source} params={{ q, group, view }} />
-      </div>
+      <SourceBar base="/suppliers" source={source} params={{ q, group, view }} />
       <CompanyTabs base="/suppliers" active="list" listLabel="ספקים" source={source} />
       <div className="mt-3 flex justify-end">
         <Link href={withSource('/suppliers', source, { view: archived ? undefined : 'archive' })} className="text-xs text-muted hover:text-fg hover:underline">

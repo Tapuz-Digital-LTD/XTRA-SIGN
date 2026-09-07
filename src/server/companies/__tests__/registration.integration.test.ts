@@ -75,7 +75,9 @@ describe('registerCompany', () => {
 
     const [row] = await db.select().from(schema.companies).where(eq(schema.companies.id, result.id))
     expect(row.crmRecordId).toBe('crm-new')
-    expect(row.source).toBe('crm')
+    // Linked, and still honest about where it was born: shown under CRM,
+    // read as "נוצר ב-XTRA Sign וקושר ל-CRM".
+    expect(row.source).toBe('xtra')
   })
 
   it('keeps the local company and says so when Fireberry refuses', async () => {

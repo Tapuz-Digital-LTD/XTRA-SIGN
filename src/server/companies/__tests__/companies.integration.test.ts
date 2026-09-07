@@ -8,6 +8,7 @@ import {
   deleteCompany,
   getCompany,
   listCompanies,
+  parseCompanySource,
   resolveOwnCompanyId,
   searchCompanies,
   updateCompany,
@@ -227,6 +228,13 @@ describe('crmObjectTypeFor', () => {
 })
 
 describe('source: XTRA Sign and CRM are two lists', () => {
+  it('a bare address chooses no side — the screen asks, it never defaults to one', () => {
+    expect(parseCompanySource(undefined)).toBeNull()
+    expect(parseCompanySource('all')).toBeNull()
+    expect(parseCompanySource('crm')).toBe('crm')
+    expect(parseCompanySource('xtra')).toBe('xtra')
+  })
+
   /** A row the way the sync writes it: a Fireberry id, and 'crm' as its origin. */
   const mirrored = async (kind: 'supplier' | 'customer', name: string, crmRecordId: string) => {
     const [row] = await db

@@ -23,9 +23,12 @@ export type CompanyKind = 'supplier' | 'customer'
  */
 export type CompanySource = 'crm' | 'xtra'
 
-/** The `?source=` of the suppliers/customers screens. Anything but 'crm' is XTRA Sign: a bare address never lands on the CRM by itself. */
-export function parseCompanySource(value: unknown): CompanySource {
-  return value === 'crm' ? 'crm' : 'xtra'
+/**
+ * The `?source=` of the suppliers/customers screens. null when no side was
+ * chosen: the screen then asks, with two cards, rather than assume one.
+ */
+export function parseCompanySource(value: unknown): CompanySource | null {
+  return value === 'crm' || value === 'xtra' ? value : null
 }
 
 export type CompanyInput = {
