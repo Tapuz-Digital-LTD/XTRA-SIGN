@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { GlobalSearch } from '@/components/GlobalSearch'
 import { NotificationBell } from '@/components/NotificationBell'
 
 /**
@@ -108,6 +109,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </nav>
 
             <span className="ms-auto lg:ms-0" />
+            <GlobalSearch />
             <NotificationBell />
 
             <Link
@@ -138,6 +140,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 <X aria-hidden="true" className="size-5" strokeWidth={1.75} />
               </button>
+            </div>
+            <div className="border-b border-line p-3">
+              <GlobalSearch compact />
             </div>
             <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3" aria-label="ניווט ראשי">
               {NAV.map((item) => (

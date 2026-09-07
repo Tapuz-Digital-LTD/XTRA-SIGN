@@ -4,11 +4,11 @@
  * share one list without the client pulling in server modules.
  */
 export const PROJECT_EVENTS = [
-  { key: 'new_registration', label: 'ספק חדש נרשם', immediate: true },
+  { key: 'new_registration', label: 'הרשמה חדשה', immediate: true },
   { key: 'signed', label: 'הסכם נחתם', immediate: true },
   { key: 'send_failed', label: 'שליחה נכשלה', immediate: true },
-  { key: 'unsigned_digest', label: 'תזכורת יומית להסכמים שלא נחתמו', immediate: false },
-  { key: 'expiring_digest', label: 'הסכמים שעומדים לפוג', immediate: false },
+  { key: 'unsigned_digest', label: 'הסכמים שממתינים לחתימה כמה ימים', immediate: false },
+  { key: 'expiring_digest', label: 'קישורי חתימה שעומדים לפוג', immediate: false },
 ] as const
 
 export type ProjectEventKey = (typeof PROJECT_EVENTS)[number]['key']

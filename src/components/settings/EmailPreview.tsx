@@ -1,19 +1,41 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { DeviceToggle, MailFrame, type MailDevice } from '@/components/mail/MailFrame'
 import type { MailTemplateKey } from '@/server/mail/catalog'
 
 /**
  * Every email the system sends, as it will arrive: pick a template, see
  * it at desktop or phone width, send it to yourself. Sample data only —
  * nothing here touches a real document or a statistic.
+ *
+ * The HTML is fetched and shown through `srcDoc`, not loaded by URL: the
+ * app forbids being framed (X-Frame-Options: DENY) and that protection
+ * stays; a document handed to the frame directly is not "framing a page".
  */
 export function EmailPreview({ templates }: { templates: { key: MailTemplateKey; label: string; audience: 'signer' | 'team' }[] }) {
   const [current, setCurrent] = useState<MailTemplateKey>(templates[0].key)
-  const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop')
+  const [device, setDevice] = useState<MailDevice>('desktop')
+  const [html, setHtml] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [to, setTo] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setHtml(null)
+    setLoadError(null)
+    fetch(`/api/mail/preview?template=${current}`, { signal: controller.signal })
+      .then(async (r) => {
+        if (!r.ok) throw new Error()
+        setHtml(await r.text())
+      })
+      .catch((e) => {
+        if (e?.name !== 'AbortError') setLoadError('לא הצלחנו להכין את התצוגה המקדימה.')
+      })
+    return () => controller.abort()
+  }, [current])
 
   async function sendTest() {
     setBusy(true)
@@ -32,9 +54,6 @@ export function EmailPreview({ templates }: { templates: { key: MailTemplateKey;
       setBusy(false)
     }
   }
-
-  const chip = (active: boolean) =>
-    `inline-flex min-h-9 items-center rounded-full border px-3 text-xs font-medium transition ${active ? 'border-brand bg-brand text-white' : 'border-line bg-surface text-fg hover:border-brand'}`
 
   return (
     <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
@@ -64,27 +83,15 @@ export function EmailPreview({ templates }: { templates: { key: MailTemplateKey;
 
       <section className="min-w-0">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setDevice('desktop')} className={chip(device === 'desktop')} aria-pressed={device === 'desktop'}>
-              דסקטופ
-            </button>
-            <button type="button" onClick={() => setDevice('mobile')} className={chip(device === 'mobile')} aria-pressed={device === 'mobile'}>
-              מובייל
-            </button>
-          </div>
+          <DeviceToggle device={device} onChange={setDevice} />
           <a href={`/api/mail/preview?template=${current}&format=text`} target="_blank" rel="noreferrer" className="text-xs text-muted hover:underline">
             גרסת טקסט
           </a>
         </div>
-        <div className="mt-3 overflow-x-auto rounded-[var(--radius-card)] border border-line bg-slate-100 p-3">
-          <iframe
-            key={`${current}-${device}`}
-            title="תצוגה מקדימה של המייל"
-            src={`/api/mail/preview?template=${current}`}
-            sandbox=""
-            style={{ width: device === 'mobile' ? 375 : '100%', maxWidth: '100%', height: 760, border: 0, background: '#f3f4f6', display: 'block', margin: '0 auto', borderRadius: 12 }}
-          />
+        <div className="mt-3">
+          {html ? <MailFrame html={html} device={device} /> : loadError ? <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{loadError}</p> : <div className="rounded-xl border border-line bg-slate-100 p-10 text-center text-sm text-muted" aria-busy="true">מכין תצוגה מקדימה…</div>}
         </div>
+        <p className="mt-2 text-xs text-muted">התצוגה כאן היא של הדפדפן. לבדיקה אמיתית ב-Gmail / Outlook / בנייד, שלחו מייל בדיקה לכתובת שלכם.</p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <input
             value={to}

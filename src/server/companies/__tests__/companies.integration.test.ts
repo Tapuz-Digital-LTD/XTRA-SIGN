@@ -2,14 +2,18 @@ import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
+import { listGroups } from '@/server/groups/groups'
 import {
   createCompany,
   deleteCompany,
   getCompany,
   listCompanies,
+  parseCompanySource,
   resolveOwnCompanyId,
+  searchCompanies,
   updateCompany,
 } from '../companies'
+import { linkExistingCrmRecord } from '../registration'
 
 /** Against the real Postgres. */
 
@@ -50,6 +54,10 @@ afterAll(async () => {
       await db.delete(schema.agreementVersions).where(eq(schema.agreementVersions.agreementId, schema.agreements.id)).catch(() => {})
     }
     await db.delete(schema.agreements).where(eq(schema.agreements.organizationId, id))
+    const groups = await db.select({ id: schema.groups.id }).from(schema.groups).where(eq(schema.groups.organizationId, id))
+    for (const g of groups) await db.delete(schema.companyGroups).where(eq(schema.companyGroups.groupId, g.id))
+    await db.delete(schema.groups).where(eq(schema.groups.organizationId, id))
+    await db.delete(schema.adminAuditEvents).where(eq(schema.adminAuditEvents.organizationId, id))
     await db.delete(schema.companies).where(eq(schema.companies.organizationId, id))
     await db.delete(schema.users).where(eq(schema.users.organizationId, id))
     await db.delete(schema.organizations).where(eq(schema.organizations.id, id))
@@ -216,5 +224,97 @@ describe('crmObjectTypeFor', () => {
     return import('../companies').then(({ crmObjectTypeFor }) => {
       expect(crmObjectTypeFor({ kind: 'supplier', crmObjectType: 1 })).toBe(1)
     })
+  })
+})
+
+describe('source: XTRA Sign and CRM are two lists', () => {
+  it('a bare address chooses no side — the screen asks, it never defaults to one', () => {
+    expect(parseCompanySource(undefined)).toBeNull()
+    expect(parseCompanySource('all')).toBeNull()
+    expect(parseCompanySource('crm')).toBe('crm')
+    expect(parseCompanySource('xtra')).toBe('xtra')
+  })
+
+  /** A row the way the sync writes it: a Fireberry id, and 'crm' as its origin. */
+  const mirrored = async (kind: 'supplier' | 'customer', name: string, crmRecordId: string) => {
+    const [row] = await db
+      .insert(schema.companies)
+      .values({ organizationId: orgId, kind, name, crmRecordId, crmObjectType: kind === 'customer' ? 1 : 1000, source: 'crm' })
+      .returning({ id: schema.companies.id })
+    return row.id
+  }
+
+  it('shows each side its own rows, and both when no side is asked for', async () => {
+    const local = await createCompany({ session: admin, kind: 'supplier', data: { name: `מקומי ${suffix}` } })
+    if (!local.ok) throw new Error('setup')
+    const fromCrm = await mirrored('supplier', `מה-CRM ${suffix}`, `crm-${suffix}`)
+
+    const xtra = (await listCompanies(admin, 'supplier', undefined, undefined, false, 'xtra')).map((c) => c.id)
+    expect(xtra).toContain(local.id)
+    expect(xtra).not.toContain(fromCrm)
+
+    const crm = (await listCompanies(admin, 'supplier', undefined, undefined, false, 'crm')).map((c) => c.id)
+    expect(crm).toContain(fromCrm)
+    expect(crm).not.toContain(local.id)
+
+    const both = (await listCompanies(admin, 'supplier')).map((c) => c.id)
+    expect(both).toEqual(expect.arrayContaining([local.id, fromCrm]))
+
+    // The picker's search draws the same line.
+    expect((await searchCompanies(admin, suffix, 50, 'supplier', 'xtra')).map((c) => c.id)).not.toContain(fromCrm)
+    expect((await searchCompanies(admin, suffix, 50, 'supplier', 'crm')).map((c) => c.id)).toContain(fromCrm)
+  })
+
+  it('a local company linked to a CRM record moves to the CRM side as one row, and keeps where it came from', async () => {
+    const local = await createCompany({ session: admin, kind: 'customer', data: { name: `מקושר ${suffix}` } })
+    if (!local.ok) throw new Error('setup')
+
+    const linked = await linkExistingCrmRecord({
+      session: admin,
+      kind: 'customer',
+      data: { name: `מקושר ${suffix}` },
+      crmRecordId: `acc-${suffix}`,
+      crmObjectType: 1,
+      companyId: local.id,
+    })
+    expect(linked).toMatchObject({ ok: true, outcome: 'created_and_linked', id: local.id })
+
+    const crm = await listCompanies(admin, 'customer', undefined, undefined, false, 'crm')
+    expect(crm.filter((c) => c.crmRecordId === `acc-${suffix}`)).toHaveLength(1)
+    const row = crm.find((c) => c.id === local.id)
+    expect(row?.source).toBe('xtra')
+
+    const xtra = (await listCompanies(admin, 'customer', undefined, undefined, false, 'xtra')).map((c) => c.id)
+    expect(xtra).not.toContain(local.id)
+
+    // Linking the same record again returns the same row rather than a second one.
+    const again = await linkExistingCrmRecord({
+      session: admin,
+      kind: 'customer',
+      data: { name: `מקושר שוב ${suffix}` },
+      crmRecordId: `acc-${suffix}`,
+      crmObjectType: 1,
+    })
+    expect(again).toMatchObject({ ok: true, id: local.id })
+  })
+
+  it('group chip counts follow the side being looked at', async () => {
+    const [group] = await db
+      .insert(schema.groups)
+      .values({ organizationId: orgId, name: `קבוצה ${suffix}`, kind: 'supplier' })
+      .returning({ id: schema.groups.id })
+    const local = await createCompany({ session: admin, kind: 'supplier', data: { name: `בקבוצה ${suffix}` } })
+    if (!local.ok) throw new Error('setup')
+    const fromCrm = await mirrored('supplier', `בקבוצה CRM ${suffix}`, `crm-g-${suffix}`)
+    await db.insert(schema.companyGroups).values([
+      { groupId: group.id, companyId: local.id },
+      { groupId: group.id, companyId: fromCrm },
+    ])
+
+    const count = async (source?: 'crm' | 'xtra') =>
+      (await listGroups(admin, 'supplier', { source })).find((g) => g.id === group.id)?.companyCount
+    expect(await count()).toBe(2)
+    expect(await count('xtra')).toBe(1)
+    expect(await count('crm')).toBe(1)
   })
 })

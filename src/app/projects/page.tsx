@@ -61,7 +61,7 @@ export default async function CampaignsPage({
       </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-3 border-b border-line pb-0">
-        <nav className="-mx-1 flex gap-1 overflow-x-auto px-1" aria-label="סינון קמפיינים">
+        <nav className="-mx-1 flex min-w-0 max-w-full gap-1 overflow-x-auto px-1" aria-label="סינון קמפיינים">
           {tabs.map((tab) => (
             <Link
               key={tab.key}
@@ -75,7 +75,7 @@ export default async function CampaignsPage({
             </Link>
           ))}
         </nav>
-        <div className="ms-auto mb-2 flex min-w-0 flex-1 justify-end sm:flex-none">
+        <div className="mb-2 flex w-full min-w-0 justify-end sm:ms-auto sm:w-auto">
           <ProjectsSearch key={search} search={search} archived={archived} />
         </div>
       </div>

@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { CompanyHeader } from '@/components/companies/CompanyHeader'
+import { LINKED_NOTE, SOURCE_LABELS, isLinked, sourceOf } from '@/components/companies/SourceBadge'
+import { withSource } from '@/components/companies/SourceGate'
 import { CrmDocumentImport } from '@/components/companies/CrmDocumentImport'
 import { CrmBusinessImport } from '@/components/crm/CrmBusinessImport'
 import { DocumentsTable } from '@/components/documents/DocumentsTable'
@@ -73,7 +75,7 @@ export default async function CompanyPage({
     <AppShell>
       <div className="mb-4">
         <Link
-          href={company.kind === 'supplier' ? '/suppliers' : '/customers'}
+          href={withSource(company.kind === 'supplier' ? '/suppliers' : '/customers', sourceOf(company))}
           className="text-sm text-muted underline-offset-4 hover:text-fg hover:underline"
         >
           {company.kind === 'supplier' ? '→ לכל הספקים' : '→ לכל הלקוחות'}
@@ -134,7 +136,7 @@ export default async function CompanyPage({
             ['טלפון', company.contactPhone],
             ['אימייל', company.contactEmail],
             ['כתובת', company.address],
-            ['מקור', company.crmRecordId ? 'Fireberry' : 'XTRA Sign'],
+            ['מקור', isLinked(company) ? `CRM · ${LINKED_NOTE}` : SOURCE_LABELS[sourceOf(company)]],
           ].map(([label, value]) => (
             <div key={label as string} className="bg-surface px-4 py-3">
               <dt className="text-xs text-muted">{label}</dt>

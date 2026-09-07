@@ -1,18 +1,21 @@
 import Link from 'next/link'
+import { withSource, type SourceView } from '@/components/companies/SourceGate'
 
-/** The two faces of a companies space: the list itself, and how it's going. */
+/** The two faces of a companies space: the list itself, and how it's going. Both keep the chosen source. */
 export function CompanyTabs({
   base,
   active,
   listLabel,
+  source,
 }: {
   base: '/suppliers' | '/customers'
   active: 'list' | 'reports'
   listLabel: string
+  source: SourceView
 }) {
   const tabs = [
-    { key: 'list' as const, href: base, label: listLabel },
-    { key: 'reports' as const, href: `${base}/reports`, label: 'דוחות' },
+    { key: 'list' as const, href: withSource(base, source), label: listLabel },
+    { key: 'reports' as const, href: withSource(`${base}/reports`, source), label: 'דוחות' },
   ]
   return (
     <nav className="mt-4 flex gap-1 border-b border-line" aria-label="לשוניות">

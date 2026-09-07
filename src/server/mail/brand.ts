@@ -19,7 +19,7 @@ export type EmailBrand = {
 }
 
 /** XTRA's red wordmark on a white header; red for the buttons. */
-export const DEFAULT_BRAND: EmailBrand = { name: 'XTRA Sign', logoUrl: null, color: '#cb3e45', headerBackground: '#ffffff', supportEmail: null }
+export const DEFAULT_BRAND: EmailBrand = { name: 'XTRA Sign', logoUrl: null, color: '#2563eb', headerBackground: '#ffffff', supportEmail: null }
 
 function defaultBrand(name?: string | null, supportEmail?: string | null): EmailBrand {
   return { ...DEFAULT_BRAND, name: name ?? DEFAULT_BRAND.name, logoUrl: `${publicBaseUrl()}/xtra-logo.png`, supportEmail: supportEmail ?? null }

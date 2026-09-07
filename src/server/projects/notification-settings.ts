@@ -17,7 +17,8 @@ export { PROJECT_EVENTS }
 export type { ProjectEventKey, ProjectNotificationSettings, SignerCopySettings } from '@/lib/project-notifications'
 import { PROJECT_EVENTS, type ProjectEventKey, type ProjectNotificationSettings } from '@/lib/project-notifications'
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+/** A real-looking address: labels without doubled dots, a letters-only top level. */
+const EMAIL_RE = /^[^\s@]+@(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i
 
 export function notificationConfigOf(raw: unknown, notifyEmails: unknown): ProjectNotificationSettings {
   const r = (raw && typeof raw === 'object' ? raw : {}) as { events?: Record<string, unknown>; signerCopy?: Record<string, unknown> }

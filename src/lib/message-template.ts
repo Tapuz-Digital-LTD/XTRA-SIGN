@@ -90,7 +90,7 @@ export const EVENT_LABELS: Record<MessageEvent, { label: string; blurb: string; 
   invitation: { label: 'הזמנה לחתימה', blurb: 'נשלחת עם קישור החתימה כשמסמך יוצא לחותם.', channels: ['sms', 'email'] },
   reminder: { label: 'תזכורת לחתימה', blurb: 'נשלחת ידנית או אוטומטית למי שעוד לא חתם, עם קישור חדש.', channels: ['sms', 'email'] },
   signed_confirmation: { label: 'לאחר חתימה', blurb: 'אישור לחותם עם כפתור מאובטח להורדת המסמך החתום.', channels: ['email'] },
-  registration_completed: { label: 'הרשמה הושלמה', blurb: 'למי שנרשם דרך העמוד הציבורי, עם הקישור לחתימה.', channels: ['sms', 'email'] },
+  registration_completed: { label: 'נרשם ועדיין לא חתם', blurb: 'למי שנרשם בעמוד הציבורי ולא השלים את החתימה באותו ביקור — עם קישור לחזור ולחתום.', channels: ['sms', 'email'] },
 }
 
 /** A campaign's overrides: event → the fields it changed. Blank fields fall back to the default. */
@@ -172,16 +172,16 @@ export const DEFAULT_MESSAGES: Record<MessageEvent, MessageTemplate> = {
   signed_confirmation: {
     email: {
       subject: 'המסמך נחתם בהצלחה – {{document_name}}',
-      body: 'שלום {{signer_name}},\n\nתודה. תהליך החתימה על "{{document_name}}" הושלם בהצלחה.\nעותק חתום של המסמך נשמר וזמין עבורך להורדה.',
-      cta: 'הורדת המסמך החתום',
+      body: 'שלום {{signer_name}},\n\nהמסמך "{{document_name}}" נחתם בהצלחה.\nעותק חתום זמין עבורך לצפייה ולהורדה.',
+      cta: 'צפייה והורדת המסמך החתום',
     },
   },
   registration_completed: {
-    sms: 'שלום {{signer_name}}, תודה שנרשמתם ל{{campaign_name}}. לחתימה על ההסכם: {{signing_link}}',
+    sms: 'שלום {{signer_name}}, נרשמתם בהצלחה ל{{campaign_name}}. להשלמת התהליך יש לעיין בהסכם ולחתום עליו: {{signing_link}}',
     email: {
-      subject: 'הסכם לחתימה – {{campaign_name}}',
-      body: 'שלום {{signer_name}},\n\nתודה על הרשמתכם ל{{campaign_name}}.\nלהשלמת ההצטרפות יש לצפות ולחתום על ההסכם.',
-      cta: 'לצפייה וחתימה',
+      subject: 'נרשמתם בהצלחה – נותר לחתום על ההסכם | {{campaign_name}}',
+      body: 'שלום {{signer_name}},\n\nנרשמתם בהצלחה ל{{campaign_name}}.\nלהשלמת התהליך יש לעיין בהסכם "{{document_name}}" ולחתום עליו.',
+      cta: 'לעיון וחתימה על ההסכם',
     },
   },
 }

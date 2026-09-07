@@ -9,7 +9,7 @@ export default async function UsersPage() {
   const session = await getSession()
   if (!session) redirect('/login')
   // A non-admin has no business knowing this page exists.
-  if (!session.isAdmin) redirect('/documents')
+  if (!session.isAdmin) redirect('/')
 
   const users = await listUsers(session)
 

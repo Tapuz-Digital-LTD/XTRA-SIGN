@@ -29,7 +29,8 @@ export const REGISTRATION_LABELS: Record<RegistrationField, string> = {
   email: 'דוא״ל',
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+/** A real-looking address: labels without doubled dots, a letters-only top level. */
+const EMAIL_RE = /^[^\s@]+@(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i
 
 const clean = (value: unknown, max: number): string =>
   typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f-\u009f]/g, '').replace(/\s+/g, ' ').trim().slice(0, max) : ''

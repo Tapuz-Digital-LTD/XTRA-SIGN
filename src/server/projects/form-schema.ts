@@ -136,7 +136,8 @@ export type SubmissionResult =
   | { ok: true; data: Record<string, string> }
   | { ok: false; fields: Record<string, string> }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+/** A real-looking address: labels without doubled dots, a letters-only top level. */
+const EMAIL_RE = /^[^\s@]+@(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i
 
 /**
  * Validates one hostile payload against the published fields.

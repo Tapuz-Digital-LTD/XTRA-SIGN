@@ -12,7 +12,7 @@ export default async function OrganizationSettingsPage() {
   const session = await getSession()
   if (!session) redirect('/login')
   // Company details are what a counterparty relies on; editing is admin work.
-  if (!session.isAdmin) redirect('/documents')
+  if (!session.isAdmin) redirect('/')
 
   const profile = await getOrganizationProfile(session)
 

@@ -10,6 +10,7 @@ import { getDb, schema } from '@/server/db'
 import { log } from '@/server/log'
 import { getNotificationPrefs, notify, publicUrl } from '@/server/notifications/notifications'
 import { InforuEmailProvider, InforuSmsProvider } from '@/server/notifications/inforu'
+import { sendLinksToAbandonedRegistrations } from '@/server/self-service/onboarding'
 
 /**
  * The daily reminder for documents still waiting to be signed.
@@ -156,10 +157,11 @@ export async function GET(request: Request) {
     })
   }
 
+  const abandoned = await sendLinksToAbandonedRegistrations()
   const digests = await sendDailyDigests()
 
-  log.info('reminder run complete', { candidates: pending.length, sent, lapsed: lapsed.length, digests })
-  return NextResponse.json({ ok: true, candidates: pending.length, sent, lapsed: lapsed.length, digests })
+  log.info('reminder run complete', { candidates: pending.length, sent, lapsed: lapsed.length, digests, abandoned })
+  return NextResponse.json({ ok: true, candidates: pending.length, sent, lapsed: lapsed.length, digests, abandoned })
 }
 
 /**

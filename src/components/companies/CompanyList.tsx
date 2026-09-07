@@ -4,23 +4,22 @@ import { DeleteDialog } from '@/components/deletion/DeleteDialog'
 import { RowMenu } from '@/components/deletion/RowMenu'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CompanyForm } from '@/components/companies/CompanyForm'
+import { LINKED_NOTE, SourceBadge, isLinked } from '@/components/companies/SourceBadge'
+import { withSource } from '@/components/companies/SourceGate'
 import { AddToGroupButton } from '@/components/groups/AddToGroupButton'
 import { NewGroupButton } from '@/components/groups/NewGroupButton'
-import type { CompanyListItem } from '@/server/companies/companies'
-
-const formatter = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short', year: 'numeric' })
-
-type LinkFilter = 'all' | 'crm' | 'local'
+import type { CompanyListItem, CompanySource } from '@/server/companies/companies'
 
 /**
- * One space (suppliers or customers): a searchable, dense table.
+ * One space (suppliers or customers), one source at a time: a searchable,
+ * dense table of either XTRA Sign's own records or the CRM mirror. Which side
+ * is in the URL (`?source=`), so search, group chips and the empty state all
+ * refer to it — a CRM row is never among the XTRA Sign rows, and vice versa.
  *
  * Search is live — it filters name, ח.פ and contact as you type, no button or
- * Enter — over the rows already loaded. A filter separates CRM-linked records
- * (those with a Fireberry id) from ones that live only here, and a badge on
- * every row says which it is.
+ * Enter — and runs in the query, not over the loaded rows.
  */
 export function CompanyList({
   companies,
@@ -29,6 +28,7 @@ export function CompanyList({
   search,
   groups,
   activeGroup,
+  source,
   crmEnabled,
   isAdmin = false,
   archivedView = false,
@@ -42,6 +42,8 @@ export function CompanyList({
   groups: { id: string; name: string; companyCount: number }[]
   /** The group currently filtered on, from the URL. */
   activeGroup: string | null
+  /** Which side the rows are from (from the URL). */
+  source: CompanySource
   crmEnabled: boolean
   isAdmin?: boolean
   /** The archive instead of the active list. */
@@ -75,7 +77,6 @@ export function CompanyList({
   const [adding, setAdding] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState(search)
-  const [link, setLink] = useState<LinkFilter>('all')
   const [syncing, setSyncing] = useState(false)
   const [confirmSync, setConfirmSync] = useState(false)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
@@ -94,23 +95,10 @@ export function CompanyList({
       return
     }
     const t = setTimeout(() => {
-      const q = query.trim()
-      router.push(q ? `${basePath}?q=${encodeURIComponent(q)}` : basePath)
+      router.push(withSource(basePath, source, { q: query.trim() || undefined }))
     }, 300)
     return () => clearTimeout(t)
-  }, [query, basePath, router])
-
-  const filtered = useMemo(
-    () =>
-      companies.filter((c) => {
-        if (link === 'crm' && !c.crmRecordId) return false
-        if (link === 'local' && c.crmRecordId) return false
-        return true
-      }),
-    [companies, link],
-  )
-
-  const crmCount = companies.filter((c) => c.crmRecordId).length
+  }, [query, basePath, source, router])
 
   async function sync() {
     setConfirmSync(false)
@@ -137,13 +125,7 @@ export function CompanyList({
     }
   }
 
-  const filters: { key: LinkFilter; label: string }[] = [
-    { key: 'all', label: 'הכול' },
-    { key: 'crm', label: 'CRM' },
-    { key: 'local', label: 'XTRA Sign בלבד' },
-  ]
-
-  const allVisibleSelected = filtered.length > 0 && filtered.every((c) => selected.has(c.id))
+  const allVisibleSelected = companies.length > 0 && companies.every((c) => selected.has(c.id))
   const selectedList = [...selected]
 
   const toggleOne = (id: string) =>
@@ -154,13 +136,13 @@ export function CompanyList({
       return next
     })
 
-  // Selects exactly what is on screen after filtering — never rows the user
-  // cannot see, which is how the wrong companies end up in a bulk action.
+  // Selects exactly what is on screen — never rows the user cannot see, which
+  // is how the wrong companies end up in a bulk action.
   const toggleAllVisible = () =>
     setSelected((current) => {
       const next = new Set(current)
-      if (allVisibleSelected) for (const c of filtered) next.delete(c.id)
-      else for (const c of filtered) next.add(c.id)
+      if (allVisibleSelected) for (const c of companies) next.delete(c.id)
+      else for (const c of companies) next.add(c.id)
       return next
     })
 
@@ -176,7 +158,9 @@ export function CompanyList({
           {`הוספת ${noun}`}
         </button>
 
-        {crmEnabled ? (
+        {/* The sync fills the CRM side; on the XTRA Sign side it would only
+            raise "I synced, where are they?". */}
+        {crmEnabled && source === 'crm' ? (
           <button
             type="button"
             onClick={() => setConfirmSync(true)}
@@ -236,50 +220,26 @@ export function CompanyList({
           {/* Horizontal and scrollable: a long list of groups must not push the
               table off the screen, and on a phone this is a natural swipe. */}
           <Link
-            href={`/${kind === 'supplier' ? 'suppliers' : 'customers'}${search ? `?q=${encodeURIComponent(search)}` : ''}`}
+            href={withSource(basePath, source, { q: search || undefined })}
             className={`inline-flex min-h-9 shrink-0 items-center rounded-full px-3 text-sm transition-colors ${
               activeGroup ? 'bg-surface text-muted hover:text-fg' : 'bg-brand text-white'
             }`}
           >
             הכול
           </Link>
-          {groups.map((group) => {
-            const params = new URLSearchParams()
-            if (search) params.set('q', search)
-            params.set('group', group.id)
-            return (
-              <Link
-                key={group.id}
-                href={`/${kind === 'supplier' ? 'suppliers' : 'customers'}?${params}`}
-                className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm transition-colors ${
-                  activeGroup === group.id ? 'bg-brand text-white' : 'bg-surface text-muted hover:text-fg'
-                }`}
-              >
-                <span className="max-w-40 truncate">{group.name}</span>
-                <span className={`text-xs tabular-nums ${activeGroup === group.id ? 'text-white/80' : 'text-muted'}`}>
-                  {group.companyCount}
-                </span>
-              </Link>
-            )
-          })}
-        </div>
-      ) : null}
-
-      {crmCount > 0 ? (
-        <div className="flex flex-wrap gap-1" role="tablist" aria-label="סינון לפי מקור">
-          {filters.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              role="tab"
-              aria-selected={link === f.key}
-              onClick={() => setLink(f.key)}
-              className={`inline-flex min-h-9 items-center rounded-lg px-3 text-sm transition-colors ${
-                link === f.key ? 'bg-brand text-white' : 'text-muted hover:bg-slate-100 hover:text-fg'
+          {groups.map((group) => (
+            <Link
+              key={group.id}
+              href={withSource(basePath, source, { q: search || undefined, group: group.id })}
+              className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm transition-colors ${
+                activeGroup === group.id ? 'bg-brand text-white' : 'bg-surface text-muted hover:text-fg'
               }`}
             >
-              {f.label}
-            </button>
+              <span className="max-w-40 truncate">{group.name}</span>
+              <span className={`text-xs tabular-nums ${activeGroup === group.id ? 'text-white/80' : 'text-muted'}`}>
+                {group.companyCount}
+              </span>
+            </Link>
           ))}
         </div>
       ) : null}
@@ -303,24 +263,26 @@ export function CompanyList({
         </div>
       ) : null}
 
-      {filtered.length === 0 ? (
+      {companies.length === 0 ? (
         <div className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center">
           <p className="text-sm font-medium text-fg">
-            {search.trim() || link !== 'all' ? `לא נמצאו ${pluralNoun} מתאימים` : `עדיין אין ${pluralNoun}`}
+            {search.trim() ? `לא נמצאו ${pluralNoun} מתאימים` : source === 'crm' ? `אין ${pluralNoun} מ-CRM` : `עדיין אין ${pluralNoun}`}
           </p>
           <p className="mt-1 text-sm text-muted">
             {search.trim()
               ? 'נסו חיפוש אחר, או נקו את הסינון.'
-              : link !== 'all'
-                ? 'שנו את הסינון למעלה.'
-                : `הוסיפו ${noun} ראשון${crmEnabled ? ', או סנכרנו מ-Fireberry' : ''}, ואז צרו עבורו מסמך.`}
+              : source === 'crm'
+                ? crmEnabled
+                  ? 'סנכרנו מ-Fireberry כדי להביא אותם לכאן.'
+                  : 'רשומות CRM מגיעות לכאן בסנכרון מ-Fireberry.'
+                : `הוסיפו ${noun} ראשון, ואז צרו עבורו מסמך.`}
           </p>
         </div>
       ) : (
         <>
           {/* Phones get cards; an eight-column table on 375px is not a screen. */}
           <ul className="flex flex-col gap-2 sm:hidden">
-            {filtered.map((company) => (
+            {companies.map((company) => (
               <li key={company.id} className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
                 <div className="flex items-start justify-between gap-3">
                   <label className="flex min-w-0 items-start gap-3" onClick={(e) => e.stopPropagation()}>
@@ -338,14 +300,11 @@ export function CompanyList({
                       <span className="mt-0.5 block truncate text-xs text-muted">
                         {[company.contactName, company.contactPhone].filter(Boolean).join(' · ') || '—'}
                       </span>
+                      {isLinked(company) ? <span className="mt-0.5 block text-xs text-muted">{LINKED_NOTE}</span> : null}
                     </span>
                   </label>
                   <div className="flex shrink-0 items-center gap-1">
-                    {company.crmRecordId ? (
-                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">CRM</span>
-                    ) : (
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">XTRA Sign</span>
-                    )}
+                    {source === 'crm' ? <SourceBadge company={company} /> : null}
                     {menuFor(company)}
                   </div>
                 </div>
@@ -372,21 +331,22 @@ export function CompanyList({
                       className="size-4"
                       checked={allVisibleSelected}
                       onChange={toggleAllVisible}
-                      aria-label={`בחירת כל ${filtered.length} השורות המוצגות`}
+                      aria-label={`בחירת כל ${companies.length} השורות המוצגות`}
                     />
                   </th>
                   <th className="w-[24%] px-4 py-3 text-start font-medium">{noun === 'ספק' ? 'ספק' : 'לקוח'}</th>
                   <th className="w-[11%] px-4 py-3 text-start font-medium">ח.פ / ע.מ</th>
                   <th className="w-[16%] px-4 py-3 text-start font-medium">איש קשר</th>
                   <th className="w-[13%] px-4 py-3 text-start font-medium">טלפון</th>
-                  <th className="w-[10%] px-4 py-3 text-start font-medium">מקור</th>
+                  {/* On the XTRA Sign side every row is XTRA Sign; the column would say nothing. */}
+                  {source === 'crm' ? <th className="w-[15%] px-4 py-3 text-start font-medium">מקור</th> : null}
                   <th className="w-[9%] px-3 py-3 text-center font-medium">ממתינים</th>
                   <th className="w-[9%] px-3 py-3 text-center font-medium">נחתמו</th>
                   <th className="w-12 px-1 py-3"><span className="sr-only">פעולות</span></th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((company) => (
+                {companies.map((company) => (
                   <tr
                     key={company.id}
                     onClick={() => router.push(`/companies/${company.id}`)}
@@ -407,13 +367,12 @@ export function CompanyList({
                     <td className="truncate px-4 py-3 text-muted" dir="ltr">{company.taxId ?? '—'}</td>
                     <td className="truncate px-4 py-3 text-muted">{company.contactName ?? '—'}</td>
                     <td className="truncate px-4 py-3 text-muted" dir="ltr">{company.contactPhone ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      {company.crmRecordId ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">CRM</span>
-                      ) : (
-                        <span className="inline-block max-w-full truncate rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">XTRA Sign</span>
-                      )}
-                    </td>
+                    {source === 'crm' ? (
+                      <td className="px-4 py-3">
+                        <SourceBadge company={company} />
+                        {isLinked(company) ? <span className="mt-1 block text-xs text-muted">{LINKED_NOTE}</span> : null}
+                      </td>
+                    ) : null}
                     <td className="px-3 py-3 text-center">
                       {company.pendingCount > 0 ? (
                         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">{company.pendingCount}</span>
