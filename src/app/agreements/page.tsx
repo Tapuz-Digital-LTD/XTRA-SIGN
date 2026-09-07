@@ -85,7 +85,7 @@ export default async function AgreementsPage({
           )
         ) : (
           <>
-            <DocumentsTable documents={items} now={now} isAdmin={session.isAdmin} />
+            <DocumentsTable documents={items} now={now} isAdmin={session.isAdmin} selectable={filter === 'attention'} />
 
             {pages > 1 ? (
               <nav className="mt-4 flex items-center justify-between gap-3" aria-label="עמודים">
