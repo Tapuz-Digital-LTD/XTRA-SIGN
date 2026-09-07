@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
+import { CrmSyncButton } from '@/components/companies/CrmSyncButton'
 import { CompanyHeader } from '@/components/companies/CompanyHeader'
 import { LINKED_NOTE, SOURCE_LABELS, isLinked, sourceOf } from '@/components/companies/SourceBadge'
 import { withSource } from '@/components/companies/SourceGate'
@@ -205,6 +206,7 @@ export default async function CompanyPage({
                   ? new Intl.DateTimeFormat('he-IL', { dateStyle: 'medium', timeStyle: 'short' }).format(company.crmSyncedAt)
                   : 'טרם סונכרן'}
               </dd>
+              <dd className="mt-2"><CrmSyncButton /></dd>
             </div>
             <div>
               <dt className="text-xs text-muted">סוג רשומה</dt>

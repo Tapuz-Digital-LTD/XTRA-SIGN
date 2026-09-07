@@ -88,6 +88,8 @@ export const organizations = pgTable('organizations', {
   brandAccent: text('brand_accent'),
   brandFont: text('brand_font'),
   footerText: text('footer_text'),
+  /** The one account that may delete anything outright — the organization's owner. */
+  ownerUserId: uuid('owner_user_id'),
   /**
    * Where event emails go and which events send them, as
    * `{ emails: string[], events: Record<string, boolean> }`. In a column

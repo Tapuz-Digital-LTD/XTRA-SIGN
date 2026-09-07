@@ -36,6 +36,8 @@ const overflowing = (page: Page) =>
     for (const el of Array.from(document.querySelectorAll('h1,h2,h3,p,button,a,span,td,th,label'))) {
       const s = getComputedStyle(el)
       if (s.overflow !== 'visible' || s.whiteSpace === 'nowrap' && s.textOverflow === 'ellipsis') continue
+      // A fixed-position menu or dialog nested in a cell is not the cell's text spilling out.
+      if (el.querySelector('[role="menu"], [role="dialog"]')) continue
       if ((el as HTMLElement).scrollWidth > (el as HTMLElement).clientWidth + 2 && (el as HTMLElement).clientWidth > 0 && el.textContent && el.textContent.trim().length > 12) bad.push(el.tagName + ':' + el.textContent.trim().slice(0, 30))
     }
     return bad.slice(0, 5)
@@ -160,6 +162,32 @@ async function main() {
       await go('/templates/new')
       check(`template-new ${width}: four steps named`, await has(page, 'העלאת PDF') && await has(page, 'זיהוי שדות ומיפוי') && await has(page, 'אישור והפעלה'))
       await shot(page, 'template-new', width)
+
+      // Agreements table: the row menu opens inside the viewport and the owner sees the full delete
+      await go('/agreements')
+      let dots: import('puppeteer-core').ElementHandle<Element> | null = null
+      for (const el of await page.$$('main button[aria-label="פעולות"]')) {
+        const box = await el.boundingBox()
+        if (box && box.width > 0) { dots = el; break }
+      }
+      if (dots) {
+        await dots.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+        await dots.click()
+        await page.waitForSelector('[role="menu"]', { timeout: 10000 })
+        const inView = await page.$eval('[role="menu"]', (el) => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= window.innerWidth && r.top >= 0 && r.bottom <= window.innerHeight })
+        check(`agreements ${width}: row menu fully inside the viewport`, inView)
+        await shot(page, 'agreements-menu', width)
+        const del = await clickText(page, '[role="menu"]', 'מחיקה') || await clickText(page, '[role="menu"]', 'ארכיון') || await clickText(page, '[role="menu"]', 'העברה לארכיון')
+        if (del) {
+          await page.waitForSelector('[role="dialog"]', { timeout: 10000 })
+          await page.waitForFunction(() => !document.body.textContent?.includes('בודק מה עומד'), { timeout: 15000 }).catch(() => null)
+          check(`agreements ${width}: owner sees the full-delete option`, await has(page, 'מחיקה מלאה'))
+          await shot(page, 'agreements-delete', width)
+          await page.keyboard.press('Escape')
+        }
+      } else {
+        console.log(`  (no agreements to open a menu on at ${width})`)
+      }
 
       // Email previews in device frames
       await go('/settings/emails')

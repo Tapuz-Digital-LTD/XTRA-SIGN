@@ -24,8 +24,10 @@ type DialogProps = {
   open: boolean
   onClose: () => void
   /** Called after a successful action, with what happened. */
-  onDone: (result: { action: DeletionMode | 'request'; message: string }) => void
+  onDone: (result: { action: DeletionMode | 'request' | 'purge'; message: string }) => void
 }
+
+type Impact = DeletionImpact & { isOwner?: boolean }
 
 /** Each opening is a fresh conversation: the body is keyed on the record. */
 export function DeleteDialog(props: DialogProps) {
@@ -34,12 +36,13 @@ export function DeleteDialog(props: DialogProps) {
 }
 
 function DeleteDialogBody({ type, id, noun, isAdmin, open, onClose, onDone }: DialogProps) {
-  const [impact, setImpact] = useState<DeletionImpact | null>(null)
+  const [impact, setImpact] = useState<Impact | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [stage, setStage] = useState<'main' | 'protected'>('main')
+  const [stage, setStage] = useState<'main' | 'protected' | 'purge'>('main')
   const [acknowledged, setAcknowledged] = useState(false)
+  const [confirm, setConfirm] = useState('')
   const firstButton = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -49,7 +52,7 @@ function DeleteDialogBody({ type, id, noun, isAdmin, open, onClose, onDone }: Di
       .then(async (response) => {
         const data = await response.json().catch(() => null)
         if (!response.ok) throw new Error(data?.error?.message ?? 'לא הצלחנו לבדוק את הרשומה.')
-        setImpact(data as DeletionImpact)
+        setImpact(data as Impact)
       })
       .catch((e: unknown) => {
         if ((e as { name?: string }).name !== 'AbortError') setError(e instanceof Error ? e.message : 'לא הצלחנו לבדוק את הרשומה.')
@@ -68,14 +71,14 @@ function DeleteDialogBody({ type, id, noun, isAdmin, open, onClose, onDone }: Di
     return () => document.removeEventListener('keydown', escape)
   }, [open, onClose, impact])
 
-  async function act(mode: DeletionMode | 'request') {
+  async function act(mode: DeletionMode | 'request' | 'purge') {
     setBusy(true)
     setError(null)
     try {
       const response = await fetch('/api/deletion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, id, mode, acknowledged }),
+        body: JSON.stringify(mode === 'purge' ? { type, id, mode, acknowledged: true, confirm: confirm.trim() } : { type, id, mode, acknowledged }),
       })
       const data = await response.json().catch(() => null)
       if (!response.ok) {
@@ -119,13 +122,49 @@ function DeleteDialogBody({ type, id, noun, isAdmin, open, onClose, onDone }: Di
       </ul>
     ) : null
 
-    if (impact.recommendedAction === 'keep') {
+    const purgeButton = impact.isOwner ? (
+      <button type="button" disabled={busy} onClick={() => setStage('purge')} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-300 bg-white px-4 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-50">
+        מחיקה מלאה
+      </button>
+    ) : null
+
+    if (stage === 'purge') {
+      title = 'מחיקה מלאה — לצמיתות'
+      body = (
+        <>
+          <p className="text-sm font-medium text-fg">{impact.name}</p>
+          <p className="mt-2 text-sm text-fg">
+            {the} {feminine ? 'תימחק' : 'יימחק'} לצמיתות יחד עם כל מה ששייך {feminine ? 'לה' : 'לו'}: הסכמים, קבצים חתומים, היסטוריית חתימות, הרשמות והודעות. אין ארכיון ואין דרך חזרה.
+          </p>
+          <p className="mt-1 text-xs text-muted">אפשרות זו שמורה לבעלי הארגון בלבד ונרשמת ביומן הביקורת.</p>
+          {deps}
+          {crmNote}
+          <label className="mt-3 block text-sm">
+            <span className="text-muted">לאישור, הקלידו כאן את המילה <strong className="text-fg">מחק</strong></span>
+            <input value={confirm} onChange={(e) => setConfirm(e.target.value)} autoFocus className="mt-1 h-11 w-full rounded-lg border border-line bg-white px-3 text-sm text-fg outline-none focus:border-red-400" aria-label="הקלידו מחק לאישור" />
+          </label>
+        </>
+      )
+      actions = (
+        <>
+          <button type="button" onClick={() => setStage('main')} className={secondary}>
+            חזרה
+          </button>
+          <button ref={firstButton} type="button" disabled={busy || confirm.trim() !== 'מחק'} onClick={() => void act('purge')} className={`${primary} bg-danger hover:opacity-90`}>
+            {busy ? 'מוחק לצמיתות…' : 'מחק לצמיתות'}
+          </button>
+        </>
+      )
+    } else if (impact.recommendedAction === 'keep') {
       title = 'הרשומה נשמרת'
       body = <p className="text-sm text-fg">{impact.keepReason}</p>
       actions = (
-        <button ref={firstButton} type="button" onClick={onClose} className={secondary}>
-          סגירה
-        </button>
+        <>
+          <button ref={firstButton} type="button" onClick={onClose} className={secondary}>
+            סגירה
+          </button>
+          {purgeButton}
+        </>
       )
     } else if (impact.archived && impact.recommendedAction !== 'delete') {
       title = `${the} בארכיון`
@@ -149,6 +188,7 @@ function DeleteDialogBody({ type, id, noun, isAdmin, open, onClose, onDone }: Di
               מחיקה מוגנת
             </button>
           ) : null}
+          {purgeButton}
         </>
       )
     } else if (stage === 'protected') {
@@ -209,6 +249,7 @@ function DeleteDialogBody({ type, id, noun, isAdmin, open, onClose, onDone }: Di
               בקשת מחיקת מנהל
             </button>
           )}
+          {purgeButton}
         </>
       )
     } else if (impact.recommendedAction === 'delete_with_cancel') {
@@ -234,6 +275,7 @@ function DeleteDialogBody({ type, id, noun, isAdmin, open, onClose, onDone }: Di
           <button type="button" disabled={busy} onClick={() => void act('delete')} className={`${primary} bg-danger hover:opacity-90`}>
             {busy ? 'מוחק…' : `מחק ${noun} ובטל הסכמים`}
           </button>
+          {purgeButton}
         </>
       )
     } else if (impact.recommendedAction === 'archive') {
@@ -259,6 +301,7 @@ function DeleteDialogBody({ type, id, noun, isAdmin, open, onClose, onDone }: Di
           <button type="button" disabled={busy} onClick={() => void act(type === 'template' ? 'delete' : 'archive')} className={`${primary} bg-brand hover:opacity-90`}>
             {busy ? 'רגע…' : type === 'template' ? 'הסר מהרשימה' : 'העבר לארכיון'}
           </button>
+          {purgeButton}
         </>
       )
     } else {
@@ -281,6 +324,7 @@ function DeleteDialogBody({ type, id, noun, isAdmin, open, onClose, onDone }: Di
           <button type="button" disabled={busy} onClick={() => void act('delete')} className={`${primary} bg-danger hover:opacity-90`}>
             {busy ? 'מוחק…' : 'מחק'}
           </button>
+          {purgeButton}
         </>
       )
     }

@@ -29,6 +29,7 @@ export function RowActions({
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [menuStyle, setMenuStyle] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0, top: 0 })
   const [removing, setRemoving] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -156,6 +157,10 @@ export function RowActions({
         type="button"
         onClick={(e) => {
           e.stopPropagation()
+          const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+          const width = 224
+          const left = Math.max(8, Math.min(window.innerWidth - width - 8, r.left + r.width - width))
+          setMenuStyle(r.bottom + 240 > window.innerHeight ? { left, bottom: window.innerHeight - r.top + 4 } : { left, top: r.bottom + 4 })
           setOpen((v) => !v)
         }}
         aria-haspopup="menu"
@@ -170,7 +175,10 @@ export function RowActions({
         <div
           role="menu"
           onClick={(e) => e.stopPropagation()}
-          className="absolute end-0 z-30 mt-1 w-56 overflow-hidden rounded-lg border border-line bg-surface py-1 shadow-lg"
+          // Fixed, measured from the button: the table scrolls sideways and
+          // an absolutely positioned menu would be clipped by it.
+          style={menuStyle}
+          className="fixed z-40 w-56 overflow-hidden rounded-lg border border-line bg-surface py-1 shadow-lg"
         >
           {available.map((action) => (
             <button
