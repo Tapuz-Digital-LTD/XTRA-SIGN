@@ -104,6 +104,7 @@ export default async function CampaignsPage({
               campaignKind: p.campaignKind,
               goal: p.goal,
               entry: p.entry,
+              kind: p.kind,
               companyCount: p.companyCount,
               registrations: p.registrations,
               signed: p.signed,

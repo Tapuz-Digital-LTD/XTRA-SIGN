@@ -52,6 +52,7 @@ export async function POST(request: Request) {
       session,
       name: String(body?.name ?? ''),
       description: typeof body?.description === 'string' ? body.description : null,
+      // Who the campaign is for; null (the wizard's "שניהם") means suppliers and customers alike.
       kind: body?.kind === 'supplier' || body?.kind === 'customer' ? body.kind : null,
       companyIds: Array.isArray(body?.companyIds)
         ? (body.companyIds.filter((c) => typeof c === 'string') as string[])

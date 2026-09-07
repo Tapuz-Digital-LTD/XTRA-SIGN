@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { closedState, describeCampaign, hasForm, kindForEntry, registrationsOpen, tabsFor } from '@/lib/campaigns'
+import { audienceLabel, closedState, COMPARISON_ROWS, describeCampaign, hasForm, kindForEntry, registrationsOpen, tabsFor } from '@/lib/campaigns'
 
 describe('registrationsOpen', () => {
   const now = new Date('2026-09-07T10:00:00Z')
@@ -38,5 +38,21 @@ describe('campaign shape', () => {
     expect(hasForm('audience')).toBe(false)
     expect(kindForEntry('embed')).toBe('public')
     expect(kindForEntry('audience')).toBe('signature')
+  })
+})
+
+describe('the wizard\'s words', () => {
+  it('names the audience, and both when the row has none', () => {
+    expect(audienceLabel('supplier')).toBe('ספקים')
+    expect(audienceLabel('customer')).toBe('לקוחות')
+    expect(audienceLabel(null)).toBe('ספקים ולקוחות')
+  })
+  it('compares the two goals row by row with both columns filled', () => {
+    expect(COMPARISON_ROWS).toHaveLength(7)
+    for (const row of COMPARISON_ROWS) {
+      expect(row.label.trim()).not.toBe('')
+      expect(row.inquiries.trim()).not.toBe('')
+      expect(row.signing.trim()).not.toBe('')
+    }
   })
 })

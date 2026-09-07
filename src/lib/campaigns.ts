@@ -28,6 +28,28 @@ export function isCampaignGoal(value: unknown): value is CampaignGoal {
 
 export const goalLabel = (goal: CampaignGoal) => GOALS.find((g) => g.key === goal)!.label
 
+/** "מה ההבדל בין האפשרויות?" — one row per thing people ask, one column per goal. */
+export const COMPARISON_ROWS: { label: string; inquiries: string; signing: string }[] = [
+  { label: 'מה קורה אחרי הטופס', inquiries: 'הפנייה מחכה לצוות (לאשר / להמשיך לחתימה ידנית)', signing: 'הנרשם עובר ישירות להסכם, קוד וחתימה' },
+  { label: 'צריך הסכם?', inquiries: 'לא', signing: 'כן (אפשר להעלות אחר כך)' },
+  { label: 'קהל קיים', inquiries: 'אפשר, לא חובה', signing: 'אפשר, לא חובה' },
+  { label: 'טופס / הטמעה / API / עמוד מותאם', inquiries: 'כן', signing: 'כן' },
+  { label: 'הפצות SMS/Email', inquiries: 'כן', signing: 'כן' },
+  { label: 'הזמנה אישית', inquiries: 'כן', signing: 'כן' },
+  { label: 'דוחות', inquiries: 'פניות, מקורות, נציגים', signing: '+ חתימות, משימות המשך' },
+]
+
+/** Who a campaign is for. The `groups.kind` column stores supplier/customer; "both" is null there. */
+export type AudienceKind = 'supplier' | 'customer' | 'both'
+
+export const AUDIENCE_KINDS: { key: AudienceKind; label: string }[] = [
+  { key: 'supplier', label: 'ספקים' },
+  { key: 'customer', label: 'לקוחות' },
+  { key: 'both', label: 'שניהם' },
+]
+
+export const audienceLabel = (kind: 'supplier' | 'customer' | null) => (kind === 'supplier' ? 'ספקים' : kind === 'customer' ? 'לקוחות' : 'ספקים ולקוחות')
+
 export type EntryMethod = 'audience' | 'form' | 'embed' | 'api' | 'custom'
 
 export const ENTRY_METHODS: { key: EntryMethod; label: string; short: string; blurb: string; goals: CampaignGoal[] }[] = [
