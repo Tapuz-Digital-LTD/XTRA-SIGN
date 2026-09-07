@@ -30,6 +30,12 @@ export type UploadDocumentInput = {
   origin?: { templateId: string } | { composed: true }
   /** The supplier/customer this document is filed under. Verified by the caller, and required: every new document belongs to someone. */
   companyId?: string | null
+  /**
+   * A direct send to a person the system tracks by name and phone: the
+   * document is filed under nobody on purpose, and "הוסף כספק/לקוח" is a
+   * later choice. The only caller is the quick-send path.
+   */
+  allowUnfiled?: boolean
   /** How the document came to exist. Defaults to a plain upload. */
   sourceKind?: 'uploaded' | 'composed' | 'xtra_template' | 'crm_document'
   ip?: string | null
@@ -54,7 +60,7 @@ export async function uploadDocument(input: UploadDocumentInput): Promise<Upload
   // Every new document is filed under a company from birth. The rule is here,
   // at the single point every creation path passes through, so no route can
   // quietly produce an orphan the way template-made documents once did.
-  if (!input.companyId) {
+  if (!input.companyId && !input.allowUnfiled) {
     return { ok: false, code: 'missing_company', message: 'יש לבחור ספק או לקוח למסמך.' }
   }
 
@@ -63,7 +69,7 @@ export async function uploadDocument(input: UploadDocumentInput): Promise<Upload
   // saved — not blank, and not lost to a debounce that never fired. The user
   // edits it if the signer is someone else. Only seeded when there is a real
   // name to seed, because recipients.name is required.
-  const company = await getCompany(session, input.companyId)
+  const company = input.companyId ? await getCompany(session, input.companyId) : null
   const seedRecipient =
     company && company.contactName && company.contactName.trim()
       ? {

@@ -177,7 +177,7 @@ export async function attentionForAgreements(
   if (agreementIds.length === 0) return out
   const db = getDb()
 
-  const [agreements, sends, audits] = await Promise.all([
+  const [agreements, sends, audits, tracked] = await Promise.all([
     db
       .select({ id: schema.agreements.id, status: schema.agreements.status, companyId: schema.agreements.companyId, expiresAt: schema.agreements.expiresAt, sentAt: schema.agreements.sentAt })
       .from(schema.agreements)
@@ -192,7 +192,11 @@ export async function attentionForAgreements(
       .from(schema.auditEvents)
       .where(and(inArray(schema.auditEvents.agreementId, agreementIds), inArray(schema.auditEvents.type, ['email_failed', 'sms_failed', 'email_sent', 'sms_sent', 'reminder_sent'])))
       .orderBy(asc(schema.auditEvents.createdAt)),
+    // Agreements followed by an invitation or registration row: a person the
+    // system tracks by name and phone, who may stay unfiled by design.
+    db.select({ agreementId: schema.projectLeads.agreementId }).from(schema.projectLeads).where(inArray(schema.projectLeads.agreementId, agreementIds)),
   ])
+  const trackedIds = new Set(tracked.map((t) => t.agreementId))
 
   const stale = new Date(now.getTime() - STALE_AFTER_DAYS * DAY_MS)
 
@@ -264,8 +268,10 @@ export async function attentionForAgreements(
       }
     }
 
-    // (d) Filed under nobody, so it is only ever findable in this list.
-    if (!a.companyId) {
+    // (d) Filed under nobody, so it is only ever findable in this list — unless
+    // it belongs to a person the system tracks (a direct send, an invitation):
+    // "הוסף כספק/לקוח" is their choice, not a fault.
+    if (!a.companyId && !trackedIds.has(a.id)) {
       reasons.push({
         key: 'no_company',
         severity: 3,

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { RowMenu, type RowMenuItem } from '@/components/deletion/RowMenu'
 import { Drawer } from '@/components/ui/Drawer'
+import { LinkCompanyPanel } from '@/components/invitations/LinkCompanyPanel'
 import type { ActionPlan, ActionResult, RegistrationAction, RegistrationDetail } from '@/server/reports/registration-actions'
 import type { ProjectReportData } from './ProjectReportView'
 import { EditLeadDialog } from '@/components/projects/LeadsPanel'
@@ -302,7 +303,10 @@ export function RegistrationsTable({
                       {r.contactName || '—'} · {dateTime.format(new Date(r.createdAt))} · {r.source.label}
                     </span>
                   </button>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${TONE[r.statusTone]}`}>{r.statusLabel}</span>
+                  <span className="flex shrink-0 flex-col items-end gap-1">
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${TONE[r.statusTone]}`}>{r.statusLabel}</span>
+                    {r.linkingNeeded ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900">לא שויך ב-CRM</span> : null}
+                  </span>
                   <RowMenu items={menuFor(r)} />
                 </div>
                 {quick(r) || taskBadge(r) ? (
@@ -346,6 +350,7 @@ export function RegistrationsTable({
                     <td className="truncate py-2 pe-3 text-fg">{r.contactName || '—'}</td>
                     <td className="py-2 pe-3">
                       <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${TONE[r.statusTone]}`}>{r.statusLabel}</span>
+                      {r.linkingNeeded ? <span className="mt-1 block"><span className="whitespace-nowrap rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900">לא שויך ב-CRM — בדקו שיוך</span></span> : null}
                       {taskBadge(r) ? <div className="mt-1" onClick={(e) => e.stopPropagation()}>{taskBadge(r)}</div> : null}
                     </td>
                     <td className="whitespace-nowrap py-2 pe-3 tabular-nums text-muted">{dateTime.format(new Date(r.createdAt))}</td>
@@ -367,6 +372,7 @@ export function RegistrationsTable({
       <RegistrationDrawer
         projectId={projectId}
         id={openId}
+        linkingNeeded={Boolean(openId && rows.find((x) => x.id === openId)?.linkingNeeded)}
         task={openId ? (() => { const r = rows.find((x) => x.id === openId); return r && isSigned(r) ? taskOf(r) : null })() : null}
         onTaskSaved={(t) => { if (openId) setTask(openId, t) }}
         onClose={() => setOpenId(null)}
@@ -447,6 +453,7 @@ export function RegistrationsTable({
 function RegistrationDrawer({
   projectId,
   id,
+  linkingNeeded,
   task,
   onTaskSaved,
   onClose,
@@ -455,6 +462,7 @@ function RegistrationDrawer({
 }: {
   projectId: string
   id: string | null
+  linkingNeeded: boolean
   task: TaskSummary | null
   onTaskSaved: (task: TaskSummary) => void
   onClose: () => void
@@ -527,6 +535,17 @@ function RegistrationDrawer({
               </Link>
             ) : null}
           </section>
+
+          {linkingNeeded || !detail.business.companyId ? (
+            <div>
+              {linkingNeeded ? (
+                <p className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  ההרשמה נשמרה מקומית כי ב-CRM לא נמצאה חברה אחת עם אותו ח.פ. בדקו למי היא שייכת וקשרו אותה, או השאירו אותה כרשומה מקומית.
+                </p>
+              ) : null}
+              <LinkCompanyPanel leadId={detail.id} title="שיוך לספק/לקוח" onDone={() => window.location.reload()} onError={(m) => setError(m)} />
+            </div>
+          ) : null}
 
           <section>
             <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">ההרשמה</h4>

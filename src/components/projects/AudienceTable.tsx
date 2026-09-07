@@ -8,6 +8,7 @@ import { TaskBadge } from '@/components/follow-up/TaskBadge'
 import { TaskPanel } from '@/components/follow-up/TaskPanel'
 import { CopyButton } from '@/components/ui/CopyButton'
 import { Drawer } from '@/components/ui/Drawer'
+import { LinkCompanyPanel } from '@/components/invitations/LinkCompanyPanel'
 import type { TaskSummary } from '@/server/follow-up/labels'
 import type { AudienceRow, AudienceView, CallOutcome, SendHistoryItem } from '@/server/invitations/invitations'
 import { InviteDialog } from './InviteDialog'
@@ -47,13 +48,71 @@ const bigButton = 'inline-flex min-h-12 items-center justify-center rounded-xl p
 
 type Team = { id: string; name: string; email: string }
 
-export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueToday }: { projectId: string; rows: AudienceRow[]; counts: Record<AudienceView, number>; view: AudienceView; q: string; askKind: boolean; dueToday: number }) {
+export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueToday, global = false, basePath, extraParams }: { projectId: string; rows: AudienceRow[]; counts: Record<AudienceView, number>; view: AudienceView; q: string; askKind: boolean; dueToday: number; /** The organisation-wide tracking screen: a campaign column, no invite button. */ global?: boolean; basePath?: string; extraParams?: Record<string, string> }) {
   const router = useRouter()
   const [inviteOpen, setInviteOpen] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
   const [team, setTeam] = useState<Team[]>([])
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [plan, setPlan] = useState<{ eligible: { id: string; name: string; channel: string; kind: string }[]; skipped: { id: string; name: string; why: string }[] } | null>(null)
+  const [bulkBusy, setBulkBusy] = useState(false)
   const current = rows.find((r) => r.id === openId) ?? null
+  const toggle = (id: string) => setSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next })
+  const selectable = rows.filter((r) => r.status !== 'signed' && r.status !== 'failed')
+
+  async function previewReminders() {
+    const ids = [...selected]
+    const byGroup = new Map<string, string[]>()
+    for (const id of ids) {
+      const g = rows.find((r) => r.id === id)?.groupId ?? projectId
+      byGroup.set(g, [...(byGroup.get(g) ?? []), id])
+    }
+    setBulkBusy(true)
+    try {
+      const merged = { eligible: [] as { id: string; name: string; channel: string; kind: string }[], skipped: [] as { id: string; name: string; why: string }[] }
+      for (const [g, list] of byGroup) {
+        const result = await post(`/api/projects/${g}/audience/remind`, { ids: list, dryRun: true })
+        if (!result.ok) return setNotice({ tone: 'error', text: result.data?.error?.message ?? 'לא הצלחנו לבדוק את הזכאות.' })
+        const d = result.data as unknown as { eligible: typeof merged.eligible; skipped: typeof merged.skipped }
+        merged.eligible.push(...(d.eligible ?? []))
+        merged.skipped.push(...(d.skipped ?? []))
+      }
+      setPlan(merged)
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  async function sendReminders() {
+    if (!plan) return
+    const byGroup = new Map<string, string[]>()
+    for (const row of plan.eligible) {
+      const g = rows.find((r) => r.id === row.id)?.groupId ?? projectId
+      byGroup.set(g, [...(byGroup.get(g) ?? []), row.id])
+    }
+    setBulkBusy(true)
+    try {
+      let sent = 0
+      const failed: string[] = []
+      for (const [g, list] of byGroup) {
+        const result = await post(`/api/projects/${g}/audience/remind`, { ids: list })
+        if (!result.ok) {
+          failed.push(result.data?.error?.message ?? 'השליחה נכשלה.')
+          continue
+        }
+        const d = result.data as unknown as { sent: number; failed: { name: string; message: string }[] }
+        sent += d.sent ?? 0
+        for (const f of d.failed ?? []) failed.push(`${f.name}: ${f.message}`)
+      }
+      setNotice(failed.length ? { tone: 'error', text: `נשלחו ${sent} תזכורות. לא נשלחו: ${failed.join(' · ')}` } : { tone: 'ok', text: `נשלחו ${sent} תזכורות.` })
+      setPlan(null)
+      setSelected(new Set())
+      router.refresh()
+    } finally {
+      setBulkBusy(false)
+    }
+  }
 
   useEffect(() => {
     void fetch('/api/team')
@@ -62,23 +121,27 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
       .catch(() => setTeam([]))
   }, [])
 
+  const path = basePath ?? `/projects/${projectId}`
   const href = (patch: Record<string, string | undefined>) => {
-    const p = new URLSearchParams({ tab: 'audience' })
+    const p = new URLSearchParams(global ? extraParams ?? {} : { tab: 'audience' })
     const next: { view?: string; q?: string; due?: string } = { view, q, ...patch }
     if (next.view && next.view !== 'all') p.set('view', next.view)
     if (next.q) p.set('q', next.q)
     if (next.due) p.set('due', '1')
-    return `/projects/${projectId}?${p}`
+    const qs = p.toString()
+    return qs ? `${path}?${qs}` : path
   }
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-fg">קהל הקמפיין</h2>
-        <button type="button" onClick={() => setInviteOpen(true)} className={`${bigButton} bg-brand text-white hover:opacity-90`}>
-          + שליחת הזמנה
-        </button>
-      </div>
+      {!global ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-fg">קהל הקמפיין</h2>
+          <button type="button" onClick={() => setInviteOpen(true)} className={`${bigButton} bg-brand text-white hover:opacity-90`}>
+            + שליחת הזמנה
+          </button>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
         <nav aria-label="תצוגות" className="flex flex-wrap gap-1 rounded-xl border border-line bg-surface p-1">
@@ -89,8 +152,8 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
             </Link>
           ))}
         </nav>
-        <form method="get" action={`/projects/${projectId}`} className="flex min-w-0 flex-1 gap-2">
-          <input type="hidden" name="tab" value="audience" />
+        <form method="get" action={path} className="flex min-w-0 flex-1 gap-2">
+          {global ? Object.entries(extraParams ?? {}).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />) : <input type="hidden" name="tab" value="audience" />}
           {view !== 'all' ? <input type="hidden" name="view" value={view} /> : null}
           <input type="search" name="q" defaultValue={q} placeholder="חיפוש לפי שם או טלפון" aria-label="חיפוש בקהל" className="min-h-11 min-w-0 flex-1 rounded-xl border border-line bg-surface px-4 text-base text-fg outline-none focus:border-brand" />
           <button type="submit" className="inline-flex min-h-11 items-center rounded-xl border border-line bg-surface px-4 text-sm font-medium text-fg hover:border-brand">
@@ -114,11 +177,60 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
         </p>
       ) : null}
 
+      {selected.size > 0 ? (
+        <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-xl border border-brand bg-blue-50 px-4 py-3">
+          <span className="text-sm font-semibold text-fg">נבחרו {selected.size}</span>
+          <button type="button" disabled={bulkBusy} onClick={() => void previewReminders()} className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white disabled:opacity-50">
+            שלח תזכורת לנבחרים
+          </button>
+          {selected.size < selectable.length ? (
+            <button type="button" onClick={() => setSelected(new Set(selectable.map((r) => r.id)))} className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg hover:border-brand">
+              בחר את כל התואמים ({selectable.length})
+            </button>
+          ) : null}
+          <button type="button" onClick={() => setSelected(new Set())} className="ms-auto inline-flex min-h-11 items-center rounded-lg px-3 text-sm text-muted hover:text-fg">
+            ביטול
+          </button>
+        </div>
+      ) : null}
+
+      {plan ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={() => setPlan(null)}>
+          <div role="dialog" aria-modal="true" aria-labelledby="rem-title" className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 id="rem-title" className="text-lg font-bold text-fg">שליחת תזכורת</h3>
+            <p className="mt-2 text-base text-fg">
+              ניתן לשלוח ל-<strong>{plan.eligible.length}</strong> מתוך {plan.eligible.length + plan.skipped.length}.
+            </p>
+            <p className="mt-1 text-sm text-muted">{plan.eligible.filter((e) => e.channel === 'sms').length} ב-SMS · {plan.eligible.filter((e) => e.channel === 'email').length} באימייל · לפי נוסח התזכורת של הקמפיין.</p>
+            {plan.skipped.length > 0 ? (
+              <details className="mt-3 rounded-lg border border-line bg-bg p-3 text-sm">
+                <summary className="cursor-pointer font-medium text-fg">{plan.skipped.length} לא יקבלו — למה?</summary>
+                <ul className="mt-2 space-y-1 text-muted">
+                  {plan.skipped.map((sk) => (
+                    <li key={sk.id}>
+                      {sk.name}: {sk.why}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button type="button" disabled={bulkBusy || plan.eligible.length === 0} onClick={() => void sendReminders()} className={`${bigButton} bg-brand text-white`}>
+                {bulkBusy ? 'שולחים…' : `שלח ל-${plan.eligible.length}`}
+              </button>
+              <button type="button" onClick={() => setPlan(null)} className={`${bigButton} border border-line bg-surface text-fg`}>
+                ביטול
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {rows.length === 0 ? (
         <div className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center">
           <p className="text-base font-semibold text-fg">{q || view !== 'all' ? 'לא נמצא אף אחד בתצוגה הזו' : 'עדיין לא הזמנתם אף אחד'}</p>
           <p className="mt-2 text-sm text-muted">{q || view !== 'all' ? 'נסו תצוגה אחרת או חיפוש אחר.' : 'שם + טלפון + ערוץ, וההזמנה יוצאת עם קישור אישי.'}</p>
-          {!q && view === 'all' ? (
+          {!q && view === 'all' && !global ? (
             <button type="button" onClick={() => setInviteOpen(true)} className={`${bigButton} mt-5 bg-brand text-white`}>
               + שליחת הזמנה
             </button>
@@ -132,14 +244,17 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
               <li key={row.id}>
                 <div role="button" tabIndex={0} onClick={() => setOpenId(row.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenId(row.id) } }} className="flex w-full cursor-pointer flex-col gap-1 rounded-xl border border-line bg-surface p-4 text-start">
                   <span className="flex items-center justify-between gap-2">
-                    <span className="truncate text-base font-semibold text-fg">{row.name}</span>
+                    <span className="flex min-w-0 items-center gap-2">
+                      {row.status !== 'signed' && row.status !== 'failed' ? <input type="checkbox" className="size-5" checked={selected.has(row.id)} onChange={() => toggle(row.id)} onClick={(e) => e.stopPropagation()} aria-label={`בחירת ${row.name}`} /> : null}
+                      <span className="truncate text-base font-semibold text-fg">{row.name}</span>
+                    </span>
                     <StatusChip status={row.status} />
                   </span>
                   <span className="text-sm text-muted" dir="ltr">
                     {row.phone ?? row.email ?? ''}
                   </span>
                   <span className="text-xs text-muted">
-                    {row.lastActivity} · {dateFormat.format(new Date(row.lastActivityAt ?? row.createdAt))}
+                    {global ? `${row.groupName} · ` : ''}{row.lastActivity} · {dateFormat.format(new Date(row.lastActivityAt ?? row.createdAt))}
                     {row.assignee ? ` · ${row.assignee.name}` : row.invitedBy ? ` · ${row.invitedBy.name}` : ''}
                   </span>
                   {row.task ? (
@@ -154,11 +269,15 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
 
           {/* Desktop: the compact table. */}
           <div className="hidden overflow-x-auto rounded-[var(--radius-card)] border border-line bg-surface md:block">
-            <table className="w-full min-w-[760px] table-fixed text-sm">
+            <table className="w-full min-w-[800px] table-fixed text-sm">
               <thead className="bg-bg text-xs text-muted">
                 <tr>
-                  <th className="w-[26%] px-4 py-3 text-start font-medium">שם</th>
-                  <th className="w-[16%] px-4 py-3 text-start font-medium">טלפון</th>
+                  <th className="w-10 px-2 py-3">
+                    <input type="checkbox" aria-label="בחירת הכול" className="size-4" checked={selectable.length > 0 && selectable.every((r) => selected.has(r.id))} onChange={(e) => setSelected(e.target.checked ? new Set(selectable.map((r) => r.id)) : new Set())} />
+                  </th>
+                  <th className="w-[24%] px-4 py-3 text-start font-medium">שם</th>
+                  {global ? <th className="w-[14%] px-4 py-3 text-start font-medium">קמפיין</th> : null}
+                  <th className="w-[14%] px-4 py-3 text-start font-medium">טלפון</th>
                   <th className="w-[18%] px-4 py-3 text-start font-medium">סטטוס</th>
                   <th className="w-[13%] px-4 py-3 text-start font-medium">נציג</th>
                   <th className="px-4 py-3 text-start font-medium">פעילות אחרונה</th>
@@ -168,6 +287,9 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
               <tbody className="divide-y divide-line">
                 {rows.map((row) => (
                   <tr key={row.id} onClick={() => setOpenId(row.id)} className="cursor-pointer hover:bg-bg/60">
+                    <td className="px-2 py-3" onClick={(e) => e.stopPropagation()}>
+                      {row.status !== 'signed' && row.status !== 'failed' ? <input type="checkbox" className="size-4" checked={selected.has(row.id)} onChange={() => toggle(row.id)} aria-label={`בחירת ${row.name}`} /> : null}
+                    </td>
                     <td className="px-4 py-3">
                       <span className="block truncate font-medium text-fg">{row.name}</span>
                       <span className="block truncate text-xs text-muted">
@@ -176,6 +298,11 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                         {row.linkingNeeded ? ' · לא שויך ב-CRM' : ''}
                       </span>
                     </td>
+                    {global ? (
+                      <td className="px-4 py-3 text-fg">
+                        <span className="block truncate">{row.groupName}</span>
+                      </td>
+                    ) : null}
                     <td className="px-4 py-3 text-fg" dir="ltr">
                       <span className="block truncate">{row.phone ?? row.email ?? '—'}</span>
                     </td>
@@ -195,7 +322,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                       <span className="block text-xs">{dateFormat.format(new Date(row.lastActivityAt ?? row.createdAt))}</span>
                     </td>
                     <td className="sticky end-0 bg-surface px-2 py-3" onClick={(e) => e.stopPropagation()}>
-                      <RowMenu row={row} projectId={projectId} onOpen={() => setOpenId(row.id)} onNotice={setNotice} />
+                      <RowMenu row={row} projectId={row.groupId || projectId} onOpen={() => setOpenId(row.id)} onNotice={setNotice} />
                     </td>
                   </tr>
                 ))}
@@ -206,7 +333,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
       )}
 
       {inviteOpen ? <InviteDialog projectId={projectId} askKind={askKind} onClose={() => setInviteOpen(false)} /> : null}
-      {current ? <PersonDrawer row={current} projectId={projectId} team={team} onClose={() => setOpenId(null)} onNotice={setNotice} /> : null}
+      {current ? <PersonDrawer row={current} projectId={current.groupId || projectId} team={team} onClose={() => setOpenId(null)} onNotice={setNotice} /> : null}
     </section>
   )
 }
@@ -368,14 +495,12 @@ function PersonDrawer({ row, projectId, team, onClose, onNotice }: { row: Audien
   const router = useRouter()
   const { busy, send, whatsapp, confirmWhatsapp, hasAgreement } = useActions(row, projectId, onNotice)
   const [history, setHistory] = useState<SendHistoryItem[] | null>(null)
-  const [matches, setMatches] = useState<{ id: string; name: string; kind: string; fromCrm: boolean; matchedOn: string }[]>([])
   const [link, setLink] = useState<string | null>(null)
   const [assignee, setAssignee] = useState(row.assignee?.id ?? '')
   const [followUpAt, setFollowUpAt] = useState(row.followUpAt ? row.followUpAt.slice(0, 10) : '')
   const [callOutcome, setCallOutcome] = useState<CallOutcome | ''>(row.callOutcome ?? '')
   const [note, setNote] = useState(row.internalNote ?? '')
   const [saving, setSaving] = useState(false)
-  const [adding, setAdding] = useState(false)
   const [task, setTask] = useState<TaskSummary | null>(row.task)
 
   useEffect(() => {
@@ -385,7 +510,6 @@ function PersonDrawer({ row, projectId, team, onClose, onNotice }: { row: Audien
       .then((d) => {
         if (!live || !d) return
         setHistory(Array.isArray(d.history) ? d.history : [])
-        setMatches(Array.isArray(d.matches) ? d.matches : [])
       })
       .catch(() => live && setHistory([]))
     return () => {
@@ -413,18 +537,6 @@ function PersonDrawer({ row, projectId, team, onClose, onNotice }: { row: Audien
       router.refresh()
     } finally {
       setSaving(false)
-    }
-  }
-
-  async function addCompany(choice: { companyId: string } | { kind: 'supplier' | 'customer' }) {
-    setAdding(true)
-    try {
-      const result = await post(`/api/invitations/${row.id}/company`, choice)
-      if (!result.ok) return onNotice({ tone: 'error', text: result.data?.error?.message ?? 'לא הצלחנו להוסיף.' })
-      onNotice({ tone: 'ok', text: 'נוסף למאגר.' })
-      router.refresh()
-    } finally {
-      setAdding(false)
     }
   }
 
@@ -498,36 +610,14 @@ function PersonDrawer({ row, projectId, team, onClose, onNotice }: { row: Audien
         </section>
 
         {!row.companyId ? (
-          <section className="rounded-xl border border-line bg-bg p-4">
-            <h3 className="text-sm font-semibold text-fg">הוסף כספק/לקוח</h3>
-            {matches.length > 0 ? (
-              <div className="mt-2 text-sm text-fg">
-                <p className="text-muted">נמצאו רשומות עם אותו {matches[0].matchedOn === 'taxId' ? 'ח.פ.' : matches[0].matchedOn === 'phone' ? 'טלפון' : 'אימייל'} — האם זה אותו עסק?</p>
-                <ul className="mt-2 space-y-2">
-                  {matches.map((m) => (
-                    <li key={m.id} className="flex items-center justify-between gap-2">
-                      <span>
-                        {m.name} · {m.kind === 'customer' ? 'לקוח' : 'ספק'}
-                        {m.fromCrm ? ' · CRM' : ''}
-                      </span>
-                      <button type="button" disabled={adding} onClick={() => void addCompany({ companyId: m.id })} className="inline-flex min-h-10 items-center rounded-lg border border-line bg-surface px-3 text-sm font-medium hover:border-brand">
-                        כן, לקשר
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button type="button" disabled={adding} onClick={() => void addCompany({ kind: 'supplier' })} className={`${bigButton} border border-line bg-surface text-fg hover:border-brand`}>
-                ספק חדש
-              </button>
-              <button type="button" disabled={adding} onClick={() => void addCompany({ kind: 'customer' })} className={`${bigButton} border border-line bg-surface text-fg hover:border-brand`}>
-                לקוח חדש
-              </button>
-            </div>
-            <p className="mt-2 text-xs text-muted">נשמר ב-XTRA Sign בלבד. שום דבר לא נכתב ל-CRM.</p>
-          </section>
+          <LinkCompanyPanel
+            leadId={row.id}
+            onDone={() => {
+              onNotice({ tone: 'ok', text: 'נוסף למאגר.' })
+              router.refresh()
+            }}
+            onError={(m) => onNotice({ tone: 'error', text: m })}
+          />
         ) : null}
 
         {task ? (

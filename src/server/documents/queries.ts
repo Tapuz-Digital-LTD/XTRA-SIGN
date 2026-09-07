@@ -149,8 +149,9 @@ export async function listDocuments(
     const linkAlive = or(isNull(schema.agreements.expiresAt), sql`${schema.agreements.expiresAt} >= now()`)
     conditions.push(
       or(
-        // (d) Filed under nobody, so it is only ever findable in this list.
-        isNull(schema.agreements.companyId),
+        // (d) Filed under nobody, so it is only ever findable in this list —
+        // unless a tracked person (invitation, direct send) is behind it.
+        and(isNull(schema.agreements.companyId), sql`not exists (select 1 from ${schema.projectLeads} pl where pl.agreement_id = ${schema.agreements.id})`),
         // (c) The signing link has run out while the document was still open.
         and(openStatus, isNotNull(schema.agreements.expiresAt), lt(schema.agreements.expiresAt, sql`now()`)),
         // (e) Opened, then nothing — for as long as a reminder waits, with no

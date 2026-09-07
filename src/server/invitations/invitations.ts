@@ -274,10 +274,10 @@ export async function sendInvitation(session: StaffSession, leadId: string, chan
   return result.ok ? { ok: true, sendId: send.id } : { ok: false, message: humanSendError(result.error) }
 }
 
-function humanSendError(error: string | undefined): string {
+export function humanSendError(error: string | undefined): string {
   if (!error) return 'השליחה נכשלה. נסו שוב בעוד רגע.'
   if (/mailing list|invalid|not valid|address/i.test(error)) return 'הכתובת לא התקבלה אצל ספק ההודעות. בדקו את הפרטים ונסו שוב.'
-  if (/credentials|missing/i.test(error)) return 'שירות ההודעות אינו מוגדר. פנו למנהל המערכת.'
+  if (/credentials|missing|SIGN_LOG_NOTIFICATIONS/i.test(error)) return 'שירות ההודעות אינו מוגדר בסביבה הזו, ההודעה נרשמה בלבד.'
   return 'השליחה נכשלה. נסו שוב בעוד רגע.'
 }
 
@@ -323,6 +323,10 @@ export const AUDIENCE_VIEWS: { key: AudienceView; label: string }[] = [
 
 export type AudienceRow = {
   id: string
+  groupId: string
+  groupName: string
+  /** A direct send from the home page rather than a campaign. */
+  isDirect: boolean
   name: string
   phone: string | null
   maskedPhone: string | null
@@ -358,7 +362,34 @@ export type AudienceFilters = { view?: AudienceView; q?: string; rep?: string; c
  */
 export async function listAudience(session: StaffSession, groupId: string, filters: AudienceFilters = {}): Promise<{ rows: AudienceRow[]; counts: Record<AudienceView, number>; total: number }> {
   const group = await authorizeGroup(session, groupId)
+  return audienceRows(session, [group], filters)
+}
+
+export type AudienceAllFilters = AudienceFilters & { groupId?: string | 'direct' }
+
+/**
+ * The whole organisation's tracking: every campaign and the direct sends,
+ * one table. Filtered to one campaign (or to "חתימה ישירה") when asked.
+ */
+export async function listAudienceAll(session: StaffSession, filters: AudienceAllFilters = {}): Promise<{ rows: AudienceRow[]; counts: Record<AudienceView, number>; total: number; campaigns: { id: string; name: string }[] }> {
   const db = getDb()
+  const groups = await db
+    .select()
+    .from(schema.groups)
+    .where(and(eq(schema.groups.organizationId, session.organizationId), isNull(schema.groups.deletedAt)))
+    .orderBy(desc(schema.groups.createdAt))
+  const campaigns = groups.filter((g) => !g.systemKey).map((g) => ({ id: g.id, name: g.name }))
+  const chosen = filters.groupId === 'direct' ? groups.filter((g) => g.systemKey === DIRECT_SIGNING_KEY) : filters.groupId ? groups.filter((g) => g.id === filters.groupId) : groups
+  const result = chosen.length ? await audienceRows(session, chosen, filters) : { rows: [], counts: { all: 0, invited: 0, waiting: 0, registered: 0, signed: 0 }, total: 0 }
+  return { ...result, campaigns }
+}
+
+type GroupRow = typeof schema.groups.$inferSelect
+
+async function audienceRows(session: StaffSession, groups: GroupRow[], filters: AudienceFilters): Promise<{ rows: AudienceRow[]; counts: Record<AudienceView, number>; total: number }> {
+  const db = getDb()
+  const groupIds = groups.map((g) => g.id)
+  const groupOf = (id: string) => groups.find((g) => g.id === id)!
   const term = filters.q?.trim()
   const like = term ? `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null
   const digits = term?.replace(/\D/g, '') ?? ''
@@ -373,7 +404,7 @@ export async function listAudience(session: StaffSession, groupId: string, filte
     .leftJoin(schema.companies, eq(schema.companies.id, schema.projectLeads.companyId))
     .where(
       and(
-        eq(schema.projectLeads.groupId, group.id),
+        inArray(schema.projectLeads.groupId, groupIds),
         sql`${schema.projectLeads.status} <> 'pending'`,
         like ? sql`(${schema.projectLeads.data}::text ilike ${like} or ${schema.companies.name} ilike ${like}${digits.length >= 4 ? sql` or ${schema.projectLeads.phone} like ${`%${digits.slice(-9)}%`}` : sql``})` : undefined,
         filters.rep && UUID_RE.test(filters.rep) ? or(eq(schema.projectLeads.invitedBy, filters.rep), eq(schema.projectLeads.assigneeUserId, filters.rep)) : undefined,
@@ -405,8 +436,12 @@ export async function listAudience(session: StaffSession, groupId: string, filte
     const status = processStatus(lead.status, agreementStatus)
     const last = sends.find((s) => s.leadId === lead.id || (lead.agreementId && s.agreementId === lead.agreementId)) ?? null
     const meta = (lead.meta ?? {}) as Record<string, unknown>
+    const group = groupOf(lead.groupId)
     return {
       id: lead.id,
+      groupId: lead.groupId,
+      groupName: group.systemKey === DIRECT_SIGNING_KEY ? 'חתימה ישירה' : group.name,
+      isDirect: group.systemKey === DIRECT_SIGNING_KEY,
       name: nameOf(lead.data) || companyName || '—',
       phone: lead.phone ?? stringIn(lead.data, 'phone'),
       maskedPhone: maskPhone(lead.phone ?? stringIn(lead.data, 'phone')) ?? null,

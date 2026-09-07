@@ -57,6 +57,8 @@ export type RegistrationRow = {
   secondsToSign: number | null
   /** The follow-up task a signature created, when the campaign asks for one. */
   task: TaskSummary | null
+  /** Saved on a local row because the CRM had no single match: a person should link it. */
+  linkingNeeded: boolean
 }
 
 export type ProjectReport = {
@@ -497,6 +499,7 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
       secondsToSign: completedAt ? Math.max(0, Math.round((completedAt.getTime() - createdAt.getTime()) / 1000)) : null,
       // ponytail: one built-in kind today, so the first task is the task.
       task: tasks.get(r.id)?.map(summarizeTask)[0] ?? null,
+      linkingNeeded: (r.meta as { linking?: unknown } | null)?.linking === 'needed',
     }
   })
 }
