@@ -5,7 +5,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { NewCampaignWizard } from '@/components/projects/NewCampaignWizard'
 import { ProjectsList } from '@/components/projects/ProjectsList'
 import { ProjectsSearch } from '@/components/projects/ProjectsSearch'
-import { isCampaignKind } from '@/lib/campaigns'
+import { isCampaignGoal } from '@/lib/campaigns'
 import { getSession } from '@/server/auth/session'
 import { listProjects } from '@/server/groups/groups'
 import { findSelfServiceProjectBySkin } from '@/server/projects/self-service'
@@ -28,10 +28,10 @@ export default async function CampaignsPage({
   const params = await searchParams
   const view = params.view ?? 'all'
   const archived = view === 'archive'
-  const campaignKind = isCampaignKind(view) ? view : undefined
+  const goal = isCampaignGoal(view) ? view : undefined
   const search = params.q ?? ''
   const [projects, templates, owners, bound] = await Promise.all([
-    listProjects(session, { archived, search, campaignKind }),
+    listProjects(session, { archived, search, goal }),
     listTemplates(session),
     session.isAdmin ? listUsers(session) : Promise.resolve([]),
     findSelfServiceProjectBySkin('tourism-2026'),
@@ -39,8 +39,8 @@ export default async function CampaignsPage({
 
   const tabs = [
     { key: 'all', href: '/projects', label: 'הכול' },
-    { key: 'public', href: '/projects?view=public', label: 'קמפיינים ציבוריים' },
-    { key: 'signature', href: '/projects?view=signature', label: 'קמפייני חתימות' },
+    { key: 'inquiries', href: '/projects?view=inquiries', label: 'איסוף פניות' },
+    { key: 'signing', href: '/projects?view=signing', label: 'החתמה על מסמכים' },
     { key: 'archive', href: '/projects?view=archive', label: 'ארכיון' },
   ]
 
@@ -49,7 +49,7 @@ export default async function CampaignsPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-fg">קמפיינים</h1>
-          <p className="mt-1 text-sm text-muted">פעילות עם קהל, הפצות, הסכמים וחתימות — ציבורית או מול אנשים שכבר יש לכם.</p>
+          <p className="mt-1 text-sm text-muted">כאן פותחים קמפיין, רואים מי נרשם ומי חתם, ושולחים מסמכים ותזכורות.</p>
         </div>
         <NewCampaignWizard
           owners={owners.filter((u) => !u.disabled).map((u) => ({ id: u.id, name: u.name, email: u.email }))}
@@ -89,7 +89,7 @@ export default async function CampaignsPage({
           ) : (
             <EmptyState
               title="עדיין אין קמפיינים"
-              description="קמפיין ציבורי מפרסם פעילות ואוסף הרשמות; קמפיין חתימות שולח הסכמים לאנשים שכבר יש לכם. שניהם יכולים להפיץ SMS ואימייל."
+              description="קמפיין אוסף פניות דרך טופס, או מחתים אנשים על מסמכים. מתחילים בשאלה אחת: מה תרצו לעשות?"
               actionIcon="+"
               actionLabel="קמפיין חדש"
               actionHref="/projects?new=1"
@@ -102,6 +102,8 @@ export default async function CampaignsPage({
               id: p.id,
               name: p.name,
               campaignKind: p.campaignKind,
+              goal: p.goal,
+              entry: p.entry,
               companyCount: p.companyCount,
               registrations: p.registrations,
               signed: p.signed,

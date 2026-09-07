@@ -1,6 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { and, eq } from 'drizzle-orm'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
+
+// The "come back and sign" message normally waits a few minutes for the
+// visit to end; here it goes out at once so the deliveries can be asserted.
+vi.hoisted(() => {
+  process.env.SIGN_SELF_SERVICE_LINK_AFTER_MS = '0'
+})
 import type { StaffSession } from '@/server/auth/session'
 import { extractPdfText } from '@/server/crm/__tests__/pdf-text'
 import { getDb, schema } from '@/server/db'

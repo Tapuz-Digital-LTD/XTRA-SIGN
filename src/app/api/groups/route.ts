@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { requireSession } from '@/server/auth/session'
 import { createGroup, listGroups } from '@/server/groups/groups'
-import { isCampaignKind } from '@/lib/campaigns'
+import { isCampaignGoal, isCampaignKind, isEntryMethod } from '@/lib/campaigns'
 import { saveLandingSettings } from '@/server/projects/landing'
+import { saveSelfServiceConfig } from '@/server/projects/self-service'
 import { assertSameOrigin } from '@/server/http/csrf'
 import { templateFailure } from '@/server/http/template-errors'
 
@@ -34,6 +35,10 @@ export async function POST(request: Request) {
           ownerUserId?: unknown
           defaultTemplateId?: unknown
           joinMethod?: unknown
+          goal?: unknown
+          entryMethod?: unknown
+          handling?: unknown
+          templateId?: unknown
         }
       | null
 
@@ -51,15 +56,21 @@ export async function POST(request: Request) {
       companyIds: Array.isArray(body?.companyIds)
         ? (body.companyIds.filter((c) => typeof c === 'string') as string[])
         : undefined,
+      goal: isCampaignGoal(body?.goal) ? body.goal : undefined,
+      entryMethod: isEntryMethod(body?.entryMethod) ? body.entryMethod : isCampaignKind(body?.campaignKind) ? (body.campaignKind === 'public' ? 'form' : 'audience') : undefined,
       campaignKind: isCampaignKind(body?.campaignKind) ? body.campaignKind : 'signature',
       startsAt: day(body?.startsAt),
       endsAt: day(body?.endsAt),
       ownerUserId: typeof body?.ownerUserId === 'string' ? body.ownerUserId : undefined,
-      defaultTemplateId: typeof body?.defaultTemplateId === 'string' ? body.defaultTemplateId : undefined,
+      defaultTemplateId: typeof body?.defaultTemplateId === 'string' ? body.defaultTemplateId : typeof body?.templateId === 'string' ? body.templateId : undefined,
     })
-    // A public campaign that joins through our form gets the form switched on now.
-    if (result.ok && ['form', 'embed', 'api'].includes(String(body?.joinMethod))) {
+    // A form-shaped entry gets the form switched on now; "register and sign" gets its agreement.
+    const entry = isEntryMethod(body?.entryMethod) ? body.entryMethod : String(body?.joinMethod ?? '')
+    if (result.ok && ['form', 'embed', 'api'].includes(entry)) {
       await saveLandingSettings(session, result.id, { enabled: true, config: {} })
+    }
+    if (result.ok && body?.handling === 'auto_sign' && typeof body?.templateId === 'string' && body.templateId) {
+      await saveSelfServiceConfig(session, result.id, { enabled: true, templateId: body.templateId, ownerUserId: session.userId })
     }
     return result.ok
       ? NextResponse.json(result)

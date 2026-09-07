@@ -127,27 +127,23 @@ async function main() {
       check(`registrations ${width}: no lead accordions`, !(await has(page, 'לידים חדשים')) && !(await has(page, 'לידים שטופלו')))
       await shot(page, 'registrations', width)
 
-      // Campaign wizard, four steps
+      // Campaign wizard: one question first, then only what is needed
       await go('/projects')
       await clickText(page, 'main', '+ קמפיין חדש')
       await page.waitForSelector('[role="dialog"]', { timeout: 10000 })
-      check(`wizard ${width}: first question is who`, await has(page, 'למי הקמפיין?'))
+      check(`wizard ${width}: first question is what you want to do`, await has(page, 'מה תרצו לעשות?') && await has(page, 'לאסוף פרטים מאנשים') && await has(page, 'להחתים אנשים על מסמכים'))
       await shot(page, 'wizard-1', width)
-      const cards = await page.$$('[role="dialog"] button[aria-pressed]')
-      await cards[0].click()
-      await clickText(page, '[role="dialog"]', 'המשך')
-      check(`wizard ${width}: second question is where from`, await has(page, 'XTRA Sign') && await has(page, 'שני המקורות'))
+      for (const b of await page.$$('[role="dialog"] button[aria-pressed]')) {
+        if ((await b.evaluate((el) => el.textContent ?? '')).includes('להחתים אנשים')) { await b.evaluate((el) => (el as HTMLButtonElement).click()); break }
+      }
+      await page.waitForFunction(() => document.body.textContent?.includes('מי חותם?'), { timeout: 5000 })
+      check(`wizard ${width}: signing asks who signs`, await has(page, 'אנשים שאבחר') && await has(page, 'כל מי שיירשם דרך טופס'))
       await shot(page, 'wizard-2', width)
       for (const b of await page.$$('[role="dialog"] button[aria-pressed]')) {
-        if ((await b.evaluate((el) => el.textContent ?? '')).includes('XTRA Sign')) {
-          // A DOM click: on a phone the card centre can sit under the dialog's own footer.
-          await b.evaluate((el) => (el as HTMLButtonElement).click())
-          break
-        }
+        if ((await b.evaluate((el) => el.textContent ?? '')).includes('אנשים שאבחר')) { await b.evaluate((el) => (el as HTMLButtonElement).click()); break }
       }
-      await page.waitForFunction(() => Array.from(document.querySelectorAll('[role="dialog"] button[aria-pressed="true"]')).some((b) => b.textContent?.includes('XTRA Sign')), { timeout: 5000 })
-      await clickText(page, '[role="dialog"]', 'המשך')
-      check(`wizard ${width}: third question is what`, await has(page, 'קמפיין ציבורי') && await has(page, 'קמפיין חתימות'))
+      await page.waitForFunction(() => document.body.textContent?.includes('איך נקרא לקמפיין?'), { timeout: 5000 })
+      check(`wizard ${width}: last step is a name and the document`, await has(page, 'איזה מסמך חותמים?'))
       await shot(page, 'wizard-3', width)
       await page.keyboard.press('Escape')
 

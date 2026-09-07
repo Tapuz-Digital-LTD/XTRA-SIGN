@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { ProjectRowMenu } from '@/components/projects/ProjectRowMenu'
-import { kindLabel, type CampaignKind } from '@/lib/campaigns'
+import { entryLabel, goalLabel, type CampaignGoal, type CampaignKind, type EntryMethod } from '@/lib/campaigns'
 
 /**
  * The campaigns screen: a plain list. A row answers "how is it going" in
@@ -15,6 +15,8 @@ export type ProjectRow = {
   id: string
   name: string
   campaignKind: CampaignKind
+  goal: CampaignGoal
+  entry: EntryMethod
   companyCount: number
   registrations: number
   signed: number
@@ -40,10 +42,11 @@ function statusChip(project: ProjectRow) {
   return <span className="whitespace-nowrap rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">פעיל</span>
 }
 
-function kindChip(kind: CampaignKind) {
+function kindChip(project: { goal: CampaignGoal; entry: EntryMethod }) {
   return (
-    <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${kind === 'public' ? 'bg-violet-50 text-violet-800' : 'bg-blue-50 text-blue-800'}`}>
-      {kindLabel(kind)}
+    <span className="inline-flex flex-col items-start gap-1">
+      <span className={`rounded-full px-2 py-0.5 text-xs font-medium leading-tight ${project.goal === 'signing' ? 'bg-blue-50 text-blue-800' : 'bg-emerald-50 text-emerald-800'}`}>{goalLabel(project.goal)}</span>
+      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs leading-tight text-slate-700">{entryLabel(project.entry)}</span>
     </span>
   )
 }
@@ -64,7 +67,7 @@ export function ProjectsList({ projects, isAdmin }: { projects: ProjectRow[]; is
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="truncate font-medium text-fg">{project.name}</span>
-                {kindChip(project.campaignKind)}
+                {kindChip(project)}
               </div>
               <p className="mt-1 text-xs text-muted">
                 {project.companyCount} {project.campaignKind === 'public' ? 'ספקים' : 'נמענים'}
@@ -106,7 +109,7 @@ export function ProjectsList({ projects, isAdmin }: { projects: ProjectRow[]; is
                 <td className="truncate px-4 py-3 font-medium text-fg" title={project.name}>
                   {project.name}
                 </td>
-                <td className="px-3 py-3">{kindChip(project.campaignKind)}</td>
+                <td className="px-3 py-3">{kindChip(project)}</td>
                 <td className="px-3 py-3">{statusChip(project)}</td>
                 <td className="px-3 py-3 text-center tabular-nums text-fg">{project.companyCount}</td>
                 <td className="px-3 py-3 text-center tabular-nums text-fg">{project.campaignKind === 'public' ? project.registrations : <span className="text-muted">—</span>}</td>

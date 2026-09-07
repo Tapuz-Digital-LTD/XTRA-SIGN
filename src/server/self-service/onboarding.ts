@@ -226,7 +226,7 @@ export async function startSelfServiceSigning(input: RegistrationInput): Promise
         // back and sign" message is for the one who leaves: it goes out only
         // if the agreement is still unsigned a few minutes from now (the
         // daily run catches anything this misses).
-        void deferredSigningLink({ agreementId, recipient: issued.recipient, signingUrl: issued.signingUrl, title: issued.title, actor: session.email, project, skin })
+        await deferredSigningLink({ agreementId, recipient: issued.recipient, signingUrl: issued.signingUrl, title: issued.title, actor: session.email, project, skin })
 
         const mail = await registrationEmail({
           projectId: project.groupId,
