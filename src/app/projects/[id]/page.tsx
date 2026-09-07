@@ -333,8 +333,6 @@ async function RegistrationsTab({
   const field = 'min-h-11 rounded-lg border border-line bg-surface px-3 text-sm text-fg outline-none focus:border-brand'
   return (
     <div className="flex flex-col gap-4">
-        </div>
-      ) : null}
       <form method="get" action={`/projects/${projectId}`} className="flex flex-wrap items-end gap-2">
         <input type="hidden" name="tab" value="registrations" />
         <input type="search" name="q" defaultValue={query.q ?? ''} placeholder="חיפוש לפי עסק, איש קשר, ח.פ., טלפון או אימייל" aria-label="חיפוש בהרשמות" className={`${field} min-w-0 flex-1`} />
