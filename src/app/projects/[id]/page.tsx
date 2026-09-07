@@ -3,6 +3,8 @@ import { notFound, redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { DocumentsTable } from '@/components/documents/DocumentsTable'
 import { GroupWorkspace } from '@/components/groups/GroupWorkspace'
+import { AudienceTable } from '@/components/projects/AudienceTable'
+import { listAudience, type AudienceView } from '@/server/invitations/invitations'
 import { ProjectSettings } from '@/components/projects/ProjectSettings'
 import { ForbiddenError, getSession } from '@/server/auth/session'
 import { listBatches } from '@/server/groups/bulk-send'
@@ -115,7 +117,7 @@ export default async function ProjectPage({
 
       <div className="mt-5">
         {tab === 'overview' ? <CampaignOverview project={{ id, name: project.name, campaignKind, publicUrl: campaignKind === 'public' ? await publicAddress(session, id) : null }} companies={companies} leads={leads} /> : null}
-        {tab === 'audience' ? <SuppliersTab projectId={id} projectName={project.name} companies={companies} search={query.q ?? ''} session={session} /> : null}
+        {tab === 'audience' ? <SuppliersTab projectId={id} projectName={project.name} companies={companies} search={query.q ?? ''} session={session} query={query} askKind={project.kind === null} /> : null}
         {tab === 'distributions' ? <DistributionsTab projectId={id} campaignKind={campaignKind} publicUrl={campaignKind === 'public' ? await publicAddress(session, id) : null} isAdmin={session.isAdmin} openNew={query.new === '1'} /> : null}
         {tab === 'registrations' ? <RegistrationsTab projectId={id} query={query} session={session} audienceNoun={project.kind === 'customer' ? 'לקוח' : 'ספק'} /> : null}
         {tab === 'agreements' ? <AgreementsTab projectId={id} session={session} /> : null}
@@ -167,20 +169,36 @@ async function SuppliersTab({
   companies,
   search,
   session,
+  query,
+  askKind,
 }: {
   projectId: string
   projectName: string
   companies: Awaited<ReturnType<typeof listGroupCompanies>>
   search: string
   session: NonNullable<Awaited<ReturnType<typeof getSession>>>
+  query: Record<string, string | undefined>
+  askKind: boolean
 }) {
-  const [templates, batches] = await Promise.all([listTemplates(session), listBatches(session, projectId)])
+  const view: AudienceView = (['all', 'invited', 'waiting', 'registered', 'signed'] as const).includes(query.view as AudienceView) ? (query.view as AudienceView) : 'all'
+  const [templates, batches, audience, due] = await Promise.all([
+    listTemplates(session),
+    listBatches(session, projectId),
+    listAudience(session, projectId, { view, q: query.q, followUpDue: query.due === '1' }),
+    listAudience(session, projectId, { followUpDue: true, limit: 200 }),
+  ])
   const usable = templates
     .filter((t) => t.signatureCount > 0 && t.pageCount !== null)
     .map((t) => ({ id: t.id, name: t.name, signatureCount: t.signatureCount }))
 
   return (
     <>
+      <AudienceTable projectId={projectId} rows={audience.rows} counts={audience.counts} view={view} q={query.q ?? ''} askKind={askKind} dueToday={query.due === '1' ? 0 : due.total} />
+
+      <section className="mt-10">
+        <h2 className="text-lg font-semibold text-fg">ספקים ולקוחות בקמפיין — שליחה מרוכזת</h2>
+        <p className="mt-1 text-sm text-muted">רשומות קיימות מהמאגר שצורפו לקמפיין, ושליחת הסכם לכמה מהן בבת אחת.</p>
+      </section>
       <GroupWorkspace groupId={projectId} groupName={projectName} companies={companies} templates={usable} search={search} />
 
       {batches.length > 0 ? (

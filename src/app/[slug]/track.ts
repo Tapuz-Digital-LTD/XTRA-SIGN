@@ -35,9 +35,12 @@ export function track(formId: string, type: CampaignEventType, extra: { token?: 
       const value = params.get(key)
       if (value) utm[key] = value.slice(0, 120)
     }
+    const inv = params.get('xs_inv')
     const body = JSON.stringify({
       type,
       visitId: visitId(),
+      // The personal invitation this visit came through, when the link had one.
+      inv: inv && /^[0-9a-f-]{36}$/i.test(inv) ? inv : null,
       path: window.location.pathname.slice(0, 200),
       utm,
       referrer: document.referrer ? document.referrer.slice(0, 500) : null,

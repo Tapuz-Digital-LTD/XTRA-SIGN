@@ -21,7 +21,7 @@ export async function POST(request: Request, context: { params: Promise<{ formId
   if (!gate.allowed) return new NextResponse(null, { status: 429, headers: { 'Retry-After': String(gate.retryAfter) } })
 
   const body = (await request.json().catch(() => null)) as
-    | { type?: unknown; visitId?: unknown; path?: unknown; utm?: unknown; referrer?: unknown; token?: unknown }
+    | { type?: unknown; visitId?: unknown; path?: unknown; utm?: unknown; referrer?: unknown; token?: unknown; inv?: unknown }
     | null
   if (!body || !isCampaignEventType(body.type) || typeof body.visitId !== 'string' || !VISIT_ID_RE.test(body.visitId)) {
     return new NextResponse(null, { status: 204 })
@@ -50,6 +50,7 @@ export async function POST(request: Request, context: { params: Promise<{ formId
     utm: body.utm && typeof body.utm === 'object' ? utmFrom(body.utm as Record<string, string | undefined>) : null,
     referrer: referrerHost(typeof body.referrer === 'string' ? body.referrer : null),
     agreementId,
+    invitationId: typeof body.inv === 'string' && /^[0-9a-f-]{36}$/i.test(body.inv) ? body.inv : null,
   })
   return new NextResponse(null, { status: 204 })
 }

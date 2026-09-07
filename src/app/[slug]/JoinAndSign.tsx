@@ -161,7 +161,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
         landing_url: window.location.origin + window.location.pathname,
         form_version: FORM_VERSION,
       }
-      for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']) {
+      for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'xs_inv']) {
         const value = params.get(key)
         if (value) meta[key] = value
       }

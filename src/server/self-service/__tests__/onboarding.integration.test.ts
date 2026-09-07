@@ -166,7 +166,8 @@ describe('startSelfServiceSigning', () => {
     expect(registration.companyId).toBe(supplier.id)
     expect(registration.agreementId).toBe(agreement.id)
     expect(registration.source).toBe('self_service')
-    expect(registration.meta).toEqual({ utm_source: 'facebook', utm_campaign: 'nov', landing_url: 'https://x/tourism-2026' })
+    expect(registration.meta).toMatchObject({ utm_source: 'facebook', utm_campaign: 'nov', landing_url: 'https://x/tourism-2026' })
+    expect((registration.meta as Record<string, unknown>).junk).toBeUndefined()
 
     // Deliveries happen after the response, and are recorded either way.
     await result.afterResponse()

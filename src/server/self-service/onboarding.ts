@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { and, desc, eq, gt, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm'
-import { maskPhone, toIsraeliNationalFormat } from '@/lib/phone'
+import { maskPhone, normalizeIsraeliPhone, toIsraeliNationalFormat } from '@/lib/phone'
 import { validateRegistration, type RegistrationValues } from '@/lib/self-service-registration'
 import { skinByKey, type SelfServiceSkin } from '@/lib/self-service-skins'
 import type { RegistrationTarget } from '@/lib/campaigns'
@@ -21,7 +21,7 @@ import { log } from '@/server/log'
 import { InforuEmailProvider, InforuSmsProvider } from '@/server/notifications/inforu'
 import { notify } from '@/server/notifications/notifications'
 import { findSelfServiceProjectByFormId, type SelfServiceProject } from '@/server/projects/self-service'
-import { linkVisitToRegistration, recordCampaignEvent } from '@/server/analytics/campaign-events'
+import { attributionFor, linkVisitToRegistration, recordCampaignEvent } from '@/server/analytics/campaign-events'
 import { referrerHost, utmFrom } from '@/lib/campaign-events'
 import { REGISTRATIONS_CLOSED_MESSAGE } from '@/lib/campaigns'
 import { brandFor, registrationEmail, renderSubmission } from '@/server/notifications/campaign-mail'
@@ -89,7 +89,7 @@ export const REGISTRATION_FIELDS = [
   { id: 'email', label: 'אימייל' },
 ] as const
 
-const META_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'landing_url', 'form_version'] as const
+const META_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'landing_url', 'form_version', 'xs_inv'] as const
 /** A registration stuck in "pending" this long belongs to a request that died. */
 const STALE_PENDING_MS = 60_000
 const WAIT_FOR_SIBLING_MS = 6_000
@@ -200,6 +200,12 @@ export async function startSelfServiceSigning(input: RegistrationInput): Promise
 
     // ── The agreement exists and is sendable. Nothing below may lose it. ────
     await markRegistration(registration.id, { status: 'converted', companyId: supplier.id, agreementId })
+    // First and last identified touch, kept apart from the form answers so
+    // the reports can say where a signature came from without guessing.
+    const attribution = await attributionFor(project.groupId, input.visitId, { invitationId: cleanMeta(input.meta)?.xs_inv ?? null, utm: utmFrom((input.meta ?? {}) as Record<string, string | undefined>) })
+    if (attribution.first || attribution.last) {
+      await db.update(schema.projectLeads).set({ meta: sql`coalesce(${schema.projectLeads.meta}, '{}'::jsonb) || ${JSON.stringify({ attribution })}::jsonb` }).where(eq(schema.projectLeads.id, registration.id))
+    }
     if (input.visitId) {
       await recordCampaignEvent({
         organizationId: project.organizationId,
@@ -329,6 +335,20 @@ async function claimRegistration(
   const referrer =
     typeof input.referrer === 'string' && /^https?:\/\//i.test(input.referrer) ? input.referrer.slice(0, 300) : null
 
+  const meta = cleanMeta(input.meta)
+
+  // Came through a personal invitation: that row is this registration. One
+  // person, one row, from the invitation to the signature.
+  const invitationId = meta?.xs_inv && /^[0-9a-f-]{36}$/i.test(meta.xs_inv) ? meta.xs_inv : null
+  if (invitationId) {
+    const [claimed] = await db
+      .update(schema.projectLeads)
+      .set({ status: 'pending', data: leadData(data), formSnapshot: REGISTRATION_FIELDS, source: 'self_service', ip: input.ip, referrer, idempotencyKey, meta, phone: data.phone ? (normalizeIsraeliPhone(data.phone) ?? null) : null, email: data.email?.toLowerCase() ?? null, lastActivityAt: new Date(), createdAt: new Date() })
+      .where(and(eq(schema.projectLeads.id, invitationId), eq(schema.projectLeads.groupId, project.groupId), eq(schema.projectLeads.status, 'invited')))
+      .returning()
+    if (claimed) return { row: claimed, fresh: true }
+  }
+
   const inserted = await db
     .insert(schema.projectLeads)
     .values({
@@ -341,7 +361,10 @@ async function claimRegistration(
       ip: input.ip,
       referrer,
       idempotencyKey,
-      meta: cleanMeta(input.meta),
+      meta,
+      phone: data.phone ? (normalizeIsraeliPhone(data.phone) ?? null) : null,
+      email: data.email?.toLowerCase() ?? null,
+      lastActivityAt: new Date(),
     })
     .onConflictDoNothing()
     .returning()
