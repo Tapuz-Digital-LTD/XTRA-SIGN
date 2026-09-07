@@ -75,7 +75,7 @@ export default async function CampaignsPage({
             </Link>
           ))}
         </nav>
-        <div className="ms-auto mb-2 flex min-w-0 flex-1 justify-end sm:flex-none">
+        <div className="mb-2 flex w-full min-w-0 justify-end sm:ms-auto sm:w-auto">
           <ProjectsSearch key={search} search={search} archived={archived} />
         </div>
       </div>
