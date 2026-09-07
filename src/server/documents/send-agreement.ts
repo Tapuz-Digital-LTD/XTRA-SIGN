@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq, isNull } from 'drizzle-orm'
 import { AUDIT_EVENTS } from '@/server/audit'
 import { ForbiddenError, type StaffSession } from '@/server/auth/session'
 import { generateToken, hashToken } from '@/server/auth/tokens'
@@ -447,10 +447,10 @@ export async function renewSigningLink(input: {
   const ttlDays = await ttlDaysFor(agreement.id)
   const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000)
   const token = generateToken()
-  const [existing] = await db.select().from(schema.signingTokens).where(eq(schema.signingTokens.recipientId, recipient.id)).orderBy(desc(schema.signingTokens.createdAt)).limit(1)
   await db.transaction(async (tx) => {
-    if (existing) await tx.update(schema.signingTokens).set({ tokenHash: hashToken(token), expiresAt, revokedAt: null }).where(eq(schema.signingTokens.id, existing.id))
-    else await tx.insert(schema.signingTokens).values({ recipientId: recipient.id, tokenHash: hashToken(token), expiresAt })
+    // A new link next to the old one, never in its place: a message the signer
+    // still has must keep opening the same document (its own page renews it).
+    await tx.insert(schema.signingTokens).values({ recipientId: recipient.id, tokenHash: hashToken(token), expiresAt })
     await tx.update(schema.agreements).set({ expiresAt, status: agreement.status === 'expired' ? 'sent' : agreement.status }).where(eq(schema.agreements.id, agreement.id))
     await tx.insert(schema.auditEvents).values({ agreementId: agreement.id, recipientId: recipient.id, type: AUDIT_EVENTS.LINK_RENEWED, actor: input.session.email, metadata: { previousStatus: agreement.status, ttlDays, channels: input.channels } })
   })
@@ -492,22 +492,23 @@ export async function resendAgreement(input: {
   const [existing] = await db
     .select()
     .from(schema.signingTokens)
-    .where(eq(schema.signingTokens.recipientId, recipient.id))
+    .where(and(eq(schema.signingTokens.recipientId, recipient.id), isNull(schema.signingTokens.revokedAt)))
+    .orderBy(desc(schema.signingTokens.expiresAt))
     .limit(1)
 
   if (!existing) return { ok: false, message: 'לא נמצא קישור חתימה פעיל.' }
 
   // The raw token was never stored, so the original URL cannot be rebuilt to
-  // put in the reminder. The token is rotated in place — same row, so a signer
-  // who already verified keeps their session (it is bound to the row, not the
-  // URL) — and the fresh link is the one sent. The previously sent URL stops
-  // resolving, matching the "newest message is the one that works" rule the
-  // OTP resends use. This is why a reminder is a deliberate action, not silent.
+  // put in the reminder: a second link is minted next to it with the same
+  // lifetime. Every message the signer holds keeps working — an older link is
+  // renewed by its own page when it runs out — and the session they may
+  // already have is bound to them, not to a link.
   const token = generateToken()
-  await db
-    .update(schema.signingTokens)
-    .set({ tokenHash: hashToken(token), expiresAt: existing.expiresAt })
-    .where(eq(schema.signingTokens.id, existing.id))
+  await db.insert(schema.signingTokens).values({
+    recipientId: recipient.id,
+    tokenHash: hashToken(token),
+    expiresAt: existing.expiresAt.getTime() > Date.now() ? existing.expiresAt : new Date(Date.now() + (await ttlDaysFor(agreement.id)) * 24 * 60 * 60 * 1000),
+  })
 
   const signingUrl = buildSigningUrl(token)
 

@@ -8,11 +8,14 @@ import { withSource } from '@/components/companies/SourceGate'
 import { CrmDocumentImport } from '@/components/companies/CrmDocumentImport'
 import { CrmBusinessImport } from '@/components/crm/CrmBusinessImport'
 import { DocumentsTable } from '@/components/documents/DocumentsTable'
+import { BackLink } from '@/components/nav/BackLink'
+import { readReturnTo, withReturnTo } from '@/lib/return-to'
 import { getSession } from '@/server/auth/session'
 import { crmObjectTypeFor, getCompany } from '@/server/companies/companies'
 import { listBusinessDocuments } from '@/server/crm/business-documents'
 import { countDocuments, listDocuments, type ListFilter } from '@/server/documents/queries'
 import { groupsForCompany } from '@/server/groups/groups'
+import { tagsForCompanies } from '@/server/tags/tags'
 
 const DOC_FILTERS: { key: ListFilter; label: string }[] = [
   { key: 'all', label: 'הכול' },
@@ -35,7 +38,7 @@ export default async function CompanyPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ filter?: string; tab?: string; edit?: string }>
+  searchParams: Promise<{ filter?: string; tab?: string; edit?: string; returnTo?: string }>
 }) {
   const session = await getSession()
   if (!session) redirect('/login')
@@ -51,7 +54,7 @@ export default async function CompanyPage({
     ? (query.filter as ListFilter)
     : 'all'
 
-  const [documents, counts, quotes, memberOf] = await Promise.all([
+  const [documents, counts, quotes, memberOf, tagMap] = await Promise.all([
     listDocuments(session, { companyId: id, filter, pageSize: 100 }),
     countDocuments(session, { companyId: id }),
     // Only when that tab is open: it is a live CRM call, not a local count.
@@ -62,6 +65,7 @@ export default async function CompanyPage({
         }).catch(() => [])
       : Promise.resolve([]),
     groupsForCompany(session, id),
+    tagsForCompanies(session.organizationId, [id]),
   ])
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
@@ -70,20 +74,20 @@ export default async function CompanyPage({
     ...(company.crmRecordId ? [{ key: 'crm' as Tab, label: 'Fireberry' }] : []),
   ]
 
-  const tabHref = (next: Tab) => `/companies/${id}?tab=${next}`
+  // Where "חזרה" goes: the screen this card was opened from, else the list
+  // on the company's own side. Every link inside the card keeps it, so a tab
+  // change does not lose the way back.
+  const listHref = withSource(company.kind === 'supplier' ? '/suppliers' : '/customers', sourceOf(company))
+  const returnTo = readReturnTo(query.returnTo)
+  const cardHref = (next: Tab, nextFilter: ListFilter = 'all') =>
+    withReturnTo(`/companies/${id}?tab=${next}${nextFilter === 'all' ? '' : `&filter=${nextFilter}`}`, returnTo)
+  const here = cardHref(tab, filter)
 
   return (
     <AppShell>
-      <div className="mb-4">
-        <Link
-          href={withSource(company.kind === 'supplier' ? '/suppliers' : '/customers', sourceOf(company))}
-          className="text-sm text-muted underline-offset-4 hover:text-fg hover:underline"
-        >
-          {company.kind === 'supplier' ? '→ לכל הספקים' : '→ לכל הלקוחות'}
-        </Link>
-      </div>
+      <BackLink returnTo={returnTo} fallback={listHref} />
 
-      <CompanyHeader company={company} noun={noun} crmAppUrl={process.env.FIREBERRY_APP_URL ?? null} isAdmin={session.isAdmin} startEditing={query.edit === '1'} />
+      <CompanyHeader company={company} noun={noun} crmAppUrl={process.env.FIREBERRY_APP_URL ?? null} isAdmin={session.isAdmin} startEditing={query.edit === '1'} tags={tagMap.get(id) ?? []} />
 
       {/* The projects this company is in. Each is a link into the project,
           so a chip answers "who else is in here?" in one click. */}
@@ -93,7 +97,7 @@ export default async function CompanyPage({
           {memberOf.map((group) => (
             <Link
               key={group.id}
-              href={`/projects/${group.id}`}
+              href={withReturnTo(`/projects/${group.id}`, here)}
               className="inline-flex min-h-8 items-center rounded-full bg-bg px-2.5 text-xs text-fg transition hover:bg-slate-200"
             >
               {group.name}
@@ -107,7 +111,7 @@ export default async function CompanyPage({
           {tabs.map((t) => (
             <Link
               key={t.key}
-              href={tabHref(t.key)}
+              href={cardHref(t.key)}
               aria-current={tab === t.key ? 'page' : undefined}
               className={`inline-flex min-h-11 items-center gap-1.5 rounded-md px-4 text-sm transition ${
                 tab === t.key ? 'bg-surface font-semibold text-fg shadow-sm' : 'text-muted hover:text-fg'
@@ -159,7 +163,7 @@ export default async function CompanyPage({
             {DOC_FILTERS.map((f) => (
               <Link
                 key={f.key}
-                href={`/companies/${id}?tab=documents${f.key === 'all' ? '' : `&filter=${f.key}`}`}
+                href={cardHref('documents', f.key)}
                 aria-current={filter === f.key ? 'page' : undefined}
                 className={`inline-flex min-h-11 items-center rounded-lg px-3 text-sm transition ${
                   filter === f.key ? 'bg-brand text-white' : 'text-muted hover:bg-slate-100 hover:text-fg'

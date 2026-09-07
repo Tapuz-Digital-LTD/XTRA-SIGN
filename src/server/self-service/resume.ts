@@ -6,7 +6,7 @@ import { mintAdditionalSigningLink, ttlDaysFor } from '@/server/documents/send-a
 import { log } from '@/server/log'
 import type { SelfServiceProject } from '@/server/projects/self-service'
 import { sendOtp } from '@/server/signing/otp'
-import { resolveSigningToken, resolveTokenForRenewal } from '@/server/signing/session'
+import { hasVerifiedSessionFor, resolveSigningToken, resolveTokenForRenewal } from '@/server/signing/session'
 
 /**
  * "המשך חתימה" — picking a registration up again after a link or a code
@@ -20,7 +20,7 @@ import { resolveSigningToken, resolveTokenForRenewal } from '@/server/signing/se
  */
 
 export type ResumeResult =
-  | { ok: true; kind: 'ready'; token: string; maskedPhone: string | null }
+  | { ok: true; kind: 'ready'; token: string; maskedPhone: string | null; quiet?: boolean }
   | { ok: true; kind: 'already_signed'; token: string }
   | { ok: false; message: string; closed?: boolean }
 
@@ -33,7 +33,7 @@ async function agreementForRegistration(registrationId: string, projectId: strin
   return lead?.agreementId ?? null
 }
 
-export async function resumeSigning(project: SelfServiceProject, by: { token?: string; registrationId?: string }): Promise<ResumeResult> {
+export async function resumeSigning(project: SelfServiceProject, by: { token?: string; registrationId?: string }, options: { quietIfVerified?: boolean } = {}): Promise<ResumeResult> {
   const db = getDb()
   let agreementId: string | null = null
   if (by.token) {
@@ -71,6 +71,11 @@ export async function resumeSigning(project: SelfServiceProject, by: { token?: s
   const minted = await mintAdditionalSigningLink(recipient.id, expiresAt)
   if (agreement.status === 'expired') await db.update(schema.agreements).set({ status: 'sent', expiresAt }).where(eq(schema.agreements.id, agreement.id))
   await db.insert(schema.auditEvents).values({ agreementId: agreement.id, recipientId: recipient.id, type: AUDIT_EVENTS.LINK_RENEWED, actor: 'signer', metadata: { by: by.token ? 'expired_link' : 'continue_page', ttlDays } })
+
+  // This browser already proved the phone: the fresh link continues without a code.
+  if (options.quietIfVerified && (await hasVerifiedSessionFor(recipient.id))) {
+    return { ok: true, kind: 'ready', token: minted.token, maskedPhone: maskPhone(recipient.phone) ?? null, quiet: true }
+  }
 
   const context = await resolveSigningToken(minted.token)
   let maskedPhone: string | null = null

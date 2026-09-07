@@ -9,6 +9,8 @@ import { CompanyPicker } from '@/components/documents/CompanyPicker'
 import { CrmWritebackButton } from '@/components/documents/CrmWritebackButton'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Timeline } from '@/components/Timeline'
+import { BackLink } from '@/components/nav/BackLink'
+import { readReturnTo, withReturnTo } from '@/lib/return-to'
 import { ForbiddenError, getSession } from '@/server/auth/session'
 import { authorizeAgreementAccess } from '@/server/documents/authorization'
 import { getCompany } from '@/server/companies/companies'
@@ -19,11 +21,14 @@ import { loadFields } from '@/server/documents/save-fields'
 import { versionChain } from '@/server/documents/lifecycle'
 import { DocumentActions } from '@/components/DocumentActions'
 
-export default async function DocumentPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function DocumentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ returnTo?: string }> }) {
   const session = await getSession()
   if (!session) redirect('/login')
 
   const { id } = await params
+  const returnTo = readReturnTo((await searchParams).returnTo)
+  // This page's own URL, for the links that leave it and should come back here.
+  const here = withReturnTo(`/documents/${id}`, returnTo)
 
   // Authorization first, and a refusal renders as not-found so the page cannot
   // be used to confirm which ids exist.
@@ -70,6 +75,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
 
   return (
     <AppShell>
+      <BackLink returnTo={returnTo} fallback="/agreements" />
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <CompanyPicker
           documentId={doc.id}
@@ -83,7 +89,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
       {doc.company ? (
         <div className="mb-4">
           <Link
-            href={`/companies/${doc.company.id}`}
+            href={withReturnTo(`/companies/${doc.company.id}`, here)}
             className="text-sm text-muted underline-offset-4 hover:text-fg hover:underline"
           >
             → {doc.company.name}
@@ -127,7 +133,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
           ) : null}
           {doc.status === 'draft' && doc.hasRendered ? (
             <Link
-              href={`/documents/${doc.id}/edit`}
+              href={withReturnTo(`/documents/${doc.id}/edit`, returnTo)}
               className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)]"
             >
               הוספת שדות
@@ -209,14 +215,14 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
               <ul className="mt-2 flex flex-col gap-1.5 text-sm">
                 {chain.predecessor ? (
                   <li>
-                    <Link href={`/documents/${chain.predecessor.id}`} className="text-brand underline-offset-4 hover:underline">
+                    <Link href={withReturnTo(`/documents/${chain.predecessor.id}`, returnTo)} className="text-brand underline-offset-4 hover:underline">
                       → הגרסה הקודמת
                     </Link>
                   </li>
                 ) : null}
                 {chain.successors.map((s) => (
                   <li key={s.id}>
-                    <Link href={`/documents/${s.id}`} className="text-brand underline-offset-4 hover:underline">
+                    <Link href={withReturnTo(`/documents/${s.id}`, returnTo)} className="text-brand underline-offset-4 hover:underline">
                       ← גרסה חדשה יותר
                     </Link>
                   </li>

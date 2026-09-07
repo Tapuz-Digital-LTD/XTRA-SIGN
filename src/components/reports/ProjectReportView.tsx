@@ -25,7 +25,6 @@ export type ProjectReportData = Omit<ProjectReport, 'trafficSince' | 'registrati
 
 type Values = { from?: string; to?: string; status?: string; source?: string; range?: string }
 
-const dateTime = new Intl.DateTimeFormat('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' })
 const dateOnly = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short', timeZone: 'Asia/Jerusalem' })
 const longDate = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jerusalem' })
 const number = new Intl.NumberFormat('he-IL')
@@ -82,24 +81,44 @@ export function ProjectReportView({
           <h2 id="rp-timeline" className="text-sm font-semibold text-fg">
             פעילות לאורך זמן <span className="font-normal text-muted">· לפי {report.timeline.granularity === 'day' ? 'יום' : 'שבוע'}</span>
           </h2>
-          <Timeline points={report.timeline.points} showVisits={report.hasCampaignPage} reduced={reduced} />
+          <Timeline projectId={projectId} points={report.timeline.points} showVisits={report.hasCampaignPage} reduced={reduced} />
         </section>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className={`${card} min-w-0 p-5`} aria-labelledby="rp-status">
           <h2 id="rp-status" className="text-sm font-semibold text-fg">סטטוס ההסכמים</h2>
-          <Donut slices={report.statuses} reduced={reduced} />
+          <Donut projectId={projectId} slices={report.statuses} reduced={reduced} />
         </section>
         {report.hasCampaignPage ? (
           <section className={`${card} min-w-0 p-5`} aria-labelledby="rp-sources">
             <h2 id="rp-sources" className="text-sm font-semibold text-fg">מקורות מובילים</h2>
-            <Sources sources={report.sources} reduced={reduced} />
+            <Sources projectId={projectId} sources={report.sources} reduced={reduced} />
           </section>
         ) : null}
       </div>
 
       <RegistrationsTable rows={report.registrations} total={report.registrationTotal} projectId={projectId} />
+    </div>
+  )
+}
+
+/** An empty chart says what has not happened yet, and offers a real way forward. */
+function NoData({ projectId, text, share = false }: { projectId: string; text: string; share?: boolean }) {
+  const link = 'inline-flex min-h-9 items-center rounded-lg border border-line bg-surface px-3 text-xs font-medium text-fg transition hover:border-brand'
+  return (
+    <div className="mt-6 text-center">
+      <p className="text-sm text-muted">{text}</p>
+      <div className="mt-3 flex flex-wrap justify-center gap-2">
+        {share ? (
+          <Link href={`/projects/${projectId}?tab=settings&section=page`} className={link}>שיתוף הקישור</Link>
+        ) : (
+          <>
+            <Link href={`/projects/${projectId}?tab=reports`} className={link}>כל התקופה</Link>
+            <Link href={`/projects/${projectId}?tab=invitations`} className={link}>שליחת הזמנה</Link>
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -286,7 +305,7 @@ function Funnel({ stages, reduced }: { stages: ProjectReportData['funnel']; redu
 
 // ── timeline (area chart) ─────────────────────────────────────────────────
 
-function Timeline({ points, showVisits, reduced }: { points: ProjectReportData['timeline']['points']; showVisits: boolean; reduced: boolean }) {
+function Timeline({ projectId, points, showVisits, reduced }: { projectId: string; points: ProjectReportData['timeline']['points']; showVisits: boolean; reduced: boolean }) {
   const W = 600
   const H = 200
   const padX = 8
@@ -316,7 +335,7 @@ function Timeline({ points, showVisits, reduced }: { points: ProjectReportData['
           </span>
         ))}
       </div>
-      {empty ? <p className="mt-6 text-center text-sm text-muted">אין פעילות בטווח שנבחר.</p> : null}
+      {empty ? <NoData projectId={projectId} text="עדיין אין פעילות בטווח שנבחר — הרחיבו את הטווח או שלחו הזמנה." /> : null}
       <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 h-auto w-full" role="img" aria-label="פעילות לאורך זמן" style={{ direction: 'ltr' }}>
         {[0.25, 0.5, 0.75, 1].map((f) => (
           <line key={f} x1={padX} x2={W - padX} y1={y(max * f)} y2={y(max * f)} stroke="currentColor" strokeOpacity={0.08} />
@@ -363,14 +382,14 @@ const STATUS_COLORS: Record<string, string> = {
   failed: '#ef4444',
 }
 
-function Donut({ slices, reduced }: { slices: ProjectReportData['statuses']; reduced: boolean }) {
+function Donut({ projectId, slices, reduced }: { projectId: string; slices: ProjectReportData['statuses']; reduced: boolean }) {
   const total = slices.reduce((a, s) => a + s.count, 0)
   const grown = useGrow(reduced)
   const R = 42
   const C = 2 * Math.PI * R
   // Where each slice starts along the ring, computed once rather than mutated while drawing.
   const starts = slices.reduce<number[]>((acc, s, i) => [...acc, (acc[i - 1] ?? 0) + (i > 0 ? (slices[i - 1].count / Math.max(1, total)) * C : 0)], [])
-  if (total === 0) return <p className="mt-6 text-center text-sm text-muted">עדיין אין הסכמים בטווח שנבחר.</p>
+  if (total === 0) return <NoData projectId={projectId} text="עדיין אין הסכמים בטווח שנבחר — הרחיבו את הטווח או שלחו הזמנה." />
   return (
     <div className="mt-3 flex flex-col items-center gap-4 sm:flex-row">
       <svg viewBox="0 0 120 120" className="size-40 shrink-0" role="img" aria-label="סטטוס ההסכמים">
@@ -420,10 +439,10 @@ function Donut({ slices, reduced }: { slices: ProjectReportData['statuses']; red
 
 // ── sources ───────────────────────────────────────────────────────────────
 
-function Sources({ sources, reduced }: { sources: ProjectReportData['sources']; reduced: boolean }) {
+function Sources({ projectId, sources, reduced }: { projectId: string; sources: ProjectReportData['sources']; reduced: boolean }) {
   const grown = useGrow(reduced)
   const max = Math.max(1, ...sources.map((s) => Math.max(s.visits, s.registrations)))
-  if (sources.length === 0) return <p className="mt-6 text-center text-sm text-muted">עדיין אין נתוני מקור.</p>
+  if (sources.length === 0) return <NoData projectId={projectId} share text="עדיין אין כניסות לעמוד הקמפיין — כשתשתפו את הקישור, המקורות יופיעו כאן." />
   return (
     <div className="mt-3 overflow-x-auto">
       <table className="w-full min-w-[420px] text-sm">

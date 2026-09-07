@@ -18,7 +18,7 @@
 export type CampaignGoal = 'inquiries' | 'signing'
 
 export const GOALS: { key: CampaignGoal; label: string; blurb: string }[] = [
-  { key: 'inquiries', label: 'איסוף פניות', blurb: 'טופס לאיסוף פרטים מספקים או מלקוחות. הפניות נשמרות לטיפול הצוות, וניתן להמשיך מהן לתהליך חתימה בהמשך.' },
+  { key: 'inquiries', label: 'איסוף פניות (לידים)', blurb: 'טופס לאיסוף פרטים מספקים או מלקוחות. כל פנייה חדשה ממתינה לטיפול הצוות, ואפשר להמשיך ממנה לחתימה או להוסיף כספק/לקוח.' },
   { key: 'signing', label: 'החתמה על מסמכים', blurb: 'שליחת הסכמים לנמענים שנבחרו, או הרשמה וחתימה עצמאית דרך טופס. המערכת מנהלת את ההסכמים, החתימות והמסמכים החתומים.' },
 ]
 
@@ -27,6 +27,28 @@ export function isCampaignGoal(value: unknown): value is CampaignGoal {
 }
 
 export const goalLabel = (goal: CampaignGoal) => GOALS.find((g) => g.key === goal)!.label
+
+/** "מה ההבדל בין האפשרויות?" — one row per thing people ask, one column per goal. */
+export const COMPARISON_ROWS: { label: string; inquiries: string; signing: string }[] = [
+  { label: 'מה קורה אחרי הטופס', inquiries: 'הפנייה מחכה לצוות (לאשר / להמשיך לחתימה ידנית)', signing: 'הנרשם עובר ישירות להסכם, קוד וחתימה' },
+  { label: 'צריך הסכם?', inquiries: 'לא', signing: 'כן (אפשר להעלות אחר כך)' },
+  { label: 'קהל קיים', inquiries: 'אפשר, לא חובה', signing: 'אפשר, לא חובה' },
+  { label: 'טופס / הטמעה / API / עמוד מותאם', inquiries: 'כן', signing: 'כן' },
+  { label: 'הפצות SMS/Email', inquiries: 'כן', signing: 'כן' },
+  { label: 'הזמנה אישית', inquiries: 'כן', signing: 'כן' },
+  { label: 'דוחות', inquiries: 'פניות, מקורות, נציגים', signing: '+ חתימות, משימות המשך' },
+]
+
+/** Who a campaign is for. The `groups.kind` column stores supplier/customer; "both" is null there. */
+export type AudienceKind = 'supplier' | 'customer' | 'both'
+
+export const AUDIENCE_KINDS: { key: AudienceKind; label: string }[] = [
+  { key: 'supplier', label: 'ספקים' },
+  { key: 'customer', label: 'לקוחות' },
+  { key: 'both', label: 'שניהם' },
+]
+
+export const audienceLabel = (kind: 'supplier' | 'customer' | null) => (kind === 'supplier' ? 'ספקים' : kind === 'customer' ? 'לקוחות' : 'ספקים ולקוחות')
 
 export type EntryMethod = 'audience' | 'form' | 'embed' | 'api' | 'custom'
 
@@ -93,13 +115,17 @@ export const JOIN_METHODS: { key: JoinMethod; label: string; blurb: string }[] =
 
 // ── Tabs ─────────────────────────────────────────────────────────────────
 
-export type CampaignTab = 'overview' | 'audience' | 'distributions' | 'registrations' | 'agreements' | 'reports' | 'settings'
+export type CampaignTab = 'overview' | 'audience' | 'invitations' | 'distributions' | 'registrations' | 'agreements' | 'reports' | 'settings'
 
-/** The tabs a campaign shows. "הרשמות" only where a form brings people in. */
+/**
+ * The tabs a campaign shows — each one a different view of the same people,
+ * never a second copy of them. "הרשמות" only where a form brings people in;
+ * "הזמנות ומעקב" everywhere, because anyone can be invited by name and phone.
+ */
 export function tabsFor(entry: EntryMethod): CampaignTab[] {
   return hasForm(entry)
-    ? ['overview', 'audience', 'distributions', 'registrations', 'agreements', 'reports', 'settings']
-    : ['overview', 'audience', 'distributions', 'agreements', 'reports', 'settings']
+    ? ['overview', 'audience', 'invitations', 'registrations', 'agreements', 'distributions', 'reports', 'settings']
+    : ['overview', 'audience', 'invitations', 'agreements', 'distributions', 'reports', 'settings']
 }
 
 export const TABS_BY_KIND: Record<CampaignKind, CampaignTab[]> = {
@@ -110,6 +136,7 @@ export const TABS_BY_KIND: Record<CampaignKind, CampaignTab[]> = {
 export const TAB_LABELS: Record<CampaignTab, string> = {
   overview: 'סקירה',
   audience: 'קהל',
+  invitations: 'הזמנות ומעקב',
   distributions: 'הפצות',
   registrations: 'הרשמות',
   agreements: 'הסכמים',
@@ -117,8 +144,20 @@ export const TAB_LABELS: Record<CampaignTab, string> = {
   settings: 'הגדרות',
 }
 
+/** One sentence per tab: what a person does here. Shown under the tab's title. */
+export const TAB_INTROS: Record<CampaignTab, string> = {
+  overview: 'כאן רואים במבט אחד איפה הקמפיין עומד ומה כדאי לעשות עכשיו.',
+  audience: 'כאן בוחרים ספקים ולקוחות שכבר נמצאים במערכת, כדי לצרף אותם לקמפיין או לשלוח להם הסכמים.',
+  invitations: 'כאן עוקבים אחרי מי שהוזמנו לקמפיין, מהשליחה ועד ההרשמה והחתימה, ושולחים תזכורות למי שצריך.',
+  registrations: 'כאן רואים את כל מי שמילאו את טופס הקמפיין, כולל פרטי ההרשמה ומצב החתימה.',
+  agreements: 'כאן נמצאים כל המסמכים שנשלחו לחתימה בקמפיין, כולל מצב החתימה והמסמכים החתומים.',
+  distributions: 'כאן יוצרים שליחות מרוכזות לקהל שבחרתם, ומתכננים ועוקבים אחרי הודעות SMS ואימייל.',
+  reports: 'כאן רואים את התקדמות הקמפיין, מזהים מי דורש טיפול ומסננים את הנתונים לפי הצורך.',
+  settings: 'כאן מנהלים את פרטי הקמפיין, העמוד הציבורי, ההודעות, ההתראות והאופן שבו מתבצעת ההרשמה.',
+}
+
 /** Old links said ?tab=suppliers / ?tab=leads; they still land somewhere sensible. */
-export const LEGACY_TABS: Record<string, CampaignTab> = { suppliers: 'audience', leads: 'registrations' }
+export const LEGACY_TABS: Record<string, CampaignTab> = { suppliers: 'audience', leads: 'registrations', tracking: 'invitations' }
 
 /** Registrations are open unless the campaign ended and did not ask to stay open. */
 export type CampaignStatus = 'active' | 'paused' | 'ended'

@@ -8,10 +8,13 @@ export function OtpStep({
   token,
   maskedPhone,
   onVerified,
+  autoSend = false,
 }: {
   token: string
   maskedPhone: string | null
   onVerified: () => void
+  /** Arriving from "ממשיכים לחתימה": the code goes out as the step opens, no extra tap. */
+  autoSend?: boolean
 }) {
   const [sent, setSent] = useState(false)
   const [code, setCode] = useState('')
@@ -20,6 +23,12 @@ export function OtpStep({
   const [cooldown, setCooldown] = useState(0)
   // Only ever set when the server tells us no SMS was actually sent.
   const [devCode, setDevCode] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (autoSend) void request()
+    // Once, on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (cooldown <= 0) return

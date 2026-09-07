@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 type Company = { id: string; name: string; kind: 'supplier' | 'customer'; taxId: string | null; fromCrm: boolean }
 
 /** Adds existing companies to a group, searched server-side. */
-export function AddCompaniesDialog({ groupId }: { groupId: string }) {
+export function AddCompaniesDialog({ groupId, label = '+ הוספת חברות', primary = false }: { groupId: string; label?: string; primary?: boolean }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [kind, setKind] = useState<'supplier' | 'customer'>('supplier')
@@ -57,9 +57,9 @@ export function AddCompaniesDialog({ groupId }: { groupId: string }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90"
+        className={primary ? 'inline-flex min-h-12 items-center justify-center rounded-xl bg-brand px-5 text-base font-semibold text-white hover:opacity-90' : "inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90"}
       >
-        + הוספת חברות
+        {label}
       </button>
     )
   }

@@ -1,6 +1,7 @@
 'use client'
 
 import { DeleteDialog } from '@/components/deletion/DeleteDialog'
+import { FollowUpSettings } from '@/components/follow-up/FollowUpSettings'
 import { NotificationSettings } from '@/components/projects/NotificationSettings'
 import { MessagesSettings } from '@/components/projects/MessagesSettings'
 import { CampaignSettings, type CampaignSettingsValue } from '@/components/projects/CampaignSettings'
@@ -30,11 +31,11 @@ import type { SelfServiceConfig } from '@/server/projects/self-service'
  */
 
 export const SETTINGS_SECTIONS = [
-  { key: 'general', label: 'כללי', blurb: 'שם, סוג, תאריכים, בעלים' },
-  { key: 'page', label: 'עמוד והרשמה', blurb: 'כתובת, טופס, הטמעה, שיתוף, הסכם' },
-  { key: 'messages', label: 'הודעות', blurb: 'מה הנמענים מקבלים' },
-  { key: 'notifications', label: 'התראות', blurb: 'מי בצוות מקבל עדכון ומתי' },
-  { key: 'advanced', label: 'מתקדם', blurb: 'מקורות מורשים, מחיקה' },
+  { key: 'general', label: 'כללי', blurb: 'שם, סוג, תאריכים, בעלים', intro: 'שם הקמפיין, התאריכים שלו, מצבו ומי אחראי עליו.' },
+  { key: 'page', label: 'עמוד והרשמה', blurb: 'כתובת, טופס, הטמעה, שיתוף, הסכם', intro: 'העמוד והטופס שדרכם אנשים נרשמים, ואיך משתפים אותם.' },
+  { key: 'messages', label: 'הודעות', blurb: 'מה הנמענים מקבלים', intro: 'הנוסח שהנמענים מקבלים ב-SMS ובאימייל בכל שלב.' },
+  { key: 'notifications', label: 'התראות', blurb: 'מי בצוות מקבל עדכון ומתי', intro: 'מי בצוות מקבל עדכון כשמשהו קורה בקמפיין.' },
+  { key: 'advanced', label: 'מתקדם', blurb: 'מקורות מורשים, מחיקה', intro: 'הגדרות שנוגעים בהן לעתים רחוקות: מקורות מורשים, משימות המשך ומחיקה.' },
 ] as const
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]['key']
 
@@ -205,6 +206,7 @@ export function ProjectSettings({
           ))}
         </ul>
       </nav>
+      <p className="-mt-2 text-sm text-muted">{SETTINGS_SECTIONS.find((s) => s.key === section)?.intro}</p>
 
       {section === 'general' ? (
         <>
@@ -309,6 +311,7 @@ export function ProjectSettings({
             <textarea value={allowedOrigins} onChange={(e) => setAllowedOrigins(e.target.value)} rows={3} dir="ltr" placeholder="https://www.example.co.il" className="mt-2 w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-fg outline-none focus:border-brand" />
             <div className="mt-4">{saveBar}</div>
           </section>
+          <FollowUpSettings projectId={projectId} isAdmin={isAdmin} />
           <section className={`${card} border-red-200`}>
             <h2 className="text-base font-semibold text-fg">מחיקת הקמפיין</h2>
             <p className="mt-1 text-sm text-muted">קמפיין עם הסכמים חתומים עובר לארכיון ולא נמחק; ההיסטוריה נשמרת.</p>

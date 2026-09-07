@@ -3,14 +3,19 @@
 import { DeleteDialog } from '@/components/deletion/DeleteDialog'
 import { RowMenu } from '@/components/deletion/RowMenu'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { CompanyForm } from '@/components/companies/CompanyForm'
 import { LINKED_NOTE, SourceBadge, isLinked } from '@/components/companies/SourceBadge'
 import { withSource } from '@/components/companies/SourceGate'
 import { AddToGroupButton } from '@/components/groups/AddToGroupButton'
+import { currentUrlFor, withReturnTo } from '@/lib/return-to'
 import { NewGroupButton } from '@/components/groups/NewGroupButton'
+import { BulkBar } from '@/components/tags/BulkBar'
+import { TagChips } from '@/components/tags/TagChips'
+import { TagFilter, type TagsMode } from '@/components/tags/TagFilter'
 import type { CompanyListItem, CompanySource } from '@/server/companies/companies'
+import type { Tag } from '@/server/tags/tags'
 
 /**
  * One space (suppliers or customers), one source at a time: a searchable,
@@ -32,6 +37,9 @@ export function CompanyList({
   crmEnabled,
   isAdmin = false,
   archivedView = false,
+  tags = [],
+  activeTags = [],
+  tagsMode = 'all',
 }: {
   companies: CompanyListItem[]
   kind: 'supplier' | 'customer'
@@ -48,8 +56,15 @@ export function CompanyList({
   isAdmin?: boolean
   /** The archive instead of the active list. */
   archivedView?: boolean
+  /** The organization's company tags, shown as filter chips. */
+  tags?: Tag[]
+  /** The tags currently filtered on, from the URL. */
+  activeTags?: string[]
+  tagsMode?: TagsMode
 }) {
   const router = useRouter()
+  // This list, filters and all: a card opened from it comes back here.
+  const here = currentUrlFor(usePathname(), useSearchParams())
   const [removing, setRemoving] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -67,8 +82,8 @@ export function CompanyList({
   const menuFor = (company: CompanyListItem) => (
     <RowMenu
       items={[
-        { label: 'פתיחה', onSelect: () => router.push(`/companies/${company.id}`) },
-        { label: 'עריכה', onSelect: () => router.push(`/companies/${company.id}?edit=1`) },
+        { label: 'פתיחה', onSelect: () => router.push(withReturnTo(`/companies/${company.id}`, here)) },
+        { label: 'עריכה', onSelect: () => router.push(withReturnTo(`/companies/${company.id}?edit=1`, here)) },
         { label: archivedView ? 'החזרה מהארכיון' : 'ארכיון', onSelect: () => void setArchived(company.id, !archivedView) },
         { label: 'מחיקה', danger: true, onSelect: () => setRemoving(company.id) },
       ]}
@@ -89,16 +104,17 @@ export function CompanyList({
   // filtering must happen in the query, not over the loaded rows. As-you-type,
   // no button, no Enter — the URL is pushed 300ms after the last keystroke.
   const firstRender = useRef(true)
+  const activeTagsKey = activeTags.join(',')
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false
       return
     }
     const t = setTimeout(() => {
-      router.push(withSource(basePath, source, { q: query.trim() || undefined }))
+      router.push(withSource(basePath, source, { q: query.trim() || undefined, tags: activeTagsKey || undefined, tagsMode: tagsMode === 'any' ? 'any' : undefined }))
     }, 300)
     return () => clearTimeout(t)
-  }, [query, basePath, source, router])
+  }, [query, basePath, source, router, activeTagsKey, tagsMode])
 
   async function sync() {
     setConfirmSync(false)
@@ -185,6 +201,8 @@ export function CompanyList({
         </div>
       </div>
 
+      <TagFilter tags={tags} selected={activeTags} mode={tagsMode} />
+
       {confirmSync ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setConfirmSync(false)}>
           <div className="w-full max-w-sm rounded-[var(--radius-card)] border border-line bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -245,22 +263,18 @@ export function CompanyList({
       ) : null}
 
       {selected.size > 0 ? (
-        <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-lg border border-brand bg-blue-50 px-4 py-3">
-          <span className="text-sm font-semibold text-fg">נבחרו {selected.size}</span>
-          <button type="button" onClick={() => setSelected(new Set())} className="text-xs text-brand underline-offset-4 hover:underline">
-            ניקוי הבחירה
-          </button>
-          <span className="ms-auto flex flex-wrap gap-2">
-            <AddToGroupButton companyIds={selectedList} onDone={() => setSelected(new Set())} />
-            <NewGroupButton companyIds={selectedList} label="צור פרויקט מהבחירה" defaultKind={kind} />
-            <a
-              href={`/api/companies/export?ids=${selectedList.join(',')}`}
-              className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-3 text-sm text-fg transition hover:border-brand"
-            >
-              ייצוא ל-Excel
-            </a>
-          </span>
-        </div>
+        <BulkBar
+          companyIds={selectedList}
+          rows={companies.filter((c) => selected.has(c.id))}
+          onDone={() => {
+            setSelected(new Set())
+            router.refresh()
+          }}
+          onClear={() => setSelected(new Set())}
+        >
+          <AddToGroupButton companyIds={selectedList} onDone={() => setSelected(new Set())} />
+          <NewGroupButton companyIds={selectedList} label="צור פרויקט מהבחירה" defaultKind={kind} />
+        </BulkBar>
       ) : null}
 
       {companies.length === 0 ? (
@@ -275,8 +289,25 @@ export function CompanyList({
                 ? crmEnabled
                   ? 'סנכרנו מ-Fireberry כדי להביא אותם לכאן.'
                   : 'רשומות CRM מגיעות לכאן בסנכרון מ-Fireberry.'
-                : `הוסיפו ${noun} ראשון, ואז צרו עבורו מסמך.`}
+                : `כשתוסיפו ${noun}, הוא יופיע כאן עם כל המסמכים שנשלחו אליו.`}
           </p>
+          {/* A real way out of the empty state: the same add / sync / clear the full screen offers. */}
+          {search.trim() ? (
+            <button type="button" onClick={() => setQuery('')} className="mt-4 inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium text-fg transition hover:border-brand">
+              ניקוי החיפוש
+            </button>
+          ) : source === 'crm' ? (
+            crmEnabled ? (
+              <button type="button" onClick={() => setConfirmSync(true)} disabled={syncing} className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-60">
+                {syncing ? 'מסנכרן…' : 'סנכרון מ-Fireberry'}
+              </button>
+            ) : null
+          ) : (
+            <button type="button" onClick={() => setAdding(true)} className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)]">
+              <span aria-hidden="true" className="me-1">+</span>
+              הוספה
+            </button>
+          )}
         </div>
       ) : (
         <>
@@ -294,12 +325,13 @@ export function CompanyList({
                       aria-label={`בחירת ${company.name}`}
                     />
                     <span className="min-w-0">
-                      <Link href={`/companies/${company.id}`} className="block truncate font-medium text-fg hover:underline">
+                      <Link href={withReturnTo(`/companies/${company.id}`, here)} className="block truncate font-medium text-fg hover:underline">
                         {company.name}
                       </Link>
                       <span className="mt-0.5 block truncate text-xs text-muted">
                         {[company.contactName, company.contactPhone].filter(Boolean).join(' · ') || '—'}
                       </span>
+                      <TagChips tags={company.tags} className="mt-1" />
                       {isLinked(company) ? <span className="mt-0.5 block text-xs text-muted">{LINKED_NOTE}</span> : null}
                     </span>
                   </label>
@@ -349,7 +381,7 @@ export function CompanyList({
                 {companies.map((company) => (
                   <tr
                     key={company.id}
-                    onClick={() => router.push(`/companies/${company.id}`)}
+                    onClick={() => router.push(withReturnTo(`/companies/${company.id}`, here))}
                     className="cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-bg"
                   >
                     <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
@@ -363,7 +395,10 @@ export function CompanyList({
                     </td>
                     {/* Each cell clips its own text: in a fixed-layout table an
                         unclipped long name spills over the next column. */}
-                    <td className="truncate px-4 py-3 font-medium text-fg" title={company.name}>{company.name}</td>
+                    <td className="overflow-hidden px-4 py-3 font-medium text-fg">
+                      <span className="block truncate" title={company.name}>{company.name}</span>
+                      <TagChips tags={company.tags} className="mt-1 font-normal" />
+                    </td>
                     <td className="truncate px-4 py-3 text-muted" dir="ltr">{company.taxId ?? '—'}</td>
                     <td className="truncate px-4 py-3 text-muted">{company.contactName ?? '—'}</td>
                     <td className="truncate px-4 py-3 text-muted" dir="ltr">{company.contactPhone ?? '—'}</td>

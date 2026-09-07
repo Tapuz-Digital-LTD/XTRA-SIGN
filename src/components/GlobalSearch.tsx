@@ -1,8 +1,9 @@
 'use client'
 
 import { Search } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useId, useRef, useState } from 'react'
+import { currentUrlFor, withReturnTo } from '@/lib/return-to'
 import type { SearchHit } from '@/server/search/search'
 
 /**
@@ -17,6 +18,8 @@ const ORDER: SearchHit['kind'][] = ['supplier', 'customer', 'campaign', 'agreeme
 
 export function GlobalSearch({ compact = false }: { compact?: boolean }) {
   const router = useRouter()
+  // The page the user searched from: "חזרה" on the result leads back to it.
+  const here = currentUrlFor(usePathname(), useSearchParams())
   const listId = useId()
   const [q, setQ] = useState('')
   const [hits, setHits] = useState<SearchHit[]>([])
@@ -62,7 +65,7 @@ export function GlobalSearch({ compact = false }: { compact?: boolean }) {
   function openHit(hit: SearchHit) {
     setOpen(false)
     setQ('')
-    router.push(hit.href)
+    router.push(withReturnTo(hit.href, here))
   }
 
   return (
@@ -104,7 +107,7 @@ export function GlobalSearch({ compact = false }: { compact?: boolean }) {
       {open && q.trim().length >= 2 ? (
         <div id={listId} role="listbox" className="absolute inset-x-0 top-full z-40 mt-1 max-h-[70vh] overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-lg">
           {busy && ordered.length === 0 ? <p className="px-3 py-3 text-sm text-muted">מחפש…</p> : null}
-          {!busy && ordered.length === 0 ? <p className="px-3 py-3 text-sm text-muted">לא נמצא דבר עבור "{q.trim()}".</p> : null}
+          {!busy && ordered.length === 0 ? <p className="px-3 py-3 text-sm text-muted">לא נמצא דבר עבור ״{q.trim()}״ — נסו שם, ח.פ או טלפון.</p> : null}
           {ORDER.map((kind) => {
             const group = ordered.filter((h) => h.kind === kind)
             if (group.length === 0) return null

@@ -4,6 +4,7 @@ import { AppShell } from '@/components/AppShell'
 import { EmptyState } from '@/components/EmptyState'
 import { DocumentsTable } from '@/components/documents/DocumentsTable'
 import { InboxControls } from '@/components/documents/InboxControls'
+import { ScrollRestore } from '@/components/nav/ScrollRestore'
 import { getSession } from '@/server/auth/session'
 import { listDocuments, type ListFilter } from '@/server/documents/queries'
 
@@ -50,8 +51,12 @@ export default async function AgreementsPage({
 
   return (
     <AppShell>
+      <ScrollRestore />
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight text-fg">הסכמים</h1>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-fg">הסכמים</h1>
+          <p className="mt-1 text-sm text-muted">מצאו מי דורש טיפול, סננו את הנתונים ובצעו פעולות ישירות.</p>
+        </div>
         <Link
           href="/documents/new"
           className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90"
@@ -77,7 +82,7 @@ export default async function AgreementsPage({
           ) : (
             <EmptyState
               title="עדיין אין הסכמים"
-              description="כל מסמך שנשלח לחתימה יופיע כאן — עם החברה שאליה הוא שייך, מי החותם ומה הסטטוס."
+              description="כל מסמך שתשלחו לחתימה יופיע כאן, עם החברה, החותם ומצב החתימה."
               actionIcon="+"
               actionLabel="שלח מסמך לחתימה"
               actionHref="/documents/new"
@@ -85,7 +90,7 @@ export default async function AgreementsPage({
           )
         ) : (
           <>
-            <DocumentsTable documents={items} now={now} isAdmin={session.isAdmin} />
+            <DocumentsTable documents={items} now={now} isAdmin={session.isAdmin} selectable={filter === 'attention'} />
 
             {pages > 1 ? (
               <nav className="mt-4 flex items-center justify-between gap-3" aria-label="עמודים">

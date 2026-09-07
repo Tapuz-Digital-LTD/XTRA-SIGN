@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { closedState, describeCampaign, hasForm, kindForEntry, registrationsOpen, tabsFor } from '@/lib/campaigns'
+import { audienceLabel, closedState, COMPARISON_ROWS, describeCampaign, hasForm, kindForEntry, registrationsOpen, tabsFor } from '@/lib/campaigns'
 
 describe('registrationsOpen', () => {
   const now = new Date('2026-09-07T10:00:00Z')
@@ -32,11 +32,29 @@ describe('campaign shape', () => {
     expect(describeCampaign({ campaignKind: 'public', selfServiceEnabled: true, selfServiceSkin: 'tourism-2026' })).toEqual({ goal: 'signing', entry: 'custom' })
     expect(describeCampaign({ goal: 'inquiries', entryMethod: 'api' })).toEqual({ goal: 'inquiries', entry: 'api' })
   })
-  it('shows the registrations tab only where a form brings people in', () => {
+  it('shows the registrations tab only where a form brings people in; invitations everywhere, in the agreed order', () => {
     expect(tabsFor('audience')).not.toContain('registrations')
     for (const e of ['form', 'embed', 'api', 'custom'] as const) expect(tabsFor(e)).toContain('registrations')
+    expect(tabsFor('form')).toEqual(['overview', 'audience', 'invitations', 'registrations', 'agreements', 'distributions', 'reports', 'settings'])
+    expect(tabsFor('audience')).toEqual(['overview', 'audience', 'invitations', 'agreements', 'distributions', 'reports', 'settings'])
     expect(hasForm('audience')).toBe(false)
     expect(kindForEntry('embed')).toBe('public')
     expect(kindForEntry('audience')).toBe('signature')
+  })
+})
+
+describe('the wizard\'s words', () => {
+  it('names the audience, and both when the row has none', () => {
+    expect(audienceLabel('supplier')).toBe('ספקים')
+    expect(audienceLabel('customer')).toBe('לקוחות')
+    expect(audienceLabel(null)).toBe('ספקים ולקוחות')
+  })
+  it('compares the two goals row by row with both columns filled', () => {
+    expect(COMPARISON_ROWS).toHaveLength(7)
+    for (const row of COMPARISON_ROWS) {
+      expect(row.label.trim()).not.toBe('')
+      expect(row.inquiries.trim()).not.toBe('')
+      expect(row.signing.trim()).not.toBe('')
+    }
   })
 })

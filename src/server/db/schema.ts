@@ -445,6 +445,14 @@ export const groups = pgTable(
     endedMessage: text('ended_message'),
     /** After the campaign ends, may someone who already registered still finish signing? */
     allowCompletionAfterEnd: boolean('allow_completion_after_end').default(true).notNull(),
+    /** Which follow-up tasks a signature creates, e.g. { afterSign: ['site_product'] }. */
+    followUpConfig: jsonb('follow_up_config'),
+    /**
+     * Set on internal contexts that are not campaigns anyone created — 'direct_signing'
+     * holds the one-off documents sent from the home page, so they get the same
+     * invitation, tracking and reports without showing up in the campaigns list.
+     */
+    systemKey: text('system_key'),
     startsAt: timestamp('starts_at', { withTimezone: true }),
     endsAt: timestamp('ends_at', { withTimezone: true }),
     /** A public campaign past its end date closes registrations unless told otherwise. */
@@ -515,12 +523,29 @@ export const projectLeads = pgTable(
      * for a regular lead, which waits for a person and never has one.
      */
     agreementId: uuid('agreement_id'),
+    /** 'supplier' | 'customer' — which kind of business this row is for, when the campaign takes both. */
+    kind: text('kind'),
+    /** Normalised contact details (E.164 / lower-cased) for matching an invitation to the registration it turns into. */
+    phone: text('phone'),
+    email: text('email'),
+    /** Personal invitations: who sent it and through which channel ('sms' | 'email' | 'whatsapp'). */
+    invitedBy: uuid('invited_by'),
+    inviteChannel: text('invite_channel'),
+    /** Staff follow-up: who handles it, when to call back, how the last call went, a private note. */
+    assigneeUserId: uuid('assignee_user_id'),
+    followUpAt: timestamp('follow_up_at', { withTimezone: true }),
+    callOutcome: text('call_outcome'),
+    internalNote: text('internal_note'),
+    lastActivityAt: timestamp('last_activity_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
     reviewedBy: uuid('reviewed_by').references(() => users.id),
   },
   (t) => [
     index('project_leads_group_idx').on(t.groupId, t.status, t.createdAt),
+    index('project_leads_phone_idx').on(t.groupId, t.phone),
+    index('project_leads_email_idx').on(t.groupId, t.email),
+    index('project_leads_assignee_idx').on(t.organizationId, t.assigneeUserId),
     uniqueIndex('project_leads_idempotency_unique')
       .on(t.groupId, t.idempotencyKey)
       .where(sql`${t.idempotencyKey} is not null`),
@@ -595,6 +620,8 @@ export const campaignEvents = pgTable(
     /** The referring host, not the full URL. */
     referrer: text('referrer'),
     registrationId: uuid('registration_id'),
+    /** The personal invitation whose link brought this visit, when there was one. */
+    invitationId: uuid('invitation_id'),
     agreementId: uuid('agreement_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -646,11 +673,27 @@ export const messageSends = pgTable(
     ok: boolean('ok').default(true).notNull(),
     error: text('error'),
     sentAt: timestamp('sent_at', { withTimezone: true }).defaultNow().notNull(),
+    /** The invitation / registration row this message was for, and the staff member who sent it. */
+    leadId: uuid('lead_id'),
+    sentBy: uuid('sent_by'),
+    /** WhatsApp goes through the rep's own phone: 'sent' | 'not_sent' as the rep reported it, by whom and when. */
+    manualState: text('manual_state'),
+    manualBy: uuid('manual_by'),
+    manualAt: timestamp('manual_at', { withTimezone: true }),
+    /** A retry points at the send it repeats; a failure a person handled by hand is resolved, with a note. */
+    retryOf: uuid('retry_of'),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    resolvedBy: uuid('resolved_by'),
+    resolvedNote: text('resolved_note'),
+    /** The client's key for one attempt: the same key never sends twice. Unique per organisation. */
+    attemptKey: text('attempt_key'),
   },
   (t) => [
     index('message_sends_group_idx').on(t.groupId, t.sentAt),
     index('message_sends_distribution_idx').on(t.distributionId),
     index('message_sends_agreement_idx').on(t.agreementId),
+    // One reservation in flight per person, channel and message (partial: rows still marked reserved).
+    uniqueIndex('message_sends_reservation_unique').on(t.leadId, t.channel, t.event).where(sql`${t.error} = 'reserved' and ${t.leadId} is not null`),
   ],
 )
 
@@ -1243,4 +1286,117 @@ export const aiActions = pgTable(
     index('ai_actions_conversation_idx').on(t.conversationId, t.createdAt),
     index('ai_actions_org_idx').on(t.organizationId, t.createdAt),
   ],
+)
+
+/**
+ * Tags: a light, organisation-level label a person puts on a supplier, a
+ * customer or a campaign row. Campaign tags (kind 'campaign') never touch
+ * the company card; company tags never sync to the CRM.
+ */
+export const tags = pgTable(
+  'tags',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    /** 'company' | 'campaign' */
+    kind: text('kind').default('company').notNull(),
+    name: text('name').notNull(),
+    /** Trimmed, lower-cased, single-spaced — so "ספק  מועדף" and "ספק מועדף" are one tag. */
+    nameKey: text('name_key').notNull(),
+    color: text('color'),
+    createdBy: uuid('created_by'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('tags_org_kind_name_unique').on(t.organizationId, t.kind, t.nameKey)],
+)
+
+export const companyTags = pgTable(
+  'company_tags',
+  {
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    tagId: uuid('tag_id')
+      .notNull()
+      .references(() => tags.id, { onDelete: 'cascade' }),
+    createdBy: uuid('created_by'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ name: 'company_tags_pk', columns: [t.companyId, t.tagId] }), index('company_tags_tag_idx').on(t.tagId)],
+)
+
+export const leadTags = pgTable(
+  'lead_tags',
+  {
+    leadId: uuid('lead_id')
+      .notNull()
+      .references(() => projectLeads.id, { onDelete: 'cascade' }),
+    tagId: uuid('tag_id')
+      .notNull()
+      .references(() => tags.id, { onDelete: 'cascade' }),
+    createdBy: uuid('created_by'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ name: 'lead_tags_pk', columns: [t.leadId, t.tagId] }), index('lead_tags_tag_idx').on(t.tagId)],
+)
+
+/**
+ * A follow-up task that a campaign creates by itself after a signature —
+ * "הקמת מוצר באתר" for the tourism month. One per registration and kind.
+ * Not a task system: a status, a person, a date, a note and a link.
+ */
+export const followUpTasks = pgTable(
+  'follow_up_tasks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    groupId: uuid('group_id'),
+    leadId: uuid('lead_id').references(() => projectLeads.id, { onDelete: 'cascade' }),
+    agreementId: uuid('agreement_id'),
+    companyId: uuid('company_id').references(() => companies.id, { onDelete: 'set null' }),
+    /** 'site_product' today; the config on the campaign says which kinds it creates. */
+    kind: text('kind').notNull(),
+    title: text('title').notNull(),
+    /** pending | in_progress | done | not_needed */
+    status: text('status').default('pending').notNull(),
+    assigneeUserId: uuid('assignee_user_id'),
+    dueAt: timestamp('due_at', { withTimezone: true }),
+    note: text('note'),
+    link: text('link'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    completedBy: uuid('completed_by'),
+  },
+  (t) => [
+    uniqueIndex('follow_up_tasks_lead_kind_unique').on(t.leadId, t.kind).where(sql`${t.leadId} is not null`),
+    index('follow_up_tasks_group_status_idx').on(t.groupId, t.status),
+    index('follow_up_tasks_company_idx').on(t.companyId),
+  ],
+)
+
+/**
+ * People who asked not to be contacted, per channel ('sms' | 'email' | 'any').
+ * Honoured by every send that goes through the dispatcher; an admin may send
+ * an explicitly requested operational message anyway, and that is audited.
+ */
+export const contactSuppressions = pgTable(
+  'contact_suppressions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    channel: text('channel').default('any').notNull(),
+    /** Normalised: E.164 for phones, lower-cased for email. */
+    address: text('address').notNull(),
+    reason: text('reason'),
+    createdBy: uuid('created_by'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('contact_suppressions_unique').on(t.organizationId, t.channel, t.address)],
 )

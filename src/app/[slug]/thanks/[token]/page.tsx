@@ -4,8 +4,10 @@ import { and, eq, sql } from 'drizzle-orm'
 import { AUDIT_EVENTS } from '@/server/audit'
 import { getDb, schema } from '@/server/db'
 import { selfServiceOriginOf } from '@/server/self-service/agreement-skin'
+import { renewQuietly } from '@/server/signing/continue'
 import { resolveSigningToken } from '@/server/signing/session'
-import { CampaignFrame, CampaignNotice } from '../../CampaignFrame'
+import { RenewSigning } from '../../RenewSigning'
+import { CampaignFrame } from '../../CampaignFrame'
 import { CampaignTracker } from '../../CampaignTracker'
 import { ThanksView } from '../../ThanksView'
 import { campaignProject, type SearchParams } from '../../resolve'
@@ -35,7 +37,17 @@ export default async function ThanksPage({
   const [{ slug, token }, query] = await Promise.all([params, searchParams])
   const project = await campaignProject(slug, `/thanks/${token}`, query)
   const context = await resolveSigningToken(token)
-  if (!context) return <Expired slug={slug} />
+  if (!context) {
+    // The link ran out after the signature: a verified browser gets a fresh
+    // one quietly; anyone else asks for a code and lands back here.
+    const quiet = await renewQuietly(token)
+    if (quiet) redirect(quiet.path)
+    return (
+      <CampaignFrame slug={slug} title="ההצטרפות הושלמה">
+        <RenewSigning slug={slug} formId={project.formId} token={token} />
+      </CampaignFrame>
+    )
+  }
 
   const origin = await selfServiceOriginOf(context.agreementId)
   if (origin?.projectId !== project.groupId) redirect(`/sign/${token}`)
@@ -75,14 +87,3 @@ export default async function ThanksPage({
   )
 }
 
-function Expired({ slug }: { slug: string }) {
-  return (
-    <CampaignFrame slug={slug} title="ההצטרפות הושלמה">
-      <CampaignNotice
-        slug={slug}
-        title="תוקף הקישור הסתיים"
-        text="ניתן לפנות לצוות הפרויקט לקבלת קישור חדש: tour@xtra.co.il"
-      />
-    </CampaignFrame>
-  )
-}

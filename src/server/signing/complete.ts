@@ -9,6 +9,7 @@ import { notify } from '@/server/notifications/notifications'
 import { originFromSnapshot } from '@/server/self-service/agreement-skin'
 import { brandFor, signedTeamEmail, signerConfirmationEmail } from '@/server/notifications/campaign-mail'
 import { campaignFor } from '@/server/documents/send-agreement'
+import { createTasksAfterSignature } from '@/server/follow-up/tasks'
 import { cleanOverrides } from '@/lib/message-template'
 import { projectNotificationSettings } from '@/server/projects/notification-settings'
 import { mintAdditionalSigningLink } from '@/server/documents/send-agreement'
@@ -178,6 +179,10 @@ export async function completeSigning(input: {
   // Notifications last, and never inside the transaction: a mail failure must
   // not roll back a completed signature.
   await notifyAfterSigning(input.context, input.token ?? null).catch(() => {})
+
+  // A campaign may ask for a follow-up task per signature ("הקמת מוצר
+  // באתר"). Best effort, after the fact: the signature is final either way.
+  await createTasksAfterSignature(input.context.agreementId).catch(() => {})
 
   // Nothing is pushed to the CRM here: uploading the signed PDF to Fireberry
   // is a button the user presses, never an automatic side effect of a signature.

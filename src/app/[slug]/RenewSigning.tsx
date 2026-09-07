@@ -35,9 +35,9 @@ export function RenewSigning({ slug, formId, token, registrationId, maskedPhone 
   return (
     <div className="tj-flow">
       <section className="tj-card tj-center">
-        <h1 className="tj-h1">הקישור הזה כבר לא בתוקף</h1>
+        <h1 className="tj-h1">ממשיכים לחתימה</h1>
         <p className="tj-lead">
-          שום דבר לא אבד. נשלח קוד חדש{maskedPhone ? ` לטלפון ${maskedPhone}` : ' לטלפון שבו נרשמתם'}, ותמשיכו בדיוק מאותו מקום — אותו הסכם, בלי להירשם מחדש.
+          קבלו קוד{maskedPhone ? ` לטלפון ${maskedPhone}` : ' לטלפון שבו נרשמתם'} כדי להמשיך מהמקום שבו עצרתם. שום דבר לא אבד: אותו הסכם, בלי להירשם מחדש.
         </p>
         <button type="button" onClick={() => void renew()} disabled={busy} className="tj-primary" style={{ minHeight: 56, fontSize: '1.1rem', width: '100%', maxWidth: 420 }}>
           {busy ? 'שולחים קוד…' : 'שלחו לי קוד והמשיכו לחתימה'}

@@ -7,6 +7,9 @@ import { useEffect, useRef } from 'react'
  * row's full story opens, so tables can stay summaries. Closes on the
  * backdrop, on Escape, and on the close button; keeps focus inside.
  */
+/** Static class names: Tailwind only emits what it can read, so `sm:${width}` would never exist. */
+const DESKTOP_WIDTH: Record<string, string> = { 'max-w-md': 'sm:max-w-md', 'max-w-lg': 'sm:max-w-lg', 'max-w-xl': 'sm:max-w-xl', 'max-w-2xl': 'sm:max-w-2xl' }
+
 export function Drawer({
   open,
   onClose,
@@ -63,7 +66,7 @@ export function Drawer({
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        className={`flex max-h-[92dvh] w-full flex-col rounded-t-2xl bg-surface shadow-xl sm:h-full sm:max-h-none sm:${width} sm:rounded-none sm:border-e sm:border-line`}
+        className={`flex max-h-[92dvh] w-full flex-col rounded-t-2xl bg-surface shadow-xl sm:h-full sm:max-h-none ${DESKTOP_WIDTH[width] ?? DESKTOP_WIDTH['max-w-lg']} sm:rounded-none sm:border-e sm:border-line`}
       >
         <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
           <div className="min-w-0 flex-1 text-base font-semibold text-fg">{title}</div>

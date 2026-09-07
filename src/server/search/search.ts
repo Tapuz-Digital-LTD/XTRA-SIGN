@@ -43,7 +43,7 @@ export async function globalSearch(session: StaffSession, rawQuery: string): Pro
     db
       .select({ id: schema.groups.id, name: schema.groups.name, campaignKind: schema.groups.campaignKind })
       .from(schema.groups)
-      .where(and(eq(schema.groups.organizationId, session.organizationId), isNull(schema.groups.deletedAt), ilike(schema.groups.name, like)))
+      .where(and(eq(schema.groups.organizationId, session.organizationId), isNull(schema.groups.deletedAt), isNull(schema.groups.systemKey), ilike(schema.groups.name, like)))
       .orderBy(desc(schema.groups.createdAt))
       .limit(LIMIT_PER_KIND),
     db

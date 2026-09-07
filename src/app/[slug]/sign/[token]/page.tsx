@@ -6,6 +6,7 @@ import type { RegistrationValues } from '@/lib/self-service-registration'
 import { AUDIT_EVENTS } from '@/server/audit'
 import { getDb, schema } from '@/server/db'
 import { selfServiceOriginOf } from '@/server/self-service/agreement-skin'
+import { renewQuietly } from '@/server/signing/continue'
 import { hasVerifiedSession, isSignable, resolveSigningToken } from '@/server/signing/session'
 import { CampaignFrame } from '../../CampaignFrame'
 import { ClosedView } from '../../ClosedView'
@@ -37,7 +38,13 @@ export default async function ResumeSigningPage({
   const project = await campaignProject(slug, `/sign/${token}`, query)
   const context = await resolveSigningToken(token)
 
-  if (!context) return <Renew slug={slug} formId={project.formId} token={token} />
+  if (!context) {
+    // The permission behind the link ran out; the browser that already proved
+    // the phone gets a fresh one with no screen in between.
+    const quiet = await renewQuietly(token)
+    if (quiet) redirect(quiet.path)
+    return <Renew slug={slug} formId={project.formId} token={token} />
+  }
   if (!project.completionAllowed && context.status !== 'signed') {
     return <ClosedView slug={slug} state={project.closed ?? 'ended'} campaignName={project.projectName} message={project.endedMessage} logoSrc={`${skinByKey(project.config.skin)?.assetsPath ?? ''}/logo.webp`} website={project.orgWebsite} />
   }

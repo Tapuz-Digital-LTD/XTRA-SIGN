@@ -3,6 +3,8 @@ import { validateCompanyFields, type CompanyFieldErrors } from '@/lib/company-va
 import { normalizeIsraeliPhone } from '@/lib/phone'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
+import { isUuid } from '@/server/documents/authorization'
+import { tagsForCompanies, type Tag } from '@/server/tags/tags'
 
 /**
  * Suppliers and customers — the parties an organization signs with.
@@ -65,6 +67,15 @@ export type CompanyListItem = CompanyRow & {
   signedCount: number
   pendingCount: number
   lastActivityAt: Date | null
+  tags: Tag[]
+}
+
+/** The `?tags=` filter of a list screen: 'all' needs every tag, 'any' one of them. */
+export type TagFilter = { ids: string[]; mode: 'all' | 'any' }
+
+export function parseTagFilter(tags: string | undefined, mode: string | undefined): TagFilter | undefined {
+  const ids = (tags ?? '').split(',').map((v) => v.trim()).filter(Boolean)
+  return ids.length > 0 ? { ids, mode: mode === 'any' ? 'any' : 'all' } : undefined
 }
 
 export type { CompanyFieldErrors }
@@ -315,6 +326,8 @@ export async function listCompanies(
   archived = false,
   /** One side only: the CRM mirror or XTRA Sign's own records. Omitted, both. */
   source?: CompanySource,
+  /** Only companies carrying these tags — all of them, or any one. */
+  tagFilter?: TagFilter,
 ): Promise<CompanyListItem[]> {
   const db = getDb()
   const a = schema.agreements
@@ -336,6 +349,25 @@ export async function listCompanies(
         where ${schema.companyGroups.companyId} = ${schema.companies.id}
           and ${schema.companyGroups.groupId} = ${groupId}
       )`,
+    )
+  }
+  if (tagFilter) {
+    const tagIds = tagFilter.ids.filter(isUuid)
+    if (tagIds.length === 0) return []
+    const inTags = sql.join(tagIds.map((id) => sql`${id}::uuid`), sql`, `)
+    // Same exists-not-join reasoning as groups: a company has many tags.
+    conditions.push(
+      tagFilter.mode === 'any'
+        ? sql`exists (
+            select 1 from ${schema.companyTags}
+            where ${schema.companyTags.companyId} = ${schema.companies.id}
+              and ${schema.companyTags.tagId} in (${inTags})
+          )`
+        : sql`(
+            select count(distinct ${schema.companyTags.tagId}) from ${schema.companyTags}
+            where ${schema.companyTags.companyId} = ${schema.companies.id}
+              and ${schema.companyTags.tagId} in (${inTags})
+          ) = ${tagIds.length}`,
     )
   }
   const term = search?.trim()
@@ -387,18 +419,21 @@ export async function listCompanies(
   ]
   if (!session.isAdmin) countConditions.push(eq(a.ownerId, session.userId))
 
-  const stats = await db
-    .select({
-      companyId: a.companyId,
-      documentCount: sql<number>`count(*)`,
-      signedCount: sql<number>`count(*) filter (where ${a.status} = 'signed')`,
-      pendingCount: sql<number>`count(*) filter (where ${a.status} in ('sent','viewed'))`,
-      lastActivityAt: sql<Date | null>`max(${a.createdAt})`,
-    })
-    .from(a)
-    .innerJoin(schema.companies, eq(schema.companies.id, a.companyId))
-    .where(and(...countConditions))
-    .groupBy(a.companyId)
+  const [stats, tagsById] = await Promise.all([
+    db
+      .select({
+        companyId: a.companyId,
+        documentCount: sql<number>`count(*)`,
+        signedCount: sql<number>`count(*) filter (where ${a.status} = 'signed')`,
+        pendingCount: sql<number>`count(*) filter (where ${a.status} in ('sent','viewed'))`,
+        lastActivityAt: sql<Date | null>`max(${a.createdAt})`,
+      })
+      .from(a)
+      .innerJoin(schema.companies, eq(schema.companies.id, a.companyId))
+      .where(and(...countConditions))
+      .groupBy(a.companyId),
+    tagsForCompanies(session.organizationId, ids),
+  ])
 
   const byId = new Map(stats.map((s) => [s.companyId, s]))
 
@@ -410,6 +445,7 @@ export async function listCompanies(
       signedCount: Number(s?.signedCount ?? 0),
       pendingCount: Number(s?.pendingCount ?? 0),
       lastActivityAt: s?.lastActivityAt ? new Date(s.lastActivityAt) : null,
+      tags: tagsById.get(c.id) ?? [],
     }
   })
 }

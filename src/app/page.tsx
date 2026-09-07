@@ -1,9 +1,11 @@
-import { FolderPlus, Send } from 'lucide-react'
+import { FolderPlus } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { getSession } from '@/server/auth/session'
 import { getDashboardOverview } from '@/server/dashboard/overview'
+import { QuickSendLauncher } from '@/components/quick-send/QuickSendLauncher'
+import { listTemplates } from '@/server/templates/templates'
 
 /**
  * Home: two things you can do, four numbers that matter, and what happened
@@ -38,21 +40,19 @@ export default async function HomePage() {
   const session = await getSession()
   if (!session) redirect('/login')
 
-  const data = await getDashboardOverview(session)
+  const [data, templates] = await Promise.all([
+    getDashboardOverview(session),
+    listTemplates(session).then((all) => all.filter((t) => t.signatureCount > 0 && t.pageCount !== null).map((t) => ({ id: t.id, name: t.name }))),
+  ])
 
   return (
     <AppShell>
       <h1 className="text-2xl font-bold tracking-tight text-fg">שלום, {session.name.split(' ')[0]}</h1>
+      <p className="mt-1 text-sm text-muted">מכאן שולחים מסמך לחתימה לנמען אחד, או פותחים קמפיין לאיסוף פניות ולהחתמה של רבים.</p>
 
       {/* The two things this system exists for. */}
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <Link
-          href="/documents/new"
-          className="flex min-h-20 items-center justify-center gap-3 rounded-xl bg-brand px-6 text-lg font-semibold text-white transition hover:opacity-90"
-        >
-          <Send aria-hidden="true" className="size-5 -scale-x-100" />
-          שלח מסמך לחתימה
-        </Link>
+        <QuickSendLauncher templates={templates} />
         <Link
           href="/projects?new=1"
           className="flex min-h-20 items-center justify-center gap-3 rounded-xl border-2 border-line bg-surface px-6 text-lg font-semibold text-fg transition hover:border-brand"
@@ -64,7 +64,7 @@ export default async function HomePage() {
 
       <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Counter href="/agreements?filter=pending" label="ממתינים לחתימה" value={data.counts.pending} />
-        <Counter href="/projects" label="לידים חדשים" value={data.newLeads} />
+        <Counter href="/projects" label="פניות חדשות" value={data.newLeads} />
         <Counter href="/agreements?filter=pending" label="עומדים לפוג" value={data.expiringSoon} />
         <Counter href="/agreements?filter=attention" label="דורשים טיפול" value={data.attentionCount} />
       </div>
@@ -78,7 +78,7 @@ export default async function HomePage() {
         </div>
         {data.recentActivity.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-muted">
-            עדיין אין פעילות. שליחת המסמך הראשון לחתימה תופיע כאן.
+            עדיין אין פעילות — המסמך הראשון שתשלחו לחתימה יופיע כאן.
           </p>
         ) : (
           <ul className="divide-y divide-line">

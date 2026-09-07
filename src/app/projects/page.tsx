@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { EmptyState } from '@/components/EmptyState'
+import { ScrollRestore } from '@/components/nav/ScrollRestore'
 import { NewCampaignWizard } from '@/components/projects/NewCampaignWizard'
 import { ProjectsList } from '@/components/projects/ProjectsList'
 import { ProjectsSearch } from '@/components/projects/ProjectsSearch'
@@ -39,17 +40,18 @@ export default async function CampaignsPage({
 
   const tabs = [
     { key: 'all', href: '/projects', label: 'הכול' },
-    { key: 'inquiries', href: '/projects?view=inquiries', label: 'איסוף פניות' },
+    { key: 'inquiries', href: '/projects?view=inquiries', label: 'איסוף פניות (לידים)' },
     { key: 'signing', href: '/projects?view=signing', label: 'החתמה על מסמכים' },
     { key: 'archive', href: '/projects?view=archive', label: 'ארכיון' },
   ]
 
   return (
     <AppShell>
+      <ScrollRestore />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-fg">קמפיינים</h1>
-          <p className="mt-1 text-sm text-muted">כאן פותחים קמפיין, רואים מי נרשם ומי חתם, ושולחים מסמכים ותזכורות.</p>
+          <p className="mt-1 text-sm text-muted">כל הקמפיינים שלכם: לאיסוף פניות או להחתמה על מסמכים.</p>
         </div>
         <NewCampaignWizard
           owners={owners.filter((u) => !u.disabled).map((u) => ({ id: u.id, name: u.name, email: u.email }))}
@@ -89,7 +91,7 @@ export default async function CampaignsPage({
           ) : (
             <EmptyState
               title="עדיין אין קמפיינים"
-              description="קמפיין אוסף פניות דרך טופס, או מחתים אנשים על מסמכים. מתחילים בשאלה אחת: מה תרצו לעשות?"
+              description="כשתפתחו קמפיין, הוא יופיע כאן עם מי שנרשם ומי שחתם."
               actionIcon="+"
               actionLabel="קמפיין חדש"
               actionHref="/projects?new=1"
@@ -104,6 +106,7 @@ export default async function CampaignsPage({
               campaignKind: p.campaignKind,
               goal: p.goal,
               entry: p.entry,
+              kind: p.kind,
               companyCount: p.companyCount,
               registrations: p.registrations,
               signed: p.signed,

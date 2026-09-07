@@ -6,7 +6,9 @@ import { useState } from 'react'
 import { CompanyForm } from '@/components/companies/CompanyForm'
 import { LINKED_NOTE, SourceBadge, isLinked, sourceOf } from '@/components/companies/SourceBadge'
 import { withSource } from '@/components/companies/SourceGate'
+import { TagPicker } from '@/components/tags/TagPicker'
 import type { CompanyRow } from '@/server/companies/companies'
+import type { Tag } from '@/server/tags/tags'
 
 /**
  * A company's identity and the two actions on it — edit and remove. Kept a
@@ -18,11 +20,14 @@ export function CompanyHeader({
   crmAppUrl,
   isAdmin,
   startEditing = false,
+  tags = [],
 }: {
   company: CompanyRow
   noun: string
   crmAppUrl: string | null
   isAdmin: boolean
+  /** The company's tags — XTRA-level labels, never written to the CRM. */
+  tags?: Tag[]
   /** Opened from a list's "עריכה": the form is already showing. */
   startEditing?: boolean
 }) {
@@ -130,6 +135,13 @@ export function CompanyHeader({
           ))}
         </dl>
       ) : null}
+
+      <div className="mt-4">
+        <p className="text-xs font-medium text-muted">תגים</p>
+        <div className="mt-1.5">
+          <TagPicker companyId={company.id} tags={tags} />
+        </div>
+      </div>
 
       {company.notes ? (
         <p className="mt-4 whitespace-pre-wrap rounded-lg bg-bg p-3 text-sm text-fg">

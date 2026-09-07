@@ -284,12 +284,15 @@ export function GroupWorkspace({
 
       {companies.length === 0 ? (
         <div className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center">
-          <p className="text-sm font-medium text-fg">{search ? 'לא נמצאו ספקים מתאימים' : 'אין ספקים בפרויקט עדיין'}</p>
-          <p className="mt-1 text-sm text-muted">
-            {search
-              ? 'נסו חיפוש אחר.'
-              : 'מוסיפים ספקים קיימים, מייבאים רשימה מ-Excel, או מפעילים טופס הצטרפות בלשונית ההגדרות.'}
+          <p className="text-base font-semibold text-fg">{search ? 'לא נמצאו ספקים או לקוחות מתאימים' : 'עדיין לא נוספו ספקים או לקוחות'}</p>
+          <p className="mt-2 text-sm text-muted">
+            {search ? 'נסו חיפוש אחר.' : 'בחרו רשומות קיימות מתוך XTRA Sign או CRM כדי לצרף אותן לקמפיין.'}
           </p>
+          {!search ? (
+            <div className="mt-5 flex justify-center">
+              <AddCompaniesDialog groupId={groupId} label="הוספת ספקים או לקוחות" primary />
+            </div>
+          ) : null}
         </div>
       ) : (
         <>

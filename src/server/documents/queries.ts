@@ -1,6 +1,7 @@
 import { and, desc, eq, ilike, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm'
 import { normalizeIsraeliPhone } from '@/lib/phone'
 import type { StaffSession } from '@/server/auth/session'
+import { attentionForAgreements, STALE_AFTER_DAYS, topReason, type AttentionReason } from '@/server/attention/attention'
 import { getDb, schema } from '@/server/db'
 import type { AgreementStatus } from '@/lib/status'
 
@@ -34,8 +35,8 @@ export type DocumentListItem = {
   lastActivityAt: Date
   /** The last audit event type, so the date can be worded ("נחתם", "נצפה"). */
   lastActivityType: string | null
-  /** True when a send attempt is on record as having failed. */
-  hasSendFailure: boolean
+  /** The worst thing on it that needs a person, or null. See server/attention. */
+  attention: AttentionReason | null
   /** How many versions this document has had, counting itself. */
   versionCount: number
   expiresAt: Date | null
@@ -60,13 +61,6 @@ const FILTER_STATUSES: Record<'pending' | 'signed' | 'drafts' | 'viewed' | 'expi
   expired: ['expired'],
   canceled: ['canceled', 'declined'],
 }
-
-/**
- * How long a viewed-but-unsigned document waits before it counts as stuck.
- * The same threshold the reminder job uses, so the screen and the reminders
- * cannot disagree about what "waiting too long" means.
- */
-const STALE_AFTER_DAYS = 3
 
 /**
  * Excludes a version that something else supersedes.
@@ -147,28 +141,69 @@ export async function listDocuments(
   }
 
   // "Needs attention" is a question about the data, not a status someone sets.
-  // Everything here is derivable from what the system already records — no
-  // event was invented to make the tab work.
+  // The rules here are the SQL twin of attentionForAgreements (a–e there): the
+  // tab must list exactly the rows that carry a reason, and nothing else.
   if (filter === 'attention') {
     const stale = sql`now() - ${sql.raw(`interval '${STALE_AFTER_DAYS} days'`)}`
+    const openStatus = inArray(schema.agreements.status, ['sent', 'viewed'])
+    const linkAlive = or(isNull(schema.agreements.expiresAt), sql`${schema.agreements.expiresAt} >= now()`)
     conditions.push(
       or(
-        // Filed under nobody, so it is only ever findable in this list.
-        isNull(schema.agreements.companyId),
-        // The signing link has run out while the document was still open.
+        // (d) Filed under nobody, so it is only ever findable in this list —
+        // unless a tracked person (invitation, direct send) is behind it.
+        and(isNull(schema.agreements.companyId), sql`not exists (select 1 from ${schema.projectLeads} pl where pl.agreement_id = ${schema.agreements.id})`),
+        // (c) The signing link has run out while the document was still open.
+        and(openStatus, isNotNull(schema.agreements.expiresAt), lt(schema.agreements.expiresAt, sql`now()`)),
+        // (e) Opened, then nothing — for as long as a reminder waits, with no
+        // reminder in that window. A dead link is (c)'s problem, not a reminder's.
         and(
-          inArray(schema.agreements.status, ['sent', 'viewed']),
-          isNotNull(schema.agreements.expiresAt),
-          lt(schema.agreements.expiresAt, sql`now()`),
+          eq(schema.agreements.status, 'viewed'),
+          lt(schema.agreements.sentAt, stale),
+          linkAlive,
+          sql`not exists (
+            select 1 from ${schema.auditEvents} r
+            where r.agreement_id = ${schema.agreements.id} and r.type = 'reminder_sent' and r.created_at > ${stale}
+          )`,
         ),
-        // Opened, then nothing — for at least as long as a reminder waits.
-        and(eq(schema.agreements.status, 'viewed'), lt(schema.agreements.sentAt, stale)),
-        // A delivery attempt is on record as having failed.
-        sql`exists (
-          select 1 from ${schema.auditEvents} ae
-          where ae.agreement_id = ${schema.agreements.id}
-            and ae.type in ('email_failed', 'sms_failed')
-        )`,
+        // (a) A send that failed, nobody handled, and no later send of the same
+        // message on the same channel went out. A link that failed to go out
+        // only matters while the request is open; a canceled agreement has
+        // nothing left to send; a WhatsApp share counts only once the rep
+        // reported it as not sent.
+        and(
+          sql`${schema.agreements.status} <> 'canceled'`,
+          sql`exists (
+            select 1 from ${schema.messageSends} ms
+            where ms.agreement_id = ${schema.agreements.id}
+              and ms.ok = false and ms.is_test = false and ms.resolved_at is null
+              and (ms.error is distinct from 'reserved' or ms.sent_at < now() - interval '10 minutes')
+              and (ms.channel <> 'whatsapp' or ms.manual_state = 'not_sent')
+              and (ms.event not in ('invitation', 'reminder', 'registration_completed') or ${schema.agreements.status} in ('sent', 'viewed'))
+              and not exists (
+                select 1 from ${schema.messageSends} later
+                where later.agreement_id = ms.agreement_id and later.event = ms.event and later.channel = ms.channel
+                  and later.ok = true and later.sent_at > ms.sent_at
+              )
+          )`,
+        ),
+        // (b) Before snapshots existed a failure was only an audit row. Counts
+        // while open, when nothing on that channel went out later, and only
+        // for documents that have no snapshots at all.
+        and(
+          openStatus,
+          sql`not exists (select 1 from ${schema.messageSends} ms where ms.agreement_id = ${schema.agreements.id} and ms.is_test = false)`,
+          sql`exists (
+            select 1 from ${schema.auditEvents} ae
+            where ae.agreement_id = ${schema.agreements.id}
+              and ae.type in ('email_failed', 'sms_failed')
+              and not exists (
+                select 1 from ${schema.auditEvents} later
+                where later.agreement_id = ae.agreement_id
+                  and later.type = case ae.type when 'email_failed' then 'email_sent' else 'sms_sent' end
+                  and later.created_at > ae.created_at
+              )
+          )`,
+        ),
       )!,
     )
   }
@@ -232,11 +267,6 @@ export async function listDocuments(
       companyCrmRecordId: schema.companies.crmRecordId,
       createdByName: schema.users.name,
       lastAt: activity.lastAt,
-      hasSendFailure: sql<boolean>`exists (
-        select 1 from ${schema.auditEvents} ae
-        where ae.agreement_id = ${schema.agreements.id}
-          and ae.type in ('email_failed', 'sms_failed')
-      )`,
       versionCount: sql<number>`(
         with recursive chain as (
           select ${schema.agreements.id} as id, ${schema.agreements.supersedesId} as prev
@@ -274,6 +304,9 @@ export async function listDocuments(
     .limit(pageSize)
     .offset((page - 1) * pageSize)
 
+  // One batch for the page: what, if anything, each row needs a person for.
+  const reasons = await attentionForAgreements(session.organizationId, rows.map((r) => r.id), new Date(now))
+
   return {
     items: rows.map((row) => ({
       id: row.id,
@@ -301,7 +334,7 @@ export async function listDocuments(
       // `sql<Date>` annotation is a compile-time claim, not a runtime one.
       lastActivityAt: row.lastAt ? new Date(row.lastAt) : row.createdAt,
       lastActivityType: row.lastActivityType,
-      hasSendFailure: Boolean(row.hasSendFailure),
+      attention: topReason(reasons.get(row.id)),
       versionCount: Number(row.versionCount ?? 1),
     })),
     total: Number(countRow?.total ?? 0),

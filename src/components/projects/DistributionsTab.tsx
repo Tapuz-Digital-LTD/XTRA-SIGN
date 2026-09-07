@@ -101,7 +101,7 @@ export function DistributionsTab({
         <div className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-16 text-center">
           <h2 className="text-lg font-semibold text-fg">עדיין אין הפצות</h2>
           <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-            הפצה היא שליחת SMS ו/או אימייל לקהל שבוחרים — {campaignKind === 'public' ? 'קישור לעמוד הקמפיין או ' : ''}כתובת אחרת. לקמפיין יכולות להיות כמה הפצות, או אף אחת.
+            כשתשלחו SMS או אימייל לקהל שבחרתם{campaignKind === 'public' ? ' עם הקישור לעמוד הקמפיין' : ''}, ההפצה תופיע כאן עם מי קיבל ומי לא.
           </p>
           <div className="mt-6">{newButton}</div>
         </div>
