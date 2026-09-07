@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import type { GroupCompany } from '@/server/groups/groups'
 import { BulkSendDialog } from './BulkSendDialog'
+import { currentUrlFor, withReturnTo } from '@/lib/return-to'
 import { AddCompaniesDialog } from './AddCompaniesDialog'
 import { ExcelImportDialog } from './ExcelImportDialog'
 
@@ -68,6 +69,8 @@ export function GroupWorkspace({
   search: string
 }) {
   const router = useRouter()
+  // Every card opened from here comes back to this campaign, this tab, this search.
+  const here = currentUrlFor(usePathname(), useSearchParams())
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState(search)
   const [busy, setBusy] = useState(false)
@@ -153,7 +156,7 @@ export function GroupWorkspace({
     if (company.lastSend?.agreementId) {
       return (
         <Link
-          href={`/documents/${company.lastSend.agreementId}`}
+          href={withReturnTo(`/documents/${company.lastSend.agreementId}`, here)}
           className="inline-flex min-h-9 items-center rounded-lg border border-line bg-surface px-3 text-xs font-medium text-fg transition hover:border-brand"
         >
           צפייה בהסכם
@@ -310,7 +313,7 @@ export function GroupWorkspace({
                       aria-label={`בחירת ${company.name}`}
                     />
                     <span className="min-w-0">
-                      <Link href={`/companies/${company.id}`} className="block truncate font-medium text-fg hover:underline">
+                      <Link href={withReturnTo(`/companies/${company.id}`, here)} className="block truncate font-medium text-fg hover:underline">
                         {company.name}
                       </Link>
                       <span className="mt-0.5 block truncate text-xs text-muted">
@@ -359,7 +362,7 @@ export function GroupWorkspace({
                       />
                     </td>
                     <td className="px-4 py-3">
-                      <Link href={`/companies/${company.id}`} className="block truncate font-medium text-fg hover:underline">
+                      <Link href={withReturnTo(`/companies/${company.id}`, here)} className="block truncate font-medium text-fg hover:underline">
                         {company.name}
                       </Link>
                       <span className="block truncate text-xs text-muted">{company.fromCrm ? 'CRM' : 'XTRA Sign'}</span>

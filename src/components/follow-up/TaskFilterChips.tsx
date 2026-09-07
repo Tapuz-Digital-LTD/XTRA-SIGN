@@ -26,12 +26,18 @@ export function TaskFilterChips({ projectId, version = 0 }: { projectId: string;
   const [counts, setCounts] = useState<Counts | null>(null)
 
   useEffect(() => {
-    const controller = new AbortController()
-    fetch(`/api/projects/${projectId}/tasks?status=not_needed`, { signal: controller.signal })
+    // A late answer for a screen that is gone is ignored, not aborted: an
+    // aborted fetch shows up as a console error in development.
+    let live = true
+    fetch(`/api/projects/${projectId}/tasks?status=not_needed`)
       .then(async (r) => (r.ok ? ((await r.json()) as { counts?: Counts }) : null))
-      .then((data) => setCounts(data?.counts ?? null))
+      .then((data) => {
+        if (live) setCounts(data?.counts ?? null)
+      })
       .catch(() => {})
-    return () => controller.abort()
+    return () => {
+      live = false
+    }
   }, [projectId, version])
 
   if (!counts || Object.values(counts).every((n) => n === 0)) return null
