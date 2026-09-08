@@ -42,6 +42,12 @@ export const CROPS: Box[] = [
   // The closing script's own crop starts further left, at 653, and is drawn
   // on top — the two show the same pixels there, so the overlap is invisible.
   { name: 'scene', left: 0, top: 0, right: 682, bottom: 1600 },
+  // Below the copy the landscape reaches much further right — to x≈850 at the
+  // closing line — and cutting it at 682 left the last letter of that line
+  // half on rock and half on navy. This is the rest of it, an exact crop. The
+  // white card and the closing line are inside it, and the page draws both
+  // over their own pixels, in the same places.
+  { name: 'scene-foot', left: 682, top: 1040, right: 850, bottom: 1600 },
   // The production company's mark, white on navy, top right.
   { name: 'producer-logo', left: 1296, top: 54, right: 1512, bottom: 166, keyed: true },
   // Handwritten and display type: no font ships these. The boxes stop
@@ -110,9 +116,12 @@ async function keyOut(box: Box) {
     // How much of the pixel is not explained by the ink: colour that moved
     // somewhere else is background, not a soft edge.
     const off = Math.sqrt([0, 1, 2].reduce((a, c) => a + (p[c] - t * dir[c]) ** 2, 0))
-    // Below a twentieth of the ink there is no letter, only compression and
-    // the poster's vignette; that floor is cut away and the rest restretched.
-    const a = off > 20 ? 0 : Math.max(0, Math.min(1, (t - 0.05) / 0.95))
+    // Colour that moved somewhere other than towards the ink is background,
+    // but the judgement is a ramp rather than a cliff: a hard cut leaves the
+    // letters with stepped, crawling edges where the JPEG blurred them.
+    const along = Math.max(0, Math.min(1, (t - 0.04) / 0.94))
+    const belongs = Math.max(0, Math.min(1, (26 - off) / 14))
+    const a = along * belongs
     rgba[i * 4] = ink[0]
     rgba[i * 4 + 1] = ink[1]
     rgba[i * 4 + 2] = ink[2]

@@ -115,6 +115,7 @@ export default async function TourismCallPage({
             header above. It sits here in the source so a phone reads the
             campaign's name before it meets the picture. */}
         <img src="/tourism-2026/scene.webp" alt="" className="tl-scene" width={682} height={1600} fetchPriority="high" />
+        <img src="/tourism-2026/scene-foot.webp" alt="" className="tl-scene-foot" width={168} height={560} loading="lazy" />
 
         <p className="tl-lede">{LEDE}</p>
         <p className="tl-body">

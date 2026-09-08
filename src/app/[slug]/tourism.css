@@ -91,7 +91,12 @@
 
 .tl-canvas {
   position: relative;
-  width: min(100%, 1600px);
+  /* The poster grows with the screen instead of stopping at 1600 and leaving
+     bars: every measure below is a share of this width, so the composition
+     is the artwork's at any size. Past 2000 it stops growing and keeps the
+     left edge, where the landscape is — the navy field is what widens, on
+     the right, where the artwork has navy anyway. */
+  width: min(100%, 2000px);
   margin: 0 auto;
   container-type: inline-size;
 }
@@ -131,6 +136,17 @@
   /* The landscape. It is cut where the copy begins, and the fade the artwork
      paints from there into the navy field is finished here, so the cut has
      no edge of its own. */
+  /* The foot of the landscape, past the copy column and short of the card.
+     An exact crop, so it needs no fade of its own. */
+  img.tl-scene-foot {
+    left: 42.625%;
+    top: 65%;
+    width: 10.5%;
+    height: 35%;
+    object-fit: cover;
+    z-index: 1;
+  }
+
   img.tl-scene {
     left: 0;
     top: 0;
@@ -143,8 +159,9 @@
 
   /* The artwork's fade does not stop where the crop does — it keeps dimming
      into the navy field for another hundred pixels. Continuing it here is
-     what stops the crop from reading as a straight cut down the page. */
-  .tl-canvas::after {
+     what stops the crop from reading as a straight cut down the page. It is
+     ::before so the strip of landscape below can paint over it. */
+  .tl-canvas::before {
     content: '';
     position: absolute;
     left: 42.625%;
@@ -249,11 +266,13 @@
     z-index: 2;
   }
 
+  /* The line under the pink title starts where the title starts, not where
+     the paragraph above it ends. */
   .tl-sub {
-    right: 8.875%;
+    right: 4.5%;
     top: 48.5625%;
-    width: 45%;
-    font-size: 1.36cqw;
+    width: 50%;
+    font-size: 1.5cqw;
     line-height: 1.875cqw;
     color: var(--tl-text-dim);
   }
@@ -390,48 +409,10 @@
   }
 }
 
-/* Wider than the canvas, the composition stays 1600 units — but the
-   landscape must still reach the edge of the screen, or the poster reads as
-   a picture pasted in the middle of a navy page. The strip beside it carries
-   the photograph's own left column: sky, then the valley, then the rock, in
-   the colours measured off the artwork every hundred pixels. */
-@media (min-width: 1601px) {
-  /* The photograph's own left edge dissolves into that strip, so the join
-     between the detail and the colour has no line of its own. */
-  img.tl-scene {
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 3.5%);
-    mask-image: linear-gradient(to right, transparent, #000 3.5%);
-  }
-
-  .tl-canvas::before {
-    content: '';
-    position: absolute;
-    right: 100%;
-    top: 0;
-    width: 50vw;
-    height: 100%;
-    background: linear-gradient(
-      to bottom,
-      #9da8b3 0%,
-      #9daab5 6.25%,
-      #92a4b2 12.5%,
-      #648197 18.75%,
-      #5d6762 25%,
-      #786a5b 31.25%,
-      #a68c7d 37.5%,
-      #987a69 43.75%,
-      #8c6c59 50%,
-      #ad8e79 56.25%,
-      #9a806c 62.5%,
-      #9e816e 68.75%,
-      #b19f92 75%,
-      #b9aca1 81.25%,
-      #a99d94 87.5%,
-      #b1a7a1 93.75%,
-      #bb899c 100%
-    );
-    z-index: 1;
-    pointer-events: none;
+@media (min-width: 2001px) {
+  .tl-canvas {
+    margin-left: 0;
+    margin-right: auto;
   }
 }
 
@@ -455,10 +436,10 @@
     align-self: stretch;
     /* Tall enough to be the page's own floor, and to hold the button that
        follows the reader — cyan on pink, as the poster has it. */
-    height: calc(150px + env(safe-area-inset-bottom));
-    margin: 22px -20px 0;
+    height: calc(132px + env(safe-area-inset-bottom));
+    margin: 12px -20px 0;
     background: var(--tl-pink);
-    clip-path: polygon(0 100%, 100% 42%, 100% 100%);
+    clip-path: polygon(0 100%, 100% 34%, 100% 100%);
   }
 
   img.tl-logo {
@@ -475,26 +456,38 @@
     width: min(25%, 108px);
   }
 
+  /* The campaign's name is the one block that reads as a lockup rather than
+     as a line of text: it is centred on the screen, the rest is not. */
   .tl-kicker {
     margin: 0;
     width: 100%;
+    align-self: center;
   }
 
   .tl-headline {
     margin: -2px 0 0;
     width: min(84%, 400px);
+    align-self: center;
   }
 
   /* The landscape as a band under the campaign's name, framed on the person
      and cropped clear of the logo standing in its sky. */
+  img.tl-scene-foot {
+    display: none;
+  }
+
+  /* The band dissolves into the navy at both edges instead of ending on a
+     line, so the picture sits in the page rather than on top of it. */
   img.tl-scene {
     align-self: stretch;
     width: calc(100% + 40px);
-    height: 205px;
-    margin: 8px -20px 4px;
+    height: 248px;
+    margin: 10px -20px 6px;
     max-width: none;
     object-fit: cover;
     object-position: 50% 56%;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 13%, #000 84%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 13%, #000 84%, transparent 100%);
   }
 
   .tl-lede,
@@ -558,30 +551,40 @@
     margin: 8px 0 0;
   }
 
+  /* The joining area on a phone: the signpost and the code stand side by
+     side on the card's first row, the arrow pointing across at the code, and
+     the words sit centred underneath them. The button follows. */
   .tl-join {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 16px;
-    margin-top: 2px;
+    margin-top: 20px;
   }
 
   .tl-join-card {
-    /* The copy takes the free column on the right; the code keeps its own
-       width on the left, where "סירקו את הברקוד משמאל" points. */
+    /* Row one: the sign on the right, the code on the left, where
+       "סירקו את הברקוד משמאל" points. Row two: the words, under both. */
     grid-template-columns: 1fr auto;
+    order: -1;
+    align-items: center;
     border-radius: 18px;
-    gap: 16px;
-    padding: 16px 18px;
+    column-gap: 12px;
+    row-gap: 14px;
+    padding: 18px;
     box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
   }
 
   .tl-qr {
     grid-column: 2;
-    width: 88px;
+    grid-row: 1;
+    width: 104px;
   }
 
   .tl-join-copy {
-    grid-column: 1;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    text-align: center;
   }
 
   .tl-join-lines {
@@ -600,17 +603,17 @@
   /* The signpost keeps its place in the design; the words under it are the
      button, at a size a thumb can hit. */
   .tl-cta {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
+    display: block;
     text-decoration: none;
   }
 
-  /* The signpost says the same three words as the button below it; on a
-     phone that reads as a mistake, so the button carries them alone. */
   .tl-cta > img {
-    display: none;
+    position: absolute;
+    top: 10px;
+    right: 18px;
+    width: min(40%, 148px);
+    z-index: 2;
+    filter: drop-shadow(-2px 5px 8px rgba(0, 0, 0, 0.28));
   }
 
   .tl-cta-label {
