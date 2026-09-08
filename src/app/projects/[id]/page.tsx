@@ -282,12 +282,21 @@ async function ReportsTab({
   for (const key of ['from', 'to', 'status', 'source', 'range'] as const) if (query[key]) params.set(key, query[key]!)
 
   return (
+
+    <>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Link href={`/reports?tab=builder&d=${Buffer.from(JSON.stringify({ entity: 'people', clauses: [{ any: [{ field: 'campaign', op: 'one_of', value: [projectId] }] }], columns: [], sort: null }), 'utf8').toString('base64url')}`} className="inline-flex min-h-11 items-center rounded-xl border border-line bg-surface px-4 text-sm font-medium text-fg hover:border-brand">
+          פתח במחולל הדוחות
+        </Link>
+        <span className="text-xs text-muted">לבחור תנאים ועמודות, לשמור דוח ולייצא לאקסל.</span>
+      </div>
     <ProjectReportView
       projectId={projectId}
       report={serializeReport(report)}
       values={{ from: query.from, to: query.to, status: query.status, source: query.source, range: query.range }}
       exportHref={`/api/projects/${projectId}/report/export?${params}`}
     />
+    </>
   )
 }
 

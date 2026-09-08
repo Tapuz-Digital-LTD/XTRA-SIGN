@@ -128,12 +128,12 @@ export async function listDocuments(
   }
 
   if (options.groupId) {
-    conditions.push(sql`exists (
+    conditions.push(sql`(exists (
       select 1 from ${schema.bulkBatchItems} bi
       join ${schema.bulkBatches} bb on bb.id = bi.batch_id
       where bi.agreement_id = ${schema.agreements.id}
         and bb.group_id = ${options.groupId}
-    )`)
+    ) or exists (select 1 from ${schema.projectLeads} cpl where cpl.agreement_id = ${schema.agreements.id} and cpl.group_id = ${options.groupId}))`)
   }
 
   if (filter !== 'all' && filter !== 'attention') {

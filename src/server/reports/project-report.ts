@@ -4,6 +4,7 @@ import { classifySource, type Utm } from '@/lib/campaign-events'
 import { formatDuration } from '@/lib/format-duration'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
+import { submittedRegistration } from '@/server/projects/registration-rules'
 import { summarizeTask, type TaskSummary } from '@/server/follow-up/labels'
 import { tasksForLeads } from '@/server/follow-up/tasks'
 import { authorizeGroup } from '@/server/groups/groups'
@@ -105,6 +106,7 @@ const STATUS_LABELS: Record<string, { label: string; tone: RegistrationRow['stat
   failed: { label: 'שליחה נכשלה', tone: 'bad' },
   pending: { label: 'בתהליך', tone: 'wait' },
   new: { label: 'דורש טיפול', tone: 'wait' },
+  invited: { label: 'הוזמן', tone: 'muted' },
   approved: { label: 'אושר', tone: 'ok' },
   converted: { label: 'נרשם', tone: 'ok' },
   rejected: { label: 'נדחה', tone: 'muted' },
@@ -249,7 +251,7 @@ async function counts(groupId: string, range: { from?: Date; to?: Date }, source
     )
 
   const [leads] = await db
-    .select({ registrations: sql<number>`count(*) filter (where ${schema.projectLeads.status} <> 'pending')` })
+    .select({ registrations: sql<number>`count(*) filter (where ${submittedRegistration()})` })
     .from(schema.projectLeads)
     .where(
       and(
@@ -307,7 +309,7 @@ async function timeline(groupId: string, range: { from?: Date; to?: Date }, sour
     .where(
       and(
         eq(schema.projectLeads.groupId, groupId),
-        sql`${schema.projectLeads.status} <> 'pending'`,
+        submittedRegistration(),
         within(sql`${schema.projectLeads.createdAt}`, effective),
         sourceMatch(source, leadUtmSource, leadReferrer),
       ),
@@ -396,7 +398,7 @@ async function sources(groupId: string, range: { from?: Date; to?: Date }): Prom
       source: sql<string | null>`${schema.projectLeads.meta}->>'utm_source'`.as('s'),
       medium: sql<string | null>`${schema.projectLeads.meta}->>'utm_medium'`.as('m'),
       referrer: sql<string | null>`${schema.projectLeads.referrer}`.as('r'),
-      registrations: sql<number>`count(*) filter (where ${schema.projectLeads.status} <> 'pending')`,
+      registrations: sql<number>`count(*) filter (where ${submittedRegistration()})`,
       signatures: sql<number>`count(*) filter (where a.status = 'signed')`,
     })
     .from(schema.projectLeads)
@@ -426,6 +428,7 @@ async function sources(groupId: string, range: { from?: Date; to?: Date }): Prom
 function rowConditions(groupId: string, filters: ProjectReportFilters): SQL {
   return and(
     eq(schema.projectLeads.groupId, groupId),
+    submittedRegistration(),
     within(sql`${schema.projectLeads.createdAt}`, { from: filters.from, to: filters.to }),
     sourceMatch(filters.source, leadUtmSource, leadReferrer),
     filters.status ? STATUS_SETS[filters.status] : sql`true`,
