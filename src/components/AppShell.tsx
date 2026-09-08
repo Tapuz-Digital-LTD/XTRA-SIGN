@@ -54,7 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           behind the hamburger — a scrolling strip of tiny tabs was crowding
           the screen it was supposed to organise. */}
       <header className="border-b border-line bg-surface">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="flex items-center justify-between gap-2 py-3 lg:justify-start lg:gap-4">
             <button
               type="button"
@@ -99,7 +99,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   key={item.href}
                   href={item.href}
                   aria-current={isActive(pathname, item.href) ? 'page' : undefined}
-                  className={`inline-flex min-h-11 items-center rounded-lg px-3 text-sm transition-colors hover:bg-slate-100 hover:text-fg ${
+                  className={`inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-lg px-3 text-sm transition-colors hover:bg-slate-100 hover:text-fg ${
                     isActive(pathname, item.href) ? 'bg-slate-100 font-semibold text-fg' : 'text-muted'
                   }`}
                 >
@@ -172,7 +172,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       ) : null}
 
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">{children}</main>
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">{children}</main>
     </div>
   )
 }
