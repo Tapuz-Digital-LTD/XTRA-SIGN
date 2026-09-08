@@ -53,7 +53,7 @@ async function main() {
     check(tabs.join('|').includes('פניות והצטרפות') && tabs.join('|').includes('ספקים/לקוחות') && tabs.join('|').includes('הסכמים'), '1. campaign opens with the agreed tabs', tabs.join(' | '))
 
     // 2. Send an invitation by SMS.
-    await page.goto(`${BASE}/projects/${id}?tab=joining&view=waiting`, { waitUntil: 'networkidle0', timeout: 90000 })
+    await page.goto(`${BASE}/projects/${id}?tab=joining&view=invitations`, { waitUntil: 'networkidle0', timeout: 90000 })
     await clickText(page, 'שליחת הזמנה')
     await page.waitForSelector('[role="dialog"]', { timeout: 5000 })
     const stamp = Date.now()
@@ -118,7 +118,7 @@ async function main() {
     }
 
     // 4. Send a reminder from the tracking tab (a person waiting for a signature).
-    await page.goto(`${BASE}/projects/${id}?tab=joining&view=waiting`, { waitUntil: 'networkidle0', timeout: 90000 })
+    await page.goto(`${BASE}/projects/${id}?tab=joining&view=invitations`, { waitUntil: 'networkidle0', timeout: 90000 })
     const waitingRow = await page.$('tbody tr')
     if (waitingRow) {
       await waitingRow.evaluate((tr) => (tr as HTMLElement).click())

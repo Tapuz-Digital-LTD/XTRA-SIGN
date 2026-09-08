@@ -53,7 +53,7 @@ async function main() {
     await page.setCookie({ name: 'xtra_sign_session', value: SESSION, url: BASE })
 
     // 1. invited only → follow-up block present.
-    await page.goto(`${BASE}/projects/${g.id}?tab=joining&view=waiting`, { waitUntil: 'networkidle0', timeout: 90000 })
+    await page.goto(`${BASE}/projects/${g.id}?tab=joining&view=invitations`, { waitUntil: 'networkidle0', timeout: 90000 })
     const invitedRow = await page.$('tbody tr')
     if (invitedRow) {
       await invitedRow.evaluate((tr) => (tr as HTMLElement).click())

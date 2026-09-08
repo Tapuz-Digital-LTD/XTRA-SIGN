@@ -84,13 +84,26 @@ export function CampaignOverview({
         </Link>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {cards.map((c) => (
-          <div key={c.label} className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
-            <p className="text-xs text-muted">{c.label}</p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-fg">{number.format(c.value)}</p>
-          </div>
-        ))}
+      {/* Each card is the door to the list that acts on it — a number nobody can open is just decoration. */}
+      <div className="grid grid-cols-2 gap-3 sm:[grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
+        {cards.map((c) => {
+          const body = (
+            <>
+              <p className="text-xs text-muted">{c.label}</p>
+              <p className={`mt-1 text-2xl font-bold tabular-nums ${c.tone === 'warn' && c.value > 0 ? 'text-amber-700' : 'text-fg'}`}>{number.format(c.value)}</p>
+            </>
+          )
+          const box = `rounded-[var(--radius-card)] border p-4 ${c.tone === 'warn' && c.value > 0 ? 'border-amber-300 bg-amber-50' : 'border-line bg-surface'}`
+          return c.href ? (
+            <Link key={c.label} href={c.href} className={`${box} block transition hover:border-brand`}>
+              {body}
+            </Link>
+          ) : (
+            <div key={c.label} className={box}>
+              {body}
+            </div>
+          )
+        })}
       </div>
 
       <section className="rounded-[var(--radius-card)] border border-line bg-surface p-5">

@@ -87,7 +87,7 @@ async function run(page: Page, width: number, height: number, found: Found) {
 
   // (a) campaign → קהל → company → back
   if (projectId) {
-    const audience = `/projects/${projectId}?tab=joining&view=waiting`
+    const audience = `/projects/${projectId}?tab=joining&view=invitations`
     await goto(page, audience)
     let opened = false
     for (const button of (await page.$$('button[aria-label="פעולות"]')).slice(0, 8)) {
@@ -116,7 +116,7 @@ async function run(page: Page, width: number, height: number, found: Found) {
       check(`[${tag}] a1 "חזרה" → the campaign's audience tab`, same(page.url(), audience), page.url())
     } else console.log(`SKIP [${tag}] a1 — no audience row with a company among the first rows`)
 
-    const campaign = `/projects/${projectId}?tab=joining&view=waiting&q=x`
+    const campaign = `/projects/${projectId}?tab=joining&view=invitations&q=x`
     await goto(page, campaign)
     await goto(page, `/companies/${company.id}?returnTo=${encodeURIComponent(campaign)}`)
     check(`[${tag}] a2 card label names the campaign`, (await backText(page)).includes('חזרה לקמפיין'), await backText(page))

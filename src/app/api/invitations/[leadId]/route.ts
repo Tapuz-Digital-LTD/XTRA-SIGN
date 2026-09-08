@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireSession } from '@/server/auth/session'
 import { assertSameOrigin } from '@/server/http/csrf'
 import { templateFailure } from '@/server/http/template-errors'
-import { companyMatchesFor, sendHistory, updateFollowUp, type CallOutcome } from '@/server/invitations/invitations'
+import { companyMatchesFor, removeInvitation, sendHistory, updateFollowUp, type CallOutcome } from '@/server/invitations/invitations'
 
 /** One person's details for the drawer: every message, and records they might already be. */
 export async function GET(_request: Request, context: { params: Promise<{ leadId: string }> }) {
@@ -32,6 +32,20 @@ export async function PATCH(request: Request, context: { params: Promise<{ leadI
     const result = await updateFollowUp(session, leadId, patch)
     if (!result.ok) return NextResponse.json({ error: { message: result.message } }, { status: 400 })
     return NextResponse.json({ ok: true })
+  } catch (error) {
+    return templateFailure(error)
+  }
+}
+
+/** Remove one process from the list. Refused once the agreement is signed. */
+export async function DELETE(request: Request, context: { params: Promise<{ leadId: string }> }) {
+  try {
+    assertSameOrigin(request)
+    const session = await requireSession()
+    const { leadId } = await context.params
+    const result = await removeInvitation(session, leadId)
+    if (!result.ok) return NextResponse.json({ error: { message: result.message } }, { status: 400 })
+    return NextResponse.json({ ok: true, canceledAgreement: result.canceledAgreement })
   } catch (error) {
     return templateFailure(error)
   }

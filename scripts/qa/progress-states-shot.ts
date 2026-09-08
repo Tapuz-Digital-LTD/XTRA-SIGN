@@ -75,8 +75,18 @@ async function main() {
     await page.setCookie({ name: 'xtra_sign_session', value: SESSION, url: BASE })
 
     for (const c of cases) {
-      const view = c.signed ? 'all' : 'waiting'
-      await page.goto(`${BASE}/projects/${g.id}?tab=joining&view=${view}&q=${encodeURIComponent(c.name)}`, { waitUntil: 'networkidle0', timeout: 90000 })
+      // A supplier who joined through the campaign page lives in הרשמות.
+      await page.goto(`${BASE}/projects/${g.id}?tab=joining&view=registrations&q=${encodeURIComponent(c.name)}`, { waitUntil: 'networkidle0', timeout: 90000 })
+      const inRegistrations = await readRow(page, c.name)
+      check(Boolean(inRegistrations), `${c.key}: listed in הרשמות`, c.name)
+      if (inRegistrations && c.expectRow) check(inRegistrations.text.includes(c.expectRow), `${c.key}: הרשמות row says "${c.expectRow}"`, inRegistrations.text.slice(0, 160))
+      await page.screenshot({ path: `${OUT}/${c.key}-registrations.png` })
+
+      // …and never in הזמנות ומעקב, which is our own outreach only.
+      await page.goto(`${BASE}/projects/${g.id}?tab=joining&view=invitations&q=${encodeURIComponent(c.name)}`, { waitUntil: 'networkidle0', timeout: 90000 })
+      check(!(await page.evaluate(() => document.body.innerText)).includes(c.name), `${c.key}: not shown in הזמנות ומעקב`)
+
+      await page.goto(`${BASE}/projects/${g.id}?tab=joining&view=all&q=${encodeURIComponent(c.name)}`, { waitUntil: 'networkidle0', timeout: 90000 })
       const row = await readRow(page, c.name)
       check(Boolean(row), `${c.key}: the row is listed`, c.name)
       if (row) {
@@ -113,7 +123,7 @@ async function main() {
 
     // Phone width: the same line, no sideways scroll.
     await page.setViewport({ width: 390, height: 844 })
-    await page.goto(`${BASE}/projects/${g.id}?tab=joining&view=waiting&q=${encodeURIComponent(cases[2].name)}`, { waitUntil: 'networkidle0', timeout: 90000 })
+    await page.goto(`${BASE}/projects/${g.id}?tab=joining&view=registrations&q=${encodeURIComponent(cases[2].name)}`, { waitUntil: 'networkidle0', timeout: 90000 })
     const spill = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)
     check(!spill, 'phone: no sideways scroll')
     check((await page.evaluate(() => document.body.innerText)).includes('קוד אומת'), 'phone: the proven step is on the card')

@@ -45,6 +45,9 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
   const [inviteOpen, setInviteOpen] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
+  // A process to take off the list, waiting for a yes.
+  const [removing, setRemoving] = useState<AudienceRow | null>(null)
+  const [removeBusy, setRemoveBusy] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [plan, setPlan] = useState<{ eligible: { id: string; name: string; channel: string; kind: string }[]; skipped: { id: string; name: string; why: string }[] } | null>(null)
   const [bulkBusy, setBulkBusy] = useState(false)
@@ -213,9 +216,14 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
 
       {rows.length === 0 ? (
         <div className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center">
-          <p className="text-base font-semibold text-fg">{q || view !== 'all' ? 'לא נמצא אף אחד בתצוגה הזו' : global ? 'עדיין אין הזמנות או הרשמות למעקב' : 'עדיין לא נשלחו הזמנות'}</p>
-          <p className="mt-2 text-sm text-muted">{q || view !== 'all' ? 'נסו תצוגה אחרת או חיפוש אחר.' : global ? 'הזמנות מקמפיינים ושליחות ישירות יופיעו כאן ברגע שיישלחו.' : 'שלחו קישור אישי לספק או ללקוח, גם אם הוא עדיין אינו נמצא במערכת.'}</p>
-          {!q && view === 'all' && !global ? (
+          {/* An empty list is a place to start from, not a dead end. */}
+          <p className="text-base font-semibold text-fg">
+            {q ? 'לא נמצא אף אחד בתצוגה הזו' : view === 'invitations' ? 'עדיין לא נשלחו הזמנות אישיות' : global ? 'עדיין אין הזמנות או הרשמות למעקב' : view !== 'all' ? 'לא נמצא אף אחד בתצוגה הזו' : 'עדיין לא נשלחו הזמנות'}
+          </p>
+          <p className="mt-2 text-sm text-muted">
+            {q ? 'נסו תצוגה אחרת או חיפוש אחר.' : view === 'invitations' ? 'כאן מופיעות רק הזמנות ששלחתם בעצמכם, כל עוד לא הושלמה בהן חתימה. מי שנרשם מעמוד הקמפיין מופיע בהרשמות.' : global ? 'הזמנות מקמפיינים ושליחות ישירות יופיעו כאן ברגע שיישלחו.' : view !== 'all' ? 'נסו תצוגה אחרת או חיפוש אחר.' : 'שלחו קישור אישי לספק או ללקוח, גם אם הוא עדיין אינו נמצא במערכת.'}
+          </p>
+          {!q && (view === 'all' || view === 'invitations') && !global ? (
             <button type="button" onClick={() => setInviteOpen(true)} className={`${bigButton} mt-5 bg-brand text-white`}>
               + שליחת הזמנה
             </button>
@@ -309,7 +317,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                       <span className="block text-xs">{dateFormat.format(new Date(row.lastActivityAt ?? row.createdAt))}</span>
                     </td>
                     <td className="sticky end-0 bg-surface px-2 py-3" onClick={(e) => e.stopPropagation()}>
-                      <RowMenu row={row} projectId={row.groupId || projectId} onOpen={() => setOpenId(row.id)} onNotice={setNotice} />
+                      <RowMenu row={row} projectId={row.groupId || projectId} onOpen={() => setOpenId(row.id)} onNotice={setNotice} onRemove={() => setRemoving(row)} />
                     </td>
                   </tr>
                 ))}
@@ -320,7 +328,34 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
       )}
 
       {inviteOpen ? <InviteDialog projectId={projectId} askKind={askKind} onClose={() => setInviteOpen(false)} /> : null}
-      {current ? <PersonDrawer row={current} projectId={current.groupId || projectId} onClose={() => setOpenId(null)} onNotice={setNotice} /> : null}
+      {current ? <PersonDrawer row={current} projectId={current.groupId || projectId} onClose={() => setOpenId(null)} onNotice={setNotice} onRemove={() => setRemoving(current)} /> : null}
+
+      {removing ? (
+        <ConfirmRemove
+          row={removing}
+          busy={removeBusy}
+          onCancel={() => setRemoving(null)}
+          onConfirm={async () => {
+            setRemoveBusy(true)
+            try {
+              const response = await fetch(`/api/invitations/${removing.id}`, { method: 'DELETE' })
+              const data = (await response.json().catch(() => null)) as { canceledAgreement?: boolean; error?: { message?: string } } | null
+              if (!response.ok) {
+                setNotice({ tone: 'error', text: data?.error?.message ?? 'המחיקה נכשלה.' })
+                return
+              }
+              setNotice({ tone: 'ok', text: data?.canceledAgreement ? `${removing.name} נמחק מהרשימה, וההסכם שנשלח בוטל.` : `${removing.name} נמחק מהרשימה.` })
+              setRemoving(null)
+              setOpenId(null)
+              router.refresh()
+            } catch {
+              setNotice({ tone: 'error', text: 'המחיקה נכשלה. בדקו את החיבור לאינטרנט.' })
+            } finally {
+              setRemoveBusy(false)
+            }
+          }}
+        />
+      ) : null}
     </section>
   )
 }
@@ -405,7 +440,7 @@ function WhatsappConfirm({ onConfirm }: { onConfirm: (sent: boolean) => void }) 
   )
 }
 
-function RowMenu({ row, projectId, onOpen, onNotice }: { row: AudienceRow; projectId: string; onOpen: () => void; onNotice: (n: { tone: 'ok' | 'error'; text: string }) => void }) {
+function RowMenu({ row, projectId, onOpen, onNotice, onRemove }: { row: AudienceRow; projectId: string; onOpen: () => void; onNotice: (n: { tone: 'ok' | 'error'; text: string }) => void; onRemove: () => void }) {
   const [open, setOpen] = useState(false)
   const [style, setStyle] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0, top: 0 })
   const { busy, send, whatsapp, confirmWhatsapp } = useActions(row, projectId, onNotice)
@@ -418,7 +453,7 @@ function RowMenu({ row, projectId, onOpen, onNotice }: { row: AudienceRow; proje
     return () => document.removeEventListener('mousedown', close)
   }, [open])
 
-  const items: { label: string; run: () => void }[] = [
+  const items: { label: string; run: () => void; danger?: boolean }[] = [
     { label: 'פרטים', run: onOpen },
     ...(row.status !== 'signed' && row.status !== 'failed'
       ? [
@@ -429,6 +464,8 @@ function RowMenu({ row, projectId, onOpen, onNotice }: { row: AudienceRow; proje
       : []),
     ...(row.agreementId ? [{ label: 'פתח הסכם', run: () => window.open(withReturnTo(`/documents/${row.agreementId}`, here), '_self') }] : []),
     ...(row.companyId ? [{ label: 'פתח ספק/לקוח', run: () => window.open(withReturnTo(`/companies/${row.companyId}`, here), '_self') }] : [{ label: 'הוסף כספק/לקוח', run: onOpen }]),
+    // Signed is final: it can be archived from the agreement, never deleted here.
+    ...(row.status !== 'signed' ? [{ label: 'מחיקה מהרשימה', run: onRemove, danger: true }] : []),
   ]
 
   return (
@@ -463,7 +500,7 @@ function RowMenu({ row, projectId, onOpen, onNotice }: { row: AudienceRow; proje
                     setOpen(false)
                     item.run()
                   }}
-                  className="block w-full px-4 py-2.5 text-start text-sm text-fg hover:bg-bg"
+                  className={`block w-full px-4 py-2.5 text-start text-sm hover:bg-bg ${item.danger ? 'text-red-700' : 'text-fg'}`}
                 >
                   {item.label}
                 </button>
@@ -479,7 +516,7 @@ function RowMenu({ row, projectId, onOpen, onNotice }: { row: AudienceRow; proje
 
 // ── the drawer: the whole story of one person ───────────────────────────────
 
-function PersonDrawer({ row, projectId, onClose, onNotice }: { row: AudienceRow; projectId: string; onClose: () => void; onNotice: (n: { tone: 'ok' | 'error'; text: string }) => void }) {
+function PersonDrawer({ row, projectId, onClose, onNotice, onRemove }: { row: AudienceRow; projectId: string; onClose: () => void; onNotice: (n: { tone: 'ok' | 'error'; text: string }) => void; onRemove: () => void }) {
   const router = useRouter()
   const { busy, send, whatsapp, confirmWhatsapp, hasAgreement } = useActions(row, projectId, onNotice)
   const here = currentUrlFor(usePathname(), useSearchParams())
@@ -580,6 +617,11 @@ function PersonDrawer({ row, projectId, onClose, onNotice }: { row: AudienceRow;
             ) : null}
           </div>
           {link ? <CopyButton text={link} label="העתק שוב" className="mt-2 text-xs text-brand underline" /> : null}
+          {row.status !== 'signed' ? (
+            <button type="button" onClick={onRemove} className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-800 transition hover:border-red-400">
+              מחיקה מהרשימה
+            </button>
+          ) : null}
         </section>
 
         {!row.companyId ? (
@@ -635,5 +677,36 @@ function PersonDrawer({ row, projectId, onClose, onNotice }: { row: AudienceRow;
         </section>
       </div>
     </Drawer>
+  )
+}
+
+/**
+ * Deleting is small but not reversible, so the question names exactly what
+ * goes and what stays: the process leaves the list, an agreement already sent
+ * is canceled, and the supplier or customer stays in the database.
+ */
+function ConfirmRemove({ row, busy, onCancel, onConfirm }: { row: AudienceRow; busy: boolean; onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 sm:items-center sm:p-4" onClick={onCancel}>
+      <div role="dialog" aria-modal="true" aria-labelledby="remove-title" onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-t-2xl bg-surface p-5 shadow-xl sm:rounded-2xl">
+        <h2 id="remove-title" className="text-lg font-bold text-fg">
+          למחוק את {row.name} מהרשימה?
+        </h2>
+        <ul className="mt-3 flex list-disc flex-col gap-1 ps-5 text-sm text-fg">
+          <li>הרשומה תיעלם מהקמפיין ומהמעקב.</li>
+          {row.agreementId ? <li>ההסכם שנשלח יבוטל והקישור יפסיק לעבוד.</li> : null}
+          {row.companyId ? <li>הספק/לקוח עצמו יישאר במאגר.</li> : null}
+          <li>אי אפשר לבטל את המחיקה.</li>
+        </ul>
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <button type="button" disabled={busy} onClick={onConfirm} className="inline-flex min-h-12 items-center justify-center rounded-xl bg-red-600 px-4 text-base font-semibold text-white transition hover:opacity-90 disabled:opacity-50">
+            {busy ? 'מוחקים…' : 'כן, מחק'}
+          </button>
+          <button type="button" onClick={onCancel} className="inline-flex min-h-12 items-center justify-center rounded-xl border border-line bg-surface px-4 text-base font-medium text-fg transition hover:border-brand">
+            ביטול
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }

@@ -210,9 +210,17 @@ export const REGISTRATION_TARGETS: { key: RegistrationTarget; label: string; blu
 ]
 
 /** The views inside "פניות והצטרפות": one people list, three questions. */
-export type JoiningView = 'waiting' | 'registrations' | 'all'
+/**
+ * Who we approached, who came on their own, and everything together.
+ * "הזמנות ומעקב" is our own outreach only; a person who found the campaign
+ * page and signed up belongs in "הרשמות". Someone we invited who then
+ * registered appears in both until they sign.
+ */
+export type JoiningView = 'invitations' | 'registrations' | 'all'
 export const JOINING_VIEWS: { key: JoiningView; label: string; blurb: string }[] = [
-  { key: 'waiting', label: 'ממתינים להשלמה', blurb: 'עדיין נדרשת פעולה מהם או מהצוות כדי להשלים את התהליך.' },
-  { key: 'registrations', label: 'הרשמות', blurb: 'רק מי שהגיש בפועל טופס, כולל מי שכבר סיים.' },
+  { key: 'invitations', label: 'הזמנות ומעקב', blurb: 'הזמנות אישיות ששלחנו, שעדיין לא הושלמה בהן חתימה.' },
+  { key: 'registrations', label: 'הרשמות', blurb: 'כל מי שהגיש בפועל טופס — מהזמנה או מהאתר.' },
   { key: 'all', label: 'כל התהליכים', blurb: 'היסטוריה מלאה: הזמנות, הרשמות והשלמות.' },
 ]
+/** Old links (and the previous "ממתינים להשלמה" view) still land somewhere sensible. */
+export const LEGACY_JOINING_VIEWS: Record<string, JoiningView> = { waiting: 'invitations', invited: 'invitations', tracking: 'invitations', leads: 'invitations', signed: 'all' }

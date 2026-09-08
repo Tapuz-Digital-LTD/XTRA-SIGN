@@ -29,7 +29,7 @@ import { parseProjectReportFilters, projectReport, registrationCount, registrati
 import { RegistrationsTable } from '@/components/reports/RegistrationsTable'
 import { ProjectReportView, type ProjectReportData } from '@/components/reports/ProjectReportView'
 import { missingRoles } from '@/lib/agreement-roles'
-import { describeCampaign, entryLabel, goalLabel, isCampaignKind, JOINING_VIEWS, LEGACY_TABS, TAB_INTROS, TAB_LABELS, tabsFor, type CampaignKind, type CampaignTab, type JoiningView } from '@/lib/campaigns'
+import { describeCampaign, entryLabel, goalLabel, isCampaignKind, JOINING_VIEWS, LEGACY_JOINING_VIEWS, LEGACY_TABS, TAB_INTROS, TAB_LABELS, tabsFor, type CampaignKind, type CampaignTab, type JoiningView } from '@/lib/campaigns'
 import { CampaignOverview } from '@/components/projects/CampaignOverview'
 import { DistributionsTab } from '@/components/projects/DistributionsTab'
 import type { PlacedField } from '@/lib/fields'
@@ -185,15 +185,19 @@ export default async function ProjectPage({
 
 /** סקירה — the campaign's front door: what needs attention, each card leading to the filtered view that acts on it. */
 async function OverviewTab({ projectId, projectName, campaignKind, companies, leads, session, setup }: { projectId: string; projectName: string; campaignKind: CampaignKind; companies: Awaited<ReturnType<typeof listGroupCompanies>>; leads: Awaited<ReturnType<typeof listLeads>>; session: StaffSession; setup: { pending: number; inProgress: number; done: number } | null }) {
-  const [waiting, registrations, attention, publicUrl] = await Promise.all([
-    listAudience(session, projectId, { view: 'waiting', limit: 1 }),
+  const [audience, registrations, awaitingSignature, attention, publicUrl] = await Promise.all([
+    listAudience(session, projectId, { view: 'all', limit: 1 }),
     registrationCount(projectId, {} as ReturnType<typeof parseProjectReportFilters>),
+    registrationCount(projectId, { status: 'pending' }),
     listDocuments(session, { groupId: projectId, filter: 'attention', pageSize: 1 }),
     campaignKind === 'public' ? publicAddress(session, projectId) : Promise.resolve(null),
   ])
   const signed = companies.filter((c) => c.lastSend?.status === 'signed').length
+  // The work first, then the totals. The invitations card appears only where
+  // the team actually invited people, so a self-service campaign stays plain.
   const cards = [
-    { label: 'ממתינים להשלמה', value: waiting.counts.waiting, href: `/projects/${projectId}?tab=joining&view=waiting` },
+    { label: 'ממתינים להשלמת חתימה', value: awaitingSignature, href: `/projects/${projectId}?tab=joining&view=registrations&status=pending` },
+    ...(audience.counts.invitations > 0 ? [{ label: 'הזמנות פתוחות', value: audience.counts.invitations, href: `/projects/${projectId}?tab=joining&view=invitations` }] : []),
     { label: 'הרשמות שהתקבלו', value: registrations, href: `/projects/${projectId}?tab=joining&view=registrations` },
     { label: 'הסכמים שנחתמו', value: signed, href: `/projects/${projectId}?tab=agreements&filter=signed` },
     { label: 'דורשים טיפול', value: attention.total, href: `/projects/${projectId}?tab=agreements&filter=attention`, tone: attention.total > 0 ? ('warn' as const) : undefined },
@@ -207,9 +211,9 @@ async function OverviewTab({ projectId, projectName, campaignKind, companies, le
  * and the full history (כל התהליכים). The same rows behind every view.
  */
 async function JoiningTab({ projectId, session, query, askKind, audienceNoun, publicUrl }: { projectId: string; session: StaffSession; query: Record<string, string | undefined>; askKind: boolean; audienceNoun: 'ספק' | 'לקוח'; publicUrl: string | null }) {
-  const view: JoiningView = (['waiting', 'registrations', 'all'] as const).find((v) => v === query.view) ?? 'waiting'
+  const view: JoiningView = (['invitations', 'registrations', 'all'] as const).find((v) => v === query.view) ?? LEGACY_JOINING_VIEWS[query.view ?? ''] ?? 'registrations'
   const [counts, registrations] = await Promise.all([listAudience(session, projectId, { view: 'all', limit: 1 }), registrationCount(projectId, {} as ReturnType<typeof parseProjectReportFilters>)])
-  const chips = JOINING_VIEWS.map((v) => ({ ...v, count: v.key === 'waiting' ? counts.counts.waiting : v.key === 'registrations' ? registrations : counts.counts.all }))
+  const chips = JOINING_VIEWS.map((v) => ({ ...v, count: v.key === 'invitations' ? counts.counts.invitations : v.key === 'registrations' ? registrations : counts.counts.all }))
   return (
     <div className="flex flex-col gap-4">
       <nav aria-label="תצוגות" className="grid gap-2 sm:grid-cols-3">
@@ -232,7 +236,7 @@ async function JoiningTab({ projectId, session, query, askKind, audienceNoun, pu
   )
 }
 
-async function PeopleView({ projectId, session, query, askKind, view }: { projectId: string; session: StaffSession; query: Record<string, string | undefined>; askKind: boolean; view: 'waiting' | 'all' }) {
+async function PeopleView({ projectId, session, query, askKind, view }: { projectId: string; session: StaffSession; query: Record<string, string | undefined>; askKind: boolean; view: 'invitations' | 'all' }) {
   const [audience, due] = await Promise.all([
     listAudience(session, projectId, { view, q: query.q, followUpDue: query.due === '1' }),
     listAudience(session, projectId, { followUpDue: true, limit: 200 }),

@@ -94,7 +94,7 @@ async function staffLooks(browser: Browser, groupId: string, name: string, tag: 
   const q = encodeURIComponent(name)
   const screens = [
     ['overview', `/projects/${groupId}`],
-    ['joining-waiting', `/projects/${groupId}?tab=joining&view=waiting&q=${q}`],
+    ['joining-invitations', `/projects/${groupId}?tab=joining&view=invitations&q=${q}`],
     ['joining-registrations', `/projects/${groupId}?tab=joining&view=registrations&q=${q}`],
     ['joining-all', `/projects/${groupId}?tab=joining&view=all&q=${q}`],
     ['audience', `/projects/${groupId}?tab=audience&q=${q}`],

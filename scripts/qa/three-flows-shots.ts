@@ -43,8 +43,8 @@ async function main() {
     await shot(page, '0-overview', 'סקירה with work cards')
 
     // 1. הזמנה → הרשמה → חתימה
-    await page.goto(`${BASE}/projects/${g.id}?tab=joining&view=waiting`, { waitUntil: 'networkidle0', timeout: 90000 })
-    await shot(page, '1a-joining-waiting', 'פניות והצטרפות · ממתינים להשלמה')
+    await page.goto(`${BASE}/projects/${g.id}?tab=joining&view=invitations`, { waitUntil: 'networkidle0', timeout: 90000 })
+    await shot(page, '1a-joining-invitations', 'פניות והצטרפות · הזמנות ומעקב')
     const [invite] = await page.$$('xpath/.//button[contains(., "שליחת הזמנה")]')
     if (invite) {
       await invite.evaluate((b) => (b as HTMLElement).click())
@@ -85,7 +85,7 @@ async function main() {
 
     // Phone: the picker instead of a clipped tab row.
     await page.setViewport({ width: 390, height: 844 })
-    await page.goto(`${BASE}/projects/${g.id}?tab=joining&view=waiting`, { waitUntil: 'networkidle0', timeout: 90000 })
+    await page.goto(`${BASE}/projects/${g.id}?tab=joining&view=invitations`, { waitUntil: 'networkidle0', timeout: 90000 })
     await shot(page, '4-phone-joining', 'phone · פניות והצטרפות')
   } finally {
     await browser.close()
