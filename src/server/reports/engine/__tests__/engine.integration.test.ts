@@ -124,6 +124,52 @@ describe('report engine', () => {
     expect(fields.find((f) => f.key === 'status')?.options?.some((o) => o.label === 'נחתם')).toBe(true)
   })
 
+  /**
+   * The campaign tabs export themselves through this engine, so the file has
+   * to hold what the tab holds. "הזמנות ומעקב" is our own outreach that is
+   * not signed; "הרשמות" is whoever submitted the form. If either of those
+   * definitions drifts from the screen's own test, the export quietly starts
+   * handing over a different list.
+   */
+  it("the campaign tabs' definitions: our own invitations, and who submitted a form", async () => {
+    const inCampaign = { any: [{ field: 'campaign', op: 'one_of' as const, value: [campaignId] }] }
+
+    const invited = await db
+      .insert(schema.projectLeads)
+      .values({ organizationId: orgId, groupId: campaignId, status: 'invited', source: 'invitation', data: { name: 'הוזמן ולא נרשם' }, invitedBy: session.userId })
+      .returning({ id: schema.projectLeads.id })
+
+    const ours = await runReport(session, {
+      entity: 'people',
+      clauses: [inCampaign, { any: [{ field: 'invited_by_us', op: 'is', value: true }] }, { any: [{ field: 'process_status', op: 'not_one_of', value: ['signed'] }] }],
+      columns: ['name', 'source'],
+      sort: null,
+      page: 1,
+      pageSize: 50,
+    })
+    expect(ours.rows.map((r) => r.cells.name)).toEqual(['הוזמן ולא נרשם'])
+    expect(ours.rows[0].cells.source).toBe('הזמנה אישית')
+
+    // The two who came through the form are the ones who submitted it; the
+    // invitation above never filled anything in.
+    const submitted = await runReport(session, {
+      entity: 'people',
+      clauses: [inCampaign, { any: [{ field: 'submitted', op: 'is', value: true }] }],
+      columns: ['name'],
+      sort: null,
+      page: 1,
+      pageSize: 50,
+    })
+    expect(submitted.total).toBe(2)
+    expect(submitted.rows.map((r) => r.cells.name)).not.toContain('הוזמן ולא נרשם')
+
+    // And "כל התהליכים" is every one of them.
+    const all = await runReport(session, { entity: 'people', clauses: [inCampaign], columns: ['name'], sort: null, page: 1, pageSize: 50 })
+    expect(all.total).toBe(3)
+
+    await db.delete(schema.projectLeads).where(eq(schema.projectLeads.id, invited[0].id))
+  })
+
   it('paging is on the server', async () => {
     const page1 = await runReport(session, { entity: 'suppliers', clauses: [], columns: ['name'], sort: { field: 'name', dir: 'asc' }, page: 1, pageSize: 2 })
     const page2 = await runReport(session, { entity: 'suppliers', clauses: [], columns: ['name'], sort: { field: 'name', dir: 'asc' }, page: 2, pageSize: 2 })
