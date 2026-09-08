@@ -60,6 +60,8 @@ export type RegistrationRow = {
   task: TaskSummary | null
   /** Saved on a local row because the CRM had no single match: a person should link it. */
   linkingNeeded: boolean
+  /** Staff follow-up on the registration itself. */
+  followUp: { assigneeUserId: string | null; followUpAt: string | null; callOutcome: string | null; internalNote: string | null }
 }
 
 export type ProjectReport = {
@@ -462,6 +464,11 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
       meta: schema.projectLeads.meta,
       referrer: schema.projectLeads.referrer,
       companyId: schema.projectLeads.companyId,
+      invitedBy: schema.projectLeads.invitedBy,
+      assigneeUserId: schema.projectLeads.assigneeUserId,
+      followUpAt: schema.projectLeads.followUpAt,
+      callOutcome: schema.projectLeads.callOutcome,
+      internalNote: schema.projectLeads.internalNote,
       agreementId: sql<string | null>`a.id`,
       agreementStatus: sql<string | null>`a.status`,
       sentAt: sql<Date | null>`a.sent_at`,
@@ -478,7 +485,12 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
   return rows.map((r) => {
     const d = (r.data && typeof r.data === 'object' ? r.data : {}) as Record<string, unknown>
     const text = (key: string) => (typeof d[key] === 'string' ? (d[key] as string) : '')
-    const { source, campaign } = leadSource(r.meta, r.referrer)
+    const { source: traffic, campaign } = leadSource(r.meta, r.referrer)
+    // How the person got here, in the worker's words: a personal invitation from
+    // a rep, or the campaign page itself (with the traffic source when known).
+    const source = r.invitedBy
+      ? { key: 'invitation', label: 'הזמנה אישית', medium: null }
+      : { key: traffic.key, label: traffic.key === 'direct' ? 'הצטרף באתר' : `הצטרף באתר · ${traffic.label}`, medium: traffic.medium }
     const status = statusOf(r.status, r.agreementStatus)
     const completedAt = r.completedAt ? new Date(r.completedAt) : null
     const createdAt = new Date(r.createdAt)
@@ -503,6 +515,7 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
       // ponytail: one built-in kind today, so the first task is the task.
       task: tasks.get(r.id)?.map(summarizeTask)[0] ?? null,
       linkingNeeded: (r.meta as { linking?: unknown } | null)?.linking === 'needed',
+      followUp: { assigneeUserId: r.assigneeUserId ?? null, followUpAt: r.followUpAt ? new Date(r.followUpAt).toISOString() : null, callOutcome: r.callOutcome ?? null, internalNote: r.internalNote ?? null },
     }
   })
 }

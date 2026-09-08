@@ -9,9 +9,10 @@ import { TaskPanel } from '@/components/follow-up/TaskPanel'
 import { CopyButton } from '@/components/ui/CopyButton'
 import { Drawer } from '@/components/ui/Drawer'
 import { LinkCompanyPanel } from '@/components/invitations/LinkCompanyPanel'
+import { FollowUpPanel, hasOpenWork } from '@/components/follow-up/FollowUpPanel'
 import { currentUrlFor, withReturnTo } from '@/lib/return-to'
 import type { TaskSummary } from '@/server/follow-up/labels'
-import type { AudienceRow, AudienceView, CallOutcome, SendHistoryItem } from '@/server/invitations/invitations'
+import type { AudienceRow, AudienceView, SendHistoryItem } from '@/server/invitations/invitations'
 import { InviteDialog } from './InviteDialog'
 
 /**
@@ -22,10 +23,8 @@ import { InviteDialog } from './InviteDialog'
  */
 const VIEWS: { key: AudienceView; label: string }[] = [
   { key: 'all', label: 'הכול' },
-  { key: 'invited', label: 'הוזמנו' },
-  { key: 'waiting', label: 'ממתינים' },
-  { key: 'registered', label: 'נרשמו' },
-  { key: 'signed', label: 'חתמו' },
+  { key: 'invited', label: 'הוזמנו ולא נרשמו' },
+  { key: 'registered', label: 'נרשמו ולא חתמו' },
 ]
 const STATUS: Record<AudienceRow['status'], { label: string; cls: string }> = {
   invited: { label: 'הוזמן', cls: 'bg-bg text-fg border-line' },
@@ -34,26 +33,16 @@ const STATUS: Record<AudienceRow['status'], { label: string; cls: string }> = {
   signed: { label: 'חתם', cls: 'bg-green-50 text-green-900 border-green-200' },
   failed: { label: 'נכשל', cls: 'bg-red-50 text-red-900 border-red-200' },
 }
-const CALL_OUTCOMES: { key: CallOutcome; label: string }[] = [
-  { key: 'interested', label: 'מעוניין' },
-  { key: 'call_back', label: 'לחזור אליו' },
-  { key: 'no_answer', label: 'לא ענה' },
-  { key: 'not_interested', label: 'לא מעוניין' },
-]
 const CHANNEL_WORD: Record<string, string> = { sms: 'SMS', email: 'מייל', whatsapp: 'WhatsApp' }
 const EVENT_WORD: Record<string, string> = { invitation: 'הזמנה', reminder: 'תזכורת', signed_confirmation: 'עותק חתום', registration_completed: 'קישור לחתימה', distribution: 'הפצה', test: 'בדיקה' }
 const dateFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 const dayFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short' })
-const field = 'mt-1 w-full rounded-xl border border-line bg-bg px-4 py-3 text-base text-fg outline-none focus:border-brand'
 const bigButton = 'inline-flex min-h-12 items-center justify-center rounded-xl px-4 text-base font-semibold transition disabled:opacity-50'
 
-type Team = { id: string; name: string; email: string }
-
-export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueToday, global = false, basePath, extraParams }: { projectId: string; rows: AudienceRow[]; counts: Record<AudienceView, number>; view: AudienceView; q: string; askKind: boolean; dueToday: number; /** The organisation-wide tracking screen: a campaign column, no invite button. */ global?: boolean; basePath?: string; extraParams?: Record<string, string> }) {
+export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueToday, global = false, basePath, extraParams, hideViews = false }: { projectId: string; rows: AudienceRow[]; counts: Record<AudienceView, number>; view: AudienceView; q: string; askKind: boolean; dueToday: number; /** The organisation-wide tracking screen: a campaign column, no invite button. */ global?: boolean; basePath?: string; extraParams?: Record<string, string>; /** The campaign page draws its own view chips above the table. */ hideViews?: boolean }) {
   const router = useRouter()
   const [inviteOpen, setInviteOpen] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
-  const [team, setTeam] = useState<Team[]>([])
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [plan, setPlan] = useState<{ eligible: { id: string; name: string; channel: string; kind: string }[]; skipped: { id: string; name: string; why: string }[] } | null>(null)
@@ -115,16 +104,9 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
     }
   }
 
-  useEffect(() => {
-    void fetch('/api/team')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setTeam(Array.isArray(d?.users) ? d.users : []))
-      .catch(() => setTeam([]))
-  }, [])
-
   const path = basePath ?? `/projects/${projectId}`
   const href = (patch: Record<string, string | undefined>) => {
-    const p = new URLSearchParams(global ? extraParams ?? {} : { tab: 'invitations' })
+    const p = new URLSearchParams(global ? extraParams ?? {} : { tab: 'joining', ...(extraParams ?? {}) })
     const next: { view?: string; q?: string; due?: string } = { view, q, ...patch }
     if (next.view && next.view !== 'all') p.set('view', next.view)
     if (next.q) p.set('q', next.q)
@@ -144,6 +126,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
+        {hideViews ? null : (
         <nav aria-label="תצוגות" className="flex flex-wrap gap-1 rounded-xl border border-line bg-surface p-1">
           {VIEWS.map((v) => (
             <Link key={v.key} href={href({ view: v.key })} aria-current={view === v.key ? 'page' : undefined} className={`inline-flex min-h-10 items-center gap-1 rounded-lg px-3 text-sm font-medium ${view === v.key ? 'bg-brand text-white' : 'text-fg hover:bg-bg'}`}>
@@ -152,8 +135,9 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
             </Link>
           ))}
         </nav>
+        )}
         <form method="get" action={path} className="flex min-w-0 flex-1 gap-2">
-          {global ? Object.entries(extraParams ?? {}).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />) : <input type="hidden" name="tab" value="invitations" />}
+          {global ? Object.entries(extraParams ?? {}).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />) : <input type="hidden" name="tab" value="joining" />}
           {view !== 'all' ? <input type="hidden" name="view" value={view} /> : null}
           <input type="search" name="q" defaultValue={q} placeholder="חיפוש לפי שם או טלפון" aria-label="חיפוש בקהל" className="min-h-11 min-w-0 flex-1 rounded-xl border border-line bg-surface px-4 text-base text-fg outline-none focus:border-brand" />
           <button type="submit" className="inline-flex min-h-11 items-center rounded-xl border border-line bg-surface px-4 text-sm font-medium text-fg hover:border-brand">
@@ -333,7 +317,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
       )}
 
       {inviteOpen ? <InviteDialog projectId={projectId} askKind={askKind} onClose={() => setInviteOpen(false)} /> : null}
-      {current ? <PersonDrawer row={current} projectId={current.groupId || projectId} team={team} onClose={() => setOpenId(null)} onNotice={setNotice} /> : null}
+      {current ? <PersonDrawer row={current} projectId={current.groupId || projectId} onClose={() => setOpenId(null)} onNotice={setNotice} /> : null}
     </section>
   )
 }
@@ -492,17 +476,12 @@ function RowMenu({ row, projectId, onOpen, onNotice }: { row: AudienceRow; proje
 
 // ── the drawer: the whole story of one person ───────────────────────────────
 
-function PersonDrawer({ row, projectId, team, onClose, onNotice }: { row: AudienceRow; projectId: string; team: Team[]; onClose: () => void; onNotice: (n: { tone: 'ok' | 'error'; text: string }) => void }) {
+function PersonDrawer({ row, projectId, onClose, onNotice }: { row: AudienceRow; projectId: string; onClose: () => void; onNotice: (n: { tone: 'ok' | 'error'; text: string }) => void }) {
   const router = useRouter()
   const { busy, send, whatsapp, confirmWhatsapp, hasAgreement } = useActions(row, projectId, onNotice)
   const here = currentUrlFor(usePathname(), useSearchParams())
   const [history, setHistory] = useState<SendHistoryItem[] | null>(null)
   const [link, setLink] = useState<string | null>(null)
-  const [assignee, setAssignee] = useState(row.assignee?.id ?? '')
-  const [followUpAt, setFollowUpAt] = useState(row.followUpAt ? row.followUpAt.slice(0, 10) : '')
-  const [callOutcome, setCallOutcome] = useState<CallOutcome | ''>(row.callOutcome ?? '')
-  const [note, setNote] = useState(row.internalNote ?? '')
-  const [saving, setSaving] = useState(false)
   const [task, setTask] = useState<TaskSummary | null>(row.task)
 
   useEffect(() => {
@@ -527,19 +506,6 @@ function PersonDrawer({ row, projectId, team, onClose, onNotice }: { row: Audien
     await navigator.clipboard.writeText(url).catch(() => null)
     setLink(url)
     onNotice({ tone: 'ok', text: 'הקישור הועתק.' })
-  }
-
-  async function saveFollowUp() {
-    setSaving(true)
-    try {
-      const response = await fetch(`/api/invitations/${row.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assigneeUserId: assignee || null, followUpAt: followUpAt ? new Date(`${followUpAt}T09:00:00+03:00`).toISOString() : null, callOutcome: callOutcome || null, internalNote: note }) })
-      const data = await response.json().catch(() => null)
-      if (!response.ok) return onNotice({ tone: 'error', text: data?.error?.message ?? 'השמירה נכשלה.' })
-      onNotice({ tone: 'ok', text: 'נשמר.' })
-      router.refresh()
-    } finally {
-      setSaving(false)
-    }
   }
 
   return (
@@ -631,47 +597,14 @@ function PersonDrawer({ row, projectId, team, onClose, onNotice }: { row: Audien
           </section>
         ) : null}
 
-        {/* Signed and already a supplier or customer: nothing left to chase, so no follow-up block. */}
-        {!(row.status === 'signed' && row.companyId) ? (
-        <section>
-          <h3 className="text-sm font-semibold text-fg">מעקב</h3>
-          <div className="mt-2 grid gap-3 sm:grid-cols-2">
-            <label className="block text-sm">
-              <span className="text-muted">אחראי לטיפול</span>
-              <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={field}>
-                <option value="">ללא</option>
-                {team.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name || u.email}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="text-muted">תאריך חזרה</span>
-              <input type="date" value={followUpAt} onChange={(e) => setFollowUpAt(e.target.value)} className={field} />
-            </label>
-          </div>
-          <div className="mt-3">
-            <span className="text-sm text-muted">תוצאת השיחה</span>
-            <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {CALL_OUTCOMES.map((o) => (
-                <label key={o.key} className={`flex min-h-11 cursor-pointer items-center justify-center rounded-xl border text-sm font-medium ${callOutcome === o.key ? 'border-brand bg-blue-50 text-fg' : 'border-line bg-bg text-fg hover:border-brand'}`}>
-                  <input type="radio" name="call-outcome" className="sr-only" checked={callOutcome === o.key} onChange={() => setCallOutcome(o.key)} />
-                  {o.label}
-                </label>
-              ))}
-            </div>
-          </div>
-          <label className="mt-3 block text-sm">
-            <span className="text-muted">הערה פנימית</span>
-            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={2000} className={field} />
-          </label>
-          <button type="button" disabled={saving} onClick={() => void saveFollowUp()} className={`${bigButton} mt-3 w-full bg-brand text-white`}>
-            {saving ? 'שומרים…' : 'שמירת המעקב'}
-          </button>
-        </section>
-        ) : null}
+        <FollowUpPanel
+          leadId={row.id}
+          values={{ assigneeUserId: row.assignee?.id ?? null, followUpAt: row.followUpAt, callOutcome: row.callOutcome, internalNote: row.internalNote }}
+          openWork={hasOpenWork({ signed: row.status === 'signed', taskStatus: task?.status ?? null, followUpAt: row.followUpAt, assigneeUserId: row.assignee?.id ?? null, callOutcome: row.callOutcome })}
+          doneText={task ? 'ההצטרפות וההקמה הושלמו.' : 'ההצטרפות הושלמה.'}
+          onSaved={() => onNotice({ tone: 'ok', text: 'נשמר.' })}
+          onError={(m) => onNotice({ tone: 'error', text: m })}
+        />
 
         <section>
           <h3 className="text-sm font-semibold text-fg">היסטוריית שליחות</h3>

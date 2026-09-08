@@ -37,7 +37,7 @@ async function main() {
       const page = await browser.newPage()
       await page.setViewport({ width, height: width < 500 ? 844 : 900 })
       await page.setCookie({ name: 'xtra_sign_session', value: SESSION, url: BASE })
-      await page.goto(`${BASE}/projects/${id}?tab=invitations`, { waitUntil: 'networkidle0', timeout: 90000 })
+      await page.goto(`${BASE}/projects/${id}?tab=joining&view=waiting`, { waitUntil: 'networkidle0', timeout: 90000 })
       const spill = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
       if (spill) failures.push(`audience tab spills sideways at ${width}`)
       await page.screenshot({ path: `${OUT}/audience-${width}.png`, fullPage: true })
@@ -68,7 +68,7 @@ async function main() {
           throw new Error(`invite did not complete; dialog says: ${text.slice(0, 400)}`)
         }
         await page.screenshot({ path: `${OUT}/invite-sent-${width}.png` })
-        await page.goto(`${BASE}/projects/${id}?tab=invitations`, { waitUntil: 'networkidle0', timeout: 90000 })
+        await page.goto(`${BASE}/projects/${id}?tab=joining&view=waiting`, { waitUntil: 'networkidle0', timeout: 90000 })
       } else {
         await page.keyboard.press('Escape')
       }

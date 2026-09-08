@@ -50,10 +50,10 @@ async function main() {
     await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0', timeout: 90000 })
     await page.goto(`${BASE}/projects/${id}`, { waitUntil: 'networkidle0', timeout: 90000 })
     const tabs = await page.$$eval('nav[aria-label="לשוניות הפרויקט"] a', (as) => as.map((a) => a.textContent?.trim()))
-    check(tabs.join('|').includes('הזמנות ומעקב') && tabs.join('|').includes('הרשמות'), '1. campaign opens with the agreed tabs', tabs.join(' | '))
+    check(tabs.join('|').includes('פניות והצטרפות') && tabs.join('|').includes('ספקים/לקוחות') && tabs.join('|').includes('הסכמים'), '1. campaign opens with the agreed tabs', tabs.join(' | '))
 
     // 2. Send an invitation by SMS.
-    await page.goto(`${BASE}/projects/${id}?tab=invitations`, { waitUntil: 'networkidle0', timeout: 90000 })
+    await page.goto(`${BASE}/projects/${id}?tab=joining&view=waiting`, { waitUntil: 'networkidle0', timeout: 90000 })
     await clickText(page, 'שליחת הזמנה')
     await page.waitForSelector('[role="dialog"]', { timeout: 5000 })
     const stamp = Date.now()
@@ -67,12 +67,12 @@ async function main() {
     await page.waitForFunction(() => /ההזמנה נשלחה|ההזמנה נשמרה/.test(document.querySelector('[role="dialog"]')?.textContent ?? ''), { timeout: 30000 })
     await page.screenshot({ path: `${OUT}/2-invitation-sent.png` })
     await page.keyboard.press('Escape')
-    await page.goto(`${BASE}/projects/${id}?tab=invitations&q=${encodeURIComponent(String(stamp))}`, { waitUntil: 'networkidle0', timeout: 90000 })
+    await page.goto(`${BASE}/projects/${id}?tab=joining&view=all&q=${encodeURIComponent(String(stamp))}`, { waitUntil: 'networkidle0', timeout: 90000 })
     const invited = await page.$$eval('tbody tr', (trs) => trs.map((t) => t.textContent ?? ''))
     check(invited.some((t) => t.includes('הוזמן')), '2b. the person appears in הזמנות ומעקב as הוזמן', invited[0]?.slice(0, 80))
 
     // 3. Look at a registration and open its supplier.
-    await page.goto(`${BASE}/projects/${id}?tab=registrations`, { waitUntil: 'networkidle0', timeout: 90000 })
+    await page.goto(`${BASE}/projects/${id}?tab=joining&view=registrations`, { waitUntil: 'networkidle0', timeout: 90000 })
     const hasRows = (await page.$$('tbody tr')).length > 0
     check(hasRows, '3a. registrations are listed at once (no lead views to open)')
     await page.screenshot({ path: `${OUT}/3-registrations.png` })
@@ -118,7 +118,7 @@ async function main() {
     }
 
     // 4. Send a reminder from the tracking tab (a person waiting for a signature).
-    await page.goto(`${BASE}/projects/${id}?tab=invitations&view=waiting`, { waitUntil: 'networkidle0', timeout: 90000 })
+    await page.goto(`${BASE}/projects/${id}?tab=joining&view=waiting`, { waitUntil: 'networkidle0', timeout: 90000 })
     const waitingRow = await page.$('tbody tr')
     if (waitingRow) {
       await waitingRow.evaluate((tr) => (tr as HTMLElement).click())
@@ -137,11 +137,13 @@ async function main() {
     } else check(false, '4. no one waiting for a signature in this campaign')
 
     // 5. Open a signed agreement.
-    await page.goto(`${BASE}/projects/${id}?tab=invitations&view=signed`, { waitUntil: 'networkidle0', timeout: 90000 })
+    // Signed people are no longer in הזמנות ומעקב: they live in הרשמות (and הסכמים).
+    await page.goto(`${BASE}/projects/${id}?tab=joining&view=registrations&status=signed`, { waitUntil: 'networkidle0', timeout: 90000 })
     const signedRow = await page.$('tbody tr')
     if (signedRow) {
       await signedRow.evaluate((tr) => (tr as HTMLElement).click())
       await page.waitForSelector('[role="dialog"]', { timeout: 5000 })
+      await page.waitForFunction(() => !/טוען…/.test(document.querySelector('[role="dialog"]')?.textContent ?? ''), { timeout: 8000 }).catch(() => null)
       const open = await page.$('[role="dialog"] a[href^="/documents/"]')
       check(Boolean(open), '5a. a signed person offers "פתח הסכם"')
       if (open) {
@@ -154,7 +156,7 @@ async function main() {
         if (back) {
           await back.evaluate((a) => (a as HTMLElement).click())
           await settle(page)
-          check(page.url().includes('tab=invitations'), '5c. חזרה returns to הזמנות ומעקב', page.url())
+          check(page.url().includes('view=registrations'), '5c. חזרה returns to הרשמות view', page.url())
         }
       }
     } else check(false, '5. no signed person in this campaign')

@@ -18,10 +18,16 @@ export function CampaignOverview({
   project,
   companies,
   leads,
+  setup = null,
+  cards: workCards,
 }: {
   project: { id: string; name: string; campaignKind: CampaignKind; publicUrl: string | null }
   companies: Company[]
   leads: Lead[]
+  /** Site-product setup, when the campaign creates that task: how many signed suppliers still wait. */
+  setup?: { pending: number; inProgress: number; done: number } | null
+  /** The work cards, each leading to the view that acts on it. */
+  cards?: { label: string; value: number; href: string; tone?: 'warn' }[]
 }) {
   const signed = companies.filter((c) => c.lastSend?.status === 'signed').length
   const pending = companies.filter((c) => c.lastSend && ['sent', 'viewed'].includes(c.lastSend.status)).length
@@ -37,7 +43,7 @@ export function CampaignOverview({
     .sort((a, b) => b.at.getTime() - a.at.getTime())
     .slice(0, 8)
 
-  const cards = [
+  const cards: { label: string; value: number; href?: string; tone?: 'warn' }[] = workCards ?? [
     { label: project.campaignKind === 'public' ? 'ספקים' : 'נמענים', value: companies.length },
     ...(project.campaignKind === 'public' ? [{ label: 'הרשמות', value: registrations }] : []),
     { label: 'חתמו', value: signed },
@@ -64,6 +70,18 @@ export function CampaignOverview({
         <p className="break-all rounded-lg border border-line bg-surface px-4 py-2 text-sm text-fg" dir="ltr">
           {project.publicUrl}
         </p>
+      ) : null}
+
+      {setup ? (
+        <Link href={`/projects/${project.id}?tab=setup&status=pending`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 px-5 py-4 transition hover:border-amber-400">
+          <span>
+            <span className="block text-base font-semibold text-fg">הקמת מוצרים באתר</span>
+            <span className="block text-sm text-amber-900">
+              {setup.pending + setup.inProgress === 0 ? `כל הספקים שחתמו הוקמו באתר (${setup.done}).` : `${setup.pending} ממתינים להקמה · ${setup.inProgress} בטיפול · ${setup.done} הוקמו`}
+            </span>
+          </span>
+          <span className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white">לרשימה</span>
+        </Link>
       ) : null}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

@@ -16,7 +16,7 @@ async function main() {
     await page.setViewport({ width: 1280, height: 900 })
     await page.setCookie({ name: 'xtra_sign_session', value: SESSION, url: BASE })
     const check = async (view: string) => {
-      await page.goto(`${BASE}/projects/${g.id}?tab=invitations&view=${view}`, { waitUntil: 'networkidle0', timeout: 90000 })
+      await page.goto(`${BASE}/projects/${g.id}?tab=joining&view=${view}`, { waitUntil: 'networkidle0', timeout: 90000 })
       const row = await page.$('tbody tr')
       if (!row) return null
       await row.evaluate((tr) => (tr as HTMLElement).click())
@@ -26,8 +26,8 @@ async function main() {
       await page.keyboard.press('Escape')
       return { followUp: text.includes('שמירת המעקב'), hasCompany: text.includes('פתח ספק') || text.includes('ספק/לקוח') }
     }
-    const signed = await check('signed')
-    const invited = await check('invited')
+    const signed = await check('all')
+    const invited = await check('waiting')
     console.log('signed row:', signed, '| invited row:', invited)
     if (signed && signed.followUp) throw new Error('follow-up block shown for a signed person')
     if (invited && !invited.followUp) throw new Error('follow-up block missing for an invited person')

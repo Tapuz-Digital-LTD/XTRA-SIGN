@@ -340,12 +340,17 @@ export async function confirmWhatsapp(session: StaffSession, sendId: string, sen
 // ── the rep's view ──────────────────────────────────────────────────────────
 
 export type AudienceView = 'all' | 'invited' | 'waiting' | 'registered' | 'signed'
+
+/** What a person still needs, by the campaign's goal: signing campaigns wait for a signature; inquiries wait for the team's decision. */
+export function isWaiting(row: { status: ProcessStatus; leadStatus: string }, goal: string | null): boolean {
+  if (row.status === 'signed' || row.status === 'failed') return false
+  if (goal === 'inquiries') return row.status === 'invited' || row.leadStatus === 'new' || row.leadStatus === 'pending'
+  return row.status === 'invited' || row.status === 'registered' || row.status === 'awaiting_signature'
+}
 export const AUDIENCE_VIEWS: { key: AudienceView; label: string }[] = [
   { key: 'all', label: 'הכול' },
-  { key: 'invited', label: 'הוזמנו' },
-  { key: 'waiting', label: 'ממתינים' },
-  { key: 'registered', label: 'נרשמו' },
-  { key: 'signed', label: 'חתמו' },
+  { key: 'invited', label: 'הוזמנו ולא נרשמו' },
+  { key: 'registered', label: 'נרשמו ולא חתמו' },
 ]
 
 export type AudienceRow = {
@@ -360,6 +365,8 @@ export type AudienceRow = {
   email: string | null
   kind: AudienceKind | null
   status: ProcessStatus
+  /** The registration row's own status (new / approved / rejected / converted / failed / invited). */
+  leadStatus: string
   source: string
   invitedBy: { id: string; name: string } | null
   assignee: { id: string; name: string } | null
@@ -380,7 +387,7 @@ export type AudienceRow = {
   task: TaskSummary | null
 }
 
-export type AudienceFilters = { view?: AudienceView; q?: string; rep?: string; channel?: string; followUpDue?: boolean; limit?: number }
+export type AudienceFilters = { view?: AudienceView; q?: string; rep?: string; channel?: string; followUpDue?: boolean; limit?: number; /** The campaign's tracking tab shows only people who have not signed yet; reports may ask for everyone. */ includeSigned?: boolean }
 
 /**
  * Everyone the campaign reached or who reached it, one row each, with the
@@ -407,7 +414,7 @@ export async function listAudienceAll(session: StaffSession, filters: AudienceAl
     .orderBy(desc(schema.groups.createdAt))
   const campaigns = groups.filter((g) => !g.systemKey).map((g) => ({ id: g.id, name: g.name }))
   const chosen = filters.groupId === 'direct' ? groups.filter((g) => g.systemKey === DIRECT_SIGNING_KEY) : filters.groupId ? groups.filter((g) => g.id === filters.groupId) : groups
-  const result = chosen.length ? await audienceRows(session, chosen, filters) : { rows: [], counts: { all: 0, invited: 0, waiting: 0, registered: 0, signed: 0 }, total: 0 }
+  const result = chosen.length ? await audienceRows(session, chosen, { includeSigned: true, ...filters }) : { rows: [], counts: { all: 0, invited: 0, waiting: 0, registered: 0, signed: 0 }, total: 0 }
   return { ...result, campaigns }
 }
 
@@ -475,6 +482,7 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
       email: lead.email ?? stringIn(lead.data, 'email'),
       kind: (lead.kind as AudienceKind | null) ?? (group.kind as AudienceKind | null),
       status,
+      leadStatus: lead.status,
       source: lead.source,
       invitedBy: userName(lead.invitedBy),
       assignee: userName(lead.assigneeUserId),
@@ -501,8 +509,14 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
     if (row.status === 'signed') counts.signed++
   }
   const view = filters.view ?? 'all'
-  const filtered = all.filter((row) =>
-    view === 'all' ? true : view === 'invited' ? row.status === 'invited' : view === 'waiting' ? ['invited', 'registered', 'awaiting_signature'].includes(row.status) : view === 'registered' ? ['registered', 'awaiting_signature', 'signed'].includes(row.status) : row.status === 'signed',
+  const goal = groups.length === 1 ? groups[0].goal : null
+  // "כל התהליכים" is the full history; every other view is about work left.
+  const includeSigned = filters.includeSigned ?? view === 'all'
+  const base = includeSigned ? all : all.filter((row) => row.status !== 'signed')
+  counts.waiting = all.filter((r) => isWaiting(r, goal)).length
+  if (!includeSigned) counts.registered = base.filter((r) => r.status === 'registered' || r.status === 'awaiting_signature').length
+  const filtered = base.filter((row) =>
+    view === 'all' ? true : view === 'invited' ? row.status === 'invited' : view === 'waiting' ? isWaiting(row, goal) : view === 'registered' ? ['registered', 'awaiting_signature', ...(includeSigned ? ['signed'] : [])].includes(row.status) : row.status === 'signed',
   )
   return { rows: filtered, counts, total: filtered.length }
 }

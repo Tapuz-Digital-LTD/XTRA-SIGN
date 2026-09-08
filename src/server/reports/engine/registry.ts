@@ -183,7 +183,7 @@ const people: EntityDef = {
         return op === 'not_contains' ? sql`not ${rel}` : rel
       },
     }),
-    f('source', 'מקור הגעה', 'text', sql`coalesce(pl.meta->'attribution'->'last'->'source'->>'label', pl.meta->>'utm_source', case when pl.source = 'invitation' then 'הזמנה אישית' when pl.source = 'self_service' then 'עמוד הקמפיין' else pl.source end)`, { group: 'קמפיין' }),
+    f('source', 'מקור הגעה', 'text', sql`case when pl.invited_by is not null or pl.source = 'invitation' then 'הזמנה אישית' else 'הצטרף באתר' || coalesce(' · ' || nullif(coalesce(pl.meta->'attribution'->'last'->'source'->>'label', pl.meta->>'utm_source'), 'ישירות'), '') end`, { group: 'קמפיין' }),
     f('task_status', 'סטטוס הקמה', 'enum', sql`lt.status`, { options: opts(TASK), labels: TASK, group: 'משימת המשך' }),
     f('task_link', 'קישור למוצר', 'text', sql`lt.link`, { group: 'משימת המשך' }),
     f('last_activity_at', 'פעילות אחרונה', 'date', sql`coalesce(pl.last_activity_at, pl.created_at)`, { defaultVisible: true, group: 'תאריכים' }),
@@ -243,6 +243,8 @@ const tasks: EntityDef = {
     f('kind', 'משימה', 'enum', sql`t.kind`, { options: [{ value: 'site_product', label: 'הקמת מוצר באתר' }], labels: { site_product: 'הקמת מוצר באתר' }, defaultVisible: true }),
     f('status', 'סטטוס', 'enum', sql`t.status`, { options: opts(TASK), labels: TASK, defaultVisible: true }),
     f('company', 'ספק/לקוח', 'text', sql`coalesce(co.name, pl.data->>'name', pl.data->>'businessName')`, { defaultVisible: true }),
+    f('contact_name', 'איש קשר', 'text', sql`coalesce(co.contact_name, pl.data->>'contactName')`),
+    f('contact_phone', 'טלפון', 'text', sql`coalesce(co.contact_phone, pl.phone, pl.data->>'phone')`),
     f('campaign', 'קמפיין', 'campaign', groupName('g'), { defaultVisible: true, group: 'קמפיין', relFilter: (op, values) => (op === 'not_one_of' ? sql`not (t.group_id::text = any(${pgArray(values)}::text[]))` : sql`t.group_id::text = any(${pgArray(values)}::text[])`) }),
     f('assignee', 'אחראי', 'user', sql`t.assignee_user_id::text`, { group: 'מעקב' }),
     f('assignee_name', 'שם האחראי', 'text', sql`ua.name`, { group: 'מעקב', filterable: false, defaultVisible: true }),

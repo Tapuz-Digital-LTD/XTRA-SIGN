@@ -13,6 +13,7 @@ import { EditLeadDialog } from '@/components/projects/LeadsPanel'
 import { TaskBadge } from '@/components/follow-up/TaskBadge'
 import { TaskFilterChips } from '@/components/follow-up/TaskFilterChips'
 import { TaskPanel } from '@/components/follow-up/TaskPanel'
+import { FollowUpPanel, hasOpenWork } from '@/components/follow-up/FollowUpPanel'
 import type { TaskSummary } from '@/server/follow-up/labels'
 
 /**
@@ -393,6 +394,7 @@ export function RegistrationsTable({
         projectId={projectId}
         id={openId}
         linkingNeeded={Boolean(openId && rows.find((x) => x.id === openId)?.linkingNeeded)}
+        followUp={openId ? (rows.find((x) => x.id === openId)?.followUp ?? null) : null}
         task={openId ? (() => { const r = rows.find((x) => x.id === openId); return r && isSigned(r) ? taskOf(r) : null })() : null}
         onTaskSaved={(t) => { if (openId) setTask(openId, t) }}
         onClose={() => setOpenId(null)}
@@ -474,6 +476,7 @@ function RegistrationDrawer({
   projectId,
   id,
   linkingNeeded,
+  followUp,
   task,
   onTaskSaved,
   onClose,
@@ -483,6 +486,7 @@ function RegistrationDrawer({
   projectId: string
   id: string | null
   linkingNeeded: boolean
+  followUp: { assigneeUserId: string | null; followUpAt: string | null; callOutcome: string | null; internalNote: string | null } | null
   task: TaskSummary | null
   onTaskSaved: (task: TaskSummary) => void
   onClose: () => void
@@ -617,6 +621,14 @@ function RegistrationDrawer({
               <TaskPanel key={task.id} projectId={projectId} task={task} onSaved={onTaskSaved} />
             </section>
           ) : null}
+
+          {/* Signed is not done: the follow-up stays while a task is open, a call-back is due or someone owns it. */}
+          <FollowUpPanel
+            leadId={detail.id}
+            values={followUp ?? { assigneeUserId: null, followUpAt: null, callOutcome: null, internalNote: null }}
+            openWork={hasOpenWork({ signed: detail.agreement?.status === 'signed', taskStatus: task?.status ?? null, followUpAt: followUp?.followUpAt ?? null, assigneeUserId: followUp?.assigneeUserId ?? null, callOutcome: followUp?.callOutcome ?? null })}
+            doneText={task ? 'ההצטרפות וההקמה הושלמו.' : 'ההצטרפות הושלמה.'}
+          />
 
           <section>
             <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">פעילות</h4>
