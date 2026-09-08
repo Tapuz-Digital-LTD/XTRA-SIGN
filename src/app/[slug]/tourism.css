@@ -16,13 +16,16 @@
   --tl-ink: #0c3257;
   --tl-text: #eef2f6;
   --tl-text-soft: #c7dff0;
+  /* The muted line under the pink titles, sampled from the artwork. */
+  --tl-text-dim: #8bacd7;
   --tl-surface: #ffffff;
   --tl-line: #d5dfe8;
   --tl-error: #d63c5e;
   --tl-ok: #1f9d6a;
-  /* The band's top edge: y = 1434 + 0.0968·x in artwork pixels. */
-  --tl-band-angle: 5.53deg;
-  font-family: var(--font-heebo), 'Heebo', 'Assistant', system-ui, sans-serif;
+  /* The band's top edge: y = 1585 − 0.0967·x in artwork pixels. It rises to
+     the left of the page, the mirror of last year's. */
+  --tl-band-angle: -5.53deg;
+  font-family: var(--font-campaign), 'Assistant', 'Heebo', system-ui, sans-serif;
   color: var(--tl-text);
   background: var(--tl-navy);
   min-height: 100dvh;
@@ -33,6 +36,16 @@
   display: block;
   max-width: 100%;
   height: auto;
+}
+
+/* The branded type fills the box the canvas gives it. Left at its own pixel
+   size it stops growing with the poster, and past 1600 units every headline
+   and every script drifts out of the place it was measured into. */
+.tl-kicker img,
+.tl-headline img,
+.tl-title img,
+.tl-closing img {
+  width: 100%;
 }
 
 .tl-page {
@@ -47,11 +60,53 @@
   outline-offset: 4px;
 }
 
+/* The white card, on every width. */
+.tl-join-card {
+  background: var(--tl-surface);
+  color: var(--tl-ink);
+  border-radius: 1.5625cqw;
+  box-shadow: 0 0.5cqw 1.5cqw rgba(0, 0, 0, 0.34);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 1.25cqw;
+  padding: 1cqw 1.5cqw;
+  box-sizing: border-box;
+}
+
+.tl-qr {
+  width: 8cqw;
+  height: auto;
+}
+
+.tl-join-copy {
+  text-align: right;
+}
+
+.tl-join-lines {
+  margin: 0;
+  font-size: 1.375cqw;
+  line-height: 1.75cqw;
+  font-weight: 500;
+}
+
+.tl-deadline {
+  margin: 0.5cqw 0 0;
+  font-size: 1.1875cqw;
+  line-height: 1.5cqw;
+  font-weight: 400;
+}
+
 /* ── Desktop: the canvas ──────────────────────────────────────────────── */
 
 .tl-canvas {
   position: relative;
-  width: min(100%, 1600px);
+  /* The poster grows with the screen instead of stopping at 1600 and leaving
+     bars: every measure below is a share of this width, so the composition
+     is the artwork's at any size. Past 2000 it stops growing and keeps the
+     left edge, where the landscape is — the navy field is what widens, on
+     the right, where the artwork has navy anyway. */
+  width: min(100%, 2000px);
   margin: 0 auto;
   container-type: inline-size;
 }
@@ -73,168 +128,283 @@
   }
 
   /* The pink band, continued to the viewport edges at the artwork's slope.
-     Origin half a viewport to the left, raised by the slope over that
-     distance, then rotated — so the edge passes through (0, 1434). */
+     Origin half a viewport to the left, lowered by the slope over that
+     distance, then rotated — so the edge passes through (0, 1585). */
   .tl-band {
     left: -50vw;
-    top: calc(89.625% - 0.0968 * 50vw);
+    top: calc(99.0625% + 0.0967 * 50vw);
     width: 300vw;
     height: 100vh;
     transform: rotate(var(--tl-band-angle));
     transform-origin: 0 0;
     background: var(--tl-pink);
-    z-index: 0;
+    /* Above the landscape and the strip that continues it: at the foot of
+       the poster the band runs over the photograph, not under it. */
+    z-index: 2;
   }
 
-  .tl-stage-band {
+  /* The landscape. It is cut where the copy begins, and the fade the artwork
+     paints from there into the navy field is finished here, so the cut has
+     no edge of its own. */
+  /* The foot of the landscape, past the copy column and short of the card.
+     An exact crop, so it needs no fade of its own. */
+  img.tl-scene-foot {
+    left: 42.625%;
+    top: 65%;
+    width: 10.5%;
+    height: 35%;
+    object-fit: cover;
+    z-index: 1;
+  }
+
+  img.tl-scene {
+    left: 0;
+    top: 0;
+    width: 42.625%;
+    height: 100%;
+    object-fit: cover;
+    object-position: right top;
+    z-index: 1;
+  }
+
+  /* The artwork's fade does not stop where the crop does — it keeps dimming
+     into the navy field for another hundred pixels. Continuing it here is
+     what stops the crop from reading as a straight cut down the page. It is
+     ::before so the strip of landscape below can paint over it. */
+  .tl-canvas::before {
+    content: '';
+    position: absolute;
+    left: 42.625%;
+    top: 0;
+    width: 9%;
+    height: 100%;
+    /* The colour changes down the page as the photograph does, and the
+       whole strip dissolves to the right — the artwork's own fade, measured
+       every hundred pixels just past the crop. */
+    background: linear-gradient(
+      to bottom,
+      #22466a 0%,
+      #23476a 12.5%,
+      #194367 18.75%,
+      #214261 25%,
+      #244261 31.25%,
+      #24415f 37.5%,
+      #1c3b57 43.75%,
+      #25405d 50%,
+      #294462 56.25%,
+      #2a4562 62.5%,
+      #284360 68.75%,
+      #2a4562 75%,
+      #2c4967 81.25%,
+      #2a4764 87.5%,
+      #2f4c6a 100%
+    );
+    -webkit-mask-image: linear-gradient(to right, #000, transparent);
+    mask-image: linear-gradient(to right, #000, transparent);
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* On the canvas the Ministry's logo stands in the landscape itself.
+     Typed on the element: `.tl-root img` outranks a bare class. */
+  img.tl-logo {
     display: none;
   }
 
-  .tl-logo {
-    left: 4.375%;
-    top: 3.875%;
-    width: 23.75%;
+  .tl-producer {
+    right: 5.5%;
+    top: 3.375%;
+    width: 13.5%;
+    z-index: 2;
+  }
+
+  .tl-kicker {
+    right: 5.625%;
+    top: 11.25%;
+    width: 47.5%;
     z-index: 2;
   }
 
   .tl-headline {
-    left: 37.5%;
-    top: 3.875%;
-    width: 59.0625%;
+    right: 5.5625%;
+    top: 17.6875%;
+    width: 46.75%;
     z-index: 2;
+  }
+
+  .tl-sub,
+  .tl-list {
+    text-align: right;
+    z-index: 2;
+  }
+
+  /* The opening paragraph is centred on the artwork's own axis (x=1130.5),
+     not aligned to the column's right edge — every one of its four lines
+     shares that centre. */
+  .tl-lede,
+  .tl-body,
+  .tl-punch {
+    right: 1.21875%;
+    width: 56.25%;
+    text-align: center;
+    font-weight: 400;
+    z-index: 2;
+  }
+
+  .tl-lede {
+    top: 30.5625%;
+    font-size: 1.875cqw;
+    line-height: 2.1cqw;
   }
 
   .tl-body {
-    left: 38%;
-    top: 19.45%;
-    width: 57.3%;
-    font-size: 1.5625cqw;
-    line-height: 2.125cqw;
-    font-weight: 400;
-    text-align: right;
-    z-index: 2;
+    top: 32.9%;
+    font-size: 2.455cqw;
+    line-height: 2.8125cqw;
+  }
+
+  .tl-punch {
+    top: 40.75%;
+    font-size: 2.455cqw;
+    line-height: 2.8125cqw;
   }
 
   .tl-title-conditions {
-    left: 68.125%;
-    top: 26.25%;
-    width: 28.125%;
+    right: 4.0625%;
+    top: 43.625%;
+    width: 25.3125%;
     z-index: 2;
   }
 
+  /* The line under the pink title starts where the title starts, not where
+     the paragraph above it ends. */
   .tl-sub {
-    left: 40%;
-    top: 31.55%;
-    width: 55.2%;
-    font-size: 1.625cqw;
-    line-height: 2.125cqw;
-    color: var(--tl-text-soft);
-    text-align: right;
-    white-space: nowrap;
+    right: 4.5%;
+    top: 48.5625%;
+    width: 50%;
+    font-size: 1.674cqw;
+    line-height: 1.875cqw;
+    color: var(--tl-text-dim);
+  }
+
+  .tl-title-benefits {
+    right: 4.25%;
+    top: 62.1875%;
+    width: 32.875%;
     z-index: 2;
   }
 
   .tl-list {
+    right: 4.25%;
+    width: 42%;
     list-style: none;
     padding: 0;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 2;
+    display: flex;
+    flex-direction: column;
   }
 
-  /* Each row: icon box and text box in artwork pixels. `li` spans the canvas
-     so the children's percentages stay canvas-relative — and must therefore
-     let clicks through to whatever sits under it (the signpost). */
   .tl-list li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 0.7cqw;
+    /* The artwork centres each icon on its two lines of text. */
+    align-items: center;
+  }
+
+  .tl-conditions {
+    top: 52.0625%;
+    row-gap: 1.5625cqw;
+  }
+
+  .tl-conditions li > img {
+    width: 4cqw;
+  }
+
+  .tl-conditions li > span {
+    font-size: 1.908cqw;
+    line-height: 2cqw;
+  }
+
+  .tl-benefits {
+    top: 68.4%;
+    row-gap: 0.875cqw;
+  }
+
+  .tl-benefits li > img {
+    width: 4.75cqw;
+  }
+
+  .tl-benefits li > span {
+    font-size: 1.986cqw;
+    line-height: 1.6875cqw;
+  }
+
+  .tl-closing {
+    right: 4.0625%;
+    top: 78.75%;
+    width: 55.125%;
+    z-index: 2;
+  }
+
+  /* The joining area: the artwork's white card and its signpost, in their
+     own coordinates inside one box. */
+  .tl-join {
+    right: 3.125%;
+    top: 84.9375%;
+    width: 50.6875%;
+    height: 12.4375%;
+    z-index: 3;
+  }
+
+  /* The card reaches under the signpost: 739→1513 in the artwork. */
+  .tl-join-card {
     position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
+    right: 4.562%;
+    top: 21.106%;
+    width: 95.438%;
+    height: 78.894%;
     display: block;
+    padding: 0;
+    gap: 0;
   }
 
-  .tl-list li > img {
+  .tl-qr {
     position: absolute;
-    width: 5.75%;
-    pointer-events: auto;
+    left: 4.651%;
+    top: 8.917%;
+    width: 16.408%;
   }
 
-  /* The text box only — its inner lines stay in flow, one under the other. */
-  .tl-list li > span {
+  .tl-join-copy {
     position: absolute;
-    display: block;
-    pointer-events: auto;
-    font-size: 1.75cqw;
-    line-height: 2.25cqw;
-    font-weight: 500;
-    text-align: right;
-    color: #f6f8fb;
+    right: 33.72%;
+    top: 8.28%;
   }
 
-  .tl-conditions li:nth-child(1) img { left: 90.5%; top: 34.375%; }
-  .tl-conditions li:nth-child(1) span { left: 55.1%; top: 34.75%; width: 34.1%; }
-  .tl-conditions li:nth-child(2) img { left: 90.5%; top: 40.5%; }
-  .tl-conditions li:nth-child(2) span { left: 55.1%; top: 40.8%; width: 34.1%; }
-  .tl-conditions li:nth-child(3) img { left: 90.5%; top: 46.5%; }
-  .tl-conditions li:nth-child(3) span { left: 57.9%; top: 46.6%; width: 31.3%; }
-
-  .tl-title-benefits {
-    left: 65.6%;
-    top: 53.1%;
-    width: 30.6%;
-    z-index: 2;
+  .tl-join-lines {
+    font-size: 1.629cqw;
+    line-height: 1.875cqw;
+    font-weight: 600;
   }
 
-  .tl-benefits li:nth-child(1) img { left: 90.5%; top: 57.6%; }
-  .tl-benefits li:nth-child(1) span { left: 58.6%; top: 58.2%; width: 30.6%; }
-  .tl-benefits li:nth-child(2) img { left: 52.5%; top: 57.6%; width: 5.5%; }
-  .tl-benefits li:nth-child(2) span { left: 36.5%; top: 58.7%; width: 15.3%; }
-  .tl-benefits li:nth-child(3) img { left: 90.5%; top: 63.9%; }
-  .tl-benefits li:nth-child(3) span { left: 49.2%; top: 64.6%; width: 40%; line-height: 1.7cqw; }
-
-  .tl-closing-script {
-    left: 33.1%;
-    top: 70.9%;
-    width: 63.4%;
-    z-index: 2;
-  }
-
-  .tl-closing-bold {
-    left: 43.75%;
-    top: 75.9%;
-    width: 53.1%;
-    z-index: 2;
-  }
-
-  /* The character and the signpost, exactly where the artwork has them. */
-  .tl-stage {
-    left: 0;
-    top: 13.125%;
-    width: 56.25%;
-    height: 86.875%;
-    z-index: 1;
-  }
-
-  .tl-character {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 66.667%;
+  .tl-deadline {
+    margin: 0.66cqw 0 0;
+    font-size: 1.395cqw;
+    line-height: 1.5cqw;
   }
 
   .tl-cta {
     position: absolute;
-    left: 52.2%;
-    top: 81.3%;
-    width: 46.7%;
+    right: 0;
+    top: 0;
+    width: 33.169%;
     display: block;
-    border-radius: 14px;
-    transition: transform 180ms ease, filter 180ms ease;
+    transition: transform 200ms ease, filter 200ms ease;
+  }
+
+  /* The artwork casts a soft shadow under the sign. */
+  .tl-cta > img {
+    filter: drop-shadow(-0.15cqw 0.375cqw 0.5cqw rgba(0, 0, 0, 0.38));
   }
 
   .tl-cta:hover,
@@ -243,14 +413,16 @@
     filter: brightness(1.06) drop-shadow(0 10px 18px rgba(0, 0, 0, 0.35));
   }
 
+  /* The signpost says "מכאן מצטרפים" in the artwork's own hand. */
+  .tl-cta-label {
+    display: none;
+  }
 }
 
-/* On screens wider than the canvas the character's cut left edge would show
-   as a hard line in open navy; it fades into the field instead. */
-@media (min-width: 1601px) {
-  .tl-character {
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 12%);
-    mask-image: linear-gradient(to right, transparent, #000 12%);
+@media (min-width: 2001px) {
+  .tl-canvas {
+    margin-left: 0;
+    margin-right: auto;
   }
 }
 
@@ -258,41 +430,105 @@
 
 @media (max-width: 859.98px) {
   .tl-canvas {
-    padding: 20px 20px 0;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    align-items: stretch;
+    gap: 14px;
+    /* Room for the two marks in the corners of the navy header. */
+    padding: 94px 20px 0;
   }
 
   .tl-band {
-    display: none;
+    /* One angled band closes the page, as the artwork closes the poster.
+       It is the first element in the source (it sits behind everything on
+       the canvas), so on a phone it is sorted to the end. */
+    order: 99;
+    align-self: stretch;
+    /* Tall enough to be the page's own floor, and to hold the button that
+       follows the reader — cyan on pink, as the poster has it. */
+    height: calc(132px + env(safe-area-inset-bottom));
+    margin: 12px -20px 0;
+    background: var(--tl-pink);
+    clip-path: polygon(0 100%, 100% 34%, 100% 100%);
   }
 
-  .tl-logo {
-    width: min(46%, 220px);
-    align-self: flex-start;
+  img.tl-logo {
+    position: absolute;
+    left: 20px;
+    top: 18px;
+    width: min(37%, 156px);
+  }
+
+  img.tl-producer {
+    position: absolute;
+    right: 20px;
+    top: 16px;
+    width: min(25%, 108px);
+  }
+
+  /* The campaign's name is the one block that reads as a lockup rather than
+     as a line of text: it is centred on the screen, the rest is not. */
+  .tl-kicker {
+    margin: 0;
+    width: 100%;
+    align-self: center;
   }
 
   .tl-headline {
-    margin: 4px 0 0;
+    margin: -2px 0 0;
+    width: min(84%, 400px);
+    align-self: center;
   }
 
-  .tl-body {
+  /* The landscape as a band under the campaign's name, framed on the person
+     and cropped clear of the logo standing in its sky. */
+  img.tl-scene-foot {
+    display: none;
+  }
+
+  /* The band dissolves into the navy at both edges instead of ending on a
+     line, so the picture sits in the page rather than on top of it. */
+  img.tl-scene {
+    align-self: stretch;
+    width: calc(100% + 40px);
+    height: 248px;
+    margin: 10px -20px 6px;
+    max-width: none;
+    object-fit: cover;
+    object-position: 50% 56%;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 13%, #000 84%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 13%, #000 84%, transparent 100%);
+  }
+
+  .tl-lede,
+  .tl-body,
+  .tl-punch {
     margin: 0;
     font-size: 17px;
     line-height: 1.55;
   }
 
+  .tl-punch {
+    font-weight: 700;
+  }
+
   .tl-title {
-    margin: 12px 0 0;
-    width: min(72%, 360px);
+    margin: 10px 0 0;
+  }
+
+  .tl-title-conditions {
+    width: min(56%, 290px);
+  }
+
+  .tl-title-benefits {
+    width: min(74%, 370px);
   }
 
   .tl-sub {
-    margin: -4px 0 0;
+    margin: -2px 0 0;
     font-size: 16px;
     line-height: 1.5;
-    color: var(--tl-text-soft);
+    color: var(--tl-text-dim);
   }
 
   .tl-list {
@@ -301,18 +537,18 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
   }
 
   .tl-list li {
     display: grid;
-    grid-template-columns: 52px 1fr;
+    grid-template-columns: 46px 1fr;
     gap: 14px;
     align-items: center;
   }
 
   .tl-list li > img {
-    width: 52px;
+    width: 46px;
   }
 
   .tl-list li > span {
@@ -321,68 +557,151 @@
     font-weight: 500;
   }
 
-  .tl-closing-script {
-    margin: 10px 0 0;
+  .tl-closing {
+    margin: 8px 0 0;
   }
 
-  .tl-closing-bold {
-    margin: 0;
-  }
-
-  /* The character, the signpost and the band, in the artwork's arrangement.
-     --tl-char is the character's width as a fraction of the stage; the
-     signpost and the band follow it (signpost: 78.3% in, 70% wide, at 81.3%
-     of the character's height; band edge at 88.2% of it, same slope). The
-     open field to the right of the character holds the real button. */
-  .tl-stage {
-    --tl-char: 0.6667;
+  /* The joining area on a phone: the signpost and the code stand side by
+     side on the card's first row, the arrow pointing across at the code, and
+     the words sit centred underneath them. The button follows. */
+  .tl-join {
     position: relative;
-    width: calc(100% + 40px);
-    margin: 8px -20px 0;
-    aspect-ratio: 1 / calc(2.3167 * var(--tl-char));
-    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 20px;
   }
 
-  .tl-stage-band {
-    position: absolute;
-    left: 0;
-    top: 88.2%;
-    width: 300%;
-    height: 100%;
-    transform: rotate(var(--tl-band-angle));
-    transform-origin: 0 0;
-    background: var(--tl-pink);
+  .tl-join-card {
+    /* Row one: the sign on the right, the code on the left, where
+       "סירקו את הברקוד משמאל" points. Row two: the words, under both. */
+    grid-template-columns: 1fr auto;
+    order: -1;
+    align-items: center;
+    border-radius: 18px;
+    column-gap: 12px;
+    row-gap: 14px;
+    padding: 18px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
   }
 
-  .tl-character {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: calc(100% * var(--tl-char));
+  .tl-qr {
+    grid-column: 2;
+    grid-row: 1;
+    width: 104px;
   }
 
+  .tl-join-copy {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    text-align: center;
+  }
+
+  .tl-join-lines {
+    font-size: 15px;
+    line-height: 21px;
+    font-weight: 600;
+  }
+
+  .tl-deadline {
+    margin: 8px 0 0;
+    font-size: 14px;
+    line-height: 19px;
+    font-weight: 700;
+  }
+
+  /* The signpost keeps its place in the design; the words under it are the
+     button, at a size a thumb can hit. */
   .tl-cta {
-    position: absolute;
-    left: calc(78.3% * var(--tl-char));
-    top: 81.3%;
-    width: calc(70% * var(--tl-char));
     display: block;
+    text-decoration: none;
   }
 
+  .tl-cta > img {
+    position: absolute;
+    top: 10px;
+    right: 18px;
+    width: min(40%, 148px);
+    z-index: 2;
+    filter: drop-shadow(-2px 5px 8px rgba(0, 0, 0, 0.28));
+  }
+
+  .tl-cta-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 60px;
+    padding: 0 26px;
+    border-radius: 999px;
+    background: var(--tl-cyan);
+    color: var(--tl-ink);
+    font-size: 20px;
+    font-weight: 800;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+    box-sizing: border-box;
+  }
+
+  .tl-cta-arrow {
+    font-size: 23px;
+    line-height: 1;
+  }
 }
 
 @media (max-width: 859.98px) and (min-width: 600px) {
   .tl-canvas {
-    padding: 28px 32px 0;
+    padding: 86px 32px 0;
+    gap: 18px;
   }
-  .tl-stage {
-    --tl-char: 0.5;
+  img.tl-logo {
+    left: 32px;
+    width: min(28%, 200px);
+  }
+  img.tl-producer {
+    right: 32px;
+    width: min(19%, 136px);
+  }
+  /* Wider screens stretch the crop, so the band shows more of the valley and
+     less of the man's back — and the picture is never blown up past its own
+     width by more than a fifth. */
+  img.tl-scene {
     width: calc(100% + 64px);
-    margin: 8px -32px 0;
+    height: 330px;
+    margin: 10px -32px 6px;
+    object-position: 50% 44%;
   }
+  .tl-band {
+    margin: 26px -32px 0;
+    height: calc(170px + env(safe-area-inset-bottom));
+  }
+  .tl-headline {
+    width: min(62%, 440px);
+  }
+  .tl-title-conditions {
+    width: min(38%, 300px);
+  }
+  .tl-title-benefits {
+    width: min(50%, 390px);
+  }
+  .tl-lede,
   .tl-body,
+  .tl-punch,
   .tl-list li span {
     font-size: 19px;
+  }
+  .tl-list li {
+    grid-template-columns: 54px 1fr;
+  }
+  .tl-list li > img {
+    width: 54px;
+  }
+  .tl-qr {
+    width: 108px;
+  }
+  .tl-join-lines {
+    font-size: 17px;
+    line-height: 24px;
   }
 }
 
@@ -391,6 +710,7 @@
     transition: none;
   }
 }
+
 
 /* ── The floating call to action ───────────────────────────────────────── */
 
@@ -478,7 +798,9 @@
     font-size: 20px;
   }
   .tl-page {
-    padding-bottom: calc(120px + env(safe-area-inset-bottom));
+    /* No reserved strip: the pink band is the page's floor and the button
+       that follows the reader lands on it. */
+    padding-bottom: 0;
   }
 }
 

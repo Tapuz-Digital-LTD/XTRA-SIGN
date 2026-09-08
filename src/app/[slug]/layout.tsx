@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { shareForSlug } from '@/server/projects/share'
-import { Heebo } from 'next/font/google'
+import { Assistant } from 'next/font/google'
 import './tourism.css'
 import './campaign.css'
 
@@ -9,10 +9,18 @@ import './campaign.css'
  * signing, thank-you. Campaign branding only — none of the XTRA Sign shell.
  */
 
-const heebo = Heebo({
+/**
+ * The Ministry's own text face.
+ *
+ * Measured off the artwork: at the width the poster gives each line, this is
+ * the family whose letters come out the height the poster draws them — Heebo,
+ * which the page used before, is about an eighth wider for its height, so
+ * matching the line widths with it left every paragraph sitting small.
+ */
+const campaignFont = Assistant({
   subsets: ['hebrew', 'latin'],
-  weight: ['400', '500', '700', '800'],
-  variable: '--font-heebo',
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-campaign',
   display: 'swap',
 })
 
@@ -44,5 +52,5 @@ export const viewport: Viewport = {
 }
 
 export default function TourismLayout({ children }: { children: React.ReactNode }) {
-  return <div className={`tl-root ${heebo.variable}`}>{children}</div>
+  return <div className={`tl-root ${campaignFont.variable}`}>{children}</div>
 }
