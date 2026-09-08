@@ -261,6 +261,17 @@ async function fetchRows(session: StaffSession, def: EntityDef, fields: FieldDef
     return { id: String(r.__id), cells, links }
   })
 
+  // People are shown by name, never by id: one lookup per page for every user-typed column.
+  const userColumns = columns.filter((c) => c.type === 'user')
+  if (userColumns.length) {
+    const ids = [...new Set(rows.flatMap((r) => userColumns.map((c) => r.cells[c.key])).filter((v): v is string => typeof v === 'string' && UUID_RE.test(v)))]
+    if (ids.length) {
+      const users = (await getDb().execute(sql`select id::text as id, coalesce(nullif(name, ''), email) as name from users where id::text = any(${pgArray(ids)}::text[])`)).rows as { id: string; name: string }[]
+      const byId = new Map(users.map((u) => [u.id, u.name]))
+      for (const row of rows) for (const c of userColumns) if (typeof row.cells[c.key] === 'string') row.cells[c.key] = byId.get(row.cells[c.key] as string) ?? row.cells[c.key]
+    }
+  }
+
   // The reason behind "דורש טיפול" comes from the attention module (one batch per page), never a second rule set.
   if (columns.some((c) => c.key === 'attention_reason')) {
     const ids = rows.map((r) => r.links.agreement).filter((x): x is string => Boolean(x))
