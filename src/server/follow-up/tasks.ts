@@ -226,3 +226,29 @@ export async function backfillTasks(groupId: string, options: { apply: boolean }
   }
   return result
 }
+
+/** A company's tasks, newest first — the card on the company screen shows the first. */
+export async function tasksForCompany(organizationId: string, companyId: string): Promise<Task[]> {
+  if (!isUuid(companyId)) return []
+  return getDb()
+    .select()
+    .from(schema.followUpTasks)
+    .where(and(eq(schema.followUpTasks.organizationId, organizationId), eq(schema.followUpTasks.companyId, companyId)))
+    .orderBy(desc(schema.followUpTasks.createdAt))
+    .limit(50)
+}
+
+/**
+ * The same change on many tasks — a selection on the setup table. A task
+ * that is missing or another organization's is counted, not thrown: the
+ * rest of the selection still goes through.
+ */
+export async function bulkUpdateTasks(session: StaffSession, taskIds: string[], patch: TaskPatch): Promise<{ updated: number; failed: number }> {
+  let updated = 0
+  let failed = 0
+  for (const taskId of taskIds) {
+    if (await updateTask(session, taskId, patch)) updated++
+    else failed++
+  }
+  return { updated, failed }
+}

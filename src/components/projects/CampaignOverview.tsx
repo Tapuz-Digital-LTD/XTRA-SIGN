@@ -18,10 +18,16 @@ export function CampaignOverview({
   project,
   companies,
   leads,
+  setup = null,
+  cards: workCards,
 }: {
   project: { id: string; name: string; campaignKind: CampaignKind; publicUrl: string | null }
   companies: Company[]
   leads: Lead[]
+  /** Site-product setup, when the campaign creates that task: how many signed suppliers still wait. */
+  setup?: { pending: number; inProgress: number; done: number } | null
+  /** The work cards, each leading to the view that acts on it. */
+  cards?: { label: string; value: number; href: string; tone?: 'warn' }[]
 }) {
   const signed = companies.filter((c) => c.lastSend?.status === 'signed').length
   const pending = companies.filter((c) => c.lastSend && ['sent', 'viewed'].includes(c.lastSend.status)).length
@@ -30,14 +36,14 @@ export function CampaignOverview({
     ...leads.map((l) => ({ at: l.createdAt, text: `${l.data.name ?? 'הרשמה'} נרשם/ה`, href: `/projects/${project.id}?tab=registrations` })),
     ...companies.filter((c) => c.lastSend).map((c) => ({
       at: c.lastSend!.at,
-      text: `${c.name}: ${c.lastSend!.status === 'signed' ? 'חתם' : c.lastSend!.status === 'viewed' ? 'צפה בהסכם' : c.lastSend!.status === 'sent' ? 'נשלח הסכם' : c.lastSend!.status}`,
+      text: `${c.name}: ${c.lastSend!.status === 'signed' ? 'חתם' : c.lastSend!.status === 'viewed' ? 'פתח את ההסכם, טרם חתם' : c.lastSend!.status === 'sent' ? 'ההסכם נשלח לחתימה' : c.lastSend!.status}`,
       href: c.lastSend!.agreementId ? `/documents/${c.lastSend!.agreementId}` : `/companies/${c.id}`,
     })),
   ]
     .sort((a, b) => b.at.getTime() - a.at.getTime())
     .slice(0, 8)
 
-  const cards = [
+  const cards: { label: string; value: number; href?: string; tone?: 'warn' }[] = workCards ?? [
     { label: project.campaignKind === 'public' ? 'ספקים' : 'נמענים', value: companies.length },
     ...(project.campaignKind === 'public' ? [{ label: 'הרשמות', value: registrations }] : []),
     { label: 'חתמו', value: signed },
@@ -66,13 +72,38 @@ export function CampaignOverview({
         </p>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {cards.map((c) => (
-          <div key={c.label} className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
-            <p className="text-xs text-muted">{c.label}</p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-fg">{number.format(c.value)}</p>
-          </div>
-        ))}
+      {setup ? (
+        <Link href={`/projects/${project.id}?tab=setup&status=pending`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 px-5 py-4 transition hover:border-amber-400">
+          <span>
+            <span className="block text-base font-semibold text-fg">הקמת מוצרים באתר</span>
+            <span className="block text-sm text-amber-900">
+              {setup.pending + setup.inProgress === 0 ? `כל הספקים שחתמו הוקמו באתר (${setup.done}).` : `${setup.pending} ממתינים להקמה · ${setup.inProgress} בטיפול · ${setup.done} הוקמו`}
+            </span>
+          </span>
+          <span className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white">לרשימה</span>
+        </Link>
+      ) : null}
+
+      {/* Each card is the door to the list that acts on it — a number nobody can open is just decoration. */}
+      <div className="grid grid-cols-2 gap-3 sm:[grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
+        {cards.map((c) => {
+          const body = (
+            <>
+              <p className="text-xs text-muted">{c.label}</p>
+              <p className={`mt-1 text-2xl font-bold tabular-nums ${c.tone === 'warn' && c.value > 0 ? 'text-amber-700' : 'text-fg'}`}>{number.format(c.value)}</p>
+            </>
+          )
+          const box = `rounded-[var(--radius-card)] border p-4 ${c.tone === 'warn' && c.value > 0 ? 'border-amber-300 bg-amber-50' : 'border-line bg-surface'}`
+          return c.href ? (
+            <Link key={c.label} href={c.href} className={`${box} block transition hover:border-brand`}>
+              {body}
+            </Link>
+          ) : (
+            <div key={c.label} className={box}>
+              {body}
+            </div>
+          )
+        })}
       </div>
 
       <section className="rounded-[var(--radius-card)] border border-line bg-surface p-5">

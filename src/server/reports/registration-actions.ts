@@ -58,7 +58,7 @@ export type RegistrationDetail = {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: 'ממתין לחתימה', sent: 'ממתין לחתימה', viewed: 'צפה בהסכם', signed: 'נחתם', expired: 'פג תוקף', canceled: 'בוטל', declined: 'סורב',
+  draft: 'ממתין לחתימה', sent: 'ממתין לחתימה', viewed: 'ממתין לחתימה', signed: 'נחתם', expired: 'פג תוקף', canceled: 'בוטל', declined: 'סורב',
 }
 
 function actionsFor(status: string | null, leadStatus: string): RegistrationAction[] {

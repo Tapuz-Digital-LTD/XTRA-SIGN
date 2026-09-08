@@ -32,11 +32,10 @@ describe('campaign shape', () => {
     expect(describeCampaign({ campaignKind: 'public', selfServiceEnabled: true, selfServiceSkin: 'tourism-2026' })).toEqual({ goal: 'signing', entry: 'custom' })
     expect(describeCampaign({ goal: 'inquiries', entryMethod: 'api' })).toEqual({ goal: 'inquiries', entry: 'api' })
   })
-  it('shows the registrations tab only where a form brings people in; invitations everywhere, in the agreed order', () => {
-    expect(tabsFor('audience')).not.toContain('registrations')
-    for (const e of ['form', 'embed', 'api', 'custom'] as const) expect(tabsFor(e)).toContain('registrations')
-    expect(tabsFor('form')).toEqual(['overview', 'audience', 'invitations', 'registrations', 'agreements', 'distributions', 'reports', 'settings'])
-    expect(tabsFor('audience')).toEqual(['overview', 'audience', 'invitations', 'agreements', 'distributions', 'reports', 'settings'])
+  it('one tab per task: joining, suppliers/customers, agreements, setup when configured, distributions, reports, settings', () => {
+    expect(tabsFor('form')).toEqual(['overview', 'joining', 'audience', 'agreements', 'distributions', 'reports', 'settings'])
+    expect(tabsFor('audience')).toEqual(tabsFor('form'))
+    expect(tabsFor('form', { setup: true }).indexOf('setup')).toBe(tabsFor('form', { setup: true }).indexOf('agreements') + 1)
     expect(hasForm('audience')).toBe(false)
     expect(kindForEntry('embed')).toBe('public')
     expect(kindForEntry('audience')).toBe('signature')

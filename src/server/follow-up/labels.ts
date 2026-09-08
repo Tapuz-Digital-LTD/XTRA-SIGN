@@ -11,7 +11,7 @@ export type TaskKind = keyof typeof TASK_KINDS
 export const TASK_STATUSES = {
   pending: 'ממתין להקמה',
   in_progress: 'בטיפול',
-  done: 'הושלם',
+  done: 'הוקם באתר',
   not_needed: 'לא נדרש',
 } as const
 export type TaskStatus = keyof typeof TASK_STATUSES

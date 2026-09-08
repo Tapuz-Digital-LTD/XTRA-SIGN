@@ -13,7 +13,7 @@ const SESSION = process.env.SESSION ?? ''
 const OUT = process.env.OUT_DIR ?? '.design/qa/campaign-tabs'
 const CHROME = process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const WIDTHS = [375, 390, 430, 768, 1024, 1440]
-const TABS = ['overview', 'audience', 'invitations', 'registrations', 'agreements', 'distributions', 'reports', 'settings']
+const TABS = ['overview', 'joining', 'audience', 'agreements', 'setup', 'distributions', 'reports', 'settings']
 
 async function projectId(): Promise<string> {
   if (process.env.PROJECT) return process.env.PROJECT
@@ -43,11 +43,11 @@ async function main() {
           const navVisible = nav ? getComputedStyle(nav).display !== 'none' : false
           const intro = Array.from(document.querySelectorAll('h2')).some((h) => h.textContent?.trim() === expected)
           return { spill, pickerVisible, navVisible, intro }
-        }, { overview: 'סקירה', audience: 'קהל', invitations: 'הזמנות ומעקב', registrations: 'הרשמות', agreements: 'הסכמים', distributions: 'הפצות', reports: 'דוחות', settings: 'הגדרות' }[tab])
+        }, { overview: 'סקירה', joining: 'פניות והצטרפות', audience: 'ספקים/לקוחות', agreements: 'הסכמים', setup: 'הקמת מוצרים באתר', distributions: 'הפצות', reports: 'דוחות/סטטיסטיקות', settings: 'הגדרות' }[tab])
         if (check.spill) failures.push(`${tab}@${width} spills sideways`)
         if (width < 768 && !check.pickerVisible) failures.push(`${tab}@${width} no tab picker on phone`)
         if (width >= 768 && !check.navVisible) failures.push(`${tab}@${width} tab row hidden on desktop`)
-        if (!check.intro && tab !== 'registrations') failures.push(`${tab}@${width} intro title missing`)
+        if (!check.intro) failures.push(`${tab}@${width} intro title missing`)
         if (width === 390 || width === 1440) await page.screenshot({ path: `${OUT}/${tab}-${width}.png`, fullPage: false })
       }
       await page.close()

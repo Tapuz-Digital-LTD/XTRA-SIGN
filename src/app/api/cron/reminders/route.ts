@@ -262,7 +262,7 @@ async function attentionMail(brand: EmailBrand, projectName: string | null, unsi
     document: r.title,
     company: r.company,
     recipient: r.recipient,
-    status: r.status === 'viewed' ? 'נצפה' : 'ממתין לחתימה',
+    status: r.status === 'viewed' ? 'ממתין לחתימה · הקישור נפתח' : 'ממתין לחתימה · טרם נפתח',
     when,
     url: publicUrl(`/documents/${r.id}`),
   })

@@ -3,10 +3,13 @@ import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
 import { cleanOverrides, renderTemplate, resolveMessage, type Variables } from '@/lib/message-template'
 import { maskPhone, normalizeIsraeliPhone } from '@/lib/phone'
+import { joiningProgress, type JoiningProgress } from '@/lib/joining-progress'
+import { agreementEvidence, leadSendEvidence } from '@/server/progress/evidence'
 import { buildWhatsAppShareUrl } from '@/lib/whatsapp-share'
 import { getDb, schema } from '@/server/db'
 import { campaignUrlFor } from '@/server/distributions/distributions'
 import { authorizeGroup } from '@/server/groups/groups'
+import { cancelAgreement } from '@/server/documents/lifecycle'
 import { brandFor } from '@/server/mail/brand'
 import { renderEmail } from '@/server/mail/render'
 import { InvitationEmail } from '@/server/mail/templates'
@@ -208,6 +211,42 @@ async function ownedLead(session: StaffSession, leadId: string) {
   return lead ?? null
 }
 
+/**
+ * Take one process off the list — a test invitation, a wrong number, a
+ * duplicate someone created by mistake.
+ *
+ * What it will not do: touch anything signed, and never remove the supplier or
+ * customer themselves. An agreement that was already sent is canceled rather
+ * than deleted, so its history and its audit trail stay, and its link stops
+ * opening. Only the process row goes.
+ */
+export async function removeInvitation(session: StaffSession, leadId: string): Promise<{ ok: true; canceledAgreement: boolean } | { ok: false; message: string }> {
+  const lead = await ownedLead(session, leadId)
+  if (!lead) return { ok: false, message: 'לא נמצא.' }
+  await authorizeGroup(session, lead.groupId)
+
+  let canceledAgreement = false
+  if (lead.agreementId) {
+    const [agreement] = await getDb().select({ status: schema.agreements.status }).from(schema.agreements).where(eq(schema.agreements.id, lead.agreementId)).limit(1)
+    if (agreement?.status === 'signed') return { ok: false, message: 'אי אפשר למחוק אחרי שההסכם נחתם. אפשר להעביר את ההסכם לארכיון.' }
+    if (agreement && agreement.status !== 'canceled') {
+      const canceled = await cancelAgreement({ session, agreementId: lead.agreementId })
+      if (!canceled.ok) return { ok: false, message: canceled.message }
+      canceledAgreement = true
+    }
+  }
+
+  // The person's own record and the company stay; only the campaign process goes.
+  await getDb().delete(schema.projectLeads).where(eq(schema.projectLeads.id, lead.id))
+  await getDb().insert(schema.adminAuditEvents).values({
+    organizationId: session.organizationId,
+    type: 'invitation_removed',
+    actorEmail: session.email,
+    metadata: { leadId: lead.id, groupId: lead.groupId, agreementId: lead.agreementId, canceledAgreement, name: (lead.data as Record<string, unknown> | null)?.name ?? null },
+  })
+  return { ok: true, canceledAgreement }
+}
+
 /** The words the campaign sends, rendered for one person. */
 async function renderInvitation(session: StaffSession, groupId: string, lead: { data: unknown; phone: string | null; email: string | null }, link: string) {
   const group = await authorizeGroup(session, groupId)
@@ -339,13 +378,29 @@ export async function confirmWhatsapp(session: StaffSession, sendId: string, sen
 
 // ── the rep's view ──────────────────────────────────────────────────────────
 
-export type AudienceView = 'all' | 'invited' | 'waiting' | 'registered' | 'signed'
+export type AudienceView = 'all' | 'invitations' | 'invited' | 'waiting' | 'registered' | 'signed'
+
+/**
+ * A personal invitation a member of staff started — not someone who found the
+ * campaign page and signed up on their own. This is the whole difference
+ * between "הזמנות ומעקב" and "הרשמות": the first is our own outreach and the
+ * work it left open, the second is everyone who actually filled the form.
+ */
+export function isStaffInvitation(row: { invitedBy: { id: string } | null; source: string | null }): boolean {
+  return Boolean(row.invitedBy) || row.source === 'invitation'
+}
+
+/** What a person still needs, by the campaign's goal: signing campaigns wait for a signature; inquiries wait for the team's decision. */
+export function isWaiting(row: { status: ProcessStatus; leadStatus: string }, goal: string | null): boolean {
+  if (row.status === 'signed' || row.status === 'failed') return false
+  if (goal === 'inquiries') return row.status === 'invited' || row.leadStatus === 'new' || row.leadStatus === 'pending'
+  return row.status === 'invited' || row.status === 'registered' || row.status === 'awaiting_signature'
+}
 export const AUDIENCE_VIEWS: { key: AudienceView; label: string }[] = [
   { key: 'all', label: 'הכול' },
-  { key: 'invited', label: 'הוזמנו' },
-  { key: 'waiting', label: 'ממתינים' },
-  { key: 'registered', label: 'נרשמו' },
-  { key: 'signed', label: 'חתמו' },
+  { key: 'invitations', label: 'הזמנות ומעקב' },
+  { key: 'invited', label: 'הוזמנו ולא נרשמו' },
+  { key: 'registered', label: 'נרשמו ולא חתמו' },
 ]
 
 export type AudienceRow = {
@@ -360,6 +415,8 @@ export type AudienceRow = {
   email: string | null
   kind: AudienceKind | null
   status: ProcessStatus
+  /** The registration row's own status (new / approved / rejected / converted / failed / invited). */
+  leadStatus: string
   source: string
   invitedBy: { id: string; name: string } | null
   assignee: { id: string; name: string } | null
@@ -376,11 +433,13 @@ export type AudienceRow = {
   /** The newest message: what happened to it, in words. */
   lastSend: { channel: string; ok: boolean; manualState: string | null; at: string; error: string | null } | null
   linkingNeeded: boolean
+  /** Where this person really got to, and what to do next. */
+  progress: JoiningProgress
   /** The follow-up task a signature created, when the campaign makes one. */
   task: TaskSummary | null
 }
 
-export type AudienceFilters = { view?: AudienceView; q?: string; rep?: string; channel?: string; followUpDue?: boolean; limit?: number }
+export type AudienceFilters = { view?: AudienceView; q?: string; rep?: string; channel?: string; followUpDue?: boolean; limit?: number; /** The campaign's tracking tab shows only people who have not signed yet; reports may ask for everyone. */ includeSigned?: boolean }
 
 /**
  * Everyone the campaign reached or who reached it, one row each, with the
@@ -407,7 +466,7 @@ export async function listAudienceAll(session: StaffSession, filters: AudienceAl
     .orderBy(desc(schema.groups.createdAt))
   const campaigns = groups.filter((g) => !g.systemKey).map((g) => ({ id: g.id, name: g.name }))
   const chosen = filters.groupId === 'direct' ? groups.filter((g) => g.systemKey === DIRECT_SIGNING_KEY) : filters.groupId ? groups.filter((g) => g.id === filters.groupId) : groups
-  const result = chosen.length ? await audienceRows(session, chosen, filters) : { rows: [], counts: { all: 0, invited: 0, waiting: 0, registered: 0, signed: 0 }, total: 0 }
+  const result = chosen.length ? await audienceRows(session, chosen, { includeSigned: true, ...filters }) : { rows: [], counts: { all: 0, invitations: 0, invited: 0, waiting: 0, registered: 0, signed: 0 }, total: 0 }
   return { ...result, campaigns }
 }
 
@@ -420,6 +479,14 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
   const term = filters.q?.trim()
   const like = term ? `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null
   const digits = term?.replace(/\D/g, '') ?? ''
+  const scope = and(
+    inArray(schema.projectLeads.groupId, groupIds),
+    sql`${schema.projectLeads.status} <> 'pending'`,
+    like ? sql`(${schema.projectLeads.data}::text ilike ${like} or ${schema.companies.name} ilike ${like}${digits.length >= 4 ? sql` or ${schema.projectLeads.phone} like ${`%${digits.slice(-9)}%`}` : sql``})` : undefined,
+    filters.rep && UUID_RE.test(filters.rep) ? or(eq(schema.projectLeads.invitedBy, filters.rep), eq(schema.projectLeads.assigneeUserId, filters.rep)) : undefined,
+    filters.channel ? eq(schema.projectLeads.inviteChannel, filters.channel) : undefined,
+    filters.followUpDue ? sql`${schema.projectLeads.followUpAt} <= now()` : undefined,
+  )
   const rows = await db
     .select({
       lead: schema.projectLeads,
@@ -429,18 +496,33 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
     .from(schema.projectLeads)
     .leftJoin(schema.agreements, eq(schema.agreements.id, schema.projectLeads.agreementId))
     .leftJoin(schema.companies, eq(schema.companies.id, schema.projectLeads.companyId))
-    .where(
-      and(
-        inArray(schema.projectLeads.groupId, groupIds),
-        sql`${schema.projectLeads.status} <> 'pending'`,
-        like ? sql`(${schema.projectLeads.data}::text ilike ${like} or ${schema.companies.name} ilike ${like}${digits.length >= 4 ? sql` or ${schema.projectLeads.phone} like ${`%${digits.slice(-9)}%`}` : sql``})` : undefined,
-        filters.rep && UUID_RE.test(filters.rep) ? or(eq(schema.projectLeads.invitedBy, filters.rep), eq(schema.projectLeads.assigneeUserId, filters.rep)) : undefined,
-        filters.channel ? eq(schema.projectLeads.inviteChannel, filters.channel) : undefined,
-        filters.followUpDue ? sql`${schema.projectLeads.followUpAt} <= now()` : undefined,
-      ),
-    )
+    .where(scope)
     .orderBy(desc(sql`coalesce(${schema.projectLeads.lastActivityAt}, ${schema.projectLeads.createdAt})`))
     .limit(Math.min(filters.limit ?? 500, 2000))
+
+  /**
+   * The numbers on the cards and the chips count everyone the filter matches —
+   * never just the page that was fetched. A screen asking for one row to draw
+   * a badge must still read the true total.
+   */
+  const goalOf = groups.length === 1 ? groups[0].goal : null
+  const countRows = await db
+    .select({ leadStatus: schema.projectLeads.status, agreementStatus: schema.agreements.status, invitedBy: schema.projectLeads.invitedBy, source: schema.projectLeads.source })
+    .from(schema.projectLeads)
+    .leftJoin(schema.agreements, eq(schema.agreements.id, schema.projectLeads.agreementId))
+    .leftJoin(schema.companies, eq(schema.companies.id, schema.projectLeads.companyId))
+    .where(scope)
+    .limit(50_000)
+  const counts: Record<AudienceView, number> = { all: countRows.length, invitations: 0, invited: 0, waiting: 0, registered: 0, signed: 0 }
+  for (const row of countRows) {
+    const status = processStatus(row.leadStatus, row.agreementStatus)
+    const staff = isStaffInvitation({ invitedBy: row.invitedBy ? { id: row.invitedBy } : null, source: row.source })
+    if (staff && status !== 'signed') counts.invitations++
+    if (status === 'invited') counts.invited++
+    if (isWaiting({ status, leadStatus: row.leadStatus }, goalOf)) counts.waiting++
+    if (status === 'registered' || status === 'awaiting_signature' || status === 'signed') counts.registered++
+    if (status === 'signed') counts.signed++
+  }
 
   const userIds = [...new Set(rows.flatMap((r) => [r.lead.invitedBy, r.lead.assigneeUserId]).filter((x): x is string => Boolean(x)))]
   const users = userIds.length ? await db.select({ id: schema.users.id, name: schema.users.name, email: schema.users.email }).from(schema.users).where(inArray(schema.users.id, userIds)) : []
@@ -459,6 +541,11 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
     : []
 
   const tasks = leadIds.length ? await tasksForLeads(session.organizationId, leadIds) : new Map<string, unknown[]>()
+  // What the rows prove about each signer, for the status line and the drawer.
+  const [evidence, leadSends] = await Promise.all([
+    agreementEvidence(rows.map((r) => r.lead.agreementId).filter((x): x is string => Boolean(x))),
+    leadSendEvidence(leadIds),
+  ])
   const all: AudienceRow[] = rows.map(({ lead, agreementStatus, companyName }) => {
     const status = processStatus(lead.status, agreementStatus)
     const last = sends.find((s) => s.leadId === lead.id || (lead.agreementId && s.agreementId === lead.agreementId)) ?? null
@@ -475,6 +562,7 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
       email: lead.email ?? stringIn(lead.data, 'email'),
       kind: (lead.kind as AudienceKind | null) ?? (group.kind as AudienceKind | null),
       status,
+      leadStatus: lead.status,
       source: lead.source,
       invitedBy: userName(lead.invitedBy),
       assignee: userName(lead.assigneeUserId),
@@ -490,19 +578,28 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
       createdAt: lead.createdAt.toISOString(),
       lastSend: last ? { channel: last.channel, ok: last.ok, manualState: last.manualState, at: last.sentAt.toISOString(), error: last.error } : null,
       linkingNeeded: meta.linking === 'needed',
+      progress: joiningProgress({
+        invitedAt: lead.invitedBy || lead.source === 'invitation' ? lead.createdAt.toISOString() : null,
+        submittedAt: lead.formSnapshot ? lead.createdAt.toISOString() : null,
+        leadStatus: lead.status,
+        ...(lead.agreementId ? (evidence.get(lead.agreementId) ?? { agreementStatus }) : { agreementStatus: null, ...(leadSends.get(lead.id) ?? {}) }),
+      }),
       task: firstTask(tasks.get(lead.id)),
     }
   })
-  const counts: Record<AudienceView, number> = { all: all.length, invited: 0, waiting: 0, registered: 0, signed: 0 }
-  for (const row of all) {
-    if (row.status === 'invited') counts.invited++
-    if (row.status === 'invited' || row.status === 'registered' || row.status === 'awaiting_signature') counts.waiting++
-    if (row.status === 'registered' || row.status === 'awaiting_signature' || row.status === 'signed') counts.registered++
-    if (row.status === 'signed') counts.signed++
-  }
   const view = filters.view ?? 'all'
-  const filtered = all.filter((row) =>
-    view === 'all' ? true : view === 'invited' ? row.status === 'invited' : view === 'waiting' ? ['invited', 'registered', 'awaiting_signature'].includes(row.status) : view === 'registered' ? ['registered', 'awaiting_signature', 'signed'].includes(row.status) : row.status === 'signed',
+  const goal = goalOf
+  // "כל התהליכים" is the full history; every other view is about work left.
+  const includeSigned = filters.includeSigned ?? view === 'all'
+  const base = includeSigned ? all : all.filter((row) => row.status !== 'signed')
+  if (!includeSigned) counts.registered -= counts.signed
+  const filtered = base.filter((row) =>
+    view === 'all' ? true
+    : view === 'invitations' ? isStaffInvitation(row) && row.status !== 'signed'
+    : view === 'invited' ? row.status === 'invited'
+    : view === 'waiting' ? isWaiting(row, goal)
+    : view === 'registered' ? ['registered', 'awaiting_signature', ...(includeSigned ? ['signed'] : [])].includes(row.status)
+    : row.status === 'signed',
   )
   return { rows: filtered, counts, total: filtered.length }
 }

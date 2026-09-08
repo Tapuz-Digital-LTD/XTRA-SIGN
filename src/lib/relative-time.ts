@@ -13,8 +13,8 @@ const fullDate = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'shor
 const EVENT_TEXT: Record<string, string> = {
   created: 'נוצר',
   sent: 'נשלח',
-  viewed: 'נצפה',
-  otp_verified: 'אומת',
+  viewed: 'פתח את ההסכם',
+  otp_verified: 'הזין קוד אימות',
   archived: 'בארכיון',
   link_renewed: 'הקישור חודש',
   restored: 'הוחזר',

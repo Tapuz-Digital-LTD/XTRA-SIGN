@@ -4,6 +4,8 @@ import { classifySource, type Utm } from '@/lib/campaign-events'
 import { formatDuration } from '@/lib/format-duration'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
+import { joiningProgress, type JoiningProgress } from '@/lib/joining-progress'
+import { agreementEvidence, leadSendEvidence } from '@/server/progress/evidence'
 import { submittedRegistration } from '@/server/projects/registration-rules'
 import { summarizeTask, type TaskSummary } from '@/server/follow-up/labels'
 import { tasksForLeads } from '@/server/follow-up/tasks'
@@ -60,6 +62,10 @@ export type RegistrationRow = {
   task: TaskSummary | null
   /** Saved on a local row because the CRM had no single match: a person should link it. */
   linkingNeeded: boolean
+  /** Staff follow-up on the registration itself. */
+  followUp: { assigneeUserId: string | null; followUpAt: string | null; callOutcome: string | null; internalNote: string | null }
+  /** The same progress model every other screen uses. */
+  progress: JoiningProgress
 }
 
 export type ProjectReport = {
@@ -97,7 +103,7 @@ const STATUS_SETS: Record<StatusFilter, SQL> = {
 
 const STATUS_LABELS: Record<string, { label: string; tone: RegistrationRow['statusTone'] }> = {
   signed: { label: 'נחתם', tone: 'ok' },
-  viewed: { label: 'צפה בהסכם', tone: 'wait' },
+  viewed: { label: 'ממתין לחתימה', tone: 'wait' },
   sent: { label: 'ממתין לחתימה', tone: 'wait' },
   draft: { label: 'ממתין לחתימה', tone: 'wait' },
   expired: { label: 'פג תוקף', tone: 'muted' },
@@ -372,8 +378,8 @@ async function statusBreakdown(groupId: string, range: { from?: Date; to?: Date 
     .where(and(eq(schema.projectLeads.groupId, groupId), eq(schema.projectLeads.status, 'failed'), within(sql`${schema.projectLeads.createdAt}`, range), sourceMatch(source, leadUtmSource, leadReferrer)))
   return [
     { key: 'signed', label: 'נחתם', count: Number(row?.signed ?? 0) },
-    { key: 'sent', label: 'ממתין', count: Number(row?.sent ?? 0) },
-    { key: 'viewed', label: 'נצפה', count: Number(row?.viewed ?? 0) },
+    { key: 'sent', label: 'ממתין לחתימה · טרם נפתח', count: Number(row?.sent ?? 0) },
+    { key: 'viewed', label: 'ממתין לחתימה · נפתח', count: Number(row?.viewed ?? 0) },
     { key: 'expired', label: 'פג תוקף', count: Number(row?.expired ?? 0) },
     { key: 'canceled', label: 'בוטל', count: Number(row?.canceled ?? 0) },
     { key: 'failed', label: 'נכשל', count: Number(failedRow?.failed ?? 0) },
@@ -462,8 +468,14 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
       meta: schema.projectLeads.meta,
       referrer: schema.projectLeads.referrer,
       companyId: schema.projectLeads.companyId,
+      invitedBy: schema.projectLeads.invitedBy,
+      assigneeUserId: schema.projectLeads.assigneeUserId,
+      followUpAt: schema.projectLeads.followUpAt,
+      callOutcome: schema.projectLeads.callOutcome,
+      internalNote: schema.projectLeads.internalNote,
       agreementId: sql<string | null>`a.id`,
       agreementStatus: sql<string | null>`a.status`,
+      formSnapshot: schema.projectLeads.formSnapshot,
       sentAt: sql<Date | null>`a.sent_at`,
       completedAt: sql<Date | null>`a.completed_at`,
     })
@@ -474,11 +486,20 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
     .limit(limit)
 
   const tasks = rows.length ? await tasksForLeads(rows[0].organizationId, rows.map((r) => r.id)) : new Map<string, never[]>()
+  const [evidence, leadSends] = await Promise.all([
+    agreementEvidence(rows.map((r) => r.agreementId).filter((x): x is string => Boolean(x))),
+    leadSendEvidence(rows.map((r) => r.id)),
+  ])
 
   return rows.map((r) => {
     const d = (r.data && typeof r.data === 'object' ? r.data : {}) as Record<string, unknown>
     const text = (key: string) => (typeof d[key] === 'string' ? (d[key] as string) : '')
-    const { source, campaign } = leadSource(r.meta, r.referrer)
+    const { source: traffic, campaign } = leadSource(r.meta, r.referrer)
+    // How the person got here, in the worker's words: a personal invitation from
+    // a rep, or the campaign page itself (with the traffic source when known).
+    const source = r.invitedBy
+      ? { key: 'invitation', label: 'הזמנה אישית', medium: null }
+      : { key: traffic.key, label: traffic.key === 'direct' ? 'הצטרף באתר' : `הצטרף באתר · ${traffic.label}`, medium: traffic.medium }
     const status = statusOf(r.status, r.agreementStatus)
     const completedAt = r.completedAt ? new Date(r.completedAt) : null
     const createdAt = new Date(r.createdAt)
@@ -503,6 +524,13 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
       // ponytail: one built-in kind today, so the first task is the task.
       task: tasks.get(r.id)?.map(summarizeTask)[0] ?? null,
       linkingNeeded: (r.meta as { linking?: unknown } | null)?.linking === 'needed',
+      followUp: { assigneeUserId: r.assigneeUserId ?? null, followUpAt: r.followUpAt ? new Date(r.followUpAt).toISOString() : null, callOutcome: r.callOutcome ?? null, internalNote: r.internalNote ?? null },
+      progress: joiningProgress({
+        invitedAt: r.invitedBy ? createdAt.toISOString() : null,
+        submittedAt: r.formSnapshot ? createdAt.toISOString() : null,
+        leadStatus: r.status,
+        ...(r.agreementId ? (evidence.get(r.agreementId) ?? { agreementStatus: r.agreementStatus }) : { agreementStatus: null, ...(leadSends.get(r.id) ?? {}) }),
+      }),
     }
   })
 }

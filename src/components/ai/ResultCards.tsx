@@ -13,8 +13,8 @@ type Row = Record<string, unknown>
 
 const STATUS_TEXT: Record<string, string> = {
   draft: 'טיוטה',
-  sent: 'נשלח',
-  viewed: 'נצפה',
+  sent: 'ממתין לחתימה',
+  viewed: 'ממתין לחתימה',
   signed: 'נחתם',
   declined: 'נדחה',
   expired: 'פג תוקף',

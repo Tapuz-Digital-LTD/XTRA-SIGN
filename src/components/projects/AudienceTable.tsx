@@ -9,9 +9,11 @@ import { TaskPanel } from '@/components/follow-up/TaskPanel'
 import { CopyButton } from '@/components/ui/CopyButton'
 import { Drawer } from '@/components/ui/Drawer'
 import { LinkCompanyPanel } from '@/components/invitations/LinkCompanyPanel'
+import { FollowUpPanel, hasOpenWork } from '@/components/follow-up/FollowUpPanel'
+import { JoiningProgressPanel, ProgressLine } from '@/components/progress/JoiningProgressPanel'
 import { currentUrlFor, withReturnTo } from '@/lib/return-to'
 import type { TaskSummary } from '@/server/follow-up/labels'
-import type { AudienceRow, AudienceView, CallOutcome, SendHistoryItem } from '@/server/invitations/invitations'
+import type { AudienceRow, AudienceView, SendHistoryItem } from '@/server/invitations/invitations'
 import { InviteDialog } from './InviteDialog'
 
 /**
@@ -22,10 +24,8 @@ import { InviteDialog } from './InviteDialog'
  */
 const VIEWS: { key: AudienceView; label: string }[] = [
   { key: 'all', label: 'הכול' },
-  { key: 'invited', label: 'הוזמנו' },
-  { key: 'waiting', label: 'ממתינים' },
-  { key: 'registered', label: 'נרשמו' },
-  { key: 'signed', label: 'חתמו' },
+  { key: 'invited', label: 'הוזמנו ולא נרשמו' },
+  { key: 'registered', label: 'נרשמו ולא חתמו' },
 ]
 const STATUS: Record<AudienceRow['status'], { label: string; cls: string }> = {
   invited: { label: 'הוזמן', cls: 'bg-bg text-fg border-line' },
@@ -34,27 +34,20 @@ const STATUS: Record<AudienceRow['status'], { label: string; cls: string }> = {
   signed: { label: 'חתם', cls: 'bg-green-50 text-green-900 border-green-200' },
   failed: { label: 'נכשל', cls: 'bg-red-50 text-red-900 border-red-200' },
 }
-const CALL_OUTCOMES: { key: CallOutcome; label: string }[] = [
-  { key: 'interested', label: 'מעוניין' },
-  { key: 'call_back', label: 'לחזור אליו' },
-  { key: 'no_answer', label: 'לא ענה' },
-  { key: 'not_interested', label: 'לא מעוניין' },
-]
 const CHANNEL_WORD: Record<string, string> = { sms: 'SMS', email: 'מייל', whatsapp: 'WhatsApp' }
 const EVENT_WORD: Record<string, string> = { invitation: 'הזמנה', reminder: 'תזכורת', signed_confirmation: 'עותק חתום', registration_completed: 'קישור לחתימה', distribution: 'הפצה', test: 'בדיקה' }
 const dateFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 const dayFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short' })
-const field = 'mt-1 w-full rounded-xl border border-line bg-bg px-4 py-3 text-base text-fg outline-none focus:border-brand'
 const bigButton = 'inline-flex min-h-12 items-center justify-center rounded-xl px-4 text-base font-semibold transition disabled:opacity-50'
 
-type Team = { id: string; name: string; email: string }
-
-export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueToday, global = false, basePath, extraParams }: { projectId: string; rows: AudienceRow[]; counts: Record<AudienceView, number>; view: AudienceView; q: string; askKind: boolean; dueToday: number; /** The organisation-wide tracking screen: a campaign column, no invite button. */ global?: boolean; basePath?: string; extraParams?: Record<string, string> }) {
+export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueToday, global = false, basePath, extraParams, hideViews = false }: { projectId: string; rows: AudienceRow[]; counts: Record<AudienceView, number>; view: AudienceView; q: string; askKind: boolean; dueToday: number; /** The organisation-wide tracking screen: a campaign column, no invite button. */ global?: boolean; basePath?: string; extraParams?: Record<string, string>; /** The campaign page draws its own view chips above the table. */ hideViews?: boolean }) {
   const router = useRouter()
   const [inviteOpen, setInviteOpen] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
-  const [team, setTeam] = useState<Team[]>([])
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
+  // A process to take off the list, waiting for a yes.
+  const [removing, setRemoving] = useState<AudienceRow | null>(null)
+  const [removeBusy, setRemoveBusy] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [plan, setPlan] = useState<{ eligible: { id: string; name: string; channel: string; kind: string }[]; skipped: { id: string; name: string; why: string }[] } | null>(null)
   const [bulkBusy, setBulkBusy] = useState(false)
@@ -115,16 +108,9 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
     }
   }
 
-  useEffect(() => {
-    void fetch('/api/team')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setTeam(Array.isArray(d?.users) ? d.users : []))
-      .catch(() => setTeam([]))
-  }, [])
-
   const path = basePath ?? `/projects/${projectId}`
   const href = (patch: Record<string, string | undefined>) => {
-    const p = new URLSearchParams(global ? extraParams ?? {} : { tab: 'invitations' })
+    const p = new URLSearchParams(global ? extraParams ?? {} : { tab: 'joining', ...(extraParams ?? {}) })
     const next: { view?: string; q?: string; due?: string } = { view, q, ...patch }
     if (next.view && next.view !== 'all') p.set('view', next.view)
     if (next.q) p.set('q', next.q)
@@ -144,6 +130,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
+        {hideViews ? null : (
         <nav aria-label="תצוגות" className="flex flex-wrap gap-1 rounded-xl border border-line bg-surface p-1">
           {VIEWS.map((v) => (
             <Link key={v.key} href={href({ view: v.key })} aria-current={view === v.key ? 'page' : undefined} className={`inline-flex min-h-10 items-center gap-1 rounded-lg px-3 text-sm font-medium ${view === v.key ? 'bg-brand text-white' : 'text-fg hover:bg-bg'}`}>
@@ -152,8 +139,9 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
             </Link>
           ))}
         </nav>
+        )}
         <form method="get" action={path} className="flex min-w-0 flex-1 gap-2">
-          {global ? Object.entries(extraParams ?? {}).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />) : <input type="hidden" name="tab" value="invitations" />}
+          {global ? Object.entries(extraParams ?? {}).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />) : <input type="hidden" name="tab" value="joining" />}
           {view !== 'all' ? <input type="hidden" name="view" value={view} /> : null}
           <input type="search" name="q" defaultValue={q} placeholder="חיפוש לפי שם או טלפון" aria-label="חיפוש בקהל" className="min-h-11 min-w-0 flex-1 rounded-xl border border-line bg-surface px-4 text-base text-fg outline-none focus:border-brand" />
           <button type="submit" className="inline-flex min-h-11 items-center rounded-xl border border-line bg-surface px-4 text-sm font-medium text-fg hover:border-brand">
@@ -228,9 +216,14 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
 
       {rows.length === 0 ? (
         <div className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center">
-          <p className="text-base font-semibold text-fg">{q || view !== 'all' ? 'לא נמצא אף אחד בתצוגה הזו' : global ? 'עדיין אין הזמנות או הרשמות למעקב' : 'עדיין לא נשלחו הזמנות'}</p>
-          <p className="mt-2 text-sm text-muted">{q || view !== 'all' ? 'נסו תצוגה אחרת או חיפוש אחר.' : global ? 'הזמנות מקמפיינים ושליחות ישירות יופיעו כאן ברגע שיישלחו.' : 'שלחו קישור אישי לספק או ללקוח, גם אם הוא עדיין אינו נמצא במערכת.'}</p>
-          {!q && view === 'all' && !global ? (
+          {/* An empty list is a place to start from, not a dead end. */}
+          <p className="text-base font-semibold text-fg">
+            {q ? 'לא נמצא אף אחד בתצוגה הזו' : view === 'invitations' ? 'עדיין לא נשלחו הזמנות אישיות' : global ? 'עדיין אין הזמנות או הרשמות למעקב' : view !== 'all' ? 'לא נמצא אף אחד בתצוגה הזו' : 'עדיין לא נשלחו הזמנות'}
+          </p>
+          <p className="mt-2 text-sm text-muted">
+            {q ? 'נסו תצוגה אחרת או חיפוש אחר.' : view === 'invitations' ? 'כאן מופיעות רק הזמנות ששלחתם בעצמכם, כל עוד לא הושלמה בהן חתימה. מי שנרשם מעמוד הקמפיין מופיע בהרשמות.' : global ? 'הזמנות מקמפיינים ושליחות ישירות יופיעו כאן ברגע שיישלחו.' : view !== 'all' ? 'נסו תצוגה אחרת או חיפוש אחר.' : 'שלחו קישור אישי לספק או ללקוח, גם אם הוא עדיין אינו נמצא במערכת.'}
+          </p>
+          {!q && (view === 'all' || view === 'invitations') && !global ? (
             <button type="button" onClick={() => setInviteOpen(true)} className={`${bigButton} mt-5 bg-brand text-white`}>
               + שליחת הזמנה
             </button>
@@ -250,6 +243,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                     </span>
                     <StatusChip status={row.status} />
                   </span>
+                  <ProgressLine progress={row.progress} />
                   <span className="text-sm text-muted" dir="ltr">
                     {row.phone ?? row.email ?? ''}
                   </span>
@@ -259,7 +253,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                   </span>
                   {row.task ? (
                     <span onClick={(e) => e.stopPropagation()}>
-                      <TaskBadge projectId={projectId} task={row.task} onChange={() => router.refresh()} />
+                      <TaskBadge projectId={projectId} task={row.task} name={row.name} onChange={() => router.refresh()} />
                     </span>
                   ) : null}
                 </div>
@@ -308,9 +302,10 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                     </td>
                     <td className="px-4 py-3">
                       <StatusChip status={row.status} />
+                      <ProgressLine progress={row.progress} className="mt-1" />
                       {row.task ? (
                         <span className="mt-1 block" onClick={(e) => e.stopPropagation()}>
-                          <TaskBadge projectId={projectId} task={row.task} onChange={() => router.refresh()} onError={(m) => setNotice({ tone: 'error', text: m })} />
+                          <TaskBadge projectId={projectId} task={row.task} name={row.name} onChange={() => router.refresh()} />
                         </span>
                       ) : null}
                     </td>
@@ -322,7 +317,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                       <span className="block text-xs">{dateFormat.format(new Date(row.lastActivityAt ?? row.createdAt))}</span>
                     </td>
                     <td className="sticky end-0 bg-surface px-2 py-3" onClick={(e) => e.stopPropagation()}>
-                      <RowMenu row={row} projectId={row.groupId || projectId} onOpen={() => setOpenId(row.id)} onNotice={setNotice} />
+                      <RowMenu row={row} projectId={row.groupId || projectId} onOpen={() => setOpenId(row.id)} onNotice={setNotice} onRemove={() => setRemoving(row)} />
                     </td>
                   </tr>
                 ))}
@@ -333,7 +328,34 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
       )}
 
       {inviteOpen ? <InviteDialog projectId={projectId} askKind={askKind} onClose={() => setInviteOpen(false)} /> : null}
-      {current ? <PersonDrawer row={current} projectId={current.groupId || projectId} team={team} onClose={() => setOpenId(null)} onNotice={setNotice} /> : null}
+      {current ? <PersonDrawer row={current} projectId={current.groupId || projectId} onClose={() => setOpenId(null)} onNotice={setNotice} onRemove={() => setRemoving(current)} /> : null}
+
+      {removing ? (
+        <ConfirmRemove
+          row={removing}
+          busy={removeBusy}
+          onCancel={() => setRemoving(null)}
+          onConfirm={async () => {
+            setRemoveBusy(true)
+            try {
+              const response = await fetch(`/api/invitations/${removing.id}`, { method: 'DELETE' })
+              const data = (await response.json().catch(() => null)) as { canceledAgreement?: boolean; error?: { message?: string } } | null
+              if (!response.ok) {
+                setNotice({ tone: 'error', text: data?.error?.message ?? 'המחיקה נכשלה.' })
+                return
+              }
+              setNotice({ tone: 'ok', text: data?.canceledAgreement ? `${removing.name} נמחק מהרשימה, וההסכם שנשלח בוטל.` : `${removing.name} נמחק מהרשימה.` })
+              setRemoving(null)
+              setOpenId(null)
+              router.refresh()
+            } catch {
+              setNotice({ tone: 'error', text: 'המחיקה נכשלה. בדקו את החיבור לאינטרנט.' })
+            } finally {
+              setRemoveBusy(false)
+            }
+          }}
+        />
+      ) : null}
     </section>
   )
 }
@@ -418,7 +440,7 @@ function WhatsappConfirm({ onConfirm }: { onConfirm: (sent: boolean) => void }) 
   )
 }
 
-function RowMenu({ row, projectId, onOpen, onNotice }: { row: AudienceRow; projectId: string; onOpen: () => void; onNotice: (n: { tone: 'ok' | 'error'; text: string }) => void }) {
+function RowMenu({ row, projectId, onOpen, onNotice, onRemove }: { row: AudienceRow; projectId: string; onOpen: () => void; onNotice: (n: { tone: 'ok' | 'error'; text: string }) => void; onRemove: () => void }) {
   const [open, setOpen] = useState(false)
   const [style, setStyle] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0, top: 0 })
   const { busy, send, whatsapp, confirmWhatsapp } = useActions(row, projectId, onNotice)
@@ -431,7 +453,7 @@ function RowMenu({ row, projectId, onOpen, onNotice }: { row: AudienceRow; proje
     return () => document.removeEventListener('mousedown', close)
   }, [open])
 
-  const items: { label: string; run: () => void }[] = [
+  const items: { label: string; run: () => void; danger?: boolean }[] = [
     { label: 'פרטים', run: onOpen },
     ...(row.status !== 'signed' && row.status !== 'failed'
       ? [
@@ -442,6 +464,8 @@ function RowMenu({ row, projectId, onOpen, onNotice }: { row: AudienceRow; proje
       : []),
     ...(row.agreementId ? [{ label: 'פתח הסכם', run: () => window.open(withReturnTo(`/documents/${row.agreementId}`, here), '_self') }] : []),
     ...(row.companyId ? [{ label: 'פתח ספק/לקוח', run: () => window.open(withReturnTo(`/companies/${row.companyId}`, here), '_self') }] : [{ label: 'הוסף כספק/לקוח', run: onOpen }]),
+    // Signed is final: it can be archived from the agreement, never deleted here.
+    ...(row.status !== 'signed' ? [{ label: 'מחיקה מהרשימה', run: onRemove, danger: true }] : []),
   ]
 
   return (
@@ -476,7 +500,7 @@ function RowMenu({ row, projectId, onOpen, onNotice }: { row: AudienceRow; proje
                     setOpen(false)
                     item.run()
                   }}
-                  className="block w-full px-4 py-2.5 text-start text-sm text-fg hover:bg-bg"
+                  className={`block w-full px-4 py-2.5 text-start text-sm hover:bg-bg ${item.danger ? 'text-red-700' : 'text-fg'}`}
                 >
                   {item.label}
                 </button>
@@ -492,17 +516,12 @@ function RowMenu({ row, projectId, onOpen, onNotice }: { row: AudienceRow; proje
 
 // ── the drawer: the whole story of one person ───────────────────────────────
 
-function PersonDrawer({ row, projectId, team, onClose, onNotice }: { row: AudienceRow; projectId: string; team: Team[]; onClose: () => void; onNotice: (n: { tone: 'ok' | 'error'; text: string }) => void }) {
+function PersonDrawer({ row, projectId, onClose, onNotice, onRemove }: { row: AudienceRow; projectId: string; onClose: () => void; onNotice: (n: { tone: 'ok' | 'error'; text: string }) => void; onRemove: () => void }) {
   const router = useRouter()
   const { busy, send, whatsapp, confirmWhatsapp, hasAgreement } = useActions(row, projectId, onNotice)
   const here = currentUrlFor(usePathname(), useSearchParams())
   const [history, setHistory] = useState<SendHistoryItem[] | null>(null)
   const [link, setLink] = useState<string | null>(null)
-  const [assignee, setAssignee] = useState(row.assignee?.id ?? '')
-  const [followUpAt, setFollowUpAt] = useState(row.followUpAt ? row.followUpAt.slice(0, 10) : '')
-  const [callOutcome, setCallOutcome] = useState<CallOutcome | ''>(row.callOutcome ?? '')
-  const [note, setNote] = useState(row.internalNote ?? '')
-  const [saving, setSaving] = useState(false)
   const [task, setTask] = useState<TaskSummary | null>(row.task)
 
   useEffect(() => {
@@ -527,19 +546,6 @@ function PersonDrawer({ row, projectId, team, onClose, onNotice }: { row: Audien
     await navigator.clipboard.writeText(url).catch(() => null)
     setLink(url)
     onNotice({ tone: 'ok', text: 'הקישור הועתק.' })
-  }
-
-  async function saveFollowUp() {
-    setSaving(true)
-    try {
-      const response = await fetch(`/api/invitations/${row.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assigneeUserId: assignee || null, followUpAt: followUpAt ? new Date(`${followUpAt}T09:00:00+03:00`).toISOString() : null, callOutcome: callOutcome || null, internalNote: note }) })
-      const data = await response.json().catch(() => null)
-      if (!response.ok) return onNotice({ tone: 'error', text: data?.error?.message ?? 'השמירה נכשלה.' })
-      onNotice({ tone: 'ok', text: 'נשמר.' })
-      router.refresh()
-    } finally {
-      setSaving(false)
-    }
   }
 
   return (
@@ -567,6 +573,8 @@ function PersonDrawer({ row, projectId, team, onClose, onNotice }: { row: Audien
             </>
           ) : null}
         </dl>
+
+        <JoiningProgressPanel progress={row.progress} />
 
         {whatsapp ? <WhatsappConfirm onConfirm={(s) => void confirmWhatsapp(s)} /> : null}
 
@@ -609,6 +617,11 @@ function PersonDrawer({ row, projectId, team, onClose, onNotice }: { row: Audien
             ) : null}
           </div>
           {link ? <CopyButton text={link} label="העתק שוב" className="mt-2 text-xs text-brand underline" /> : null}
+          {row.status !== 'signed' ? (
+            <button type="button" onClick={onRemove} className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-800 transition hover:border-red-400">
+              מחיקה מהרשימה
+            </button>
+          ) : null}
         </section>
 
         {!row.companyId ? (
@@ -631,47 +644,14 @@ function PersonDrawer({ row, projectId, team, onClose, onNotice }: { row: Audien
           </section>
         ) : null}
 
-        {/* Signed and already a supplier or customer: nothing left to chase, so no follow-up block. */}
-        {!(row.status === 'signed' && row.companyId) ? (
-        <section>
-          <h3 className="text-sm font-semibold text-fg">מעקב</h3>
-          <div className="mt-2 grid gap-3 sm:grid-cols-2">
-            <label className="block text-sm">
-              <span className="text-muted">אחראי לטיפול</span>
-              <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={field}>
-                <option value="">ללא</option>
-                {team.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name || u.email}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="text-muted">תאריך חזרה</span>
-              <input type="date" value={followUpAt} onChange={(e) => setFollowUpAt(e.target.value)} className={field} />
-            </label>
-          </div>
-          <div className="mt-3">
-            <span className="text-sm text-muted">תוצאת השיחה</span>
-            <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {CALL_OUTCOMES.map((o) => (
-                <label key={o.key} className={`flex min-h-11 cursor-pointer items-center justify-center rounded-xl border text-sm font-medium ${callOutcome === o.key ? 'border-brand bg-blue-50 text-fg' : 'border-line bg-bg text-fg hover:border-brand'}`}>
-                  <input type="radio" name="call-outcome" className="sr-only" checked={callOutcome === o.key} onChange={() => setCallOutcome(o.key)} />
-                  {o.label}
-                </label>
-              ))}
-            </div>
-          </div>
-          <label className="mt-3 block text-sm">
-            <span className="text-muted">הערה פנימית</span>
-            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={2000} className={field} />
-          </label>
-          <button type="button" disabled={saving} onClick={() => void saveFollowUp()} className={`${bigButton} mt-3 w-full bg-brand text-white`}>
-            {saving ? 'שומרים…' : 'שמירת המעקב'}
-          </button>
-        </section>
-        ) : null}
+        <FollowUpPanel
+          leadId={row.id}
+          values={{ assigneeUserId: row.assignee?.id ?? null, followUpAt: row.followUpAt, callOutcome: row.callOutcome, internalNote: row.internalNote }}
+          openWork={hasOpenWork({ signed: row.status === 'signed', taskStatus: task?.status ?? null, followUpAt: row.followUpAt, assigneeUserId: row.assignee?.id ?? null, callOutcome: row.callOutcome })}
+          doneText={task ? 'ההצטרפות וההקמה הושלמו.' : 'ההצטרפות הושלמה.'}
+          onSaved={() => onNotice({ tone: 'ok', text: 'נשמר.' })}
+          onError={(m) => onNotice({ tone: 'error', text: m })}
+        />
 
         <section>
           <h3 className="text-sm font-semibold text-fg">היסטוריית שליחות</h3>
@@ -697,5 +677,36 @@ function PersonDrawer({ row, projectId, team, onClose, onNotice }: { row: Audien
         </section>
       </div>
     </Drawer>
+  )
+}
+
+/**
+ * Deleting is small but not reversible, so the question names exactly what
+ * goes and what stays: the process leaves the list, an agreement already sent
+ * is canceled, and the supplier or customer stays in the database.
+ */
+function ConfirmRemove({ row, busy, onCancel, onConfirm }: { row: AudienceRow; busy: boolean; onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 sm:items-center sm:p-4" onClick={onCancel}>
+      <div role="dialog" aria-modal="true" aria-labelledby="remove-title" onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-t-2xl bg-surface p-5 shadow-xl sm:rounded-2xl">
+        <h2 id="remove-title" className="text-lg font-bold text-fg">
+          למחוק את {row.name} מהרשימה?
+        </h2>
+        <ul className="mt-3 flex list-disc flex-col gap-1 ps-5 text-sm text-fg">
+          <li>הרשומה תיעלם מהקמפיין ומהמעקב.</li>
+          {row.agreementId ? <li>ההסכם שנשלח יבוטל והקישור יפסיק לעבוד.</li> : null}
+          {row.companyId ? <li>הספק/לקוח עצמו יישאר במאגר.</li> : null}
+          <li>אי אפשר לבטל את המחיקה.</li>
+        </ul>
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <button type="button" disabled={busy} onClick={onConfirm} className="inline-flex min-h-12 items-center justify-center rounded-xl bg-red-600 px-4 text-base font-semibold text-white transition hover:opacity-90 disabled:opacity-50">
+            {busy ? 'מוחקים…' : 'כן, מחק'}
+          </button>
+          <button type="button" onClick={onCancel} className="inline-flex min-h-12 items-center justify-center rounded-xl border border-line bg-surface px-4 text-base font-medium text-fg transition hover:border-brand">
+            ביטול
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
