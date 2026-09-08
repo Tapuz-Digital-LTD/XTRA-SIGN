@@ -631,6 +631,8 @@ function PersonDrawer({ row, projectId, team, onClose, onNotice }: { row: Audien
           </section>
         ) : null}
 
+        {/* Signed and already a supplier or customer: nothing left to chase, so no follow-up block. */}
+        {!(row.status === 'signed' && row.companyId) ? (
         <section>
           <h3 className="text-sm font-semibold text-fg">מעקב</h3>
           <div className="mt-2 grid gap-3 sm:grid-cols-2">
@@ -669,6 +671,7 @@ function PersonDrawer({ row, projectId, team, onClose, onNotice }: { row: Audien
             {saving ? 'שומרים…' : 'שמירת המעקב'}
           </button>
         </section>
+        ) : null}
 
         <section>
           <h3 className="text-sm font-semibold text-fg">היסטוריית שליחות</h3>
