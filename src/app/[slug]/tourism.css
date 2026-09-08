@@ -25,7 +25,7 @@
   /* The band's top edge: y = 1585 − 0.0967·x in artwork pixels. It rises to
      the left of the page, the mirror of last year's. */
   --tl-band-angle: -5.53deg;
-  font-family: var(--font-heebo), 'Heebo', 'Assistant', system-ui, sans-serif;
+  font-family: var(--font-campaign), 'Assistant', 'Heebo', system-ui, sans-serif;
   color: var(--tl-text);
   background: var(--tl-navy);
   min-height: 100dvh;
@@ -36,6 +36,16 @@
   display: block;
   max-width: 100%;
   height: auto;
+}
+
+/* The branded type fills the box the canvas gives it. Left at its own pixel
+   size it stops growing with the poster, and past 1600 units every headline
+   and every script drifts out of the place it was measured into. */
+.tl-kicker img,
+.tl-headline img,
+.tl-title img,
+.tl-closing img {
+  width: 100%;
 }
 
 .tl-page {
@@ -243,19 +253,19 @@
 
   .tl-lede {
     top: 30.5625%;
-    font-size: 1.68cqw;
+    font-size: 1.875cqw;
     line-height: 2.1cqw;
   }
 
   .tl-body {
     top: 32.9%;
-    font-size: 2.2cqw;
+    font-size: 2.455cqw;
     line-height: 2.8125cqw;
   }
 
   .tl-punch {
     top: 40.75%;
-    font-size: 2.2cqw;
+    font-size: 2.455cqw;
     line-height: 2.8125cqw;
   }
 
@@ -272,7 +282,7 @@
     right: 4.5%;
     top: 48.5625%;
     width: 50%;
-    font-size: 1.5cqw;
+    font-size: 1.674cqw;
     line-height: 1.875cqw;
     color: var(--tl-text-dim);
   }
@@ -311,7 +321,7 @@
   }
 
   .tl-conditions li > span {
-    font-size: 1.71cqw;
+    font-size: 1.908cqw;
     line-height: 2cqw;
   }
 
@@ -325,7 +335,7 @@
   }
 
   .tl-benefits li > span {
-    font-size: 1.78cqw;
+    font-size: 1.986cqw;
     line-height: 1.6875cqw;
   }
 
@@ -372,14 +382,14 @@
   }
 
   .tl-join-lines {
-    font-size: 1.46cqw;
+    font-size: 1.629cqw;
     line-height: 1.875cqw;
     font-weight: 600;
   }
 
   .tl-deadline {
     margin: 0.66cqw 0 0;
-    font-size: 1.25cqw;
+    font-size: 1.395cqw;
     line-height: 1.5cqw;
   }
 
