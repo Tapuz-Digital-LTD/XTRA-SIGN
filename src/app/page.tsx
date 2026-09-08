@@ -17,8 +17,8 @@ const dateFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'sh
 
 /** Audit event names in the words the screen uses. */
 const ACTIVITY_TEXT: Record<string, string> = {
-  sent: 'נשלח',
-  viewed: 'נצפה',
+  sent: 'ההסכם נשלח לחתימה',
+  viewed: 'פתח את ההסכם',
   completed: 'נחתם',
   canceled: 'בוטל',
   reminder_sent: 'נשלחה תזכורת',

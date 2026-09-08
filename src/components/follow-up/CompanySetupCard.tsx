@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { TASK_STATUSES, type TaskSummary } from '@/server/follow-up/labels'
 import { MarkSetupDoneDialog } from './MarkSetupDoneDialog'
+import { SetupDoneMark } from './TaskBadge'
 import { TaskPanel } from './TaskPanel'
 
 /**
@@ -46,20 +47,19 @@ export function CompanySetupCard({ projectId, task: served }: { projectId: strin
           <h2 id="setup-card-title" className="text-base font-semibold text-fg">
             הקמת מוצר באתר
           </h2>
-          <p className="mt-0.5 text-sm text-muted">
-            {task.status === 'done' ? 'ההקמה הושלמה' : (TASK_STATUSES[task.status as keyof typeof TASK_STATUSES] ?? task.status)} · אחראי: {task.assigneeName ?? 'לא נבחר'}
-            {task.dueAt ? ` · עד ${dayFormat.format(new Date(task.dueAt))}` : ''}
-          </p>
-          {task.status === 'done' && task.link ? (
-            <a href={task.link} target="_blank" rel="noreferrer" dir="ltr" className="mt-1 block truncate text-sm text-brand underline">
-              {task.link.replace(/^https?:\/\//i, '')}
-            </a>
-          ) : null}
+          {task.status === 'done' ? (
+            <SetupDoneMark link={task.link} className="mt-1" />
+          ) : (
+            <p className="mt-0.5 text-sm text-muted">
+              {TASK_STATUSES[task.status as keyof typeof TASK_STATUSES] ?? task.status} · אחראי: {task.assigneeName ?? 'לא נבחר'}
+              {task.dueAt ? ` · עד ${dayFormat.format(new Date(task.dueAt))}` : ''}
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {open ? (
             <button type="button" onClick={() => setDialog(true)} className={`${button} bg-brand text-white hover:opacity-90`}>
-              סמן כהוקם
+              סמן כהוקם באתר
             </button>
           ) : null}
           <button type="button" aria-expanded={details} onClick={() => setDetails((v) => !v)} className={`${button} border border-line bg-surface text-fg hover:border-brand`}>

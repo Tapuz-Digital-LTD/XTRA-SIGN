@@ -294,7 +294,7 @@ function ActionDialog({ action, entity, resolveRows, fields, team, onClose, onDo
             <option value="">בחרו…</option>
             {statusOptions.map((o) => (
               <option key={o.value} value={o.value}>
-                {o.value === 'done' ? `סמן כהוקם (${o.label})` : o.label}
+                {o.value === 'done' ? 'סמן כהוקם באתר' : o.label}
               </option>
             ))}
           </select>

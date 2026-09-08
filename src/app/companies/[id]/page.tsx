@@ -15,6 +15,8 @@ import { readReturnTo, withReturnTo } from '@/lib/return-to'
 import { getSession } from '@/server/auth/session'
 import { crmObjectTypeFor, getCompany } from '@/server/companies/companies'
 import { listBusinessDocuments } from '@/server/crm/business-documents'
+import { companyJoiningProgress } from '@/server/progress/evidence'
+import { JoiningProgressPanel } from '@/components/progress/JoiningProgressPanel'
 import { getDb, schema } from '@/server/db'
 import { countDocuments, listDocuments, type ListFilter } from '@/server/documents/queries'
 import { tasksForCompany } from '@/server/follow-up/tasks'
@@ -58,6 +60,7 @@ export default async function CompanyPage({
     ? (query.filter as ListFilter)
     : 'all'
 
+  const joining = await companyJoiningProgress(session.organizationId, id)
   const [documents, counts, quotes, memberOf, tagMap, [setupTask]] = await Promise.all([
     listDocuments(session, { companyId: id, filter, pageSize: 100 }),
     countDocuments(session, { companyId: id }),
@@ -97,6 +100,18 @@ export default async function CompanyPage({
       <BackLink returnTo={returnTo} fallback={listHref} />
 
       <CompanyHeader company={company} noun={noun} crmAppUrl={process.env.FIREBERRY_APP_URL ?? null} isAdmin={session.isAdmin} startEditing={query.edit === '1'} tags={tagMap.get(id) ?? []} />
+
+      {joining ? (
+        <section className="mt-4 rounded-[var(--radius-card)] border border-line bg-surface p-4">
+          <h2 className="text-base font-semibold text-fg">מצב ההצטרפות · {joining.groupName}</h2>
+          <div className="mt-2">
+            <JoiningProgressPanel progress={joining.progress} />
+          </div>
+          <Link href={withReturnTo(`/projects/${joining.groupId}?tab=joining&view=all`, here)} className="mt-3 inline-flex min-h-11 items-center text-sm text-brand underline">
+            פתח בקמפיין
+          </Link>
+        </section>
+      ) : null}
 
       {setupTask?.groupId ? (
         <CompanySetupCard

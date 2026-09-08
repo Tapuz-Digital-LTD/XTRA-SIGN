@@ -77,7 +77,7 @@ export function MarkSetupDoneDialog({
         className="w-full max-w-md rounded-t-2xl bg-surface p-5 shadow-xl sm:rounded-2xl"
       >
         <h2 id="mark-done-title" className="text-lg font-bold text-fg">
-          סמן כהוקם
+          סמן כהוקם באתר
         </h2>
         {name ? <p className="mt-1 text-sm text-muted">{name}</p> : null}
         <label className="mt-4 block text-sm">
@@ -88,7 +88,7 @@ export function MarkSetupDoneDialog({
           <span className="text-muted">הערה (לא חובה)</span>
           <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={2000} className="mt-1 w-full rounded-lg border border-line bg-bg px-3 py-2 text-base text-fg outline-none focus:border-brand" />
         </label>
-        <p className="mt-3 text-sm text-fg">הסטטוס ישתנה להושלם. סטטוס החתימה לא משתנה.</p>
+        <p className="mt-3 text-sm text-fg">הספק יסומן כ״הוקם באתר״. סטטוס החתימה לא משתנה.</p>
         {error ? (
           <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {error}

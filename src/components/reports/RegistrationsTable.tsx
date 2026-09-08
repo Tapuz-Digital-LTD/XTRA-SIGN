@@ -14,6 +14,8 @@ import { TaskBadge } from '@/components/follow-up/TaskBadge'
 import { TaskFilterChips } from '@/components/follow-up/TaskFilterChips'
 import { TaskPanel } from '@/components/follow-up/TaskPanel'
 import { FollowUpPanel, hasOpenWork } from '@/components/follow-up/FollowUpPanel'
+import { JoiningProgressPanel, ProgressLine } from '@/components/progress/JoiningProgressPanel'
+import type { JoiningProgress } from '@/lib/joining-progress'
 import type { TaskSummary } from '@/server/follow-up/labels'
 
 /**
@@ -41,16 +43,18 @@ const buttonClass = 'inline-flex min-h-9 items-center justify-center rounded-lg 
 const primaryClass = 'inline-flex min-h-10 items-center justify-center rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50'
 
 const TIMELINE_LABELS: Record<string, string> = {
-  registered: 'נרשם',
-  sent: 'נשלח',
+  registered: 'הפרטים התקבלו',
+  sent: 'ההסכם נשלח לחתימה',
   email_sent: 'נשלח אימייל',
   sms_sent: 'נשלח SMS',
   email_failed: 'שליחת אימייל נכשלה',
   sms_failed: 'שליחת SMS נכשלה',
   whatsapp_share_opened: 'שותף ב-WhatsApp',
-  viewed: 'צפה בהסכם',
+  viewed: 'הספק פתח את ההסכם',
+  otp_sent: 'נשלח קוד אימות',
+  otp_verified: 'הספק הזין את קוד האימות',
   reminder_sent: 'נשלחה תזכורת',
-  signature_applied: 'חתם',
+  signature_applied: 'הספק חתם',
   completed: 'החתימה הושלמה',
   declined: 'סירב',
   canceled: 'בוטל',
@@ -203,7 +207,7 @@ export function RegistrationsTable({
 
   const taskBadge = (r: Row) => {
     const task = taskOf(r)
-    return isSigned(r) && task ? <TaskBadge projectId={projectId} task={task} onChange={(t) => setTask(r.id, t)} onError={(text) => setNotice({ tone: 'error', text })} /> : null
+    return isSigned(r) && task ? <TaskBadge projectId={projectId} task={task} name={r.businessName} onChange={(t) => setTask(r.id, t)} /> : null
   }
 
   const menuFor = (r: Row): (RowMenuItem | null)[] => [
@@ -280,7 +284,7 @@ export function RegistrationsTable({
           </button>
           {openTaskIds(selected).length > 0 ? (
             <button type="button" onClick={() => setMarking(openTaskIds(selected))} className={buttonClass}>
-              סמן כהוקם
+              סמן כהוקם באתר
             </button>
           ) : null}
           <button type="button" onClick={() => setSelected(new Set())} className="text-xs text-muted hover:underline">
@@ -323,6 +327,7 @@ export function RegistrationsTable({
                     <span className="mt-0.5 block text-xs text-muted">
                       {r.contactName || '—'} · {dateTime.format(new Date(r.createdAt))} · {r.source.label}
                     </span>
+                    <ProgressLine progress={r.progress} className="mt-0.5" />
                   </button>
                   <span className="flex shrink-0 flex-col items-end gap-1">
                     <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${TONE[r.statusTone]}`}>{r.statusLabel}</span>
@@ -371,6 +376,7 @@ export function RegistrationsTable({
                     <td className="truncate py-2 pe-3 text-fg">{r.contactName || '—'}</td>
                     <td className="py-2 pe-3">
                       <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${TONE[r.statusTone]}`}>{r.statusLabel}</span>
+                      <ProgressLine progress={r.progress} className="mt-1" />
                       {r.linkingNeeded ? <span className="mt-1 block"><span className="whitespace-nowrap rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900">לא שויך ב-CRM — בדקו שיוך</span></span> : null}
                       {taskBadge(r) ? <div className="mt-1" onClick={(e) => e.stopPropagation()}>{taskBadge(r)}</div> : null}
                     </td>
@@ -395,6 +401,7 @@ export function RegistrationsTable({
         id={openId}
         linkingNeeded={Boolean(openId && rows.find((x) => x.id === openId)?.linkingNeeded)}
         followUp={openId ? (rows.find((x) => x.id === openId)?.followUp ?? null) : null}
+        progress={openId ? (rows.find((x) => x.id === openId)?.progress ?? null) : null}
         task={openId ? (() => { const r = rows.find((x) => x.id === openId); return r && isSigned(r) ? taskOf(r) : null })() : null}
         onTaskSaved={(t) => { if (openId) setTask(openId, t) }}
         onClose={() => setOpenId(null)}
@@ -417,7 +424,7 @@ export function RegistrationsTable({
       {marking ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 sm:items-center sm:p-4" onClick={() => setMarking(null)}>
           <div role="dialog" aria-modal="true" aria-labelledby="mk-title" className="w-full max-w-md rounded-t-2xl bg-surface p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 id="mk-title" className="text-base font-semibold text-fg">סימון כהוקם</h3>
+            <h3 id="mk-title" className="text-base font-semibold text-fg">סימון כהוקם באתר</h3>
             <p className="mt-2 text-sm text-fg">{marking.length === 1 ? 'משימה אחת תסומן כהוקמה באתר.' : `${marking.length} משימות יסומנו כהוקמו באתר.`}</p>
             <p className="mt-2 text-xs text-muted">ההסכמים עצמם לא משתנים — רק מצב ההקמה.</p>
             <div className="mt-4 flex flex-wrap justify-end gap-2">
@@ -425,7 +432,7 @@ export function RegistrationsTable({
                 ביטול
               </button>
               <button type="button" disabled={busy} onClick={() => void markDone()} className={primaryClass}>
-                {busy ? 'מסמן…' : `סמן כהוקם (${marking.length})`}
+                {busy ? 'מסמן…' : `סמן כהוקם באתר (${marking.length})`}
               </button>
             </div>
           </div>
@@ -477,6 +484,7 @@ function RegistrationDrawer({
   id,
   linkingNeeded,
   followUp,
+  progress,
   task,
   onTaskSaved,
   onClose,
@@ -487,6 +495,7 @@ function RegistrationDrawer({
   id: string | null
   linkingNeeded: boolean
   followUp: { assigneeUserId: string | null; followUpAt: string | null; callOutcome: string | null; internalNote: string | null } | null
+  progress: JoiningProgress | null
   task: TaskSummary | null
   onTaskSaved: (task: TaskSummary) => void
   onClose: () => void
@@ -562,6 +571,8 @@ function RegistrationDrawer({
             ) : null}
           </section>
 
+          {progress ? <JoiningProgressPanel progress={progress} /> : null}
+
           {linkingNeeded || !detail.business.companyId ? (
             <div>
               {linkingNeeded ? (
@@ -597,7 +608,7 @@ function RegistrationDrawer({
                 { label: 'שם ההסכם', value: detail.agreement.title },
                 { label: 'סטטוס', value: detail.agreement.statusLabel },
                 { label: 'נשלח', value: detail.agreement.sentAt ? longDateTime.format(new Date(detail.agreement.sentAt)) : null },
-                { label: 'נצפה', value: detail.agreement.viewedAt ? longDateTime.format(new Date(detail.agreement.viewedAt)) : null },
+                { label: 'נפתח על ידי הספק', value: detail.agreement.viewedAt ? longDateTime.format(new Date(detail.agreement.viewedAt)) : null },
                 { label: 'נחתם', value: detail.agreement.signedAt ? longDateTime.format(new Date(detail.agreement.signedAt)) : null },
                 { label: 'תוקף הקישור', value: detail.agreement.expiresAt ? longDateTime.format(new Date(detail.agreement.expiresAt)) : null },
                 { label: 'מהרשמה לחתימה', value: detail.agreement.timeToSign },

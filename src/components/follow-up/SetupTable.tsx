@@ -7,12 +7,14 @@ import { Drawer } from '@/components/ui/Drawer'
 import { currentUrlFor, withReturnTo } from '@/lib/return-to'
 import { TASK_STATUSES, type TaskSummary } from '@/server/follow-up/labels'
 import { MarkSetupDoneDialog } from './MarkSetupDoneDialog'
+import { SetupDoneMark } from './TaskBadge'
 import { TaskPanel } from './TaskPanel'
 
 /**
  * "הקמת מוצרים באתר": every supplier who signed, and whether their product
- * is up on the site yet. A worker finds the supplier, presses "סמן כהוקם",
- * and is done — no task vocabulary. Nothing here touches the agreement: a
+ * is up on the site yet. A worker finds the supplier, presses "סמן כהוקם באתר",
+ * and is done — no task vocabulary. A finished row shows "הוקם באתר" as a
+ * plain mark with the product's link, never as something that looks clickable. Nothing here touches the agreement: a
  * signature that is complete is not work that is complete.
  */
 export type SetupStatus = 'all' | 'pending' | 'in_progress' | 'done' | 'not_needed'
@@ -154,7 +156,7 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
       const updated = data?.updated ?? 0
       const failed = data?.failed ?? 0
       const worded =
-        kind === 'done' ? (updated === 1 ? 'משימה אחת סומנה כהוקמה.' : `${updated} משימות סומנו כהוקמו.`)
+        kind === 'done' ? (updated === 1 ? 'ספק אחד סומן כהוקם באתר.' : `${updated} ספקים סומנו כהוקמו באתר.`)
         : kind === 'in_progress' ? (updated === 1 ? 'משימה אחת הועברה לבטיפול.' : `${updated} משימות הועברו לבטיפול.`)
         : kind === 'assign' ? `האחראי עודכן ${inSome(updated)}.`
         : `תאריך היעד נקבע ${inSome(updated)}.`
@@ -171,11 +173,13 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
   const actions = (row: SetupRow, wide: boolean) => (
     <>
       {isOpen(row.status) ? (
-        <button type="button" onClick={() => setDoneId(row.taskId)} className={primary}>
-          סמן כהוקם
+        <button type="button" onClick={() => setDoneId(row.taskId)} className={`${primary} ${wide ? 'whitespace-nowrap' : 'col-span-2 min-h-12 text-base'}`}>
+          סמן כהוקם באתר
         </button>
+      ) : row.status === 'done' ? (
+        <SetupDoneMark link={row.link} className={wide ? 'min-h-11' : 'col-span-2 min-h-11'} />
       ) : null}
-      <button type="button" onClick={() => setOpenId(row.taskId)} className={`${secondary} ${!wide && !isOpen(row.status) ? 'col-span-2' : ''}`}>
+      <button type="button" onClick={() => setOpenId(row.taskId)} className={`${secondary} ${wide ? '' : 'col-span-2'}`}>
         פרטי המשימה
       </button>
     </>
@@ -229,7 +233,7 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
                       <input type="checkbox" className="size-5 shrink-0" checked={selected.has(row.taskId)} onChange={() => toggle(row.taskId)} aria-label={`בחירת ${row.name}`} />
                       <span className="truncate text-base font-semibold text-fg">{row.name}</span>
                     </label>
-                    <StatusChip status={row.status} />
+                    {row.status !== 'done' ? <StatusChip status={row.status} /> : null}
                   </div>
                   <p className="mt-1 text-sm text-fg">
                     {row.contactName ?? '—'}
@@ -244,7 +248,7 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
                     חתם {day(row.signedAt)} · אחראי: {row.assigneeName ?? 'לא נבחר'}
                     {row.dueAt ? ` · עד ${day(row.dueAt)}` : ''}
                   </p>
-                  {row.link ? (
+                  {row.link && row.status !== 'done' ? (
                     <a href={row.link} target="_blank" rel="noreferrer" dir="ltr" className="mt-1 block truncate text-sm text-brand underline">
                       {shortLink(row.link)}
                     </a>
@@ -329,7 +333,7 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
             קבע תאריך יעד
           </button>
           <button type="button" onClick={() => setBulk('done')} className={primary}>
-            סמן כהוקם
+            סמן כהוקם באתר
           </button>
           <button type="button" onClick={() => setSelected(new Set())} className="ms-auto inline-flex min-h-11 items-center px-2 text-sm text-brand underline-offset-4 hover:underline">
             ביטול
@@ -347,7 +351,7 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
           onClose={() => setDoneId(null)}
           onDone={(t) => {
             setDoneId(null)
-            saved(t, `${marking.name} סומן כהוקם.`)
+            saved(t, `${marking.name} סומן כהוקם באתר.`)
           }}
         />
       ) : null}
@@ -404,9 +408,9 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
 function BulkDialog({ kind, count, team, onClose, onConfirm }: { kind: BulkKind; count: number; team: Member[]; onClose: () => void; onConfirm: (value: string) => Promise<void> }) {
   const [value, setValue] = useState('')
   const [busy, setBusy] = useState(false)
-  const titles: Record<BulkKind, string> = { assign: 'שיוך אחראי', in_progress: 'העבר לבטיפול', due: 'קבע תאריך יעד', done: 'סמן כהוקם' }
+  const titles: Record<BulkKind, string> = { assign: 'שיוך אחראי', in_progress: 'העבר לבטיפול', due: 'קבע תאריך יעד', done: 'סמן כהוקם באתר' }
   const sentence =
-    kind === 'done' ? `${count === 1 ? 'לסמן משימה אחת כהוקמה?' : `לסמן ${count} משימות כהוקמו?`} רק אחרי שהעבודה בוצעה בפועל.`
+    kind === 'done' ? `${count === 1 ? 'לסמן ספק אחד כהוקם באתר?' : `לסמן ${count} ספקים כהוקמו באתר?`} רק אחרי שהמוצר באמת עלה לאתר.`
     : kind === 'in_progress' ? (count === 1 ? 'משימה אחת תעבור לבטיפול.' : `${count} משימות יעברו לבטיפול.`)
     : kind === 'assign' ? `האחראי ייקבע ${inSome(count)}.`
     : `תאריך היעד ייקבע ${inSome(count)}.`

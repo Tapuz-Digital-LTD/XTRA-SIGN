@@ -4,6 +4,8 @@ import { classifySource, type Utm } from '@/lib/campaign-events'
 import { formatDuration } from '@/lib/format-duration'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
+import { joiningProgress, type JoiningProgress } from '@/lib/joining-progress'
+import { agreementEvidence, leadSendEvidence } from '@/server/progress/evidence'
 import { submittedRegistration } from '@/server/projects/registration-rules'
 import { summarizeTask, type TaskSummary } from '@/server/follow-up/labels'
 import { tasksForLeads } from '@/server/follow-up/tasks'
@@ -62,6 +64,8 @@ export type RegistrationRow = {
   linkingNeeded: boolean
   /** Staff follow-up on the registration itself. */
   followUp: { assigneeUserId: string | null; followUpAt: string | null; callOutcome: string | null; internalNote: string | null }
+  /** The same progress model every other screen uses. */
+  progress: JoiningProgress
 }
 
 export type ProjectReport = {
@@ -99,7 +103,7 @@ const STATUS_SETS: Record<StatusFilter, SQL> = {
 
 const STATUS_LABELS: Record<string, { label: string; tone: RegistrationRow['statusTone'] }> = {
   signed: { label: 'נחתם', tone: 'ok' },
-  viewed: { label: 'צפה בהסכם', tone: 'wait' },
+  viewed: { label: 'ממתין לחתימה', tone: 'wait' },
   sent: { label: 'ממתין לחתימה', tone: 'wait' },
   draft: { label: 'ממתין לחתימה', tone: 'wait' },
   expired: { label: 'פג תוקף', tone: 'muted' },
@@ -374,8 +378,8 @@ async function statusBreakdown(groupId: string, range: { from?: Date; to?: Date 
     .where(and(eq(schema.projectLeads.groupId, groupId), eq(schema.projectLeads.status, 'failed'), within(sql`${schema.projectLeads.createdAt}`, range), sourceMatch(source, leadUtmSource, leadReferrer)))
   return [
     { key: 'signed', label: 'נחתם', count: Number(row?.signed ?? 0) },
-    { key: 'sent', label: 'ממתין', count: Number(row?.sent ?? 0) },
-    { key: 'viewed', label: 'נצפה', count: Number(row?.viewed ?? 0) },
+    { key: 'sent', label: 'ממתין לחתימה · טרם נפתח', count: Number(row?.sent ?? 0) },
+    { key: 'viewed', label: 'ממתין לחתימה · נפתח', count: Number(row?.viewed ?? 0) },
     { key: 'expired', label: 'פג תוקף', count: Number(row?.expired ?? 0) },
     { key: 'canceled', label: 'בוטל', count: Number(row?.canceled ?? 0) },
     { key: 'failed', label: 'נכשל', count: Number(failedRow?.failed ?? 0) },
@@ -471,6 +475,7 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
       internalNote: schema.projectLeads.internalNote,
       agreementId: sql<string | null>`a.id`,
       agreementStatus: sql<string | null>`a.status`,
+      formSnapshot: schema.projectLeads.formSnapshot,
       sentAt: sql<Date | null>`a.sent_at`,
       completedAt: sql<Date | null>`a.completed_at`,
     })
@@ -481,6 +486,10 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
     .limit(limit)
 
   const tasks = rows.length ? await tasksForLeads(rows[0].organizationId, rows.map((r) => r.id)) : new Map<string, never[]>()
+  const [evidence, leadSends] = await Promise.all([
+    agreementEvidence(rows.map((r) => r.agreementId).filter((x): x is string => Boolean(x))),
+    leadSendEvidence(rows.map((r) => r.id)),
+  ])
 
   return rows.map((r) => {
     const d = (r.data && typeof r.data === 'object' ? r.data : {}) as Record<string, unknown>
@@ -516,6 +525,12 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
       task: tasks.get(r.id)?.map(summarizeTask)[0] ?? null,
       linkingNeeded: (r.meta as { linking?: unknown } | null)?.linking === 'needed',
       followUp: { assigneeUserId: r.assigneeUserId ?? null, followUpAt: r.followUpAt ? new Date(r.followUpAt).toISOString() : null, callOutcome: r.callOutcome ?? null, internalNote: r.internalNote ?? null },
+      progress: joiningProgress({
+        invitedAt: r.invitedBy ? createdAt.toISOString() : null,
+        submittedAt: r.formSnapshot ? createdAt.toISOString() : null,
+        leadStatus: r.status,
+        ...(r.agreementId ? (evidence.get(r.agreementId) ?? { agreementStatus: r.agreementStatus }) : { agreementStatus: null, ...(leadSends.get(r.id) ?? {}) }),
+      }),
     }
   })
 }

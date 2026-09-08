@@ -10,6 +10,7 @@ import { CopyButton } from '@/components/ui/CopyButton'
 import { Drawer } from '@/components/ui/Drawer'
 import { LinkCompanyPanel } from '@/components/invitations/LinkCompanyPanel'
 import { FollowUpPanel, hasOpenWork } from '@/components/follow-up/FollowUpPanel'
+import { JoiningProgressPanel, ProgressLine } from '@/components/progress/JoiningProgressPanel'
 import { currentUrlFor, withReturnTo } from '@/lib/return-to'
 import type { TaskSummary } from '@/server/follow-up/labels'
 import type { AudienceRow, AudienceView, SendHistoryItem } from '@/server/invitations/invitations'
@@ -234,6 +235,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                     </span>
                     <StatusChip status={row.status} />
                   </span>
+                  <ProgressLine progress={row.progress} />
                   <span className="text-sm text-muted" dir="ltr">
                     {row.phone ?? row.email ?? ''}
                   </span>
@@ -243,7 +245,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                   </span>
                   {row.task ? (
                     <span onClick={(e) => e.stopPropagation()}>
-                      <TaskBadge projectId={projectId} task={row.task} onChange={() => router.refresh()} />
+                      <TaskBadge projectId={projectId} task={row.task} name={row.name} onChange={() => router.refresh()} />
                     </span>
                   ) : null}
                 </div>
@@ -292,9 +294,10 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                     </td>
                     <td className="px-4 py-3">
                       <StatusChip status={row.status} />
+                      <ProgressLine progress={row.progress} className="mt-1" />
                       {row.task ? (
                         <span className="mt-1 block" onClick={(e) => e.stopPropagation()}>
-                          <TaskBadge projectId={projectId} task={row.task} onChange={() => router.refresh()} onError={(m) => setNotice({ tone: 'error', text: m })} />
+                          <TaskBadge projectId={projectId} task={row.task} name={row.name} onChange={() => router.refresh()} />
                         </span>
                       ) : null}
                     </td>
@@ -533,6 +536,8 @@ function PersonDrawer({ row, projectId, onClose, onNotice }: { row: AudienceRow;
             </>
           ) : null}
         </dl>
+
+        <JoiningProgressPanel progress={row.progress} />
 
         {whatsapp ? <WhatsappConfirm onConfirm={(s) => void confirmWhatsapp(s)} /> : null}
 

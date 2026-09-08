@@ -36,7 +36,7 @@ export function CampaignOverview({
     ...leads.map((l) => ({ at: l.createdAt, text: `${l.data.name ?? 'הרשמה'} נרשם/ה`, href: `/projects/${project.id}?tab=registrations` })),
     ...companies.filter((c) => c.lastSend).map((c) => ({
       at: c.lastSend!.at,
-      text: `${c.name}: ${c.lastSend!.status === 'signed' ? 'חתם' : c.lastSend!.status === 'viewed' ? 'צפה בהסכם' : c.lastSend!.status === 'sent' ? 'נשלח הסכם' : c.lastSend!.status}`,
+      text: `${c.name}: ${c.lastSend!.status === 'signed' ? 'חתם' : c.lastSend!.status === 'viewed' ? 'פתח את ההסכם, טרם חתם' : c.lastSend!.status === 'sent' ? 'ההסכם נשלח לחתימה' : c.lastSend!.status}`,
       href: c.lastSend!.agreementId ? `/documents/${c.lastSend!.agreementId}` : `/companies/${c.id}`,
     })),
   ]

@@ -35,13 +35,27 @@ export type EntityDef = {
   campaignField: string | null
 }
 
-const AGREEMENT_STATUS: Record<string, string> = { draft: 'טיוטה', sent: 'ממתין לחתימה', viewed: 'צפה', signed: 'נחתם', expired: 'פג תוקף', canceled: 'בוטל', declined: 'סורב' }
+const AGREEMENT_STATUS: Record<string, string> = { draft: 'טיוטה', sent: 'ממתין לחתימה', viewed: 'ממתין לחתימה', signed: 'נחתם', expired: 'פג תוקף', canceled: 'בוטל', declined: 'סורב' }
 const PROCESS: Record<string, string> = { invited: 'הוזמן', registered: 'נרשם', awaiting_signature: 'ממתין לחתימה', signed: 'חתם', failed: 'נכשל' }
-const TASK: Record<string, string> = { pending: 'ממתין להקמה', in_progress: 'בטיפול', done: 'הושלם', not_needed: 'לא נדרש' }
+const TASK: Record<string, string> = { pending: 'ממתין להקמה', in_progress: 'בטיפול', done: 'הוקם באתר', not_needed: 'לא נדרש' }
 const SOURCE: Record<string, string> = { xtra: 'XTRA Sign', crm: 'CRM' }
 const CHANNEL: Record<string, string> = { sms: 'SMS', email: 'אימייל', whatsapp: 'WhatsApp' }
 const EVENT: Record<string, string> = { invitation: 'הזמנה', reminder: 'תזכורת', signed_confirmation: 'עותק חתום', registration_completed: 'קישור לחתימה', distribution: 'הפצה' }
 const KIND: Record<string, string> = { supplier: 'ספק', customer: 'לקוח' }
+/** The proven steps, in the words the screens use. */
+const STAGE: Record<string, string> = {
+  invited: 'הוזמן, טרם נרשם',
+  registered: 'הפרטים התקבלו',
+  agreement_created: 'ההסכם נוצר',
+  link_sent: 'קישור לחתימה נשלח',
+  code_sent: 'קוד אימות נשלח',
+  link_opened: 'הקישור נפתח',
+  code_verified: 'קוד האימות אומת',
+  signed: 'החתימה הושלמה',
+  expired: 'פג תוקף',
+  closed: 'בוטל או סורב',
+  failed: 'ההרשמה נכשלה',
+}
 const CALL: Record<string, string> = { interested: 'מעוניין', call_back: 'לחזור אליו', no_answer: 'לא ענה', not_interested: 'לא מעוניין' }
 const SEND_RESULT: Record<string, string> = { sent: 'נשלח', failed: 'נכשל', opened: 'WhatsApp נפתח, לא אושר', not_sent: 'WhatsApp — לא נשלח', reserved: 'בתהליך' }
 const YES_NO: Record<string, string> = { true: 'כן', false: 'לא' }
@@ -145,6 +159,7 @@ const people: EntityDef = {
   campaignField: 'campaign',
   from: () => sql`project_leads pl
     left join agreements a on a.id = pl.agreement_id
+    left join lateral (select r0.verified_at from recipients r0 where r0.agreement_id = a.id order by r0.id limit 1) r on true
     left join companies co on co.id = pl.company_id
     left join groups g on g.id = pl.group_id
     left join users ui on ui.id = pl.invited_by
@@ -189,6 +204,22 @@ const people: EntityDef = {
     f('last_activity_at', 'פעילות אחרונה', 'date', sql`coalesce(pl.last_activity_at, pl.created_at)`, { defaultVisible: true, group: 'תאריכים' }),
     f('created_at', 'נוצר', 'date', sql`pl.created_at`, { group: 'תאריכים' }),
     f('submitted', 'מילא את הטופס', 'boolean', sql`(pl.form_snapshot is not null)`, { labels: YES_NO, sortable: false }),
+    // The last step the database can prove — the same ladder the screens show.
+    f('progress_stage', 'השלב שאומת', 'enum', sql`case
+      when a.status = 'signed' then 'signed'
+      when a.status = 'expired' then 'expired'
+      when a.status in ('canceled','declined') then 'closed'
+      when pl.status in ('failed','rejected') then 'failed'
+      when a.id is null and pl.status = 'invited' then 'invited'
+      when a.id is null then 'registered'
+      when r.verified_at is not null then 'code_verified'
+      when exists (select 1 from audit_events e where e.agreement_id = a.id and e.type = 'viewed') then 'link_opened'
+      when exists (select 1 from audit_events e where e.agreement_id = a.id and e.type = 'otp_sent') then 'code_sent'
+      when exists (select 1 from message_sends m where m.agreement_id = a.id and m.ok and m.is_test = false and m.event in ('invitation','reminder','registration_completed')) then 'link_sent'
+      else 'agreement_created' end`, { options: opts(STAGE), labels: STAGE, group: 'התקדמות' }),
+    f('link_sent_at', 'מועד שליחת הקישור', 'date', sql`(select max(m.sent_at) from message_sends m where m.agreement_id = a.id and m.ok and m.is_test = false and m.event in ('invitation','reminder','registration_completed'))`, { group: 'התקדמות' }),
+    f('code_verified_at', 'מועד אימות הקוד', 'date', sql`r.verified_at`, { group: 'התקדמות' }),
+    f('link_opened_at', 'מועד פתיחת ההסכם', 'date', sql`(select max(e.created_at) from audit_events e where e.agreement_id = a.id and e.type = 'viewed')`, { group: 'התקדמות' }),
   ],
 }
 

@@ -10,7 +10,7 @@ export type AgreementStatus = (typeof agreementStatus.enumValues)[number]
 export const STATUS_LABELS: Record<AgreementStatus, string> = {
   draft: 'טיוטה',
   sent: 'ממתין לחתימה',
-  viewed: 'נצפה',
+  viewed: 'ממתין לחתימה',
   signed: 'נחתם',
   declined: 'נדחה',
   expired: 'פג תוקף',

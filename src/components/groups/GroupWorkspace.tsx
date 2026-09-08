@@ -23,7 +23,7 @@ const SEND_STATUS: Record<string, { label: string; className: string }> = {
   draft: { label: 'טיוטה', className: 'bg-slate-100 text-slate-700' },
   pending: { label: 'בשליחה', className: 'bg-slate-100 text-slate-700' },
   sent: { label: 'ממתין לחתימה', className: 'bg-amber-100 text-amber-900' },
-  viewed: { label: 'נצפה', className: 'bg-blue-100 text-blue-800' },
+  viewed: { label: 'ממתין לחתימה', className: 'bg-amber-100 text-amber-900' },
   signed: { label: 'נחתם', className: 'bg-green-100 text-green-800' },
   declined: { label: 'נדחה', className: 'bg-red-100 text-red-800' },
   expired: { label: 'פג תוקף', className: 'bg-red-100 text-red-800' },

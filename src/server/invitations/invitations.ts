@@ -3,6 +3,8 @@ import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
 import { cleanOverrides, renderTemplate, resolveMessage, type Variables } from '@/lib/message-template'
 import { maskPhone, normalizeIsraeliPhone } from '@/lib/phone'
+import { joiningProgress, type JoiningProgress } from '@/lib/joining-progress'
+import { agreementEvidence, leadSendEvidence } from '@/server/progress/evidence'
 import { buildWhatsAppShareUrl } from '@/lib/whatsapp-share'
 import { getDb, schema } from '@/server/db'
 import { campaignUrlFor } from '@/server/distributions/distributions'
@@ -383,6 +385,8 @@ export type AudienceRow = {
   /** The newest message: what happened to it, in words. */
   lastSend: { channel: string; ok: boolean; manualState: string | null; at: string; error: string | null } | null
   linkingNeeded: boolean
+  /** Where this person really got to, and what to do next. */
+  progress: JoiningProgress
   /** The follow-up task a signature created, when the campaign makes one. */
   task: TaskSummary | null
 }
@@ -466,6 +470,11 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
     : []
 
   const tasks = leadIds.length ? await tasksForLeads(session.organizationId, leadIds) : new Map<string, unknown[]>()
+  // What the rows prove about each signer, for the status line and the drawer.
+  const [evidence, leadSends] = await Promise.all([
+    agreementEvidence(rows.map((r) => r.lead.agreementId).filter((x): x is string => Boolean(x))),
+    leadSendEvidence(leadIds),
+  ])
   const all: AudienceRow[] = rows.map(({ lead, agreementStatus, companyName }) => {
     const status = processStatus(lead.status, agreementStatus)
     const last = sends.find((s) => s.leadId === lead.id || (lead.agreementId && s.agreementId === lead.agreementId)) ?? null
@@ -498,6 +507,12 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
       createdAt: lead.createdAt.toISOString(),
       lastSend: last ? { channel: last.channel, ok: last.ok, manualState: last.manualState, at: last.sentAt.toISOString(), error: last.error } : null,
       linkingNeeded: meta.linking === 'needed',
+      progress: joiningProgress({
+        invitedAt: lead.invitedBy || lead.source === 'invitation' ? lead.createdAt.toISOString() : null,
+        submittedAt: lead.formSnapshot ? lead.createdAt.toISOString() : null,
+        leadStatus: lead.status,
+        ...(lead.agreementId ? (evidence.get(lead.agreementId) ?? { agreementStatus }) : { agreementStatus: null, ...(leadSends.get(lead.id) ?? {}) }),
+      }),
       task: firstTask(tasks.get(lead.id)),
     }
   })
