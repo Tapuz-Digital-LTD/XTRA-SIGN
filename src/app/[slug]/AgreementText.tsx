@@ -6,6 +6,9 @@
  * rewritten, shortened or "improved"; only laid out as readable RTL HTML.
  * The one line left out is the file's closing "save and email it"
  * instruction, which belongs to the paper route (see AgreementSystemNote).
+ * The two notes at the end are the Ministry's own, added in September 2026;
+ * they close this text because they close the signed page too — the PDF has
+ * no room to reflow them into the body (scripts/design/prepare-agreement.ts).
  * The business's details and the signature live around this text on the
  * joining page and are stamped into the PDF's own boxes.
  */
@@ -59,6 +62,20 @@ export function AgreementText() {
           הנני מצהיר/ה כי ברשות בית העסק פוליסת ביטוח בתוקף.
         </li>
       </ul>
+
+      {/* The Ministry's two notes, where the signed PDF also puts them. */}
+      <div className="tj-agreement-notes">
+        <p>
+          הפעילות במסגרת חודש התיירות הישראלית מסובסדת על ידי משרד התיירות, ואינה מבוססת על הנחות הניתנות על ידי העסקים
+          המשתתפים בלבד.
+        </p>
+        <p>
+          למידע נוסף על המיזם ולצפייה באתר המקוון של חודש התיירות הישראלית:{' '}
+          <a href="https://israeltourismmonth.co.il/" target="_blank" rel="noopener noreferrer">
+            https://israeltourismmonth.co.il/
+          </a>
+        </p>
+      </div>
     </article>
   )
 }

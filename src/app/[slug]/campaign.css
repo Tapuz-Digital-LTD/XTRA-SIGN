@@ -363,6 +363,31 @@
   letter-spacing: 0.04em;
 }
 
+/* The Ministry's closing notes: set apart the way the signed page sets them
+   apart, under a hairline, a step smaller than the clauses above. */
+.tj-agreement-notes {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--tl-line, #d5dfe8);
+}
+
+.tj-agreement-notes p {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.tj-agreement-notes p:last-child {
+  margin-bottom: 0;
+}
+
+.tj-agreement-notes a {
+  color: var(--tl-cyan-deep, #2f9ad6);
+  text-decoration: underline;
+  /* The address moves to its own line whole rather than breaking mid-word. */
+  white-space: nowrap;
+}
+
 .tj-declarations {
   list-style: none;
   padding-inline-start: 0 !important;
