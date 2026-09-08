@@ -199,6 +199,10 @@ const people: EntityDef = {
       },
     }),
     f('source', 'מקור הגעה', 'text', sql`case when pl.invited_by is not null or pl.source = 'invitation' then 'הזמנה אישית' else 'הצטרף באתר' || coalesce(' · ' || nullif(coalesce(pl.meta->'attribution'->'last'->'source'->>'label', pl.meta->>'utm_source'), 'ישירות'), '') end`, { group: 'קמפיין' }),
+    // The same test "הזמנות ומעקב" applies on screen, as a field rather than a
+    // match on the sentence above it — so a filter and an export can say
+    // "our own outreach" without depending on how it is worded.
+    f('invited_by_us', 'הזמנה שלנו', 'boolean', sql`(pl.invited_by is not null or pl.source = 'invitation')`, { labels: YES_NO, group: 'קמפיין', sortable: false }),
     f('task_status', 'סטטוס הקמה', 'enum', sql`lt.status`, { options: opts(TASK), labels: TASK, group: 'משימת המשך' }),
     f('task_link', 'קישור למוצר', 'text', sql`lt.link`, { group: 'משימת המשך' }),
     f('last_activity_at', 'פעילות אחרונה', 'date', sql`coalesce(pl.last_activity_at, pl.created_at)`, { defaultVisible: true, group: 'תאריכים' }),

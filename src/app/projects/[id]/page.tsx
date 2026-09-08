@@ -29,6 +29,8 @@ import { parseProjectReportFilters, projectReport, registrationCount, registrati
 import { RegistrationsTable } from '@/components/reports/RegistrationsTable'
 import { ProjectReportView, type ProjectReportData } from '@/components/reports/ProjectReportView'
 import { missingRoles } from '@/lib/agreement-roles'
+import { ExportButton } from '@/components/reports/ExportButton'
+import type { ReportDefinition } from '@/server/reports/engine/types'
 import { describeCampaign, entryLabel, goalLabel, isCampaignKind, JOINING_VIEWS, LEGACY_JOINING_VIEWS, LEGACY_TABS, TAB_INTROS, TAB_LABELS, tabsFor, type CampaignKind, type CampaignTab, type JoiningView } from '@/lib/campaigns'
 import { CampaignOverview } from '@/components/projects/CampaignOverview'
 import { DistributionsTab } from '@/components/projects/DistributionsTab'
@@ -138,7 +140,12 @@ export default async function ProjectPage({
         {tab === 'overview' ? <OverviewTab projectId={id} projectName={project.name} campaignKind={campaignKind} companies={companies} leads={leads} session={session} setup={setupEnabled ? { pending: setupCounts.pending, inProgress: setupCounts.in_progress, done: setupCounts.done } : null} /> : null}
         {tab === 'audience' ? <SuppliersTab projectId={id} projectName={project.name} companies={companies} search={query.q ?? ''} session={session} /> : null}
         {tab === 'joining' ? <JoiningTab projectId={id} session={session} query={query} askKind={project.kind === null} audienceNoun={project.kind === 'customer' ? 'לקוח' : 'ספק'} publicUrl={await publicAddress(session, id)} /> : null}
-        {tab === 'distributions' ? <DistributionsTab projectId={id} campaignKind={campaignKind} publicUrl={campaignKind === 'public' ? await publicAddress(session, id) : null} isAdmin={session.isAdmin} openNew={query.new === '1'} /> : null}
+        {tab === 'distributions' ? (
+          <>
+            <TableExport definition={{ entity: 'sends', clauses: [inCampaign(id)], columns: ['sent_at', 'person', 'recipient', 'channel', 'event', 'result', 'error', 'agreement_title', 'sent_by_name'], sort: { field: 'sent_at', dir: 'desc' } }} label="ייצוא שליחות לאקסל" />
+            <DistributionsTab projectId={id} campaignKind={campaignKind} publicUrl={campaignKind === 'public' ? await publicAddress(session, id) : null} isAdmin={session.isAdmin} openNew={query.new === '1'} />
+          </>
+        ) : null}
         {tab === 'agreements' ? <AgreementsTab projectId={id} session={session} filter={query.filter} /> : null}
         {tab === 'setup' ? <SetupTab projectId={id} session={session} query={query} /> : null}
         {tab === 'reports' ? <ReportsTab projectId={id} query={query} session={session} /> : null}
@@ -205,6 +212,27 @@ async function OverviewTab({ projectId, projectName, campaignKind, companies, le
   return <CampaignOverview project={{ id: projectId, name: projectName, campaignKind, publicUrl }} companies={companies} leads={leads} setup={setup} cards={cards} />
 }
 
+
+/**
+ * "ייצוא לאקסל" for a campaign's table.
+ *
+ * Every tab that shows a list hands it over as a file, and the file is that
+ * list: the same entity, the same conditions, the same columns, through the
+ * report engine — the one place that knows how to turn a definition into
+ * rows, with Hebrew headers, Israel-time dates and no field the registry does
+ * not allow.
+ */
+function TableExport({ definition, label }: { definition: Parameters<typeof ExportButton>[0]['definition']; label?: string }) {
+  return (
+    <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+      <ExportButton definition={definition} label={label} />
+    </div>
+  )
+}
+
+/** Every campaign table starts from "this campaign". */
+const inCampaign = (projectId: string): ReportDefinition['clauses'][number] => ({ any: [{ field: 'campaign', op: 'one_of', value: [projectId] }] })
+
 /**
  * פניות והצטרפות — one list of people, three questions: who still needs
  * something (ממתינים להשלמה), who actually submitted the form (הרשמות),
@@ -227,13 +255,34 @@ async function JoiningTab({ projectId, session, query, askKind, audienceNoun, pu
           </Link>
         ))}
       </nav>
-      {view === 'registrations' ? (
-        <RegistrationsTab projectId={projectId} query={query} session={session} audienceNoun={audienceNoun} publicUrl={publicUrl} />
-      ) : (
-        <PeopleView projectId={projectId} session={session} query={query} askKind={askKind} view={view} />
-      )}
+      <div>
+        <TableExport definition={joiningExport(projectId, view)} />
+        {view === 'registrations' ? (
+          <RegistrationsTab projectId={projectId} query={query} session={session} audienceNoun={audienceNoun} publicUrl={publicUrl} />
+        ) : (
+          <PeopleView projectId={projectId} session={session} query={query} askKind={askKind} view={view} />
+        )}
+      </div>
     </div>
   )
+}
+
+
+/**
+ * What each of the three views asks of the people list, as a report:
+ * "הזמנות ומעקב" is our own outreach that has not been signed yet,
+ * "הרשמות" is everyone who actually submitted the form, and
+ * "כל התהליכים" is all of them — the same three questions the chips ask.
+ */
+function joiningExport(projectId: string, view: JoiningView): ReportDefinition {
+  const columns = ['name', 'phone', 'email', 'source', 'process_status', 'progress_stage', 'invited_by_name', 'assignee_name', 'follow_up_at', 'signed_at', 'last_activity_at', 'created_at']
+  const clauses: ReportDefinition['clauses'] = [inCampaign(projectId)]
+  if (view === 'invitations') {
+    clauses.push({ any: [{ field: 'invited_by_us', op: 'is', value: true }] })
+    clauses.push({ any: [{ field: 'process_status', op: 'not_one_of', value: ['signed'] }] })
+  }
+  if (view === 'registrations') clauses.push({ any: [{ field: 'submitted', op: 'is', value: true }] })
+  return { entity: 'people', clauses, columns, sort: { field: 'last_activity_at', dir: 'desc' } }
 }
 
 async function PeopleView({ projectId, session, query, askKind, view }: { projectId: string; session: StaffSession; query: Record<string, string | undefined>; askKind: boolean; view: 'invitations' | 'all' }) {
@@ -251,8 +300,8 @@ async function PeopleView({ projectId, session, query, askKind, view }: { projec
  */
 async function SetupTab({ projectId, session, query }: { projectId: string; session: StaffSession; query: Record<string, string | undefined> }) {
   const status = (['pending', 'in_progress', 'done', 'not_needed'] as const).find((s) => s === query.status) ?? 'all'
-  const clauses = [{ any: [{ field: 'campaign', op: 'one_of' as const, value: [projectId] }] }, { any: [{ field: 'kind', op: 'is' as const, value: 'site_product' }] }]
-  if (status !== 'all') clauses.push({ any: [{ field: 'status', op: 'is' as const, value: status }] })
+  const clauses: ReportDefinition['clauses'] = [inCampaign(projectId), { any: [{ field: 'kind', op: 'is', value: 'site_product' }] }]
+  if (status !== 'all') clauses.push({ any: [{ field: 'status', op: 'is', value: status }] })
   const [report, counts] = await Promise.all([
     runReport(session, { entity: 'tasks', clauses, columns: ['company', 'contact_name', 'contact_phone', 'signed_at', 'status', 'assignee', 'assignee_name', 'due_at', 'link', 'note'], sort: { field: 'signed_at', dir: 'desc' }, page: 1, pageSize: 100 }),
     taskCounts(session, projectId),
@@ -274,7 +323,13 @@ async function SetupTab({ projectId, session, query }: { projectId: string; sess
     link: (r.cells.link as string | null) ?? null,
     note: (r.cells.note as string | null) ?? null,
   }))
-  return <SetupTable projectId={projectId} rows={rows} counts={counts} status={status} team={team.map((u) => ({ id: u.id, name: u.name || u.email }))} />
+  return (
+    <>
+      {/* The file is the query above it, columns included. */}
+      <TableExport definition={{ entity: 'tasks', clauses, columns: ['company', 'contact_name', 'contact_phone', 'signed_at', 'status', 'assignee_name', 'due_at', 'link', 'note'], sort: { field: 'signed_at', dir: 'desc' } }} />
+      <SetupTable projectId={projectId} rows={rows} counts={counts} status={status} team={team.map((u) => ({ id: u.id, name: u.name || u.email }))} />
+    </>
+  )
 }
 
 /** קהל — suppliers and customers already in the system, attached to the campaign. */
@@ -323,6 +378,27 @@ async function SuppliersTab({
   )
 }
 
+
+/**
+ * The agreements tab as a report: the campaign's documents, and whichever of
+ * the screen's filters is on — "דורש טיפול" among them, because the engine
+ * computes it the same way the list does rather than approximating it.
+ */
+function agreementsExport(projectId: string, filter?: 'attention' | 'signed' | 'pending' | 'expired' | 'canceled'): ReportDefinition {
+  const clauses: ReportDefinition['clauses'] = [inCampaign(projectId)]
+  if (filter === 'attention') clauses.push({ any: [{ field: 'attention', op: 'is', value: true }] })
+  if (filter === 'signed') clauses.push({ any: [{ field: 'status', op: 'one_of', value: ['signed'] }] })
+  if (filter === 'pending') clauses.push({ any: [{ field: 'status', op: 'one_of', value: ['sent', 'viewed'] }] })
+  if (filter === 'expired') clauses.push({ any: [{ field: 'status', op: 'one_of', value: ['expired'] }] })
+  if (filter === 'canceled') clauses.push({ any: [{ field: 'status', op: 'one_of', value: ['canceled', 'declined'] }] })
+  return {
+    entity: 'agreements',
+    clauses,
+    columns: ['title', 'company', 'recipient_name', 'recipient_phone', 'recipient_email', 'status', 'attention_reason', 'sent_at', 'completed_at', 'expires_at', 'owner_name', 'last_send_result'],
+    sort: { field: 'created_at', dir: 'desc' },
+  }
+}
+
 async function AgreementsTab({
   projectId,
   session,
@@ -351,7 +427,12 @@ async function AgreementsTab({
       </div>
     )
   }
-  return <DocumentsTable documents={result.items} now={result.now} isAdmin={session.isAdmin} />
+  return (
+    <>
+      <TableExport definition={agreementsExport(projectId, chosen)} />
+      <DocumentsTable documents={result.items} now={result.now} isAdmin={session.isAdmin} />
+    </>
+  )
 }
 
 async function ReportsTab({
