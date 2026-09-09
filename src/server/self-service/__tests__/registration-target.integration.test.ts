@@ -28,6 +28,7 @@ let seq = 0
 const values = (over: Partial<RegistrationValues> = {}): RegistrationValues => ({
   businessName: `עסק ${++seq}`,
   taxId: '515000001',
+  contactPerson: 'איש קשר לבדיקה',
   phone: '+972501110001',
   email: `owner${seq}@example.co.il`,
   signatoryName: 'ישראל ישראלי',

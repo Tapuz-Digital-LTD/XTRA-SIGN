@@ -1,7 +1,7 @@
 import fontkit from '@pdf-lib/fontkit'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { PDFDocument, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
+import { LineCapStyle, PDFDocument, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
 import { toPdfRect } from '@/lib/fields'
 import { shapeForPdf } from './pdf-text'
 
@@ -103,7 +103,11 @@ export async function buildSignedPdf(input: {
       continue
     }
 
-    const value = field.type === 'checkbox' ? (field.value === 'true' ? '✓' : '') : (field.value ?? '')
+    if (field.type === 'checkbox') {
+      if (field.value === 'true') drawTick(page, rect)
+      continue
+    }
+    const value = field.value ?? ''
     if (!value.trim()) continue
 
     // Size to the box, floored so a tall narrow field stays readable.
@@ -130,6 +134,21 @@ export async function buildCertificatePdf(cert: CertificateInput): Promise<Buffe
   const font = await pdf.embedFont(await readFile(FONT_PATH), { subset: true })
   await appendCertificate(pdf, font, cert)
   return Buffer.from(await pdf.save())
+}
+
+/**
+ * A tick, as two strokes. A glyph would depend on the font having one, and
+ * the Hebrew face embedded here does not: it drew its missing-glyph box, a
+ * crossed square, where a person expected a mark.
+ */
+function drawTick(page: PDFPage, rect: { x: number; y: number; width: number; height: number }) {
+  const s = Math.max(6, Math.min(rect.width, rect.height) * 0.85)
+  const cx = rect.x + rect.width / 2
+  const cy = rect.y + rect.height / 2
+  const stroke = { thickness: Math.max(1, s * 0.14), color: rgb(0.06, 0.09, 0.16), lineCap: LineCapStyle.Round }
+  const knee = { x: cx - s * 0.1, y: cy - s * 0.32 }
+  page.drawLine({ start: { x: cx - s * 0.42, y: cy + s * 0.02 }, end: knee, ...stroke })
+  page.drawLine({ start: knee, end: { x: cx + s * 0.46, y: cy + s * 0.4 }, ...stroke })
 }
 
 /**

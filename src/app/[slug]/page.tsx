@@ -108,7 +108,7 @@ export default async function TourismCallPage({
 
         {/* On a phone the header is navy, so the logo comes in white. */}
         <img src="/tourism-2026/logo.webp" alt="משרד התיירות" className="tl-logo" width={380} height={134} />
-        <img src="/tourism-2026/producer-logo.webp" alt="" className="tl-producer" width={216} height={112} />
+        <img src="/tourism-2026/producer-logo.webp" alt="בנדה — חותם אישי בהפקות" className="tl-producer" width={216} height={112} />
 
         <p className="tl-kicker">
           <img src="/tourism-2026/headline-script.webp" alt="קול קורא לעסקי תיירות להצטרף למיזם" width={760} height={103} fetchPriority="high" />

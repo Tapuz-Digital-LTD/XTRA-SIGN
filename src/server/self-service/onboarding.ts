@@ -86,7 +86,8 @@ export const REGISTRATION_FIELDS = [
   { id: 'taxId', label: 'מספר ח.פ.' },
   { id: 'commercialName', label: 'שם העסק המסחרי' },
   { id: 'email', label: 'דוא״ל' },
-  { id: 'phone', label: 'איש קשר + מס׳ טלפון' },
+  { id: 'contactPerson', label: 'איש קשר' },
+  { id: 'phone', label: 'מס׳ טלפון' },
   { id: 'benefit1', label: 'סוג ההטבה 1' },
   { id: 'benefit2', label: 'סוג ההטבה 2' },
   { id: 'benefit3', label: 'סוג ההטבה 3' },
@@ -320,6 +321,7 @@ function leadData(data: RegistrationValues) {
   return {
     name: data.businessName,
     taxId: data.taxId,
+    contactPerson: data.contactPerson,
     contactName: data.signatoryName,
     custom_signatory_role: data.signatoryRole,
     phone: data.phone,
@@ -552,7 +554,7 @@ async function resolveLocal(session: StaffSession, data: RegistrationValues): Pr
     data: {
       name: data.businessName,
       taxId: data.taxId,
-      contactName: data.signatoryName,
+      contactName: data.contactPerson,
       contactPhone: data.phone,
       contactEmail: data.email,
     },
@@ -586,33 +588,43 @@ function sameDetails(snapshot: unknown, data: RegistrationValues): boolean {
 /** The form's answers, in the boxes the PDF named for them. */
 
 /**
- * The tick that shows which regional week was chosen.
+ * Where the ticks go, as fractions of the page (origin top-left), so they land
+ * in the same place whatever size the page is rendered at. Measured on the
+ * approved artwork, 595×842pt.
  *
- * The four weeks are printed as cards on page 2 and carry no fields, so this
- * is placed rather than filled: the empty strip under each card's regions
- * line, measured on the approved artwork (595×842pt).
+ * The four weeks are printed as cards with no box of their own: the tick sits
+ * in the empty strip under each card's regions line. The coupon pair and the
+ * extension do have printed boxes — these are those boxes' own rectangles.
  */
 const WEEK_MARK_PAGE = 2
-const WEEK_MARKS: Record<string, { x: number; y: number }> = {
-  week_1: { x: 310 / 595, y: 205 / 842 },
-  week_2: { x: 55 / 595, y: 205 / 842 },
-  week_3: { x: 310 / 595, y: 262 / 842 },
-  week_4: { x: 55 / 595, y: 262 / 842 },
+type MarkBox = { x: number; y: number; w: number; h: number; page: number }
+const box = (page: number, xPt: number, yTopPt: number, wPt = 14, hPt = 14): MarkBox => ({ page, x: xPt / 595, y: yTopPt / 842, w: wPt / 595, h: hPt / 842 })
+const WEEK_MARKS: Record<string, MarkBox> = {
+  week_1: box(WEEK_MARK_PAGE, 310, 205),
+  week_2: box(WEEK_MARK_PAGE, 55, 205),
+  week_3: box(WEEK_MARK_PAGE, 310, 262),
+  week_4: box(WEEK_MARK_PAGE, 55, 262),
 }
+/** redemption_method's two radio widgets, page 1 (pdf y 233..244 and 203..214, bottom origin). */
+const REDEMPTION_MARKS: Record<string, MarkBox> = {
+  generic_xtra25: box(1, 539, 842 - 244, 11, 11),
+  business_pos_code: box(1, 539, 842 - 214, 11, 11),
+}
+/** optional_extension's checkbox widget, page 2 (pdf y 535..546). */
+const EXTENSION_MARK: MarkBox = box(2, 541, 842 - 546, 11, 11)
 
-function weekMark(weekId: string): PlacedField {
-  const at = WEEK_MARKS[weekId]
+function mark(id: string, label: string, page: number, at: MarkBox): PlacedField {
   return {
-    id: `week-${weekId}`,
+    id,
     type: 'checkbox',
-    label: 'שבוע התיירות האזורי',
+    label,
     ownedBy: 'sender',
     required: false,
-    page: WEEK_MARK_PAGE,
+    page,
     x: at.x,
     y: at.y,
-    width: 14 / 595,
-    height: 14 / 842,
+    width: at.w,
+    height: at.h,
     value: 'true',
     options: null,
     placeholder: null,
@@ -632,17 +644,14 @@ async function fillFromRegistration(session: StaffSession, agreementId: string, 
     business_name: data.businessName,
     company_number: data.taxId,
     commercial_business_name: data.commercialName,
-    contact_phone: `${national.slice(0, 3)}-${national.slice(3)}`,
+    // The document has one box for both; the form asks for them apart.
+    contact_phone: `${data.contactPerson}, ${national.slice(0, 3)}-${national.slice(3)}`,
     contact_email: data.email,
     benefit_type_1: data.benefit1,
     benefit_type_2: data.benefit2,
     benefit_type_3: data.benefit3,
     benefit_notes: data.benefitNotes,
-    // The document's own value names, so the choice reads in the file as it
-    // reads in the form: one of two, never both.
-    redemption_method: data.redemption,
     business_coupon_code: data.couponCode,
-    optional_extension: data.optionalExtension ? 'true' : 'false',
     authorized_signatory: data.signatoryName,
     signatory_role: data.signatoryRole,
   }
@@ -650,7 +659,12 @@ async function fillFromRegistration(session: StaffSession, agreementId: string, 
   const fields = await loadFields(agreement.currentVersionId)
   const filled = fields.map((field) =>
     field.variableKey && values[field.variableKey] !== undefined
-      ? { ...field, ownedBy: 'sender' as const, value: values[field.variableKey] }
+      ? // The intake marks every box as ours and required. What the form was
+        // allowed to leave empty (a trading name, a second benefit line, the
+        // notes, a coupon number on the generic path) the document permits
+        // empty too — validateRegistration is the gate for what must be there,
+        // and an empty optional box must not stop the file from being sent.
+        { ...field, ownedBy: 'sender' as const, value: values[field.variableKey], required: values[field.variableKey].trim().length > 0 }
       : field,
   )
   const unmatched = Object.keys(values).filter((key) => !fields.some((f) => f.variableKey === key))
@@ -670,7 +684,17 @@ async function fillFromRegistration(session: StaffSession, agreementId: string, 
     .from(schema.agreementVersions)
     .where(eq(schema.agreementVersions.id, agreement.currentVersionId))
     .limit(1)
-  const marked = week && (version?.pages ?? 1) >= WEEK_MARK_PAGE ? [...filled, weekMark(week.id)] : filled
+  const pages = version?.pages ?? 1
+  const marks: PlacedField[] = []
+  if (week && pages >= WEEK_MARK_PAGE) marks.push(mark(`week-${week.id}`, 'שבוע התיירות האזורי', WEEK_MARK_PAGE, WEEK_MARKS[week.id]))
+  // The coupon choice and the extension are printed as a radio pair and a
+  // checkbox. The intake keeps them as drawn and never makes fields of them
+  // (a box drawn in a document is a statement, not a question), so the
+  // chosen one is ticked here, over its own printed box.
+  const coupon = REDEMPTION_MARKS[data.redemption]
+  if (coupon && pages >= coupon.page) marks.push(mark(`redemption-${data.redemption}`, 'קוד קופון / מימוש', coupon.page, coupon))
+  if (data.optionalExtension && pages >= EXTENSION_MARK.page) marks.push(mark('optional-extension', 'הרחבה אופציונלית', EXTENSION_MARK.page, EXTENSION_MARK))
+  const marked = [...filled, ...marks]
 
   const saved = await saveFields({ session, agreementId, fields: marked })
   if (!saved.ok) throw new Error(saved.message)

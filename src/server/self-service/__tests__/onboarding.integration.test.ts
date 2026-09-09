@@ -43,6 +43,7 @@ const values = (overrides: Record<string, unknown> = {}) => ({
   taxId: '515123456',
   signatoryName: 'ישראל ישראלי',
   signatoryRole: 'מנכ"ל',
+  contactPerson: 'איש קשר לבדיקה',
   phone: '052-1234567',
   email: 'Israel@Example.com',
   commercialName: 'מלון הנוף',
@@ -129,6 +130,7 @@ describe('validateRegistration', () => {
     expect(Object.keys(bad.fields).sort()).toEqual([
       'benefit1',
       'businessName',
+      'contactPerson',
       'declareInsurance',
       'declareLicense',
       'email',
@@ -189,7 +191,7 @@ describe('startSelfServiceSigning', () => {
     const byKey = Object.fromEntries(fields.map((f) => [f.variableKey, f]))
     expect(byKey.business_name.value).toBe('מלון הנוף הצפוני')
     expect(byKey.company_number.value).toBe('515123456')
-    expect(byKey.contact_phone.value).toBe('052-1234567')
+    expect(byKey.contact_phone.value).toBe('איש קשר לבדיקה, 052-1234567')
     expect(byKey.contact_email.value).toBe('israel@example.com')
     expect(byKey.authorized_signatory.value).toBe('ישראל ישראלי')
     expect(byKey.signatory_role.value).toBe('מנכ"ל')

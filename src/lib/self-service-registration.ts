@@ -29,6 +29,8 @@ export type RegistrationValues = {
   commercialName: string
   signatoryName: string
   signatoryRole: string
+  /** The person to speak to at the business — the document asks for them beside the phone. */
+  contactPerson: string
   /** E.164. */
   phone: string
   email: string
@@ -57,7 +59,8 @@ export const REGISTRATION_LABELS: Record<RegistrationField, string> = {
   commercialName: 'שם העסק המסחרי',
   signatoryName: 'שם מלא של המורשה/ת לחתום',
   signatoryRole: 'תפקיד',
-  phone: 'איש קשר + מס׳ טלפון',
+  contactPerson: 'איש קשר',
+  phone: 'מס׳ טלפון',
   email: 'דוא״ל',
   benefit1: 'סוג ההטבה 1',
   benefit2: 'סוג ההטבה 2',
@@ -96,6 +99,9 @@ export function validateRegistration(values: Record<string, unknown>): Registrat
 
   const signatoryRole = clean(values.signatoryRole, 80)
   if (!signatoryRole) fields.signatoryRole = 'יש להזין תפקיד.'
+
+  const contactPerson = clean(values.contactPerson, 120)
+  if (contactPerson.length < 2) fields.contactPerson = 'יש להזין את שם איש הקשר.'
 
   const phone = normalizeIsraeliPhone(clean(values.phone, 40))
   if (!phone) fields.phone = 'יש להזין מספר נייד ישראלי תקין. לדוגמה 050-1234567.'
@@ -142,6 +148,7 @@ export function validateRegistration(values: Record<string, unknown>): Registrat
       commercialName,
       signatoryName,
       signatoryRole,
+      contactPerson,
       phone: phone!,
       email,
       benefit1,
