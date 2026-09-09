@@ -51,7 +51,7 @@ beforeAll(async () => {
   formId = (await db.select({ f: schema.groups.landingSlug }).from(schema.groups).where(eq(schema.groups.id, groupId)))[0].f!
 
   const register = async (name: string, phone: string, email: string) => {
-    const r = await startSelfServiceSigning({ formId, values: { businessName: name, taxId: `51${String(Date.now() + Math.floor(Math.random() * 1000)).slice(-7)}`, signatoryName: 'דנה כהן', signatoryRole: 'מנהלת', phone, email }, idempotencyKey: `act-${crypto.randomUUID()}`, ip: '10.0.0.1', referrer: null, meta: { utm_source: 'whatsapp' } })
+    const r = await startSelfServiceSigning({ formId, values: { businessName: name, taxId: `51${String(Date.now() + Math.floor(Math.random() * 1000)).slice(-7)}`, signatoryName: 'דנה כהן', signatoryRole: 'מנהלת', benefit1: '25% על כל ההזמנה', week: 'week_1', redemption: 'generic_xtra25', declareLicense: true, declareInsurance: true, phone, email }, idempotencyKey: `act-${crypto.randomUUID()}`, ip: '10.0.0.1', referrer: null, meta: { utm_source: 'whatsapp' } })
     if (!r.ok || r.kind !== 'ready') throw new Error('not ready')
     await r.afterResponse()
     return r

@@ -80,6 +80,26 @@ export function AgreementText() {
   )
 }
 
+
+/**
+ * The limits on the benefit, verbatim from the agreement's second page.
+ *
+ * The rest of the document is now the form itself — every clause sits beside
+ * the control that answers it — so what is left here is the prose that asks
+ * nothing of the signer.
+ */
+export function AgreementTerms() {
+  return (
+    <ul className="tj-terms">
+      <li>אין כפל מבצעים והנחות.</li>
+      <li>לא ניתן לממש את ההטבה בשילוב עם הנחות או כרטיסי מועדון לקוחות.</li>
+      <li>התשלום יבוצע ישירות מול בית העסק / בקופת העסק בלבד.</li>
+      <li>לא תתקיים התחשבנות כספית או גבייה מול חברת XTRA; ההתקשרות הכספית היא בין הלקוח לבית העסק בלבד.</li>
+      <li>הענקת ההטבה מותנית בהצגת הקופון / הזנת קוד הקופון בבית העסק.</li>
+    </ul>
+  )
+}
+
 /**
  * What happens next — a system note beside the agreement, not a clause of
  * it. The Ministry's file ends with an instruction to save and email it,

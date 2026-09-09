@@ -85,7 +85,7 @@ const request = (path: string, body: unknown) =>
 
 const registration = (token: string | undefined) => ({
   idempotencyKey: `cap-${crypto.randomUUID()}`,
-  values: { businessName: 'עסק CAPTCHA', taxId: `51${String(Date.now()).slice(-7)}`, signatoryName: 'ישראל ישראלי', signatoryRole: 'מנהל', phone: '052-1234567', email: `c-${crypto.randomUUID().slice(0, 6)}@example.test` },
+  values: { businessName: 'עסק CAPTCHA', taxId: `51${String(Date.now()).slice(-7)}`, signatoryName: 'ישראל ישראלי', signatoryRole: 'מנהל', benefit1: '25% על כל ההזמנה', week: 'week_1', redemption: 'generic_xtra25', declareLicense: true, declareInsurance: true, phone: '052-1234567', email: `c-${crypto.randomUUID().slice(0, 6)}@example.test` },
   ...(token === undefined ? {} : { captchaToken: token }),
 })
 

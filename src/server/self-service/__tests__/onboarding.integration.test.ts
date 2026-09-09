@@ -45,6 +45,12 @@ const values = (overrides: Record<string, unknown> = {}) => ({
   signatoryRole: 'מנכ"ל',
   phone: '052-1234567',
   email: 'Israel@Example.com',
+  commercialName: 'מלון הנוף',
+  benefit1: '25% על לינה',
+  week: 'week_1',
+  redemption: 'generic_xtra25',
+  declareLicense: true,
+  declareInsurance: true,
   ...overrides,
 })
 
@@ -118,7 +124,21 @@ describe('validateRegistration', () => {
     const bad = validateRegistration({ businessName: 'x', taxId: '12', signatoryName: '', signatoryRole: '', phone: '03-1234567', email: 'nope' })
     expect(bad.ok).toBe(false)
     if (bad.ok) return
-    expect(Object.keys(bad.fields).sort()).toEqual(['businessName', 'email', 'phone', 'signatoryName', 'signatoryRole', 'taxId'])
+    // Every field the agreement insists on, named at once: the two choices and
+    // the two declarations are as required as the business's own details.
+    expect(Object.keys(bad.fields).sort()).toEqual([
+      'benefit1',
+      'businessName',
+      'declareInsurance',
+      'declareLicense',
+      'email',
+      'phone',
+      'redemption',
+      'signatoryName',
+      'signatoryRole',
+      'taxId',
+      'week',
+    ])
 
     const good = validateRegistration(values({ taxId: '515-123-456', phone: '+972 52 123 4567' }))
     expect(good.ok).toBe(true)

@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto'
 import { and, desc, eq, gt, inArray, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm'
 import { maskPhone, normalizeIsraeliPhone, toIsraeliNationalFormat } from '@/lib/phone'
-import { validateRegistration, type RegistrationValues } from '@/lib/self-service-registration'
+import { TOURISM_WEEKS, validateRegistration, type RegistrationValues } from '@/lib/self-service-registration'
 import { skinByKey, type SelfServiceSkin } from '@/lib/self-service-skins'
 import type { RegistrationTarget } from '@/lib/campaigns'
+import type { PlacedField } from '@/lib/fields'
 import type { StaffSession } from '@/server/auth/session'
 import { createCompany } from '@/server/companies/companies'
 import { getDb, schema } from '@/server/db'
@@ -82,11 +83,22 @@ export type RegistrationResult =
 /** What the registration page asks, as the lead's form snapshot. */
 export const REGISTRATION_FIELDS = [
   { id: 'name', label: 'שם העסק / החברה' },
-  { id: 'taxId', label: 'ח.פ. / ע.מ.' },
-  { id: 'contactName', label: 'שם מלא של מורשה החתימה' },
+  { id: 'taxId', label: 'מספר ח.פ.' },
+  { id: 'commercialName', label: 'שם העסק המסחרי' },
+  { id: 'email', label: 'דוא״ל' },
+  { id: 'phone', label: 'איש קשר + מס׳ טלפון' },
+  { id: 'benefit1', label: 'סוג ההטבה 1' },
+  { id: 'benefit2', label: 'סוג ההטבה 2' },
+  { id: 'benefit3', label: 'סוג ההטבה 3' },
+  { id: 'benefitNotes', label: 'הערות - טקסט חופשי' },
+  { id: 'redemption', label: 'קוד קופון / מימוש' },
+  { id: 'couponCode', label: 'מספר קופון' },
+  { id: 'week', label: 'שבוע התיירות האזורי' },
+  { id: 'optionalExtension', label: 'הרחבה אופציונלית' },
+  { id: 'declareLicense', label: 'רישיון עסק תקף כחוק' },
+  { id: 'declareInsurance', label: 'פוליסת ביטוח בתוקף' },
+  { id: 'contactName', label: 'שם מלא של המורשה/ת לחתום' },
   { id: 'custom_signatory_role', label: 'תפקיד' },
-  { id: 'phone', label: 'טלפון נייד' },
-  { id: 'email', label: 'אימייל' },
 ] as const
 
 const META_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'landing_url', 'form_version', 'xs_inv'] as const
@@ -572,16 +584,65 @@ function sameDetails(snapshot: unknown, data: RegistrationValues): boolean {
 }
 
 /** The form's answers, in the boxes the PDF named for them. */
+
+/**
+ * The tick that shows which regional week was chosen.
+ *
+ * The four weeks are printed as cards on page 2 and carry no fields, so this
+ * is placed rather than filled: the empty strip under each card's regions
+ * line, measured on the approved artwork (595×842pt).
+ */
+const WEEK_MARK_PAGE = 2
+const WEEK_MARKS: Record<string, { x: number; y: number }> = {
+  week_1: { x: 310 / 595, y: 205 / 842 },
+  week_2: { x: 55 / 595, y: 205 / 842 },
+  week_3: { x: 310 / 595, y: 262 / 842 },
+  week_4: { x: 55 / 595, y: 262 / 842 },
+}
+
+function weekMark(weekId: string): PlacedField {
+  const at = WEEK_MARKS[weekId]
+  return {
+    id: `week-${weekId}`,
+    type: 'checkbox',
+    label: 'שבוע התיירות האזורי',
+    ownedBy: 'sender',
+    required: false,
+    page: WEEK_MARK_PAGE,
+    x: at.x,
+    y: at.y,
+    width: 14 / 595,
+    height: 14 / 842,
+    value: 'true',
+    options: null,
+    placeholder: null,
+    autoFill: false,
+    autoSource: null,
+    variableKey: null,
+  }
+}
+
 async function fillFromRegistration(session: StaffSession, agreementId: string, data: RegistrationValues): Promise<void> {
   const agreement = await authorizeAgreementAccess(session, agreementId)
   if (!agreement.currentVersionId) throw new Error('agreement has no version')
 
   const national = toIsraeliNationalFormat(data.phone) ?? data.phone
+  const week = TOURISM_WEEKS.find((w) => w.id === data.week)
   const values: Record<string, string> = {
     business_name: data.businessName,
     company_number: data.taxId,
+    commercial_business_name: data.commercialName,
     contact_phone: `${national.slice(0, 3)}-${national.slice(3)}`,
     contact_email: data.email,
+    benefit_type_1: data.benefit1,
+    benefit_type_2: data.benefit2,
+    benefit_type_3: data.benefit3,
+    benefit_notes: data.benefitNotes,
+    // The document's own value names, so the choice reads in the file as it
+    // reads in the form: one of two, never both.
+    redemption_method: data.redemption,
+    business_coupon_code: data.couponCode,
+    optional_extension: data.optionalExtension ? 'true' : 'false',
     authorized_signatory: data.signatoryName,
     signatory_role: data.signatoryRole,
   }
@@ -595,7 +656,23 @@ async function fillFromRegistration(session: StaffSession, agreementId: string, 
   const unmatched = Object.keys(values).filter((key) => !fields.some((f) => f.variableKey === key))
   if (unmatched.length > 0) log.warn('self-service template lacks boxes for', { agreementId, unmatched })
 
-  const saved = await saveFields({ session, agreementId, fields: filled })
+  /*
+   * The chosen week has no box of its own in the document — the four are
+   * printed as cards, not as fields — so the mark is placed on the card the
+   * business chose. Fractions of the page, measured off the artwork, so it
+   * lands in the same empty corner whatever size the page is rendered at.
+   *
+   * Only on a document that has that page: a campaign still on a one-page
+   * edition keeps working, and simply carries no week mark.
+   */
+  const [version] = await getDb()
+    .select({ pages: schema.agreementVersions.pageCount })
+    .from(schema.agreementVersions)
+    .where(eq(schema.agreementVersions.id, agreement.currentVersionId))
+    .limit(1)
+  const marked = week && (version?.pages ?? 1) >= WEEK_MARK_PAGE ? [...filled, weekMark(week.id)] : filled
+
+  const saved = await saveFields({ session, agreementId, fields: marked })
   if (!saved.ok) throw new Error(saved.message)
 }
 

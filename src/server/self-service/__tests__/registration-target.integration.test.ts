@@ -32,6 +32,17 @@ const values = (over: Partial<RegistrationValues> = {}): RegistrationValues => (
   email: `owner${seq}@example.co.il`,
   signatoryName: 'ישראל ישראלי',
   signatoryRole: 'מנכ"ל',
+  commercialName: '',
+  benefit1: '20% על כל התפריט',
+  benefit2: '',
+  benefit3: '',
+  benefitNotes: '',
+  week: 'week_1',
+  redemption: 'generic_xtra25',
+  couponCode: '',
+  optionalExtension: false,
+  declareLicense: true,
+  declareInsurance: true,
   ...over,
 })
 
