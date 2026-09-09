@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, isNull, ne, sql } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { getDb, schema } from '../../src/server/db'
 
 /**
@@ -21,10 +21,12 @@ import { getDb, schema } from '../../src/server/db'
  * Names are never compared: two hotels share one. A pair with two candidates
  * is reported and skipped — a wrong merge is worse than a split row.
  *
- * The repair moves the invitation's provenance onto the surviving row (who
- * invited, through which channel, when) and then removes the stub, which by
- * definition holds nothing else. Signatures, agreements and audit history are
- * never touched.
+ * The repair produces exactly what the fixed flow now produces: one row, the
+ * invitation's, carrying the registration it turned into. The registration's
+ * content moves onto the invitation row, everything that pointed at the
+ * registration is re-pointed to it, and the emptied row goes. Signatures,
+ * agreements and audit history are never touched — the agreement keeps its own
+ * id and its own file throughout.
  *
  *   PROJECT_NAME='…' npx dotenv-cli -e <env> -- npx tsx scripts/ops/relink-invitations.ts
  *
@@ -85,31 +87,58 @@ async function main() {
   for (const s of skipped) console.log(`\n  skipped: ${s}`)
 
   if (!APPLY) {
-    console.log(`\ndry run — add APPLY=1 to move the provenance onto the ${pairs.length} surviving row(s) and remove the stubs`)
+    console.log(`\ndry run — add APPLY=1 to merge the ${pairs.length} pair(s) onto the invitation's own row`)
     return
   }
 
   for (const { stub, kept, on } of pairs) {
     await db.transaction(async (tx) => {
+      // The key is unique per campaign, and for a moment both rows would hold
+      // it; the row on its way out gives it up first.
+      await tx.update(schema.projectLeads).set({ idempotencyKey: null }).where(eq(schema.projectLeads.id, kept.id))
+
+      // The invitation row becomes the whole process, exactly as a claim does.
       await tx
         .update(schema.projectLeads)
         .set({
-          invitedBy: stub.invitedBy,
-          inviteChannel: stub.inviteChannel,
-          source: 'invitation',
-          meta: sql`coalesce(${schema.projectLeads.meta}, '{}'::jsonb) || ${JSON.stringify({ xs_inv: stub.id, invited_at: stub.createdAt.toISOString(), relinked_on: on })}::jsonb`,
+          status: kept.status,
+          data: kept.data,
+          formSnapshot: kept.formSnapshot,
+          agreementId: kept.agreementId,
+          companyId: kept.companyId,
+          idempotencyKey: kept.idempotencyKey,
+          kind: kept.kind ?? stub.kind,
+          phone: kept.phone ?? stub.phone,
+          email: kept.email ?? stub.email,
+          ip: kept.ip,
+          referrer: kept.referrer,
+          lastActivityAt: kept.lastActivityAt ?? kept.createdAt,
+          createdAt: kept.createdAt,
+          meta: sql`coalesce(${schema.projectLeads.meta}, '{}'::jsonb) || coalesce(${JSON.stringify(kept.meta ?? {})}::jsonb, '{}'::jsonb) || ${JSON.stringify({ xs_inv: stub.id, invited_at: stub.createdAt.toISOString(), relinked_on: on })}::jsonb`,
         })
-        .where(eq(schema.projectLeads.id, kept.id))
-      await tx.delete(schema.projectLeads).where(and(eq(schema.projectLeads.id, stub.id), ne(schema.projectLeads.id, kept.id), isNull(schema.projectLeads.agreementId)))
+        .where(eq(schema.projectLeads.id, stub.id))
+
+      // Everything that pointed at the row being retired now points at the one
+      // that survives, so nothing is orphaned by the merge.
+      await tx.update(schema.messageSends).set({ leadId: stub.id }).where(eq(schema.messageSends.leadId, kept.id))
+      await tx.update(schema.campaignEvents).set({ registrationId: stub.id }).where(eq(schema.campaignEvents.registrationId, kept.id))
+      await tx.update(schema.followUpTasks).set({ leadId: stub.id }).where(eq(schema.followUpTasks.leadId, kept.id))
+      // Tags move by insert-then-drop: the pair may already share one, and the
+      // primary key would refuse a plain re-point.
+      await tx.execute(sql`insert into ${schema.leadTags} (lead_id, tag_id) select ${stub.id}, tag_id from ${schema.leadTags} where lead_id = ${kept.id} on conflict do nothing`)
+      await tx.delete(schema.leadTags).where(eq(schema.leadTags.leadId, kept.id))
+
+      await tx.delete(schema.projectLeads).where(eq(schema.projectLeads.id, kept.id))
       await tx.insert(schema.adminAuditEvents).values({
         organizationId: group.organizationId,
         actorEmail: 'ops:relink-invitations',
         type: 'lead_relinked',
-        metadata: { campaign: group.id, keptLead: kept.id, removedStub: stub.id, matchedOn: on, invitedBy: stub.invitedBy, invitedAt: stub.createdAt.toISOString(), name: name(stub) },
+        metadata: { campaign: group.id, keptLead: stub.id, mergedFrom: kept.id, matchedOn: on, agreement: kept.agreementId, invitedAt: stub.createdAt.toISOString(), name: name(stub) },
       })
     })
-    console.log(`relinked ${name(stub)}: ${short(stub.id)} → ${short(kept.id)}`)
+    console.log(`merged ${name(stub)}: ${short(kept.id)} → ${short(stub.id)} (the invitation's row survives)`)
   }
+
   console.log(`\n${pairs.length} invitation(s) reunited with the registration they produced`)
 }
 

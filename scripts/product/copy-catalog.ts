@@ -223,7 +223,7 @@ function extract(file: string, code = readFileSync(file, 'utf8')): Row[] {
     if ((ts.isPropertyAssignment(p) && p.name === node) || ts.isElementAccessExpression(p) && p.argumentExpression === node) return true
     for (let a: ts.Node | undefined = p; a; a = a.parent) {
       if (ts.isCallExpression(a) && /^(console\.\w+|logger?\.\w+|log)$/.test(a.expression.getText())) return true
-      if (isAgreementText && ts.isFunctionDeclaration(a) && a.name?.getText() === 'AgreementText' && !ts.isStringLiteral(node)) return true
+      if (isAgreementText && ts.isFunctionDeclaration(a) && a.name?.getText() === 'AgreementTerms' && !ts.isStringLiteral(node)) return true
       if (isAgent && ts.isVariableDeclaration(a) && a.name.getText() === 'SYSTEM') return true
       if (file.startsWith('src/server/ai/') && ts.isPropertyAssignment(a) && a.name.getText() === 'description') return true
     }
@@ -316,7 +316,7 @@ Locations (\`file\` + \`line\`) refer to the working tree at the snapshot, uncom
 
 - Rows: **${rows.length}** (one row per distinct Hebrew text; repeats are listed in \`notes\` as "same text also at").
 - Source files scanned: ${files.length} \`.ts/.tsx\` files under \`src/app\`, \`src/components\`, \`src/lib\`, \`src/server\` (tests excluded); ${withHebrew} of them contain Hebrew.
-- Excluded on purpose: the agreement's own contract text (\`src/app/[slug]/AgreementText.tsx\`, the \`AgreementText\` body) — legal text of the agreement, not product copy; the XTRA AI system prompt and tool descriptions (\`src/server/ai/\`) — instructions to the model.
+- Excluded on purpose: the agreement's own contract text (\`src/app/[slug]/AgreementText.tsx\`, the \`AgreementTerms\` body) — legal text of the agreement, not product copy; the XTRA AI system prompt and tool descriptions (\`src/server/ai/\`) — instructions to the model.
 - Distinct screens named in \`screen\`: ${new Set(rows.map((r) => r.screen)).size}.
 
 ### Rows per kind

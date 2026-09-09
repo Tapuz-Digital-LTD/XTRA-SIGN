@@ -101,7 +101,7 @@ describe('signature emails', () => {
     sent.length = 0
     const registered = await startSelfServiceSigning({
       formId,
-      values: { businessName: 'מלון החוף', taxId: '515999888', signatoryName: 'דנה כהן', signatoryRole: 'מנהלת', phone: '052-1112233', email: 'dana@example.test' },
+      values: { businessName: 'מלון החוף', taxId: '515999888', signatoryName: 'דנה כהן', signatoryRole: 'מנהלת', benefit1: '25% על כל ההזמנה', week: 'week_1', redemption: 'generic_xtra25', declareLicense: true, declareInsurance: true, contactPerson: 'איש קשר לבדיקה', phone: '052-1112233', email: 'dana@example.test' },
       idempotencyKey: `notif-${crypto.randomUUID()}`,
       ip: '10.0.0.1',
       referrer: null,
@@ -164,7 +164,7 @@ describe('signature emails', () => {
     sent.length = 0
     const registered = await startSelfServiceSigning({
       formId,
-      values: { businessName: 'קפה בנגב', taxId: '515777666', signatoryName: 'יוסי לוי', signatoryRole: 'בעלים', phone: '052-4445566', email: 'yossi@example.test' },
+      values: { businessName: 'קפה בנגב', taxId: '515777666', signatoryName: 'יוסי לוי', signatoryRole: 'בעלים', benefit1: '25% על כל ההזמנה', week: 'week_1', redemption: 'generic_xtra25', declareLicense: true, declareInsurance: true, contactPerson: 'איש קשר לבדיקה', phone: '052-4445566', email: 'yossi@example.test' },
       idempotencyKey: `notif-${crypto.randomUUID()}`,
       ip: '10.0.0.2',
       referrer: null,

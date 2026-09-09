@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto'
 import { and, desc, eq, gt, inArray, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm'
 import { maskPhone, normalizeIsraeliPhone, toIsraeliNationalFormat } from '@/lib/phone'
-import { validateRegistration, type RegistrationValues } from '@/lib/self-service-registration'
+import { TOURISM_WEEKS, validateRegistration, type RegistrationValues } from '@/lib/self-service-registration'
 import { skinByKey, type SelfServiceSkin } from '@/lib/self-service-skins'
 import type { RegistrationTarget } from '@/lib/campaigns'
+import type { PlacedField } from '@/lib/fields'
 import type { StaffSession } from '@/server/auth/session'
 import { createCompany } from '@/server/companies/companies'
 import { getDb, schema } from '@/server/db'
@@ -82,11 +83,23 @@ export type RegistrationResult =
 /** What the registration page asks, as the lead's form snapshot. */
 export const REGISTRATION_FIELDS = [
   { id: 'name', label: 'שם העסק / החברה' },
-  { id: 'taxId', label: 'ח.פ. / ע.מ.' },
-  { id: 'contactName', label: 'שם מלא של מורשה החתימה' },
+  { id: 'taxId', label: 'מספר ח.פ.' },
+  { id: 'commercialName', label: 'שם העסק המסחרי' },
+  { id: 'email', label: 'דוא״ל' },
+  { id: 'contactPerson', label: 'איש קשר' },
+  { id: 'phone', label: 'מס׳ טלפון' },
+  { id: 'benefit1', label: 'סוג ההטבה 1' },
+  { id: 'benefit2', label: 'סוג ההטבה 2' },
+  { id: 'benefit3', label: 'סוג ההטבה 3' },
+  { id: 'benefitNotes', label: 'הערות - טקסט חופשי' },
+  { id: 'redemption', label: 'קוד קופון / מימוש' },
+  { id: 'couponCode', label: 'מספר קופון' },
+  { id: 'week', label: 'שבוע התיירות האזורי' },
+  { id: 'optionalExtension', label: 'הרחבה אופציונלית' },
+  { id: 'declareLicense', label: 'רישיון עסק תקף כחוק' },
+  { id: 'declareInsurance', label: 'פוליסת ביטוח בתוקף' },
+  { id: 'contactName', label: 'שם מלא של המורשה/ת לחתום' },
   { id: 'custom_signatory_role', label: 'תפקיד' },
-  { id: 'phone', label: 'טלפון נייד' },
-  { id: 'email', label: 'אימייל' },
 ] as const
 
 const META_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'landing_url', 'form_version', 'xs_inv'] as const
@@ -308,6 +321,7 @@ function leadData(data: RegistrationValues) {
   return {
     name: data.businessName,
     taxId: data.taxId,
+    contactPerson: data.contactPerson,
     contactName: data.signatoryName,
     custom_signatory_role: data.signatoryRole,
     phone: data.phone,
@@ -540,7 +554,7 @@ async function resolveLocal(session: StaffSession, data: RegistrationValues): Pr
     data: {
       name: data.businessName,
       taxId: data.taxId,
-      contactName: data.signatoryName,
+      contactName: data.contactPerson,
       contactPhone: data.phone,
       contactEmail: data.email,
     },
@@ -572,16 +586,72 @@ function sameDetails(snapshot: unknown, data: RegistrationValues): boolean {
 }
 
 /** The form's answers, in the boxes the PDF named for them. */
+
+/**
+ * Where the ticks go, as fractions of the page (origin top-left), so they land
+ * in the same place whatever size the page is rendered at. Measured on the
+ * approved artwork, 595×842pt.
+ *
+ * The four weeks are printed as cards with no box of their own: the tick sits
+ * in the empty strip under each card's regions line. The coupon pair and the
+ * extension do have printed boxes — these are those boxes' own rectangles.
+ */
+const WEEK_MARK_PAGE = 2
+type MarkBox = { x: number; y: number; w: number; h: number; page: number }
+const box = (page: number, xPt: number, yTopPt: number, wPt = 14, hPt = 14): MarkBox => ({ page, x: xPt / 595, y: yTopPt / 842, w: wPt / 595, h: hPt / 842 })
+const WEEK_MARKS: Record<string, MarkBox> = {
+  week_1: box(WEEK_MARK_PAGE, 310, 205),
+  week_2: box(WEEK_MARK_PAGE, 55, 205),
+  week_3: box(WEEK_MARK_PAGE, 310, 262),
+  week_4: box(WEEK_MARK_PAGE, 55, 262),
+}
+/** redemption_method's two radio widgets, page 1 (pdf y 233..244 and 203..214, bottom origin). */
+const REDEMPTION_MARKS: Record<string, MarkBox> = {
+  generic_xtra25: box(1, 539, 842 - 244, 11, 11),
+  business_pos_code: box(1, 539, 842 - 214, 11, 11),
+}
+/** optional_extension's checkbox widget, page 2 (pdf y 535..546). */
+const EXTENSION_MARK: MarkBox = box(2, 541, 842 - 546, 11, 11)
+
+function mark(id: string, label: string, page: number, at: MarkBox): PlacedField {
+  return {
+    id,
+    type: 'checkbox',
+    label,
+    ownedBy: 'sender',
+    required: false,
+    page,
+    x: at.x,
+    y: at.y,
+    width: at.w,
+    height: at.h,
+    value: 'true',
+    options: null,
+    placeholder: null,
+    autoFill: false,
+    autoSource: null,
+    variableKey: null,
+  }
+}
+
 async function fillFromRegistration(session: StaffSession, agreementId: string, data: RegistrationValues): Promise<void> {
   const agreement = await authorizeAgreementAccess(session, agreementId)
   if (!agreement.currentVersionId) throw new Error('agreement has no version')
 
   const national = toIsraeliNationalFormat(data.phone) ?? data.phone
+  const week = TOURISM_WEEKS.find((w) => w.id === data.week)
   const values: Record<string, string> = {
     business_name: data.businessName,
     company_number: data.taxId,
-    contact_phone: `${national.slice(0, 3)}-${national.slice(3)}`,
+    commercial_business_name: data.commercialName,
+    // The document has one box for both; the form asks for them apart.
+    contact_phone: `${data.contactPerson}, ${national.slice(0, 3)}-${national.slice(3)}`,
     contact_email: data.email,
+    benefit_type_1: data.benefit1,
+    benefit_type_2: data.benefit2,
+    benefit_type_3: data.benefit3,
+    benefit_notes: data.benefitNotes,
+    business_coupon_code: data.couponCode,
     authorized_signatory: data.signatoryName,
     signatory_role: data.signatoryRole,
   }
@@ -589,13 +659,44 @@ async function fillFromRegistration(session: StaffSession, agreementId: string, 
   const fields = await loadFields(agreement.currentVersionId)
   const filled = fields.map((field) =>
     field.variableKey && values[field.variableKey] !== undefined
-      ? { ...field, ownedBy: 'sender' as const, value: values[field.variableKey] }
+      ? // The intake marks every box as ours and required. What the form was
+        // allowed to leave empty (a trading name, a second benefit line, the
+        // notes, a coupon number on the generic path) the document permits
+        // empty too — validateRegistration is the gate for what must be there,
+        // and an empty optional box must not stop the file from being sent.
+        { ...field, ownedBy: 'sender' as const, value: values[field.variableKey], required: values[field.variableKey].trim().length > 0 }
       : field,
   )
   const unmatched = Object.keys(values).filter((key) => !fields.some((f) => f.variableKey === key))
   if (unmatched.length > 0) log.warn('self-service template lacks boxes for', { agreementId, unmatched })
 
-  const saved = await saveFields({ session, agreementId, fields: filled })
+  /*
+   * The chosen week has no box of its own in the document — the four are
+   * printed as cards, not as fields — so the mark is placed on the card the
+   * business chose. Fractions of the page, measured off the artwork, so it
+   * lands in the same empty corner whatever size the page is rendered at.
+   *
+   * Only on a document that has that page: a campaign still on a one-page
+   * edition keeps working, and simply carries no week mark.
+   */
+  const [version] = await getDb()
+    .select({ pages: schema.agreementVersions.pageCount })
+    .from(schema.agreementVersions)
+    .where(eq(schema.agreementVersions.id, agreement.currentVersionId))
+    .limit(1)
+  const pages = version?.pages ?? 1
+  const marks: PlacedField[] = []
+  if (week && pages >= WEEK_MARK_PAGE) marks.push(mark(`week-${week.id}`, 'שבוע התיירות האזורי', WEEK_MARK_PAGE, WEEK_MARKS[week.id]))
+  // The coupon choice and the extension are printed as a radio pair and a
+  // checkbox. The intake keeps them as drawn and never makes fields of them
+  // (a box drawn in a document is a statement, not a question), so the
+  // chosen one is ticked here, over its own printed box.
+  const coupon = REDEMPTION_MARKS[data.redemption]
+  if (coupon && pages >= coupon.page) marks.push(mark(`redemption-${data.redemption}`, 'קוד קופון / מימוש', coupon.page, coupon))
+  if (data.optionalExtension && pages >= EXTENSION_MARK.page) marks.push(mark('optional-extension', 'הרחבה אופציונלית', EXTENSION_MARK.page, EXTENSION_MARK))
+  const marked = [...filled, ...marks]
+
+  const saved = await saveFields({ session, agreementId, fields: marked })
   if (!saved.ok) throw new Error(saved.message)
 }
 

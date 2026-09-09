@@ -43,8 +43,15 @@ const values = (overrides: Record<string, unknown> = {}) => ({
   taxId: '515123456',
   signatoryName: 'ישראל ישראלי',
   signatoryRole: 'מנכ"ל',
+  contactPerson: 'איש קשר לבדיקה',
   phone: '052-1234567',
   email: 'Israel@Example.com',
+  commercialName: 'מלון הנוף',
+  benefit1: '25% על לינה',
+  week: 'week_1',
+  redemption: 'generic_xtra25',
+  declareLicense: true,
+  declareInsurance: true,
   ...overrides,
 })
 
@@ -118,7 +125,22 @@ describe('validateRegistration', () => {
     const bad = validateRegistration({ businessName: 'x', taxId: '12', signatoryName: '', signatoryRole: '', phone: '03-1234567', email: 'nope' })
     expect(bad.ok).toBe(false)
     if (bad.ok) return
-    expect(Object.keys(bad.fields).sort()).toEqual(['businessName', 'email', 'phone', 'signatoryName', 'signatoryRole', 'taxId'])
+    // Every field the agreement insists on, named at once: the two choices and
+    // the two declarations are as required as the business's own details.
+    expect(Object.keys(bad.fields).sort()).toEqual([
+      'benefit1',
+      'businessName',
+      'contactPerson',
+      'declareInsurance',
+      'declareLicense',
+      'email',
+      'phone',
+      'redemption',
+      'signatoryName',
+      'signatoryRole',
+      'taxId',
+      'week',
+    ])
 
     const good = validateRegistration(values({ taxId: '515-123-456', phone: '+972 52 123 4567' }))
     expect(good.ok).toBe(true)
@@ -169,7 +191,7 @@ describe('startSelfServiceSigning', () => {
     const byKey = Object.fromEntries(fields.map((f) => [f.variableKey, f]))
     expect(byKey.business_name.value).toBe('מלון הנוף הצפוני')
     expect(byKey.company_number.value).toBe('515123456')
-    expect(byKey.contact_phone.value).toBe('052-1234567')
+    expect(byKey.contact_phone.value).toBe('איש קשר לבדיקה, 052-1234567')
     expect(byKey.contact_email.value).toBe('israel@example.com')
     expect(byKey.authorized_signatory.value).toBe('ישראל ישראלי')
     expect(byKey.signatory_role.value).toBe('מנכ"ל')
