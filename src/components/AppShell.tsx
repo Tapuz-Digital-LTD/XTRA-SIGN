@@ -1,6 +1,6 @@
 'use client'
 
-import { Menu, X } from 'lucide-react'
+import { LogOut, Menu, X } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -21,6 +21,23 @@ const NAV = [
   { href: '/templates', label: 'תבניות' },
   { href: '/settings', label: 'הגדרות' },
 ]
+
+
+/**
+ * Signing out.
+ *
+ * A plain form rather than a fetch: the route is POST-only (a logout on GET is
+ * triggerable from any page that can embed an image) and checks the origin,
+ * which a same-origin form submission satisfies on its own. It also means the
+ * one way out of the system does not depend on JavaScript having loaded.
+ */
+function LogoutForm({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <form action="/api/auth/logout" method="post" className={className}>
+      {children}
+    </form>
+  )
+}
 
 /** True for the section the user is in — exact for the dashboard, prefix elsewhere. */
 function isActive(pathname: string, href: string): boolean {
@@ -119,6 +136,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <span className="lg:hidden">לחתימה</span>
               <span className="hidden lg:inline">שלח מסמך לחתימה</span>
             </Link>
+
+            <LogoutForm className="hidden shrink-0 lg:block">
+              <button
+                type="submit"
+                className="inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg px-3 text-sm text-muted transition-colors hover:bg-slate-100 hover:text-fg"
+              >
+                <LogOut aria-hidden="true" className="size-4" strokeWidth={1.75} />
+                יציאה
+              </button>
+            </LogoutForm>
           </div>
         </div>
       </header>
@@ -159,7 +186,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </Link>
               ))}
             </nav>
-            <div className="border-t border-line p-3">
+            <div className="flex flex-col gap-2 border-t border-line p-3">
               <Link
                 href="/documents/new"
                 onClick={() => setMenuOpen(false)}
@@ -167,6 +194,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 שלח מסמך לחתימה
               </Link>
+              <LogoutForm>
+                <button
+                  type="submit"
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-line px-4 text-base font-medium text-fg transition hover:bg-slate-100"
+                >
+                  <LogOut aria-hidden="true" className="size-5" strokeWidth={1.75} />
+                  יציאה
+                </button>
+              </LogoutForm>
             </div>
           </div>
         </div>
