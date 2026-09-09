@@ -71,8 +71,16 @@ function Lines({ lines }: { lines: string[] }) {
   )
 }
 
-/** Campaign attribution travels from the ad to the joining page on the link. */
-const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'] as const
+/**
+ * What travels from the poster to the joining page on the link.
+ *
+ * `xs_inv` is the personal invitation the visitor arrived through, and it
+ * matters more than any of the rest: the joining form reads these off its own
+ * address, so a key dropped here is a registration that cannot be tied back
+ * to the invitation that produced it — a second row for one person, and an
+ * invitation left reading "הוזמן" after they signed.
+ */
+const CARRIED_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'xs_inv'] as const
 
 export default async function TourismCallPage({
   params,
@@ -87,7 +95,7 @@ export default async function TourismCallPage({
   const closed = project.closed ?? (preview && (await getSession()) ? preview : null)
   if (closed) return <ClosedView slug={slug} state={closed} campaignName={project.projectName} message={project.endedMessage} logoSrc={`${skinByKey(project.config.skin)?.assetsPath ?? ''}/logo.webp`} website={project.orgWebsite} />
   const carried = new URLSearchParams()
-  for (const key of UTM_KEYS) {
+  for (const key of CARRIED_KEYS) {
     const value = query[key]
     if (typeof value === 'string' && value.trim()) carried.set(key, value.trim().slice(0, 200))
   }

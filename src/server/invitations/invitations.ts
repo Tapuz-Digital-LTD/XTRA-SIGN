@@ -4,7 +4,7 @@ import type { StaffSession } from '@/server/auth/session'
 import { cleanOverrides, renderTemplate, resolveMessage, type Variables } from '@/lib/message-template'
 import { maskPhone, normalizeIsraeliPhone } from '@/lib/phone'
 import { joiningProgress, type JoiningProgress } from '@/lib/joining-progress'
-import { agreementEvidence, leadSendEvidence } from '@/server/progress/evidence'
+import { agreementEvidence, invitationOpenEvidence, leadSendEvidence } from '@/server/progress/evidence'
 import { buildWhatsAppShareUrl } from '@/lib/whatsapp-share'
 import { getDb, schema } from '@/server/db'
 import { campaignUrlFor } from '@/server/distributions/distributions'
@@ -542,9 +542,10 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
 
   const tasks = leadIds.length ? await tasksForLeads(session.organizationId, leadIds) : new Map<string, unknown[]>()
   // What the rows prove about each signer, for the status line and the drawer.
-  const [evidence, leadSends] = await Promise.all([
+  const [evidence, leadSends, opens] = await Promise.all([
     agreementEvidence(rows.map((r) => r.lead.agreementId).filter((x): x is string => Boolean(x))),
     leadSendEvidence(leadIds),
+    invitationOpenEvidence(leadIds),
   ])
   const all: AudienceRow[] = rows.map(({ lead, agreementStatus, companyName }) => {
     const status = processStatus(lead.status, agreementStatus)
@@ -580,6 +581,7 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
       linkingNeeded: meta.linking === 'needed',
       progress: joiningProgress({
         invitedAt: lead.invitedBy || lead.source === 'invitation' ? lead.createdAt.toISOString() : null,
+        invitationOpenedAt: opens.get(lead.id) ?? null,
         submittedAt: lead.formSnapshot ? lead.createdAt.toISOString() : null,
         leadStatus: lead.status,
         ...(lead.agreementId ? (evidence.get(lead.agreementId) ?? { agreementStatus }) : { agreementStatus: null, ...(leadSends.get(lead.id) ?? {}) }),
