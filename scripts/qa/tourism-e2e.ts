@@ -150,6 +150,11 @@ async function main() {
   check('signed PDF carries the phone', text.includes(`${phone.slice(0, 3)}-${phone.slice(3)}`))
   check('signed PDF carries the email', text.includes(`e2e-${stamp}@example.com`))
   check('signed PDF keeps the legal copy', text.includes('XTRA25'))
+  // The Ministry's September 2026 additions have to survive all the way to
+  // the file the supplier downloads, not only to the screen they read.
+  const squashed = text.replace(/\s+/g, '')
+  check('signed PDF carries the subsidy note', squashed.includes('מסובסדתעלידימשרדהתיירות'))
+  check('signed PDF carries the campaign address', text.includes('israeltourismmonth.co.il'))
 
   // ── Returning through the links after signing ──────────────────────────
   await page.goto(`${BASE}/tourism-2026/sign/${token}`, { waitUntil: 'networkidle0', timeout: 60000 })
