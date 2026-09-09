@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { and, desc, eq, gt, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm'
 import { maskPhone, normalizeIsraeliPhone, toIsraeliNationalFormat } from '@/lib/phone'
 import { validateRegistration, type RegistrationValues } from '@/lib/self-service-registration'
 import { skinByKey, type SelfServiceSkin } from '@/lib/self-service-skins'
@@ -325,6 +325,36 @@ function cleanMeta(raw: unknown): Record<string, string> | null {
   return Object.keys(out).length > 0 ? out : null
 }
 
+
+/**
+ * The personal invitation this submission belongs to, if there is one.
+ *
+ * The id on the link is the answer whenever it survives the journey. When it
+ * does not, one unambiguous match on the contact details the invitation was
+ * addressed to is accepted instead — one row, in this campaign, actually
+ * invited by a person. Two candidates is not a match: better a new row than
+ * the wrong person's invitation.
+ */
+async function findInvitation(groupId: string, invitationId: string | null, phone: string | null, email: string | null): Promise<RegistrationRow | null> {
+  const db = getDb()
+  if (invitationId) {
+    const [byId] = await db
+      .select()
+      .from(schema.projectLeads)
+      .where(and(eq(schema.projectLeads.id, invitationId), eq(schema.projectLeads.groupId, groupId)))
+      .limit(1)
+    if (byId) return byId
+  }
+  if (!phone && !email) return null
+  const contact = [...(phone ? [eq(schema.projectLeads.phone, phone)] : []), ...(email ? [eq(schema.projectLeads.email, email)] : [])]
+  const candidates = await db
+    .select()
+    .from(schema.projectLeads)
+    .where(and(eq(schema.projectLeads.groupId, groupId), isNotNull(schema.projectLeads.invitedBy), or(...contact)))
+    .limit(2)
+  return candidates.length === 1 ? candidates[0] : null
+}
+
 async function claimRegistration(
   project: SelfServiceProject,
   input: RegistrationInput,
@@ -337,16 +367,54 @@ async function claimRegistration(
 
   const meta = cleanMeta(input.meta)
 
-  // Came through a personal invitation: that row is this registration. One
-  // person, one row, from the invitation to the signature.
+  const phone = data.phone ? (normalizeIsraeliPhone(data.phone) ?? null) : null
+  const email = data.email?.toLowerCase() ?? null
+
+  /*
+   * Came through a personal invitation: that row is this registration. One
+   * person, one row, from the invitation to the signature.
+   *
+   * The invitation is found by the id its link carries, and — because links
+   * already in the world may not carry one, and because a person can arrive
+   * from a search instead of the message — by the contact details the
+   * invitation was addressed to. That is what `phone` and `email` are on this
+   * table for. Never by name: two hotels share one.
+   *
+   * Anything but `converted` may be claimed, not only `invited`: a row that a
+   * crashed attempt left `pending`, or one marked `failed`, is still this
+   * person's invitation, and refusing it is what forked the process into two
+   * rows and left the invitation reading "הוזמן" after they had signed.
+   */
   const invitationId = meta?.xs_inv && /^[0-9a-f-]{36}$/i.test(meta.xs_inv) ? meta.xs_inv : null
-  if (invitationId) {
+  const invitation = await findInvitation(project.groupId, invitationId, phone, email)
+  if (invitation) {
+    // Already a document: this is a repeat submission, not a second person.
+    // Their own row goes back to the caller, which replays it.
+    if (invitation.status === 'converted' && invitation.agreementId) return { row: invitation, fresh: false }
     const [claimed] = await db
       .update(schema.projectLeads)
-      .set({ status: 'pending', data: leadData(data), formSnapshot: REGISTRATION_FIELDS, source: 'self_service', ip: input.ip, referrer, idempotencyKey, meta, phone: data.phone ? (normalizeIsraeliPhone(data.phone) ?? null) : null, email: data.email?.toLowerCase() ?? null, lastActivityAt: new Date(), createdAt: new Date() })
-      .where(and(eq(schema.projectLeads.id, invitationId), eq(schema.projectLeads.groupId, project.groupId), eq(schema.projectLeads.status, 'invited')))
+      .set({
+        status: 'pending',
+        data: leadData(data),
+        formSnapshot: REGISTRATION_FIELDS,
+        // The source stays what it was. It records how this person was
+        // recruited — a personal invitation — not what they did afterwards,
+        // which the form snapshot and the agreement already say.
+        ip: input.ip,
+        referrer,
+        idempotencyKey,
+        meta: { ...(meta ?? {}), xs_inv: invitation.id },
+        phone,
+        email,
+        lastActivityAt: new Date(),
+        createdAt: new Date(),
+      })
+      .where(and(eq(schema.projectLeads.id, invitation.id), ne(schema.projectLeads.status, 'converted')))
       .returning()
     if (claimed) return { row: claimed, fresh: true }
+    // It converted under us between the two statements: follow that row.
+    const [raced] = await db.select().from(schema.projectLeads).where(eq(schema.projectLeads.id, invitation.id)).limit(1)
+    if (raced) return { row: raced, fresh: false }
   }
 
   const inserted = await db
@@ -362,8 +430,8 @@ async function claimRegistration(
       referrer,
       idempotencyKey,
       meta,
-      phone: data.phone ? (normalizeIsraeliPhone(data.phone) ?? null) : null,
-      email: data.email?.toLowerCase() ?? null,
+      phone,
+      email,
       lastActivityAt: new Date(),
     })
     .onConflictDoNothing()

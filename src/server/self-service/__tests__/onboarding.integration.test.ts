@@ -59,6 +59,28 @@ function register(key: string, overrides: Record<string, unknown> = {}) {
   })
 }
 
+
+/** A submission that arrived through a personal invitation's link. */
+function registerAs(key: string, meta: Record<string, string>, overrides: Record<string, unknown> = {}) {
+  return startSelfServiceSigning({
+    formId: FORM_ID,
+    values: values(overrides),
+    idempotencyKey: key,
+    ip: '10.0.0.1',
+    referrer: 'https://example.com/campaign',
+    meta: { landing_url: 'https://x/tourism-2026', ...meta },
+  })
+}
+
+/** The row a staff member creates when they invite someone personally. */
+async function invite(name: string, phone: string) {
+  const [row] = await db
+    .insert(schema.projectLeads)
+    .values({ organizationId: admin.organizationId, groupId, status: 'invited', source: 'invitation', data: { name, businessName: name }, phone, invitedBy: admin.userId, inviteChannel: 'sms' })
+    .returning()
+  return row
+}
+
 beforeAll(async () => {
   const suffix = crypto.randomUUID().slice(0, 8)
   const [org] = await db.insert(schema.organizations).values({ name: `Tourism ${suffix}` }).returning({ id: schema.organizations.id })
@@ -273,6 +295,90 @@ describe('startSelfServiceSigning', () => {
     expect(suppliers).toHaveLength(2)
     const notes = await db.select().from(schema.notifications).where(eq(schema.notifications.organizationId, admin.organizationId))
     expect(notes.some((n) => n.title.includes('כבר קיים'))).toBe(true)
+  })
+
+
+  /**
+   * The whole point of a personal invitation: one process, from the message
+   * to the signature. The link carries the invitation's id, and everything
+   * that happens afterwards has to stay attached to it.
+   */
+  describe('a personal invitation', () => {
+    it('is claimed by the submission that came through its link — one row, and the recruitment source survives', async () => {
+      const invitation = await invite('מלון ההזמנה', '+972521110001')
+      const result = await registerAs('inv-1', { xs_inv: invitation.id }, { businessName: 'מלון ההזמנה', taxId: '515123001', phone: '0521110001', email: 'inv1@example.com' })
+      expect(result.ok).toBe(true)
+      if (!result.ok || result.kind !== 'ready') return
+
+      const rows = await db.select().from(schema.projectLeads).where(eq(schema.projectLeads.phone, '+972521110001'))
+      expect(rows).toHaveLength(1)
+      const row = rows[0]
+      expect(row.id).toBe(invitation.id)
+      expect(row.status).toBe('converted')
+      expect(row.agreementId).toBe(result.agreementId)
+      expect(row.formSnapshot).not.toBeNull()
+      // How they were recruited is not overwritten by what they then did.
+      expect(row.source).toBe('invitation')
+      expect(row.invitedBy).toBe(admin.userId)
+    })
+
+    it('is claimed by contact details when the link lost its id — the case that forked the process in production', async () => {
+      const invitation = await invite('מלון בלי מזהה', '+972521110002')
+      const result = await registerAs('inv-2', {}, { businessName: 'מלון בלי מזהה', taxId: '515123002', phone: '0521110002', email: 'inv2@example.com' })
+      expect(result.ok).toBe(true)
+
+      const rows = await db.select().from(schema.projectLeads).where(eq(schema.projectLeads.phone, '+972521110002'))
+      expect(rows).toHaveLength(1)
+      expect(rows[0].id).toBe(invitation.id)
+      expect(rows[0].source).toBe('invitation')
+    })
+
+    it('is claimed even when a crashed attempt left it mid-way, rather than forking', async () => {
+      const invitation = await invite('מלון תקוע', '+972521110003')
+      await db.update(schema.projectLeads).set({ status: 'failed' }).where(eq(schema.projectLeads.id, invitation.id))
+      const result = await registerAs('inv-3', { xs_inv: invitation.id }, { businessName: 'מלון תקוע', taxId: '515123003', phone: '0521110003', email: 'inv3@example.com' })
+      expect(result.ok).toBe(true)
+
+      const rows = await db.select().from(schema.projectLeads).where(eq(schema.projectLeads.phone, '+972521110003'))
+      expect(rows).toHaveLength(1)
+      expect(rows[0].id).toBe(invitation.id)
+    })
+
+    it('does not fork on a second try from a new browser: the same agreement comes back', async () => {
+      const invitation = await invite('מלון פעמיים', '+972521110004')
+      const first = await registerAs('inv-4a', { xs_inv: invitation.id }, { businessName: 'מלון פעמיים', taxId: '515123004', phone: '0521110004', email: 'inv4@example.com' })
+      expect(first.ok).toBe(true)
+      if (!first.ok || first.kind !== 'ready') return
+      // A different idempotency key is a different browser, not a different person.
+      const second = await registerAs('inv-4b', { xs_inv: invitation.id }, { businessName: 'מלון פעמיים', taxId: '515123004', phone: '0521110004', email: 'inv4@example.com' })
+      expect(second.ok).toBe(true)
+      if (!second.ok || second.kind !== 'ready') return
+      expect(second.agreementId).toBe(first.agreementId)
+
+      const rows = await db.select().from(schema.projectLeads).where(eq(schema.projectLeads.phone, '+972521110004'))
+      expect(rows).toHaveLength(1)
+    })
+
+    it('never claims somebody else: a registration with no invitation of its own stays its own row', async () => {
+      const result = await registerAs('inv-5', {}, { businessName: 'נרשם מעצמו', taxId: '515123005', phone: '0521110005', email: 'inv5@example.com' })
+      expect(result.ok).toBe(true)
+      const rows = await db.select().from(schema.projectLeads).where(eq(schema.projectLeads.phone, '+972521110005'))
+      expect(rows).toHaveLength(1)
+      // Recruited by nobody: it must not read as a personal invitation.
+      expect(rows[0].invitedBy).toBeNull()
+      expect(rows[0].source).toBe('self_service')
+    })
+
+    it('refuses an ambiguous contact match rather than guessing between two invitations', async () => {
+      await invite('כפילות א', '+972521110006')
+      await invite('כפילות ב', '+972521110006')
+      const result = await registerAs('inv-6', {}, { businessName: 'כפילות ג', taxId: '515123006', phone: '0521110006', email: 'inv6@example.com' })
+      expect(result.ok).toBe(true)
+      const rows = await db.select().from(schema.projectLeads).where(eq(schema.projectLeads.phone, '+972521110006'))
+      // The two invitations are untouched and the submission made its own row.
+      expect(rows).toHaveLength(3)
+      expect(rows.filter((r) => r.status === 'invited')).toHaveLength(2)
+    })
   })
 
   it('reports field errors without touching the database', async () => {

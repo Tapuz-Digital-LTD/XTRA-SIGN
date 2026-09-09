@@ -17,12 +17,19 @@
  *      claim one.
  */
 
-export type ProgressStepKey = 'invited' | 'form' | 'agreement' | 'link_sent' | 'code_sent' | 'code_verified' | 'link_opened' | 'signed'
+export type ProgressStepKey = 'invited' | 'invitation_opened' | 'form' | 'agreement' | 'link_sent' | 'code_sent' | 'code_verified' | 'link_opened' | 'signed'
 
 /** Timestamps, and only timestamps: each one is a row that exists. */
 export type ProgressEvidence = {
   /** A personal invitation was created for this person. */
   invitedAt?: string | null
+  /**
+   * The campaign page was opened through this person's own invitation link
+   * (a campaign event carrying its id). Absent when nobody clicked, and
+   * absent for anyone who reached the page some other way — never inferred
+   * from a message having been sent.
+   */
+  invitationOpenedAt?: string | null
   /** The join form was submitted (form_snapshot). */
   submittedAt?: string | null
   agreementCreatedAt?: string | null
@@ -58,6 +65,7 @@ export type JoiningProgress = {
 
 const STEP_LABELS: Record<ProgressStepKey, string> = {
   invited: 'נשלחה הזמנה אישית',
+  invitation_opened: 'הקישור האישי נפתח',
   form: 'הפרטים התקבלו',
   agreement: 'ההסכם נוצר',
   link_sent: 'קישור לחתימה נשלח',
@@ -73,6 +81,7 @@ const STEP_NOTES: Partial<Record<ProgressStepKey, string>> = {
   code_sent: 'יצא מהמערכת. אישור מסירה למכשיר אינו זמין.',
   code_verified: 'הספק הזין את הקוד שנשלח לנייד שלו.',
   link_opened: 'ההסכם נפתח בדפדפן של הספק.',
+  invitation_opened: 'דף הקמפיין נפתח מהקישור האישי שנשלח.',
 }
 
 const CLOSED = new Set(['signed', 'declined', 'canceled', 'expired'])
@@ -89,6 +98,9 @@ export function joiningProgress(e: ProgressEvidence): JoiningProgress {
     steps.push({ key, label: STEP_LABELS[key], at: at ?? null, done: Boolean(at), note: at ? (STEP_NOTES[key] ?? null) : null })
   }
   push('invited', e.invitedAt, Boolean(e.invitedAt))
+  // Shown to anyone who was invited: not knowing whether they opened it is
+  // itself the answer a worker needs, so the step stays, undone.
+  push('invitation_opened', e.invitationOpenedAt, Boolean(e.invitedAt))
   push('form', e.submittedAt, Boolean(e.submittedAt) || Boolean(e.agreementCreatedAt))
   push('agreement', e.agreementCreatedAt, Boolean(e.agreementCreatedAt) || Boolean(e.submittedAt))
   push('link_sent', e.linkSentAt, Boolean(e.agreementCreatedAt) || Boolean(e.linkSentAt))
@@ -114,13 +126,23 @@ export function joiningProgress(e: ProgressEvidence): JoiningProgress {
     return { headline: 'ההרשמה לא הושלמה', explain: 'הפרטים נשמרו, אך ההסכם לא נוצר עבור הספק.', secondary: 'ההרשמה נכשלה', next: 'צרו קשר עם הספק ובקשו להירשם שוב.', tone: 'danger', steps }
   }
 
-  // Invited and nothing more.
+  // Invited and nothing more. Whether they opened the link is the one thing
+  // that changes what a worker should do next, so it leads the line.
   if (!e.submittedAt && !e.agreementCreatedAt) {
+    const opened = Boolean(e.invitationOpenedAt)
     return {
-      headline: 'הוזמן, טרם נרשם',
-      explain: 'נשלחה הזמנה אישית. הספק עדיין לא מילא את טופס ההצטרפות.',
-      secondary: e.linkSentAt ? 'הזמנה נשלחה · טרם נרשם' : sendFailedOnly ? 'שליחת ההזמנה נכשלה' : 'ההזמנה טרם נשלחה',
-      next: sendFailedOnly ? 'בדקו את הטלפון או המייל ושלחו שוב.' : 'אפשר לשלוח תזכורת או להתקשר.',
+      headline: opened ? 'הקישור נפתח, טרם נרשם' : 'הוזמן, טרם נרשם',
+      explain: opened
+        ? 'הספק פתח את הקישור האישי וראה את דף הקמפיין, אך עדיין לא מילא את טופס ההצטרפות.'
+        : 'נשלחה הזמנה אישית. הספק עדיין לא מילא את טופס ההצטרפות.',
+      secondary: opened
+        ? 'הקישור נפתח · טרם נרשם'
+        : e.linkSentAt
+          ? 'הזמנה נשלחה · אין נתון על פתיחה'
+          : sendFailedOnly
+            ? 'שליחת ההזמנה נכשלה'
+            : 'ההזמנה טרם נשלחה',
+      next: sendFailedOnly ? 'בדקו את הטלפון או המייל ושלחו שוב.' : opened ? 'הוא כבר ראה את הדף — שיחה עכשיו היא הצעד הטוב ביותר.' : 'אפשר לשלוח תזכורת או להתקשר.',
       tone: sendFailedOnly ? 'danger' : 'pending',
       steps,
     }

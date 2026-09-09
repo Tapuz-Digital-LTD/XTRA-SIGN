@@ -53,6 +53,27 @@ export async function agreementEvidence(agreementIds: string[]): Promise<Map<str
   return out
 }
 
+/**
+ * When each invitation's own link was first opened.
+ *
+ * A campaign event carrying the invitation's id is the only proof that the
+ * person clicked what was sent to them. A lead with no such event simply has
+ * no entry: the screens say "אין נתון" rather than guessing from a message
+ * having gone out.
+ */
+export async function invitationOpenEvidence(leadIds: string[]): Promise<Map<string, string>> {
+  const ids = [...new Set(leadIds.filter(Boolean))]
+  const out = new Map<string, string>()
+  if (ids.length === 0) return out
+  const rows = await getDb()
+    .select({ id: schema.campaignEvents.invitationId, at: sql<Date>`min(${schema.campaignEvents.createdAt})` })
+    .from(schema.campaignEvents)
+    .where(inArray(schema.campaignEvents.invitationId, ids))
+    .groupBy(schema.campaignEvents.invitationId)
+  for (const row of rows) if (row.id && row.at) out.set(row.id, iso(row.at) as string)
+  return out
+}
+
 /** The last accepted / refused invitation send per lead, for people with no agreement yet. */
 export async function leadSendEvidence(leadIds: string[]): Promise<Map<string, { linkSentAt: string | null; linkSendFailedAt: string | null }>> {
   const ids = [...new Set(leadIds.filter(Boolean))]
@@ -87,7 +108,11 @@ export async function companyJoiningProgress(organizationId: string, companyId: 
     .orderBy(sql`${schema.projectLeads.createdAt} desc`)
     .limit(1)
   if (!lead) return null
-  const [evidence, sends] = await Promise.all([lead.agreementId ? agreementEvidence([lead.agreementId]) : null, lead.agreementId ? null : leadSendEvidence([lead.id])])
+  const [evidence, sends, opens] = await Promise.all([
+    lead.agreementId ? agreementEvidence([lead.agreementId]) : null,
+    lead.agreementId ? null : leadSendEvidence([lead.id]),
+    invitationOpenEvidence([lead.id]),
+  ])
   const { joiningProgress } = await import('@/lib/joining-progress')
   return {
     leadId: lead.id,
@@ -95,6 +120,7 @@ export async function companyJoiningProgress(organizationId: string, companyId: 
     groupName: lead.groupName,
     progress: joiningProgress({
       invitedAt: lead.invitedBy ? lead.createdAt.toISOString() : null,
+      invitationOpenedAt: opens.get(lead.id) ?? null,
       submittedAt: lead.formSnapshot ? lead.createdAt.toISOString() : null,
       leadStatus: lead.status,
       ...(lead.agreementId ? (evidence?.get(lead.agreementId) ?? {}) : { agreementStatus: null, ...(sends?.get(lead.id) ?? {}) }),

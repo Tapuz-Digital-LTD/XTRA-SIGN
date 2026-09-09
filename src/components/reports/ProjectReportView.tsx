@@ -60,6 +60,34 @@ export function ProjectReportView({
 
       <Summary report={report} reduced={reduced} />
 
+      {report.invitations ? (
+        <section className={`${card} p-5`} aria-labelledby="rp-invitations">
+          <h2 id="rp-invitations" className="text-sm font-semibold text-fg">הזמנות אישיות</h2>
+          <p className="mt-1 text-xs text-muted">
+            כל הזמנה נספרת פעם אחת, גם אם נשלחה שוב. המכנה לכל האחוזים הוא ההזמנות שנשלחו בפועל
+            ({report.invitations.stages[0].count.toLocaleString('he-IL')} מתוך {report.invitations.created.toLocaleString('he-IL')} שנוצרו).
+          </p>
+          <div className="mt-3 grid gap-4 lg:grid-cols-5">
+            <div className="min-w-0 lg:col-span-3">
+              <Funnel stages={report.invitations.stages} reduced={reduced} />
+            </div>
+            <dl className="grid grid-cols-2 gap-3 self-start text-sm lg:col-span-2">
+              {report.invitations.stages.slice(1).map((stage, i) => {
+                const base = report.invitations!.stages[0].count
+                return (
+                  <div key={stage.key} className={`rounded-lg bg-bg p-3 ${i === 2 ? 'ring-1 ring-brand' : ''}`}>
+                    <dt className="text-xs text-muted">נשלחו ← {stage.label}</dt>
+                    <dd className="mt-1 text-lg font-semibold tabular-nums text-fg">
+                      {base > 0 ? pct(Math.round((stage.count / base) * 1000) / 10) : '—'}
+                    </dd>
+                  </div>
+                )
+              })}
+            </dl>
+          </div>
+        </section>
+      ) : null}
+
       <div className="grid gap-4 lg:grid-cols-5">
         {report.funnel.length > 2 ? (
           <section className={`${card} min-w-0 p-5 lg:col-span-2`} aria-labelledby="rp-funnel">

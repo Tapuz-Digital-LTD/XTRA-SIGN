@@ -63,8 +63,20 @@ describe('joiningProgress', () => {
   it('invited only: not a registration, and says so', () => {
     const p = joiningProgress({ invitedAt: at(1), linkSentAt: at(1), leadStatus: 'invited' })
     expect(p.headline).toBe('הוזמן, טרם נרשם')
-    expect(p.secondary).toBe('הזמנה נשלחה · טרם נרשם')
+    // Sent is not opened: with no event of its own, the line says so rather
+    // than implying the person saw anything.
+    expect(p.secondary).toBe('הזמנה נשלחה · אין נתון על פתיחה')
     expect(done(p, 'form')).toBe(false)
+    expect(done(p, 'invitation_opened')).toBe(false)
+  })
+
+  it('invited and the personal link was opened: a different headline and a different next step', () => {
+    const p = joiningProgress({ invitedAt: at(1), linkSentAt: at(1), invitationOpenedAt: at(2), leadStatus: 'invited' })
+    expect(p.headline).toBe('הקישור נפתח, טרם נרשם')
+    expect(p.secondary).toBe('הקישור נפתח · טרם נרשם')
+    expect(done(p, 'invitation_opened')).toBe(true)
+    expect(done(p, 'form')).toBe(false)
+    expect(p.next).toContain('שיחה')
   })
 
   it('an expired link is named, with the action that fixes it', () => {
