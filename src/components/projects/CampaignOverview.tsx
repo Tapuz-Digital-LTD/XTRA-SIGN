@@ -24,7 +24,7 @@ export function CampaignOverview({
   project: { id: string; name: string; campaignKind: CampaignKind; publicUrl: string | null }
   companies: Company[]
   leads: Lead[]
-  /** Site-product setup, when the campaign creates that task: how many signed suppliers still wait. */
+  /** Follow-up tasks, when the campaign opens any: how much work is still waiting. */
   setup?: { pending: number; inProgress: number; done: number } | null
   /** The work cards, each leading to the view that acts on it. */
   cards?: { label: string; value: number; href: string; tone?: 'warn' }[]
@@ -75,9 +75,9 @@ export function CampaignOverview({
       {setup ? (
         <Link href={`/projects/${project.id}?tab=setup&status=pending`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 px-5 py-4 transition hover:border-amber-400">
           <span>
-            <span className="block text-base font-semibold text-fg">הקמת מוצרים באתר</span>
+            <span className="block text-base font-semibold text-fg">משימות המשך</span>
             <span className="block text-sm text-amber-900">
-              {setup.pending + setup.inProgress === 0 ? `כל הספקים שחתמו הוקמו באתר (${setup.done}).` : `${setup.pending} ממתינים להקמה · ${setup.inProgress} בטיפול · ${setup.done} הוקמו`}
+              {setup.pending + setup.inProgress === 0 ? `כל המשימות בוצעו (${setup.done}).` : `${setup.pending} ממתינות · ${setup.inProgress} בטיפול · ${setup.done} בוצעו`}
             </span>
           </span>
           <span className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white">לרשימה</span>

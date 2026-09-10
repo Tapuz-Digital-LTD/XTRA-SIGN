@@ -180,7 +180,7 @@ export async function completeSigning(input: {
   // not roll back a completed signature.
   await notifyAfterSigning(input.context, input.token ?? null).catch(() => {})
 
-  // A campaign may ask for a follow-up task per signature ("הקמת מוצר
+  // A campaign may ask for follow-up tasks per signature ("הקמת מוצר
   // באתר"). Best effort, after the fact: the signature is final either way.
   await createTasksAfterSignature(input.context.agreementId).catch(() => {})
 

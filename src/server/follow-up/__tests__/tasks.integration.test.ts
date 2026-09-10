@@ -2,13 +2,19 @@ import { eq } from 'drizzle-orm'
 import { beforeAll, describe, expect, it } from 'vitest'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
-import { backfillTasks, createTasksAfterSignature, listTasks, taskCounts, tasksForLeads, updateTask } from '../tasks'
+import { updateCampaign } from '@/server/groups/groups'
+import { backfillTasks, cleanFollowUpConfig, createTasksAfterSignature, listTasks, taskCounts, tasksForLeads, updateTask } from '../tasks'
 
 /**
- * A signature creates the task the campaign asked for, once; a campaign
+ * A signature creates the tasks the campaign asked for, once each; a campaign
  * that asked for nothing gets nothing; closing a task stamps who and when,
  * reopening clears it; the backfill counts before it writes and never
  * writes a test registration.
+ *
+ * A campaign names its own tasks. The oldest campaigns stored bare kinds
+ * (`['site_product']`) and must keep working, renaming a task must carry the
+ * rows already on the board, and adding one must reach the people who signed
+ * before it existed.
  */
 
 const db = getDb()
@@ -149,5 +155,71 @@ describe('counts, lists and backfill', () => {
 
     expect(await backfillTasks(g.id, { apply: true })).toEqual({ candidates: 0, created: 0, skipped: 2 })
     expect(await backfillTasks(groupOff, { apply: true })).toEqual({ candidates: 0, created: 0, skipped: 0 })
+  })
+})
+
+describe('a campaign names its own tasks', () => {
+  it('reads the old bare-kind config and the named one alike', () => {
+    // What the first campaigns stored, and what they mean now.
+    expect(cleanFollowUpConfig({ afterSign: ['site_product'] })).toEqual({ afterSign: [{ key: 'site_product', label: 'הקמת מוצר באתר' }] })
+    expect(cleanFollowUpConfig({ afterSign: [{ key: 'site_product', label: 'הקמה באתר' }, { key: 't_ab12cd34', label: 'שליחת נראות לספק' }] })).toEqual({
+      afterSign: [
+        { key: 'site_product', label: 'הקמה באתר' },
+        { key: 't_ab12cd34', label: 'שליחת נראות לספק' },
+      ],
+    })
+    // A nameless task is not a task; neither is a second row of the same key.
+    expect(cleanFollowUpConfig({ afterSign: [{ key: 't_1', label: '  ' }, { key: 'no spaces allowed', label: 'x' }, 'bogus', { key: 't_2', label: 'ניקיון' }, { key: 't_2', label: 'שוב' }] })).toEqual({
+      afterSign: [{ key: 't_2', label: 'ניקיון' }],
+    })
+    expect(cleanFollowUpConfig(null).afterSign).toEqual([])
+    expect(cleanFollowUpConfig({ afterSign: Array.from({ length: 30 }, (_, i) => ({ key: `t_${i}`, label: `משימה ${i}` })) }).afterSign).toHaveLength(12)
+  })
+
+  it('opens one row per task, renames them where they stand, and reaches whoever signed before', async () => {
+    const [g] = await db
+      .insert(schema.groups)
+      .values({
+        organizationId: orgId,
+        name: `Many ${crypto.randomUUID().slice(0, 6)}`,
+        createdBy: userId,
+        campaignKind: 'public',
+        followUpConfig: { afterSign: [{ key: 'site_product', label: 'הקמת מוצר באתר' }, { key: 't_visual', label: 'שליחת נראות לספק' }] },
+      })
+      .returning({ id: schema.groups.id })
+
+    const first = await signed(g.id)
+    await createTasksAfterSignature(first.agreementId)
+    const opened = await tasksOf(first.leadId)
+    expect(opened.map((t) => [t.kind, t.title]).sort()).toEqual([
+      ['site_product', 'הקמת מוצר באתר'],
+      ['t_visual', 'שליחת נראות לספק'],
+    ])
+    expect(await taskCounts(session, g.id)).toMatchObject({ pending: 2 })
+    // One task at a time, for the tab that shows one.
+    expect(await taskCounts(session, g.id, 't_visual')).toMatchObject({ pending: 1 })
+
+    // A rename reaches the work already on the board, and opens nothing new.
+    const renamed = await updateCampaign(session, g.id, { followUpConfig: { afterSign: [{ key: 'site_product', label: 'הקמת מוצר באתר' }, { key: 't_visual', label: 'שליחת נראות ואישור' }] } })
+    expect(renamed).toEqual({ ok: true })
+    expect((await tasksOf(first.leadId)).find((t) => t.kind === 't_visual')?.title).toBe('שליחת נראות ואישור')
+    expect(await tasksOf(first.leadId)).toHaveLength(2)
+
+    // A task added later reaches everyone who already signed, once.
+    const second = await signed(g.id)
+    await createTasksAfterSignature(second.agreementId)
+    await updateCampaign(session, g.id, {
+      followUpConfig: { afterSign: [{ key: 'site_product', label: 'הקמת מוצר באתר' }, { key: 't_visual', label: 'שליחת נראות ואישור' }, { key: 't_call', label: 'שיחת פתיחה' }] },
+    })
+    expect(await backfillTasks(g.id, { apply: true })).toMatchObject({ candidates: 2, created: 2 })
+    expect((await tasksOf(second.leadId)).map((t) => t.kind).sort()).toEqual(['site_product', 't_call', 't_visual'])
+    expect(await backfillTasks(g.id, { apply: true })).toMatchObject({ candidates: 0, created: 0 })
+
+    // Removing a task from the list stops it opening; what is open stays open.
+    await updateCampaign(session, g.id, { followUpConfig: { afterSign: [{ key: 'site_product', label: 'הקמת מוצר באתר' }] } })
+    const third = await signed(g.id)
+    await createTasksAfterSignature(third.agreementId)
+    expect((await tasksOf(third.leadId)).map((t) => t.kind)).toEqual(['site_product'])
+    expect(await tasksOf(first.leadId)).toHaveLength(3)
   })
 })

@@ -4,7 +4,7 @@ import type { CompanyKind, CompanySource } from '@/server/companies/companies'
 import { getDb, schema } from '@/server/db'
 import { submittedRegistration } from '@/server/projects/registration-rules'
 import { isUuid } from '@/server/documents/authorization'
-import { cleanFollowUpConfig } from '@/server/follow-up/tasks'
+import { cleanFollowUpConfig, syncTaskTitles } from '@/server/follow-up/tasks'
 import { describeCampaign, isCampaignGoal, isCampaignKind, isCampaignStatus, isEntryMethod, isRegistrationTarget, kindForEntry, type CampaignGoal, type CampaignKind, type CampaignStatus, type EntryMethod, type RegistrationTarget } from '@/lib/campaigns'
 
 /**
@@ -241,8 +241,8 @@ export type CampaignFields = {
   linkTtlDays?: number
   ownerUserId?: string | null
   defaultTemplateId?: string | null
-  /** Which follow-up tasks a signature creates, e.g. { afterSign: ['site_product'] }. */
-  followUpConfig?: { afterSign: string[] }
+  /** The tasks a signature opens, in order: { afterSign: [{ key, label }] }. */
+  followUpConfig?: unknown
 }
 
 function cleanCampaignFields(input: CampaignFields) {
@@ -337,6 +337,9 @@ export async function updateCampaign(session: StaffSession, groupId: string, inp
     if (!template) return { ok: false, message: 'התבנית שנבחרה לא נמצאה.' }
   }
   await getDb().update(schema.groups).set(patch).where(eq(schema.groups.id, group.id))
+  // A task that was renamed is renamed on the board too, not only for the
+  // signatures still to come.
+  if (patch.followUpConfig) await syncTaskTitles(group.id, (patch.followUpConfig as { afterSign: { key: string; label: string }[] }).afterSign)
   return { ok: true }
 }
 

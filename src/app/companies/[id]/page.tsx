@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
@@ -61,7 +61,7 @@ export default async function CompanyPage({
     : 'all'
 
   const joining = await companyJoiningProgress(session.organizationId, id)
-  const [documents, counts, quotes, memberOf, tagMap, [setupTask]] = await Promise.all([
+  const [documents, counts, quotes, memberOf, tagMap, setupTasks] = await Promise.all([
     listDocuments(session, { companyId: id, filter, pageSize: 100 }),
     countDocuments(session, { companyId: id }),
     // Only when that tab is open: it is a live CRM call, not a local count.
@@ -75,10 +75,14 @@ export default async function CompanyPage({
     tagsForCompanies(session.organizationId, [id]),
     tasksForCompany(session.organizationId, id),
   ])
-  // The newest "הקמת מוצר באתר" task, if the company signed in a campaign that creates one.
-  const setupAssignee = setupTask?.assigneeUserId
-    ? (await getDb().select({ name: schema.users.name }).from(schema.users).where(and(eq(schema.users.id, setupTask.assigneeUserId), eq(schema.users.organizationId, session.organizationId))).limit(1))[0]?.name ?? null
-    : null
+  // Every follow-up task this company carries — a campaign may open several
+  // after a signature — with the name of whoever owns each one.
+  const assigneeIds = [...new Set(setupTasks.map((t) => t.assigneeUserId).filter((id): id is string => Boolean(id)))]
+  const assigneeNames = new Map(
+    assigneeIds.length
+      ? (await getDb().select({ id: schema.users.id, name: schema.users.name }).from(schema.users).where(and(inArray(schema.users.id, assigneeIds), eq(schema.users.organizationId, session.organizationId)))).map((u) => [u.id, u.name])
+      : [],
+  )
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
     { key: 'details', label: 'פרטים' },
@@ -113,12 +117,22 @@ export default async function CompanyPage({
         </section>
       ) : null}
 
-      {setupTask?.groupId ? (
-        <CompanySetupCard
-          projectId={setupTask.groupId}
-          task={{ id: setupTask.id, status: setupTask.status, assigneeUserId: setupTask.assigneeUserId, assigneeName: setupAssignee, dueAt: setupTask.dueAt?.toISOString() ?? null, link: setupTask.link, note: setupTask.note }}
-        />
-      ) : null}
+      <CompanySetupCard
+        tasks={setupTasks
+          .filter((task) => task.groupId)
+          .map((task) => ({
+            id: task.id,
+            projectId: task.groupId!,
+            kind: task.kind,
+            title: task.title,
+            status: task.status,
+            assigneeUserId: task.assigneeUserId,
+            assigneeName: task.assigneeUserId ? (assigneeNames.get(task.assigneeUserId) ?? null) : null,
+            dueAt: task.dueAt?.toISOString() ?? null,
+            link: task.link,
+            note: task.note,
+          }))}
+      />
 
       {/* The projects this company is in. Each is a link into the project,
           so a chip answers "who else is in here?" in one click. */}

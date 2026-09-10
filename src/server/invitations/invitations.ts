@@ -435,8 +435,8 @@ export type AudienceRow = {
   linkingNeeded: boolean
   /** Where this person really got to, and what to do next. */
   progress: JoiningProgress
-  /** The follow-up task a signature created, when the campaign makes one. */
-  task: TaskSummary | null
+  /** The follow-up tasks a signature created, when the campaign makes any. */
+  tasks: TaskSummary[]
 }
 
 export type AudienceFilters = { view?: AudienceView; q?: string; rep?: string; channel?: string; followUpDue?: boolean; limit?: number; /** The campaign's tracking tab shows only people who have not signed yet; reports may ask for everyone. */ includeSigned?: boolean }
@@ -586,7 +586,7 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
         leadStatus: lead.status,
         ...(lead.agreementId ? (evidence.get(lead.agreementId) ?? { agreementStatus }) : { agreementStatus: null, ...(leadSends.get(lead.id) ?? {}) }),
       }),
-      task: firstTask(tasks.get(lead.id)),
+      tasks: taskList(tasks.get(lead.id)),
     }
   })
   const view = filters.view ?? 'all'
@@ -606,9 +606,8 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
   return { rows: filtered, counts, total: filtered.length }
 }
 
-function firstTask(list: unknown[] | undefined): TaskSummary | null {
-  const t = list?.[0] as Parameters<typeof summarizeTask>[0] | undefined
-  return t ? summarizeTask(t) : null
+function taskList(list: unknown[] | undefined): TaskSummary[] {
+  return (list ?? []).map((t) => summarizeTask(t as Parameters<typeof summarizeTask>[0]))
 }
 
 function stringIn(data: unknown, key: string): string | null {

@@ -21,9 +21,9 @@ const OUTCOMES: { key: string; label: string }[] = [
 const field = 'mt-1 w-full rounded-xl border border-line bg-bg px-4 py-3 text-base text-fg outline-none focus:border-brand'
 
 /** Is there still something to do for this person? The caller's facts, one answer. */
-export function hasOpenWork(input: { signed: boolean; taskStatus?: string | null; followUpAt?: string | null; assigneeUserId?: string | null; callOutcome?: string | null }): boolean {
+export function hasOpenWork(input: { signed: boolean; taskStatuses?: string[]; followUpAt?: string | null; assigneeUserId?: string | null; callOutcome?: string | null }): boolean {
   if (!input.signed) return true
-  if (input.taskStatus === 'pending' || input.taskStatus === 'in_progress') return true
+  if ((input.taskStatuses ?? []).some((s) => s === 'pending' || s === 'in_progress')) return true
   if (input.assigneeUserId) return true
   if (input.callOutcome === 'call_back') return true
   if (input.followUpAt) {
