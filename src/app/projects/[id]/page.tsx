@@ -303,7 +303,8 @@ async function SetupTab({ projectId, session, query, defined }: { projectId: str
   const status = (['pending', 'in_progress', 'done', 'not_needed'] as const).find((s) => s === query.status) ?? 'all'
   const kind = defined.find((t) => t.key === query.kind)?.key ?? null
   const clauses: ReportDefinition['clauses'] = [inCampaign(projectId)]
-  if (kind) clauses.push({ any: [{ field: 'kind', op: 'is', value: kind }] })
+  // `kind` is a text field (a campaign mints its own keys), and text compares with `equals`.
+  if (kind) clauses.push({ any: [{ field: 'kind', op: 'equals', value: kind }] })
   if (status !== 'all') clauses.push({ any: [{ field: 'status', op: 'is', value: status }] })
   const [report, counts] = await Promise.all([
     runReport(session, { entity: 'tasks', clauses, columns: ['task', 'kind', 'company', 'contact_name', 'contact_phone', 'signed_at', 'status', 'assignee', 'assignee_name', 'due_at', 'link', 'note'], sort: { field: 'signed_at', dir: 'desc' }, page: 1, pageSize: 200 }),

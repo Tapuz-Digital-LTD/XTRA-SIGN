@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { TaskBadge, TaskLine } from '@/components/follow-up/TaskBadge'
+import { TaskLine } from '@/components/follow-up/TaskBadge'
+import { RowTasks } from '@/components/follow-up/RowTasks'
 import { TaskPanel } from '@/components/follow-up/TaskPanel'
 import { CopyButton } from '@/components/ui/CopyButton'
 import { Drawer } from '@/components/ui/Drawer'
@@ -251,11 +252,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                     {global ? `${row.groupName} · ` : ''}{row.lastActivity} · {dateFormat.format(new Date(row.lastActivityAt ?? row.createdAt))}
                     {row.assignee ? ` · ${row.assignee.name}` : row.invitedBy ? ` · ${row.invitedBy.name}` : ''}
                   </span>
-                  {row.tasks.map((task) => (
-                    <span key={task.id} onClick={(e) => e.stopPropagation()}>
-                      <TaskBadge projectId={projectId} task={task} name={row.name} onChange={() => router.refresh()} />
-                    </span>
-                  ))}
+                  <RowTasks projectId={projectId} tasks={row.tasks} name={row.name} onChange={() => router.refresh()} />
                 </div>
               </li>
             ))}
@@ -303,11 +300,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                     <td className="px-4 py-3">
                       <StatusChip status={row.status} />
                       <ProgressLine progress={row.progress} className="mt-1" />
-                      {row.tasks.map((task) => (
-                        <span key={task.id} className="mt-1 block" onClick={(e) => e.stopPropagation()}>
-                          <TaskBadge projectId={projectId} task={task} name={row.name} onChange={() => router.refresh()} />
-                        </span>
-                      ))}
+                      <RowTasks projectId={projectId} tasks={row.tasks} name={row.name} onChange={() => router.refresh()} className="mt-1" />
                     </td>
                     <td className="px-4 py-3 text-fg">
                       <span className="block truncate">{row.assignee?.name ?? row.invitedBy?.name ?? '—'}</span>

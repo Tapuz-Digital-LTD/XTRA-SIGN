@@ -26,9 +26,9 @@ export const PRESET_VIEWS: PresetView[] = [
   },
   {
     key: 'signed_not_setup',
-    label: 'חתמו וטרם הוקמו באתר',
-    blurb: 'ההסכם נחתם, המוצר עדיין לא הוקם.',
-    definition: { entity: 'tasks', clauses: [{ any: [{ field: 'kind', op: 'is', value: 'site_product' }] }, { any: [{ field: 'status', op: 'one_of', value: ['pending', 'in_progress'] }] }], columns: ['company', 'campaign', 'status', 'assignee', 'due_at', 'signed_at', 'link'], sort: { field: 'signed_at', dir: 'asc' } },
+    label: 'חתמו ויש עוד מה לעשות',
+    blurb: 'ההסכם נחתם, ומשימת המשך עדיין פתוחה.',
+    definition: { entity: 'tasks', clauses: [{ any: [{ field: 'status', op: 'one_of', value: ['pending', 'in_progress'] }] }], columns: ['task', 'company', 'campaign', 'status', 'assignee', 'due_at', 'signed_at', 'link'], sort: { field: 'signed_at', dir: 'asc' } },
   },
   {
     key: 'follow_up_today',

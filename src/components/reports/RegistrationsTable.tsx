@@ -10,7 +10,8 @@ import { currentUrlFor, withReturnTo } from '@/lib/return-to'
 import type { ActionPlan, ActionResult, RegistrationAction, RegistrationDetail } from '@/server/reports/registration-actions'
 import type { ProjectReportData } from './ProjectReportView'
 import { EditLeadDialog } from '@/components/projects/LeadsPanel'
-import { TaskBadge, TaskLine } from '@/components/follow-up/TaskBadge'
+import { TaskLine } from '@/components/follow-up/TaskBadge'
+import { RowTasks } from '@/components/follow-up/RowTasks'
 import { TaskFilterChips } from '@/components/follow-up/TaskFilterChips'
 import { TaskPanel } from '@/components/follow-up/TaskPanel'
 import { FollowUpPanel, hasOpenWork } from '@/components/follow-up/FollowUpPanel'
@@ -208,14 +209,7 @@ export function RegistrationsTable({
       .filter((t) => t.status === 'pending' || t.status === 'in_progress')
       .map((t) => t.id)
 
-  const taskBadge = (r: Row) =>
-    isSigned(r) ? (
-      <span className="inline-flex flex-wrap items-center gap-2">
-        {tasksOf(r).map((task) => (
-          <TaskBadge key={task.id} projectId={projectId} task={task} name={r.businessName} onChange={setTask} />
-        ))}
-      </span>
-    ) : null
+  const taskBadge = (r: Row) => (isSigned(r) ? <RowTasks projectId={projectId} tasks={tasksOf(r)} name={r.businessName} onChange={setTask} /> : null)
 
   const menuFor = (r: Row): (RowMenuItem | null)[] => [
     { label: 'פתח פרטים', onSelect: () => setOpenId(r.id) },
@@ -291,7 +285,7 @@ export function RegistrationsTable({
           </button>
           {openTaskIds(selected).length > 0 ? (
             <button type="button" onClick={() => setMarking(openTaskIds(selected))} className={buttonClass}>
-              סמן משימות כבוצעו
+              סמן משימות שבוצעו
             </button>
           ) : null}
           <button type="button" onClick={() => setSelected(new Set())} className="text-xs text-muted hover:underline">
