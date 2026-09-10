@@ -60,6 +60,8 @@ export function ProjectReportView({
 
       <Kpis report={report} reduced={reduced} />
 
+      <Routes report={report} />
+
       <div className="grid gap-4 lg:grid-cols-2">
         <FunnelCard
           id="rp-invitations"
@@ -101,8 +103,10 @@ export function ProjectReportView({
       <div className="grid gap-4 lg:grid-cols-5">
         {report.hasCampaignPage ? (
           <section className={`${card} min-w-0 p-5 lg:col-span-2`} aria-labelledby="rp-sources">
-            <h2 id="rp-sources" className="text-sm font-semibold text-fg">מקורות תנועה באתר</h2>
-            <p className="mt-1 text-xs text-muted">רק מי שהגיע בעצמו. מעבר בין הדפים שלנו אינו מקור חיצוני.</p>
+            <h2 id="rp-sources" className="text-sm font-semibold text-fg">
+              מקורות התנועה <span className="font-normal text-muted">· בתוך ההגעה העצמאית</span>
+            </h2>
+            <p className="mt-1 text-xs text-muted">רק מי שהגיע בלי הזמנה אישית. ״ישירות״ הוא ביקור בלי מקור מזוהה — לא הזמנה. מעבר בין הדפים שלנו אינו מקור חיצוני.</p>
             <Sources projectId={projectId} sources={report.sources} reduced={reduced} />
           </section>
         ) : null}
@@ -225,9 +229,11 @@ function Filters({ projectId, values, sources, exportHref }: { projectId: string
 // ── summary cards ─────────────────────────────────────────────────────────
 
 /**
- * The five numbers a campaign manager opens the screen for, and the two
- * conversion rates that matter — one per route, never blended: an invitation
- * that turned into a signature, and a visit that turned into one.
+ * The numbers a campaign manager opens the screen for, and the two conversion
+ * rates that matter — one per route, never blended: an invitation that turned
+ * into a signature, and a visit that turned into one. Each rate's denominator
+ * is written under it, and the block below shows the same two routes as a
+ * split of the signatures themselves.
  */
 function Kpis({ report, reduced }: { report: ProjectReportData; reduced: boolean }) {
   const h = report.funnels.headline
@@ -236,11 +242,12 @@ function Kpis({ report, reduced }: { report: ProjectReportData; reduced: boolean
     ...(report.hasCampaignPage ? [{ label: 'מבקרי אתר', value: h.visitors, hint: `${number.format(h.sessions)} ביקורים` }] : []),
     { label: 'הרשמות', value: report.kpis.registrations.value, hint: 'טפסים שהוגשו' },
     { label: 'חתימות', value: h.signedTotal, hint: `${number.format(h.invitedSigned)} מהזמנה · ${number.format(h.siteSigned)} מהאתר` },
+    { label: 'ממתינים לחתימה', value: report.kpis.pending.value, hint: 'הסכם נשלח, טרם נחתם' },
     { label: 'המרת הזמנות', value: null, text: pct(h.invitedConversion), hint: 'חתמו מתוך המוזמנים' },
     ...(report.hasCampaignPage ? [{ label: 'המרת האתר', value: null, text: pct(h.siteConversion), hint: 'חתמו מתוך המבקרים' }] : []),
   ]
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
       {cards.map((c) => (
         <div key={c.label} className={`${card} p-4`}>
           <p className="text-xs text-muted">{c.label}</p>
@@ -249,6 +256,94 @@ function Kpis({ report, reduced }: { report: ProjectReportData; reduced: boolean
         </div>
       ))}
     </div>
+  )
+}
+
+/**
+ * Where the signatures came from — the first question the screen answers.
+ *
+ * Two routes, each with its own count, its own share of the total and its
+ * own conversion measured against its own denominator: an invitation against
+ * the people invited, a visit against the browsers that came. The bar is the
+ * split of the signatures themselves, so "most of our results come from
+ * outreach" is readable without doing arithmetic.
+ *
+ * Traffic sources (Google, UTM, referral, direct) are a breakdown *inside*
+ * the second route, further down the screen — never a peer of "הזמנה אישית".
+ */
+function Routes({ report }: { report: ProjectReportData }) {
+  const h = report.funnels.headline
+  const total = h.signedTotal
+  const share = (value: number) => (total > 0 ? (value / total) * 100 : 0)
+  const routes = [
+    {
+      key: 'invited',
+      label: 'הזמנה אישית',
+      blurb: 'הצוות פנה אליהם',
+      signed: h.invitedSigned,
+      tone: 'bg-brand',
+      rates: [{ text: pct(h.invitedConversion), of: `מתוך ${number.format(h.invited)} מוזמנים` }],
+    },
+    {
+      key: 'site',
+      label: 'הגעה עצמאית מהאתר',
+      blurb: 'הגיעו לעמוד בעצמם',
+      signed: h.siteSigned,
+      tone: 'bg-green-600',
+      rates: [
+        { text: pct(h.siteConversion), of: `מתוך ${number.format(h.visitors)} מבקרים` },
+        { text: pct(h.siteSubmittedToSigned), of: `מתוך ${number.format(h.siteRegistrations)} שהגישו טופס` },
+      ],
+    },
+  ]
+  return (
+    <section className={`${card} p-5`} aria-labelledby="rp-routes">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="rp-routes" className="text-sm font-semibold text-fg">
+          מאיפה הגיעו החתימות
+        </h2>
+        <p className="text-sm text-muted">
+          סה״כ <span className="font-semibold tabular-nums text-fg">{number.format(total)}</span> חתימות
+        </p>
+      </div>
+      {total === 0 ? (
+        <p className="mt-3 rounded-lg border border-dashed border-line bg-bg px-4 py-6 text-center text-sm text-muted">עדיין אין חתימות בקמפיין.</p>
+      ) : (
+        <>
+          <div className="mt-3 flex h-3 w-full overflow-hidden rounded bg-bg" role="img" aria-label={`${number.format(h.invitedSigned)} מהזמנה אישית, ${number.format(h.siteSigned)} מהאתר`}>
+            {routes.map((r) => (r.signed > 0 ? <div key={r.key} className={r.tone} style={{ width: `${share(r.signed)}%` }} /> : null))}
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {routes.map((r) => (
+              <div key={r.key} className="rounded-lg bg-bg p-4">
+                <div className="flex items-center gap-2">
+                  <span className={`size-2.5 shrink-0 rounded-full ${r.tone}`} aria-hidden="true" />
+                  <span className="text-sm font-semibold text-fg">{r.label}</span>
+                  <span className="text-xs text-muted">{r.blurb}</span>
+                </div>
+                {/* A gap that survives RTL: a margin on an inline span next to
+                    tabular digits reads as no gap at all. */}
+                <p className="mt-1 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold tabular-nums text-fg">{number.format(r.signed)}</span>
+                  <span className="text-sm text-muted">{pct(Math.round(share(r.signed) * 10) / 10)} מהחתימות</span>
+                </p>
+                <dl className="mt-2 flex flex-col gap-0.5 text-xs">
+                  {r.rates.map((rate) => (
+                    <div key={rate.of} className="flex items-baseline gap-2">
+                      <dt className="text-muted">המרה</dt>
+                      <dd className="flex items-baseline gap-1.5 text-fg">
+                        <span className="font-semibold tabular-nums">{rate.text}</span>
+                        <span className="text-muted">{rate.of}</span>
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
   )
 }
 

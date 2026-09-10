@@ -141,6 +141,9 @@ describe('campaignFunnels', () => {
     expect(headline).toMatchObject({ invited: 4, invitedSigned: 1, invitedConversion: 25, siteRegistrations: 1, siteSigned: 1, signedTotal: 2 })
     // The site's conversion is measured against visitors, never against the invited.
     expect(headline.siteConversion).toBeCloseTo(33.3, 1)
+    // And against the people who actually submitted a form — the rate that
+    // says whether the form itself works, one visitor of three having filled it.
+    expect(headline.siteSubmittedToSigned).toBe(100)
   })
 
   it('measures reminders without claiming they caused anything', async () => {

@@ -78,6 +78,8 @@ export type CampaignFunnels = {
     siteRegistrations: number
     siteSigned: number
     siteConversion: number | null
+    /** Of the people who actually submitted a form on the site — the rate that says whether the form works. */
+    siteSubmittedToSigned: number | null
     signedTotal: number
   }
   invitations: FunnelStep[]
@@ -252,6 +254,7 @@ export async function campaignFunnels(groupId: string, range: Range = {}, projec
       siteRegistrations: siteSubmitted,
       siteSigned,
       siteConversion: rate(siteSigned, visitors),
+      siteSubmittedToSigned: rate(siteSigned, siteSubmitted),
       signedTotal: invitedSigned + siteSigned,
     },
     invitations: [
