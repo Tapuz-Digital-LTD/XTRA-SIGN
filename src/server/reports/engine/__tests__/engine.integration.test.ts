@@ -5,6 +5,7 @@ import { getDb, schema } from '@/server/db'
 import { buildReportWorkbook, safeCell } from '../export'
 import { fieldsFor, runReport } from '../query'
 import { createSavedReport, deleteSavedReport, listSavedReports, updateSavedReport } from '../saved'
+import { PRESET_VIEWS } from '@/lib/report-presets'
 
 /**
  * The report engine: one row per entity (a supplier with three agreements is
@@ -168,6 +169,32 @@ describe('report engine', () => {
     expect(all.total).toBe(3)
 
     await db.delete(schema.projectLeads).where(eq(schema.projectLeads.id, invited[0].id))
+  })
+
+  /*
+   * Every definition a screen ships. A field that changes type — `kind` went
+   * from enum to text when campaigns started naming their own tasks — makes
+   * its operator illegal, and the engine throws where the page renders: a
+   * server error on a tab, not a warning. Running them here is the cheapest
+   * way to be told first.
+   */
+  it('every shipped definition runs: the saved presets and the campaign task tab', async () => {
+    for (const preset of PRESET_VIEWS) {
+      await expect(runReport(session, { ...preset.definition, page: 1, pageSize: 5 }), `preset ${preset.key}`).resolves.toBeTruthy()
+    }
+    // The tab's own query, narrowed to one of the campaign's tasks.
+    const tab = await runReport(session, {
+      entity: 'tasks',
+      clauses: [{ any: [{ field: 'campaign', op: 'one_of', value: [campaignId] }] }, { any: [{ field: 'kind', op: 'equals', value: 'site_product' }] }, { any: [{ field: 'status', op: 'is', value: 'pending' }] }],
+      columns: ['task', 'kind', 'company', 'status', 'assignee_name', 'due_at', 'link'],
+      sort: { field: 'signed_at', dir: 'desc' },
+      page: 1,
+      pageSize: 50,
+    })
+    expect(tab.rows.map((r) => r.cells.task)).toContain('הקמת מוצר באתר')
+    // A key nobody minted matches nothing, rather than everything.
+    const none = await runReport(session, { entity: 'tasks', clauses: [{ any: [{ field: 'kind', op: 'equals', value: 't_nothing' }] }], columns: ['task'], page: 1, pageSize: 5 })
+    expect(none.rows).toHaveLength(0)
   })
 
   it('paging is on the server', async () => {

@@ -1,18 +1,15 @@
 'use client'
 
-import { useState } from 'react'
 import { statusLabel, taskWords, type TaskSummary } from '@/server/follow-up/labels'
-import { MarkSetupDoneDialog } from './MarkSetupDoneDialog'
 
 /**
- * A follow-up task on a row. While it is open: one real button in the task's
- * own words ("סמן כהוקם באתר", "סמן כבוצע"), opening the same dialog as
- * everywhere else (link, note, save). Once done: a plain green mark and the
- * link, if there is one. Never a button that looks like a badge, never a
- * badge that is secretly a button.
+ * How a finished task, and a task's state, are drawn wherever they appear.
+ *
+ * A table row is a supplier and gets one action for all its tasks (RowTasks);
+ * a card or a drawer names each task on its own line (TaskLine); a closed
+ * task is a statement with its link (SetupDoneMark). Never a button that
+ * looks like a badge, never a badge that is secretly a button.
  */
-export const isOpenTask = (status: string) => status === 'pending' || status === 'in_progress'
-
 /**
  * Where one task stands, in one line: a filled mark when it is closed, an
  * empty ring while it is not, the task's own name, and its state in its own
@@ -35,8 +32,6 @@ export function TaskLine({ task, className = '' }: { task: Pick<TaskSummary, 'ki
   )
 }
 
-export const markDoneButton = 'inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50'
-
 /** "✓ הוקם באתר", "✓ בוצע" — a statement, not a control. */
 export function SetupDoneMark({ kind, link, className = '' }: { kind?: string | null; link?: string | null; className?: string }) {
   const words = taskWords(kind)
@@ -52,39 +47,6 @@ export function SetupDoneMark({ kind, link, className = '' }: { kind?: string | 
         <a href={link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="whitespace-nowrap text-sm text-brand underline underline-offset-4">
           {words.openLink}
         </a>
-      ) : null}
-    </span>
-  )
-}
-
-export function TaskBadge({ projectId, task, name, onChange }: { projectId: string; task: TaskSummary; name?: string; onChange: (task: TaskSummary) => void }) {
-  const [dialog, setDialog] = useState(false)
-  if (task.status === 'done') return <SetupDoneMark kind={task.kind} link={task.link} />
-  if (!isOpenTask(task.status)) {
-    return (
-      <span className="whitespace-nowrap rounded-full bg-line px-2 py-0.5 text-[11px] font-medium text-muted" title={task.title}>
-        {statusLabel(task.status, task.kind)}
-      </span>
-    )
-  }
-  return (
-    <span className="inline-flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
-      {task.status === 'in_progress' ? <span className="whitespace-nowrap rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-800">{statusLabel('in_progress', task.kind)}</span> : null}
-      <button type="button" onClick={() => setDialog(true)} className={markDoneButton} title={task.title}>
-        {taskWords(task.kind).markDone}
-      </button>
-      {dialog ? (
-        <MarkSetupDoneDialog
-          projectId={projectId}
-          task={{ id: task.id, kind: task.kind, link: task.link, note: task.note }}
-          name={name}
-          title={task.title}
-          onClose={() => setDialog(false)}
-          onDone={(t) => {
-            setDialog(false)
-            onChange({ ...task, ...t })
-          }}
-        />
       ) : null}
     </span>
   )
