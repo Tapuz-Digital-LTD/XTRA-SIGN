@@ -144,6 +144,38 @@ export async function taskCounts(session: StaffSession, groupId: string, kind?: 
   return { pending: Number(row?.pending ?? 0), in_progress: Number(row?.in_progress ?? 0), done: Number(row?.done ?? 0), not_needed: Number(row?.not_needed ?? 0) }
 }
 
+export type TaskKindCounts = { kind: string; title: string; counts: TaskCounts }
+
+/**
+ * The same four numbers, per task.
+ *
+ * A campaign with two tasks is two different piles of work, and one summed
+ * line hides which one is behind. Ordered by when each task first appeared,
+ * which is the campaign's own order.
+ */
+export async function taskCountsByKind(session: StaffSession, groupId: string): Promise<TaskKindCounts[]> {
+  if (!isUuid(groupId)) return []
+  const rows = await getDb()
+    .select({
+      kind: schema.followUpTasks.kind,
+      title: sql<string>`min(${schema.followUpTasks.title})`,
+      first: sql<Date>`min(${schema.followUpTasks.createdAt})`,
+      pending: sql<number>`count(*) filter (where ${schema.followUpTasks.status} = 'pending')`,
+      in_progress: sql<number>`count(*) filter (where ${schema.followUpTasks.status} = 'in_progress')`,
+      done: sql<number>`count(*) filter (where ${schema.followUpTasks.status} = 'done')`,
+      not_needed: sql<number>`count(*) filter (where ${schema.followUpTasks.status} = 'not_needed')`,
+    })
+    .from(schema.followUpTasks)
+    .where(and(eq(schema.followUpTasks.organizationId, session.organizationId), eq(schema.followUpTasks.groupId, groupId)))
+    .groupBy(schema.followUpTasks.kind)
+    .orderBy(sql`min(${schema.followUpTasks.createdAt})`)
+  return rows.map((r) => ({
+    kind: r.kind,
+    title: r.title,
+    counts: { pending: Number(r.pending), in_progress: Number(r.in_progress), done: Number(r.done), not_needed: Number(r.not_needed) },
+  }))
+}
+
 /** The tasks of many registrations at once, for a table that shows one chip per row. */
 export async function tasksForLeads(organizationId: string, leadIds: string[]): Promise<Map<string, Task[]>> {
   const out = new Map<string, Task[]>()

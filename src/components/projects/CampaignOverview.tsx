@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { CampaignKind } from '@/lib/campaigns'
+import type { TaskKindCounts } from '@/server/follow-up/tasks'
 import { CopyButton } from '@/components/ui/CopyButton'
 
 /**
@@ -24,8 +25,8 @@ export function CampaignOverview({
   project: { id: string; name: string; campaignKind: CampaignKind; publicUrl: string | null }
   companies: Company[]
   leads: Lead[]
-  /** Follow-up tasks, when the campaign opens any: how much work is still waiting. */
-  setup?: { pending: number; inProgress: number; done: number } | null
+  /** Follow-up tasks, one entry per task the campaign opens: how much of each is still waiting. */
+  setup?: TaskKindCounts[] | null
   /** The work cards, each leading to the view that acts on it. */
   cards?: { label: string; value: number; href: string; tone?: 'warn' }[]
 }) {
@@ -72,17 +73,7 @@ export function CampaignOverview({
         </p>
       ) : null}
 
-      {setup ? (
-        <Link href={`/projects/${project.id}?tab=setup&status=pending`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 px-5 py-4 transition hover:border-amber-400">
-          <span>
-            <span className="block text-base font-semibold text-fg">משימות המשך</span>
-            <span className="block text-sm text-amber-900">
-              {setup.pending + setup.inProgress === 0 ? `כל המשימות בוצעו (${setup.done}).` : `${setup.pending} ממתינות · ${setup.inProgress} בטיפול · ${setup.done} בוצעו`}
-            </span>
-          </span>
-          <span className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white">לרשימה</span>
-        </Link>
-      ) : null}
+      {setup && setup.length > 0 ? <SetupBanner projectId={project.id} tasks={setup} /> : null}
 
       {/* Each card is the door to the list that acts on it — a number nobody can open is just decoration. */}
       <div className="grid grid-cols-2 gap-3 sm:[grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
@@ -124,5 +115,59 @@ export function CampaignOverview({
         )}
       </section>
     </div>
+  )
+}
+
+/**
+ * The follow-up work waiting, one line per task.
+ *
+ * A campaign may open several tasks after a signature, and one summed line
+ * ("13 ממתינות") hides which pile is behind. Each line names its task, says
+ * where it stands, and is its own link into that task's list — so a number a
+ * person reads is a number they can act on. With a single task the banner is
+ * one line, because a heading over one line is furniture.
+ */
+function SetupBanner({ projectId, tasks }: { projectId: string; tasks: TaskKindCounts[] }) {
+  const href = (kind: string | null, open: boolean) =>
+    `/projects/${projectId}?tab=setup${open ? '&status=pending' : ''}${kind ? `&kind=${encodeURIComponent(kind)}` : ''}`
+  const openWork = tasks.reduce((n, t) => n + t.counts.pending + t.counts.in_progress, 0)
+
+  const line = (t: TaskKindCounts) => {
+    const open = t.counts.pending + t.counts.in_progress
+    if (open === 0) return `הכול בוצע (${t.counts.done})`
+    const parts = [`${t.counts.pending} ממתינות`]
+    if (t.counts.in_progress > 0) parts.push(`${t.counts.in_progress} בטיפול`)
+    if (t.counts.done > 0) parts.push(`${t.counts.done} בוצעו`)
+    return parts.join(' · ')
+  }
+
+  return (
+    <section aria-labelledby="setup-banner-title" className={`rounded-xl border-2 px-5 py-4 ${openWork > 0 ? 'border-amber-300 bg-amber-50' : 'border-green-200 bg-green-50'}`}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 id="setup-banner-title" className="text-base font-semibold text-fg">
+          משימות המשך
+        </h2>
+        {openWork === 0 ? <span className="text-sm font-medium text-green-800">כל המשימות בוצעו</span> : null}
+      </div>
+      <ul className="mt-2 flex flex-col divide-y divide-amber-200/60">
+        {tasks.map((t) => {
+          const open = t.counts.pending + t.counts.in_progress
+          return (
+            <li key={t.kind} className="flex flex-wrap items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-fg">{t.title}</span>
+                <span className={`block text-sm ${open > 0 ? 'text-amber-900' : 'text-green-800'}`}>{line(t)}</span>
+              </span>
+              <Link
+                href={href(t.kind, open > 0)}
+                className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-semibold text-fg transition hover:border-brand"
+              >
+                {open > 0 ? `לרשימה (${open})` : 'לרשימה'}
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }

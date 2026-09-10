@@ -41,7 +41,7 @@ const dateFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'sh
 const dayFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short' })
 const bigButton = 'inline-flex min-h-12 items-center justify-center rounded-xl px-4 text-base font-semibold transition disabled:opacity-50'
 
-export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueToday, global = false, basePath, extraParams, hideViews = false }: { projectId: string; rows: AudienceRow[]; counts: Record<AudienceView, number>; view: AudienceView; q: string; askKind: boolean; dueToday: number; /** The organisation-wide tracking screen: a campaign column, no invite button. */ global?: boolean; basePath?: string; extraParams?: Record<string, string>; /** The campaign page draws its own view chips above the table. */ hideViews?: boolean }) {
+export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueToday, global = false, basePath, extraParams, hideViews = false, stuck = null }: { projectId: string; rows: AudienceRow[]; counts: Record<AudienceView, number>; view: AudienceView; q: string; askKind: boolean; dueToday: number; /** The organisation-wide tracking screen: a campaign column, no invite button. */ global?: boolean; basePath?: string; extraParams?: Record<string, string>; /** The campaign page draws its own view chips above the table. */ hideViews?: boolean; /** Opened from a number on the statistics screen: which question, and the way back to everyone. */ stuck?: { key: string; label: string; href: string } | null }) {
   const router = useRouter()
   const [inviteOpen, setInviteOpen] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
@@ -122,6 +122,16 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
 
   return (
     <section className="flex flex-col gap-4">
+      {/* Opened from a number on the statistics screen: say which number, and
+          keep one click back to the whole list. */}
+      {stuck ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand bg-blue-50 px-4 py-3">
+          <span className="text-sm font-semibold text-fg">{stuck.label}</span>
+          <Link href={stuck.href} className="text-sm text-brand underline underline-offset-4">
+            הצג את כולם
+          </Link>
+        </div>
+      ) : null}
       {!global ? (
         <div className="flex flex-wrap items-center justify-end gap-3">
           <button type="button" onClick={() => setInviteOpen(true)} className={`${bigButton} bg-brand text-white hover:opacity-90`}>

@@ -439,7 +439,17 @@ export type AudienceRow = {
   tasks: TaskSummary[]
 }
 
-export type AudienceFilters = { view?: AudienceView; q?: string; rep?: string; channel?: string; followUpDue?: boolean; limit?: number; /** The campaign's tracking tab shows only people who have not signed yet; reports may ask for everyone. */ includeSigned?: boolean }
+/**
+ * Where a person got stuck, as the statistics screen counts it — so a number
+ * there opens exactly the people behind it, on the same definitions.
+ */
+export type StuckFilter = 'not_opened' | 'opened_not_submitted' | 'submitted_not_signed' | 'reminded_not_signed' | 'failed'
+
+export function isStuckFilter(value: unknown): value is StuckFilter {
+  return value === 'not_opened' || value === 'opened_not_submitted' || value === 'submitted_not_signed' || value === 'reminded_not_signed' || value === 'failed'
+}
+
+export type AudienceFilters = { view?: AudienceView; q?: string; rep?: string; channel?: string; followUpDue?: boolean; stuck?: StuckFilter; limit?: number; /** The campaign's tracking tab shows only people who have not signed yet; reports may ask for everyone. */ includeSigned?: boolean }
 
 /**
  * Everyone the campaign reached or who reached it, one row each, with the
@@ -592,10 +602,39 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
   const view = filters.view ?? 'all'
   const goal = goalOf
   // "כל התהליכים" is the full history; every other view is about work left.
+  // Only when someone asks who was reminded: one query, over the rows in hand.
+  const agreementIds = all.map((r) => r.agreementId).filter((id): id is string => Boolean(id))
+  const reminded =
+    filters.stuck === 'reminded_not_signed' && agreementIds.length > 0
+      ? new Set(
+          (
+            await getDb()
+              .select({ id: schema.auditEvents.agreementId })
+              .from(schema.auditEvents)
+              .where(and(eq(schema.auditEvents.type, 'reminder_sent'), inArray(schema.auditEvents.agreementId, agreementIds)))
+          )
+            .map((r) => r.id)
+            .filter((id): id is string => Boolean(id)),
+        )
+      : new Set<string>()
+
   const includeSigned = filters.includeSigned ?? view === 'all'
   const base = includeSigned ? all : all.filter((row) => row.status !== 'signed')
   if (!includeSigned) counts.registered -= counts.signed
-  const filtered = base.filter((row) =>
+  // The same five definitions the statistics screen counts by, so a number
+  // there opens exactly these people (see server/reports/campaign-funnels.ts).
+  const stuck = filters.stuck
+  const done = (row: AudienceRow, key: string) => Boolean(row.progress.steps.find((s) => s.key === key)?.at)
+  const isStuck = (row: AudienceRow): boolean => {
+    if (!stuck) return true
+    const submitted = done(row, 'form')
+    if (stuck === 'not_opened') return isStaffInvitation(row) && !submitted && !done(row, 'invitation_opened')
+    if (stuck === 'opened_not_submitted') return isStaffInvitation(row) && !submitted && done(row, 'invitation_opened')
+    if (stuck === 'submitted_not_signed') return submitted && row.status !== 'signed'
+    if (stuck === 'reminded_not_signed') return row.status !== 'signed' && row.agreementId !== null && reminded.has(row.agreementId)
+    return row.status === 'failed'
+  }
+  const filtered = base.filter(isStuck).filter((row) =>
     view === 'all' ? true
     : view === 'invitations' ? isStaffInvitation(row) && row.status !== 'signed'
     : view === 'invited' ? row.status === 'invited'

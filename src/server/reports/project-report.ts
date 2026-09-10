@@ -1,5 +1,5 @@
 import { Workbook } from 'exceljs'
-import { and, eq, sql, type SQL } from 'drizzle-orm'
+import { and, eq, isNull, sql, type SQL } from 'drizzle-orm'
 import { classifySource, type Utm } from '@/lib/campaign-events'
 import { formatDuration } from '@/lib/format-duration'
 import type { StaffSession } from '@/server/auth/session'
@@ -10,6 +10,7 @@ import { submittedRegistration } from '@/server/projects/registration-rules'
 import { summarizeTask, type TaskSummary } from '@/server/follow-up/labels'
 import { tasksForLeads } from '@/server/follow-up/tasks'
 import { authorizeGroup } from '@/server/groups/groups'
+import { campaignFunnels, type CampaignFunnels } from './campaign-funnels'
 import { selfServiceOf } from '@/server/projects/self-service'
 
 /**
@@ -81,19 +82,12 @@ export type ProjectReport = {
     /** Signed out of registrations, 0..100; null without registrations. */
     completionRate: number | null
   }
-  funnel: FunnelStage[]
   /**
-   * The personal-invitation funnel, which the page funnel above cannot show:
-   * people we approached one by one, and how far each got.
-   *
-   * One invitation is one person, counted once however many times it was
-   * sent — a reminder does not make a second invitee. "נשלחו" is the
-   * denominator of every rate below it, and counts invitations a provider
-   * actually accepted at least one message for; an invitation nobody managed
-   * to send is not an invitation anyone could answer.
+   * The two routes, apart: people we invited one by one, and people who
+   * found the campaign page on their own. Every definition and every
+   * percentage is in campaign-funnels.ts.
    */
-  invitations: { stages: FunnelStage[]; created: number; conversion: number | null } | null
-  conversion: { visitToRegistration: number | null; registrationToSignature: number | null }
+  funnels: CampaignFunnels
   timeline: { granularity: 'day' | 'week'; points: { bucket: string; visits: number; registrations: number; signatures: number }[] }
   statuses: { key: string; label: string; count: number }[]
   sources: { key: string; label: string; medium: string | null; visits: number; registrations: number; signatures: number; conversion: number | null }[]
@@ -160,28 +154,19 @@ export async function projectReport(session: StaffSession, projectId: string, fi
   const trafficSince = trafficSinceRow?.since ? new Date(trafficSinceRow.since) : null
 
   const previous = rangeBefore(range)
-  const [current, before, rows, total, invitations] = await Promise.all([
+  const [current, before, rows, total, funnels] = await Promise.all([
     counts(group.id, range, filters.source),
     previous ? counts(group.id, previous, filters.source) : null,
     registrationRows(group.id, filters, rowLimit),
     countRegistrations(group.id, filters),
-    invitationFunnel(group.id),
+    campaignFunnels(group.id, range, `/projects/${group.id}`),
   ])
 
   const kpi = (key: keyof typeof current): Kpi => ({ value: current[key], previous: before ? before[key] : null })
 
-  const funnel: FunnelStage[] = [
-    { key: 'visits', label: 'נכנסו לעמוד', count: current.visits, fromEvents: true },
-    { key: 'cta', label: 'לחצו להצטרפות', count: current.ctaClicks, fromEvents: true },
-    { key: 'started', label: 'התחילו למלא', count: current.started, fromEvents: true },
-    { key: 'registered', label: 'השלימו הרשמה', count: current.registrations, fromEvents: false },
-    { key: 'signing', label: 'התחילו חתימה', count: current.signingStarted, fromEvents: true },
-    { key: 'signed', label: 'חתמו', count: current.signed, fromEvents: false },
-  ]
-
   return {
     hasCampaignPage,
-    invitations,
+    funnels,
     trafficSince,
     kpis: {
       visits: kpi('visits'),
@@ -190,11 +175,6 @@ export async function projectReport(session: StaffSession, projectId: string, fi
       signed: kpi('signed'),
       pending: kpi('pending'),
       completionRate: rate(current.signed, current.registrations),
-    },
-    funnel: hasCampaignPage ? funnel : funnel.filter((s) => !s.fromEvents),
-    conversion: {
-      visitToRegistration: rate(current.registrations, current.visits),
-      registrationToSignature: rate(current.signed, current.registrations),
     },
     timeline: await timeline(group.id, range, filters.source),
     statuses: await statusBreakdown(group.id, range, filters.source),
@@ -410,7 +390,16 @@ async function sources(groupId: string, range: { from?: Date; to?: Date }): Prom
       n: sql<number>`count(distinct ${schema.campaignEvents.visitId})`,
     })
     .from(schema.campaignEvents)
-    .where(and(eq(schema.campaignEvents.groupId, groupId), eq(schema.campaignEvents.type, 'page_view'), within(sql`${schema.campaignEvents.createdAt}`, range)))
+    .where(
+      and(
+        eq(schema.campaignEvents.groupId, groupId),
+        eq(schema.campaignEvents.type, 'page_view'),
+        within(sql`${schema.campaignEvents.createdAt}`, range),
+        // A visit that arrived on a personal link is outreach, not traffic:
+        // counting it here would put our own invitations inside "ישירות".
+        sql`not exists (select 1 from ${schema.campaignEvents} inv where inv.visit_id = ${schema.campaignEvents.visitId} and inv.group_id = ${groupId} and inv.invitation_id is not null)`,
+      ),
+    )
     .groupBy(sql`1, 2, 3`)
   const leadRows = await db
     .select({
@@ -422,7 +411,9 @@ async function sources(groupId: string, range: { from?: Date; to?: Date }): Prom
     })
     .from(schema.projectLeads)
     .leftJoin(sql`${schema.agreements} a`, sql`a.id = ${schema.projectLeads.agreementId}`)
-    .where(and(eq(schema.projectLeads.groupId, groupId), within(sql`${schema.projectLeads.createdAt}`, range)))
+    // Only people who arrived on their own: an invited person's source is the
+    // invitation, and the invitation funnel is where they are counted.
+    .where(and(eq(schema.projectLeads.groupId, groupId), isNull(schema.projectLeads.invitedBy), within(sql`${schema.projectLeads.createdAt}`, range)))
     .groupBy(sql`1, 2, 3`)
 
   const merged = new Map<string, ProjectReport['sources'][number]>()
@@ -467,51 +458,6 @@ async function countRegistrations(groupId: string, filters: ProjectReportFilters
 }
 
 
-/**
- * The personal-invitation funnel, in one pass over the campaign's own rows.
- *
- * Every stage is a row that exists: a send the provider accepted, a campaign
- * event carrying the invitation's id, a submitted form, a completed
- * signature. Nothing is inferred from a status name, and a resend never
- * counts a second person.
- */
-async function invitationFunnel(groupId: string): Promise<{ stages: FunnelStage[]; created: number; conversion: number | null } | null> {
-  const [row] = (
-    await getDb().execute(sql`
-      with invited as (
-        select pl.id, pl.form_snapshot, pl.agreement_id
-        from ${schema.projectLeads} pl
-        where pl.group_id = ${groupId} and pl.invited_by is not null
-      )
-      select
-        (select count(*) from invited) as created,
-        (select count(*) from invited i where exists (
-           select 1 from ${schema.messageSends} m
-           where (m.lead_id = i.id or m.agreement_id = i.agreement_id) and m.ok and m.is_test = false)) as sent,
-        (select count(*) from invited i where exists (
-           select 1 from ${schema.campaignEvents} e where e.invitation_id = i.id)) as opened,
-        (select count(*) from invited i where i.form_snapshot is not null) as submitted,
-        (select count(*) from invited i
-           join ${schema.agreements} a on a.id = i.agreement_id
-          where a.status = 'signed') as signed
-    `)
-  ).rows as Record<string, unknown>[]
-  const n = (v: unknown) => Number(v ?? 0)
-  const created = n(row?.created)
-  if (created === 0) return null
-  const sent = n(row?.sent)
-  const signed = n(row?.signed)
-  return {
-    created,
-    conversion: sent > 0 ? Math.round((signed / sent) * 1000) / 10 : null,
-    stages: [
-      { key: 'inv_sent', label: 'הזמנות שנשלחו', count: sent, fromEvents: false },
-      { key: 'inv_opened', label: 'פתחו את הקישור', count: n(row?.opened), fromEvents: true },
-      { key: 'inv_submitted', label: 'הגישו טופס', count: n(row?.submitted), fromEvents: false },
-      { key: 'inv_signed', label: 'חתמו', count: signed, fromEvents: false },
-    ],
-  }
-}
 
 export async function registrationCount(groupId: string, filters: ProjectReportFilters): Promise<number> {
   return countRegistrations(groupId, filters)
