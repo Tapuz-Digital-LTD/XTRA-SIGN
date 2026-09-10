@@ -527,6 +527,10 @@ export async function resendAgreement(input: {
     documentTitle: agreement.title,
     actor: input.session.email,
     copy: kind === 'reminder' ? REMINDER_LINK_COPY : (campaignCopy ?? DEFAULT_LINK_COPY),
+    // The ledger has to say what this was. Without it every reminder was
+    // filed as an invitation, which both hid the reminders and inflated the
+    // invitations — measured on production before this line existed.
+    event: kind === 'reminder' ? 'reminder' : 'invitation',
   })
 
   await db.insert(schema.auditEvents).values({
