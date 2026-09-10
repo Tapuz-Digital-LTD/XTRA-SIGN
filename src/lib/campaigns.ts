@@ -120,8 +120,8 @@ export type CampaignTab = 'overview' | 'joining' | 'audience' | 'agreements' | '
 /**
  * The tabs a campaign shows — one area per task a worker has, never one per
  * status: "פניות והצטרפות" holds invitations and registrations as views of
- * the same people; "הקמת מוצרים באתר" appears only where the campaign
- * creates that task.
+ * the same people; "משימות המשך" appears only where the campaign opens
+ * tasks after a signature.
  */
 export function tabsFor(entry: EntryMethod, options: { setup?: boolean } = {}): CampaignTab[] {
   void entry
@@ -140,7 +140,7 @@ export const TAB_LABELS: Record<CampaignTab, string> = {
   joining: 'פניות והצטרפות',
   audience: 'ספקים/לקוחות',
   agreements: 'הסכמים',
-  setup: 'הקמת מוצרים באתר',
+  setup: 'משימות המשך',
   distributions: 'הפצות',
   reports: 'דוחות/סטטיסטיקות',
   settings: 'הגדרות',
@@ -152,7 +152,7 @@ export const TAB_INTROS: Record<CampaignTab, string> = {
   joining: 'כאן עוקבים אחרי מי שהוזמנו או נרשמו לקמפיין, ומטפלים במי שעדיין לא השלימו את התהליך.',
   audience: 'כאן נמצאים הספקים והלקוחות שמשויכים לקמפיין, ואפשר לפתוח את הכרטיס שלהם או לצרף רשומות נוספות.',
   agreements: 'כאן נמצאים כל ההסכמים של הקמפיין, מצב החתימה והמסמכים החתומים.',
-  setup: 'כאן עוקבים אחרי הספקים שחתמו ומוודאים שהמוצרים שלהם הוקמו באתר.',
+  setup: 'כאן עוקבים אחרי המשימות שנפתחות לצוות אחרי כל חתימה — מי מטפל, עד מתי, ומה כבר בוצע.',
   distributions: 'כאן יוצרים שליחות מרוכזות לקהל שבחרתם ועוקבים אחרי ביצוע ההפצה.',
   reports: 'כאן בוחנים את תוצאות הקמפיין, בונים דוחות מותאמים ומייצאים נתונים.',
   settings: 'כאן מנהלים את פרטי הקמפיין, העמוד הציבורי, ההודעות, ההתראות והאופן שבו מתבצעת ההרשמה.',

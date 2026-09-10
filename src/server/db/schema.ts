@@ -1343,9 +1343,12 @@ export const leadTags = pgTable(
 )
 
 /**
- * A follow-up task that a campaign creates by itself after a signature —
- * "הקמת מוצר באתר" for the tourism month. One per registration and kind.
- * Not a task system: a status, a person, a date, a note and a link.
+ * A follow-up task that a campaign creates by itself after a signature — the
+ * campaign lists the ones it wants ("הקמת מוצר באתר", "שליחת נראות לספק"),
+ * and one row appears per registration and kind. `kind` is the campaign's own
+ * stable key for that task; `title` is what it was called when the row was
+ * made, kept in step when the campaign renames it. Not a task system: a
+ * status, a person, a date, a note and a link.
  */
 export const followUpTasks = pgTable(
   'follow_up_tasks',

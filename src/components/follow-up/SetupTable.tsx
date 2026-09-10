@@ -5,22 +5,29 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 import { Drawer } from '@/components/ui/Drawer'
 import { currentUrlFor, withReturnTo } from '@/lib/return-to'
-import { TASK_STATUSES, type TaskSummary } from '@/server/follow-up/labels'
+import { statusLabel, taskWords, type TaskDef, type TaskSummary } from '@/server/follow-up/labels'
 import { MarkSetupDoneDialog } from './MarkSetupDoneDialog'
 import { SetupDoneMark } from './TaskBadge'
 import { TaskPanel } from './TaskPanel'
 
 /**
- * "הקמת מוצרים באתר": every supplier who signed, and whether their product
- * is up on the site yet. A worker finds the supplier, presses "סמן כהוקם באתר",
- * and is done — no task vocabulary. A finished row shows "הוקם באתר" as a
- * plain mark with the product's link, never as something that looks clickable. Nothing here touches the agreement: a
- * signature that is complete is not work that is complete.
+ * "משימות המשך": every task the campaign opened on someone who signed, and
+ * where it stands. A worker finds the row, presses the one button that closes
+ * it, and is done — no task vocabulary. A finished row shows the mark and its
+ * link as a statement, never as something that looks clickable.
+ *
+ * Each task speaks its own words (site setup says "הוקם באתר", everything
+ * else says "בוצע"), and when a campaign has more than one task the list can
+ * be narrowed to one of them. Nothing here touches the agreement: a signature
+ * that is complete is not work that is complete.
  */
 export type SetupStatus = 'all' | 'pending' | 'in_progress' | 'done' | 'not_needed'
 export type SetupCounts = Record<Exclude<SetupStatus, 'all'>, number>
 export type SetupRow = {
   taskId: string
+  /** Which of the campaign's tasks this row is, and what it is called. */
+  kind: string
+  title: string
   leadId: string | null
   companyId: string | null
   agreementId: string | null
@@ -39,13 +46,17 @@ type Member = { id: string; name: string }
 type Notice = { tone: 'ok' | 'error'; text: string }
 type BulkKind = 'assign' | 'in_progress' | 'due' | 'done'
 
-const CHIPS: { key: SetupStatus; label: string }[] = [
-  { key: 'pending', label: TASK_STATUSES.pending },
-  { key: 'in_progress', label: TASK_STATUSES.in_progress },
-  { key: 'done', label: TASK_STATUSES.done },
-  { key: 'not_needed', label: TASK_STATUSES.not_needed },
-  { key: 'all', label: 'הכול' },
-]
+/** The status chips, in the words of whatever is on screen. */
+const chipsFor = (kind: string | null): { key: SetupStatus; label: string }[] => {
+  const { statuses } = taskWords(kind)
+  return [
+    { key: 'pending', label: statuses.pending },
+    { key: 'in_progress', label: statuses.in_progress },
+    { key: 'done', label: statuses.done },
+    { key: 'not_needed', label: statuses.not_needed },
+    { key: 'all', label: 'הכול' },
+  ]
+}
 const TONE: Record<string, string> = {
   pending: 'border-amber-200 bg-amber-50 text-amber-900',
   in_progress: 'border-blue-200 bg-blue-50 text-blue-900',
@@ -76,13 +87,13 @@ function matches(row: SetupRow, q: string): boolean {
   return d.length > 0 && digits(row.contactPhone ?? '').includes(d)
 }
 
-const toSummary = (row: SetupRow): TaskSummary => ({ id: row.taskId, kind: 'site_product', status: row.status, assigneeUserId: row.assigneeUserId, dueAt: row.dueAt, note: row.note, link: row.link })
+const toSummary = (row: SetupRow): TaskSummary => ({ id: row.taskId, kind: row.kind, title: row.title, status: row.status, assigneeUserId: row.assigneeUserId, dueAt: row.dueAt, note: row.note, link: row.link })
 
-function StatusChip({ status }: { status: string }) {
-  return <span className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium ${TONE[status] ?? TONE.not_needed}`}>{TASK_STATUSES[status as keyof typeof TASK_STATUSES] ?? status}</span>
+function StatusChip({ status, kind }: { status: string; kind?: string | null }) {
+  return <span className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium ${TONE[status] ?? TONE.not_needed}`}>{statusLabel(status, kind)}</span>
 }
 
-export function SetupTable({ projectId, rows: served, counts, status, team }: { projectId: string; rows: SetupRow[]; counts: SetupCounts; status: SetupStatus; team: Member[] }) {
+export function SetupTable({ projectId, rows: served, counts, status, kind, tasks, team }: { projectId: string; rows: SetupRow[]; counts: SetupCounts; status: SetupStatus; kind: string | null; tasks: TaskDef[]; team: Member[] }) {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
@@ -96,6 +107,9 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
   const [bulk, setBulk] = useState<BulkKind | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
 
+  // One task on screen speaks its own words; a mixed list speaks plainly.
+  const words = taskWords(kind)
+  const chips = chipsFor(kind)
   const all = served.map((r) => ({ ...r, ...patched[r.taskId] }))
   const rows = all.filter((r) => matches(r, q))
   const byId = new Map(all.map((r) => [r.taskId, r]))
@@ -123,6 +137,13 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
     else next.set('status', key)
     return `${pathname}?${next}`
   }
+  const kindHref = (key: string | null) => {
+    const next = new URLSearchParams(params.toString())
+    next.set('tab', 'setup')
+    if (key) next.set('kind', key)
+    else next.delete('kind')
+    return `${pathname}?${next}`
+  }
   const toggle = (id: string) =>
     setSelected((prev) => {
       const next = new Set(prev)
@@ -133,6 +154,7 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
   const selectVisible = (on: boolean) => setSelected(on ? new Set(rows.map((r) => r.taskId)) : new Set())
 
   async function runBulk(kind: BulkKind, value: string) {
+    // `kind` here is which bulk action, not which task.
     const ids = [...selected]
     const body: Record<string, unknown> = { taskIds: ids }
     const change: Partial<SetupRow> = {}
@@ -156,7 +178,7 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
       const updated = data?.updated ?? 0
       const failed = data?.failed ?? 0
       const worded =
-        kind === 'done' ? (updated === 1 ? 'ספק אחד סומן כהוקם באתר.' : `${updated} ספקים סומנו כהוקמו באתר.`)
+        kind === 'done' ? (updated === 1 ? `משימה אחת סומנה כ${words.done}.` : `${updated} משימות סומנו כ${words.done}.`)
         : kind === 'in_progress' ? (updated === 1 ? 'משימה אחת הועברה לבטיפול.' : `${updated} משימות הועברו לבטיפול.`)
         : kind === 'assign' ? `האחראי עודכן ${inSome(updated)}.`
         : `תאריך היעד נקבע ${inSome(updated)}.`
@@ -174,10 +196,10 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
     <>
       {isOpen(row.status) ? (
         <button type="button" onClick={() => setDoneId(row.taskId)} className={`${primary} ${wide ? 'whitespace-nowrap' : 'col-span-2 min-h-12 text-base'}`}>
-          סמן כהוקם באתר
+          {taskWords(row.kind).markDone}
         </button>
       ) : row.status === 'done' ? (
-        <SetupDoneMark link={row.link} className={wide ? 'min-h-11' : 'col-span-2 min-h-11'} />
+        <SetupDoneMark kind={row.kind} link={row.link} className={wide ? 'min-h-11' : 'col-span-2 min-h-11'} />
       ) : null}
       <button type="button" onClick={() => setOpenId(row.taskId)} className={`${secondary} ${wide ? '' : 'col-span-2'}`}>
         פרטי המשימה
@@ -187,9 +209,22 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
 
   return (
     <section data-setup-table className={`flex flex-col gap-4 ${selected.size > 0 ? 'pb-40 md:pb-0' : ''}`}>
+      {tasks.length > 1 ? (
+        <nav aria-label="בחירת משימה" className="flex flex-wrap gap-1 rounded-xl border border-line bg-surface p-1">
+          {[{ key: null, label: 'כל המשימות' }, ...tasks.map((t) => ({ key: t.key as string | null, label: t.label }))].map((t) => {
+            const on = kind === t.key
+            return (
+              <Link key={t.key ?? 'all'} href={kindHref(t.key)} aria-current={on ? 'page' : undefined} className={`inline-flex min-h-10 items-center rounded-lg px-3 text-sm font-medium ${on ? 'bg-brand text-white' : 'text-fg hover:bg-bg'}`}>
+                {t.label}
+              </Link>
+            )
+          })}
+        </nav>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-2">
-        <nav aria-label="סינון לפי סטטוס הקמה" className="flex flex-wrap gap-1 rounded-xl border border-line bg-surface p-1">
-          {CHIPS.map((chip) => {
+        <nav aria-label="סינון לפי סטטוס" className="flex flex-wrap gap-1 rounded-xl border border-line bg-surface p-1">
+          {chips.map((chip) => {
             const on = status === chip.key
             const n = chip.key === 'all' ? total : counts[chip.key]
             return (
@@ -201,7 +236,7 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
           })}
         </nav>
         {served.length > 0 ? (
-          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="חיפוש לפי שם, איש קשר או טלפון" aria-label="חיפוש ספק" className="min-h-11 min-w-0 flex-1 rounded-xl border border-line bg-surface px-4 text-base text-fg outline-none focus:border-brand" />
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="חיפוש לפי שם, איש קשר או טלפון" aria-label="חיפוש" className="min-h-11 min-w-0 flex-1 rounded-xl border border-line bg-surface px-4 text-base text-fg outline-none focus:border-brand" />
         ) : null}
       </div>
 
@@ -213,10 +248,10 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
 
       {served.length === 0 ? (
         <div className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center">
-          <p className="text-base font-semibold text-fg">{total === 0 ? 'עדיין אין ספקים שחתמו' : status === 'pending' ? 'כל הספקים שחתמו כבר הוקמו באתר' : 'אין ספקים בסטטוס הזה'}</p>
+          <p className="text-base font-semibold text-fg">{total === 0 ? 'עדיין אין משימות — הן נפתחות אחרי חתימה' : status === 'pending' ? 'אין משימות פתוחות' : 'אין משימות בסטטוס הזה'}</p>
         </div>
       ) : rows.length === 0 ? (
-        <p className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-8 text-center text-sm text-muted">לא נמצא ספק שמתאים לחיפוש.</p>
+        <p className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-8 text-center text-sm text-muted">לא נמצאה שורה שמתאימה לחיפוש.</p>
       ) : (
         <>
           {/* Phone: one card per supplier. */}
@@ -233,8 +268,9 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
                       <input type="checkbox" className="size-5 shrink-0" checked={selected.has(row.taskId)} onChange={() => toggle(row.taskId)} aria-label={`בחירת ${row.name}`} />
                       <span className="truncate text-base font-semibold text-fg">{row.name}</span>
                     </label>
-                    {row.status !== 'done' ? <StatusChip status={row.status} /> : null}
+                    {row.status !== 'done' ? <StatusChip status={row.status} kind={row.kind} /> : null}
                   </div>
+                  {!kind && tasks.length > 1 ? <p className="mt-1 text-xs font-medium text-brand">{row.title}</p> : null}
                   <p className="mt-1 text-sm text-fg">
                     {row.contactName ?? '—'}
                     {row.contactPhone ? (
@@ -268,12 +304,13 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
                     <input type="checkbox" aria-label="בחר הכול" className="size-4" checked={allVisibleSelected} onChange={(e) => selectVisible(e.target.checked)} />
                   </th>
                   <th className="px-3 py-3 text-start font-medium">שם העסק</th>
+                  {!kind && tasks.length > 1 ? <th className="px-3 py-3 text-start font-medium">משימה</th> : null}
                   <th className="px-3 py-3 text-start font-medium">איש קשר</th>
                   <th className="px-3 py-3 text-start font-medium">מועד חתימה</th>
-                  <th className="px-3 py-3 text-start font-medium">סטטוס הקמה</th>
+                  <th className="px-3 py-3 text-start font-medium">סטטוס</th>
                   <th className="px-3 py-3 text-start font-medium">אחראי</th>
                   <th className="px-3 py-3 text-start font-medium">תאריך יעד</th>
-                  <th className="px-3 py-3 text-start font-medium">קישור למוצר</th>
+                  <th className="px-3 py-3 text-start font-medium">קישור</th>
                   <th className="px-3 py-3 text-start font-medium">פעולה</th>
                 </tr>
               </thead>
@@ -286,6 +323,11 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
                     <td className="max-w-56 px-3 py-3 font-medium text-fg">
                       <span className="block truncate">{row.name}</span>
                     </td>
+                    {!kind && tasks.length > 1 ? (
+                      <td className="max-w-44 px-3 py-3 text-fg">
+                        <span className="block truncate">{row.title}</span>
+                      </td>
+                    ) : null}
                     <td className="px-3 py-3 text-fg">
                       <span className="block truncate">{row.contactName ?? '—'}</span>
                       {row.contactPhone ? (
@@ -296,7 +338,7 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 text-muted">{day(row.signedAt)}</td>
                     <td className="px-3 py-3">
-                      <StatusChip status={row.status} />
+                      <StatusChip status={row.status} kind={row.kind} />
                     </td>
                     <td className="px-3 py-3 text-fg">{row.assigneeName ?? '—'}</td>
                     <td className="whitespace-nowrap px-3 py-3 text-fg">{day(row.dueAt)}</td>
@@ -333,7 +375,7 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
             קבע תאריך יעד
           </button>
           <button type="button" onClick={() => setBulk('done')} className={primary}>
-            סמן כהוקם באתר
+            {words.markDone}
           </button>
           <button type="button" onClick={() => setSelected(new Set())} className="ms-auto inline-flex min-h-11 items-center px-2 text-sm text-brand underline-offset-4 hover:underline">
             ביטול
@@ -341,17 +383,17 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
         </div>
       ) : null}
 
-      {bulk ? <BulkDialog kind={bulk} count={selected.size} team={team} onClose={() => setBulk(null)} onConfirm={(value) => runBulk(bulk, value)} /> : null}
+      {bulk ? <BulkDialog kind={bulk} count={selected.size} done={words.done} markDone={words.markDone} team={team} onClose={() => setBulk(null)} onConfirm={(value) => runBulk(bulk, value)} /> : null}
 
       {marking ? (
         <MarkSetupDoneDialog
           projectId={projectId}
-          task={{ id: marking.taskId, link: marking.link, note: marking.note }}
+          task={{ id: marking.taskId, kind: marking.kind, link: marking.link, note: marking.note }}
           name={marking.name}
           onClose={() => setDoneId(null)}
           onDone={(t) => {
             setDoneId(null)
-            saved(t, `${marking.name} סומן כהוקם באתר.`)
+            saved(t, `${marking.name}: ${marking.title} — ${taskWords(marking.kind).done}.`)
           }}
         />
       ) : null}
@@ -362,7 +404,7 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
           onClose={() => setOpenId(null)}
           title={
             <span className="flex flex-wrap items-center gap-2">
-              {current.name} <StatusChip status={current.status} />
+              {current.name} <StatusChip status={current.status} kind={current.kind} />
             </span>
           }
         >
@@ -392,7 +434,7 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
               </div>
             ) : null}
             <section>
-              <h3 className="text-sm font-semibold text-fg">הקמת מוצר באתר</h3>
+              <h3 className="text-sm font-semibold text-fg">{current.title}</h3>
               <div className="mt-2">
                 <TaskPanel key={current.taskId} projectId={projectId} task={toSummary(current)} onSaved={(t) => saved(t, 'נשמר.')} />
               </div>
@@ -405,12 +447,12 @@ export function SetupTable({ projectId, rows: served, counts, status, team }: { 
 }
 
 /** One small question before a change lands on the whole selection: how many, and what exactly. */
-function BulkDialog({ kind, count, team, onClose, onConfirm }: { kind: BulkKind; count: number; team: Member[]; onClose: () => void; onConfirm: (value: string) => Promise<void> }) {
+function BulkDialog({ kind, count, done, markDone, team, onClose, onConfirm }: { kind: BulkKind; count: number; done: string; markDone: string; team: Member[]; onClose: () => void; onConfirm: (value: string) => Promise<void> }) {
   const [value, setValue] = useState('')
   const [busy, setBusy] = useState(false)
-  const titles: Record<BulkKind, string> = { assign: 'שיוך אחראי', in_progress: 'העבר לבטיפול', due: 'קבע תאריך יעד', done: 'סמן כהוקם באתר' }
+  const titles: Record<BulkKind, string> = { assign: 'שיוך אחראי', in_progress: 'העבר לבטיפול', due: 'קבע תאריך יעד', done: markDone }
   const sentence =
-    kind === 'done' ? `${count === 1 ? 'לסמן ספק אחד כהוקם באתר?' : `לסמן ${count} ספקים כהוקמו באתר?`} רק אחרי שהמוצר באמת עלה לאתר.`
+    kind === 'done' ? `${count === 1 ? `לסמן משימה אחת כ${done}?` : `לסמן ${count} משימות כ${done}?`} רק אחרי שזה באמת קרה.`
     : kind === 'in_progress' ? (count === 1 ? 'משימה אחת תעבור לבטיפול.' : `${count} משימות יעברו לבטיפול.`)
     : kind === 'assign' ? `האחראי ייקבע ${inSome(count)}.`
     : `תאריך היעד ייקבע ${inSome(count)}.`

@@ -1,30 +1,52 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
 import { isUuid } from '@/server/documents/authorization'
 import { log } from '@/server/log'
-import { isTaskKind, isTaskStatus, TASK_KINDS, type TaskKind, type TaskStatus } from './labels'
+import { isTaskKey, isTaskStatus, SITE_PRODUCT, type TaskDef, type TaskStatus } from './labels'
 
 /**
  * Follow-up tasks: what the team still has to do after a signature.
  *
- * Not a task system. A campaign says which built-in task a signature creates
- * ("הקמת מוצר באתר"), one row per registration and kind appears by itself
- * when the agreement is signed, and a person moves it through four states.
- * The agreement's own status is untouched: a signed agreement stays "נחתם"
- * whatever happens to the task.
+ * Not a task system. A campaign lists the tasks it wants — "הקמת מוצר באתר",
+ * "שליחת נראות לספק", as many as the work has — one row per registration and
+ * task appears by itself when the agreement is signed, and a person moves it
+ * through four states. The agreement's own status is untouched: a signed
+ * agreement stays "נחתם" whatever happens to the task.
  */
 
-export { TASK_KINDS, TASK_STATUSES, isTaskKind, isTaskStatus, summarizeTask, type TaskKind, type TaskStatus, type TaskSummary } from './labels'
+export { SITE_PRODUCT, TASK_STATUSES, isTaskKey, isTaskStatus, statusLabel, summarizeTask, taskWords, type TaskDef, type TaskStatus, type TaskSummary } from './labels'
 
 export type Task = typeof schema.followUpTasks.$inferSelect
 export type TaskCounts = Record<TaskStatus, number>
-export type FollowUpConfig = { afterSign: TaskKind[] }
+export type FollowUpConfig = { afterSign: TaskDef[] }
 
-/** Whatever is stored (or sent), reduced to known kinds. */
+/** A campaign's list of tasks; long enough for real work, short enough to read. */
+const MAX_TASKS = 12
+const MAX_LABEL = 60
+
+/**
+ * Whatever is stored (or sent), reduced to a clean list of named tasks.
+ *
+ * The first campaigns stored bare kinds — `{ afterSign: ['site_product'] }` —
+ * so a string is still read as the built-in task under its default name. An
+ * entry with no usable key or an empty name is dropped rather than guessed at.
+ */
 export function cleanFollowUpConfig(raw: unknown): FollowUpConfig {
   const list = raw && typeof raw === 'object' ? (raw as { afterSign?: unknown }).afterSign : null
-  const afterSign = Array.isArray(list) ? [...new Set(list.filter(isTaskKind))] : []
+  if (!Array.isArray(list)) return { afterSign: [] }
+  const afterSign: TaskDef[] = []
+  const seen = new Set<string>()
+  for (const entry of list) {
+    const raw = typeof entry === 'string' ? { key: entry, label: '' } : (entry as Partial<TaskDef> | null)
+    const key = raw?.key
+    if (!isTaskKey(key) || seen.has(key)) continue
+    const label = String(raw?.label ?? '').trim().slice(0, MAX_LABEL) || (key === SITE_PRODUCT.key ? SITE_PRODUCT.label : '')
+    if (!label) continue
+    seen.add(key)
+    afterSign.push({ key, label })
+    if (afterSign.length === MAX_TASKS) break
+  }
   return { afterSign }
 }
 
@@ -35,15 +57,35 @@ export async function followUpConfigFor(groupId: string): Promise<FollowUpConfig
 
 type LeadForTask = { id: string; organizationId: string; groupId: string; companyId: string | null; agreementId: string | null }
 
-function taskValues(lead: LeadForTask, kind: TaskKind): typeof schema.followUpTasks.$inferInsert {
+function taskValues(lead: LeadForTask, task: TaskDef): typeof schema.followUpTasks.$inferInsert {
   return {
     organizationId: lead.organizationId,
     groupId: lead.groupId,
     leadId: lead.id,
     agreementId: lead.agreementId,
     companyId: lead.companyId,
-    kind,
-    title: TASK_KINDS[kind].label,
+    kind: task.key,
+    // The name as it stands now; renaming the task later carries the rows with it.
+    title: task.label,
+  }
+}
+
+/**
+ * Renaming a task renames the work already on the board.
+ *
+ * A row keeps its own title so a screen can name it without reading the
+ * campaign's settings, which means the two have to be kept in step. Called
+ * whenever the list is saved; a task that was removed from the list keeps the
+ * name it had, because the work is still real.
+ */
+export async function syncTaskTitles(groupId: string, tasks: TaskDef[]): Promise<void> {
+  if (!isUuid(groupId) || tasks.length === 0) return
+  const db = getDb()
+  for (const task of tasks) {
+    await db
+      .update(schema.followUpTasks)
+      .set({ title: task.label, updatedAt: new Date() })
+      .where(and(eq(schema.followUpTasks.groupId, groupId), eq(schema.followUpTasks.kind, task.key), ne(schema.followUpTasks.title, task.label)))
   }
 }
 
@@ -64,7 +106,7 @@ export async function createTasksAfterSignature(agreementId: string): Promise<vo
     const { afterSign } = await followUpConfigFor(lead.groupId)
     if (afterSign.length === 0) return
     // The unique index on (lead, kind) makes a second call a no-op.
-    await db.insert(schema.followUpTasks).values(afterSign.map((kind) => taskValues(lead, kind))).onConflictDoNothing()
+    await db.insert(schema.followUpTasks).values(afterSign.map((task) => taskValues(lead, task))).onConflictDoNothing()
   } catch (error) {
     log.warn('follow-up tasks not created', { agreementId, error: String(error) })
   }
@@ -86,7 +128,8 @@ export async function listTasks(session: StaffSession, groupId: string, filters:
     .limit(500)
 }
 
-export async function taskCounts(session: StaffSession, groupId: string): Promise<TaskCounts> {
+/** The four numbers over a campaign's tasks, or over one of them. */
+export async function taskCounts(session: StaffSession, groupId: string, kind?: string | null): Promise<TaskCounts> {
   const empty: TaskCounts = { pending: 0, in_progress: 0, done: 0, not_needed: 0 }
   if (!isUuid(groupId)) return empty
   const [row] = await getDb()
@@ -97,7 +140,7 @@ export async function taskCounts(session: StaffSession, groupId: string): Promis
       not_needed: sql<number>`count(*) filter (where ${schema.followUpTasks.status} = 'not_needed')`,
     })
     .from(schema.followUpTasks)
-    .where(and(eq(schema.followUpTasks.organizationId, session.organizationId), eq(schema.followUpTasks.groupId, groupId)))
+    .where(and(eq(schema.followUpTasks.organizationId, session.organizationId), eq(schema.followUpTasks.groupId, groupId), kind ? eq(schema.followUpTasks.kind, kind) : undefined))
   return { pending: Number(row?.pending ?? 0), in_progress: Number(row?.in_progress ?? 0), done: Number(row?.done ?? 0), not_needed: Number(row?.not_needed ?? 0) }
 }
 
@@ -109,6 +152,9 @@ export async function tasksForLeads(organizationId: string, leadIds: string[]): 
       .select()
       .from(schema.followUpTasks)
       .where(and(eq(schema.followUpTasks.organizationId, organizationId), inArray(schema.followUpTasks.leadId, leadIds.slice(i, i + 1000))))
+      // Oldest first: the order a signature opened them, which is the
+      // campaign's own order, and a task added later joins the end.
+      .orderBy(asc(schema.followUpTasks.createdAt))
     for (const row of rows) {
       if (!row.leadId) continue
       const list = out.get(row.leadId) ?? []
@@ -180,8 +226,9 @@ function isTestRow(data: unknown, meta: unknown): boolean {
 }
 
 /**
- * Tasks for the people who signed before the campaign asked for tasks.
- * Counts are per (registration, kind): `candidates` would be created,
+ * Tasks for the people who signed before the campaign asked for tasks — and
+ * for everyone already signed when a new task joins the list.
+ * Counts are per (registration, task): `candidates` would be created,
  * `skipped` are test rows, `created` is what an `apply` run inserted.
  */
 export async function backfillTasks(groupId: string, options: { apply: boolean }): Promise<{ candidates: number; created: number; skipped: number }> {
@@ -210,14 +257,14 @@ export async function backfillTasks(groupId: string, options: { apply: boolean }
   const values: (typeof schema.followUpTasks.$inferInsert)[] = []
   for (const lead of leads) {
     const have = new Set((existing.get(lead.id) ?? []).map((t) => t.kind))
-    for (const kind of afterSign) {
-      if (have.has(kind)) continue
+    for (const task of afterSign) {
+      if (have.has(task.key)) continue
       if (isTestRow(lead.data, lead.meta)) {
         result.skipped++
         continue
       }
       result.candidates++
-      values.push(taskValues(lead, kind))
+      values.push(taskValues(lead, task))
     }
   }
   if (options.apply && values.length > 0) {
@@ -227,14 +274,14 @@ export async function backfillTasks(groupId: string, options: { apply: boolean }
   return result
 }
 
-/** A company's tasks, newest first — the card on the company screen shows the first. */
+/** A company's tasks, in the order they were opened — the card lists them all. */
 export async function tasksForCompany(organizationId: string, companyId: string): Promise<Task[]> {
   if (!isUuid(companyId)) return []
   return getDb()
     .select()
     .from(schema.followUpTasks)
     .where(and(eq(schema.followUpTasks.organizationId, organizationId), eq(schema.followUpTasks.companyId, companyId)))
-    .orderBy(desc(schema.followUpTasks.createdAt))
+    .orderBy(asc(schema.followUpTasks.createdAt))
     .limit(50)
 }
 

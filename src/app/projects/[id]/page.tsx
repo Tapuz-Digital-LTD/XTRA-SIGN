@@ -9,7 +9,7 @@ import { readReturnTo, withReturnTo } from '@/lib/return-to'
 import { AudienceTable } from '@/components/projects/AudienceTable'
 import { TabPicker } from '@/components/projects/TabPicker'
 import { SetupTable, type SetupRow } from '@/components/follow-up/SetupTable'
-import { cleanFollowUpConfig, taskCounts } from '@/server/follow-up/tasks'
+import { cleanFollowUpConfig, taskCounts, type TaskDef } from '@/server/follow-up/tasks'
 import { runReport } from '@/server/reports/engine/query'
 import { inArray } from 'drizzle-orm'
 import { getDb, schema } from '@/server/db'
@@ -66,9 +66,10 @@ export default async function ProjectPage({
   const campaignKind: CampaignKind = isCampaignKind(project.campaignKind) ? project.campaignKind : 'signature'
   const selfService = (project.landingConfig as { selfService?: { enabled?: boolean; skin?: string | null } } | null)?.selfService
   const shape = describeCampaign({ goal: project.goal, entryMethod: project.entryMethod, campaignKind: project.campaignKind, selfServiceEnabled: selfService?.enabled === true, selfServiceSkin: selfService?.skin ?? null, landingEnabled: project.landingEnabled })
-  // "הקמת מוצרים באתר" has its own place when the campaign creates that task, or already has some.
+  // "משימות המשך" has its own place when the campaign opens any after a signature, or already has some.
   const setupCounts = await taskCounts(session, id)
-  const setupEnabled = cleanFollowUpConfig(project.followUpConfig).afterSign.includes('site_product') || Object.values(setupCounts).some((n) => n > 0)
+  const followUp = cleanFollowUpConfig(project.followUpConfig).afterSign
+  const setupEnabled = followUp.length > 0 || Object.values(setupCounts).some((n) => n > 0)
   const TABS = tabsFor(shape.entry, { setup: setupEnabled })
   const requested = LEGACY_TABS[query.tab ?? ''] ?? query.tab
   if (query.tab === 'registrations' && !query.view) query.view = 'registrations'
@@ -147,7 +148,7 @@ export default async function ProjectPage({
           </>
         ) : null}
         {tab === 'agreements' ? <AgreementsTab projectId={id} session={session} filter={query.filter} /> : null}
-        {tab === 'setup' ? <SetupTab projectId={id} session={session} query={query} /> : null}
+        {tab === 'setup' ? <SetupTab projectId={id} session={session} query={query} defined={followUp} /> : null}
         {tab === 'reports' ? <ReportsTab projectId={id} query={query} session={session} /> : null}
         {tab === 'settings' ? (
           <ProjectSettings
@@ -294,21 +295,25 @@ async function PeopleView({ projectId, session, query, askKind, view }: { projec
 }
 
 /**
- * הקמת מוצרים באתר — the signed suppliers and where their site setup stands.
- * Rows come from the report engine's tasks entity (one row per task, the
- * campaign's kind), so the tab, the reports and the exports agree.
+ * משימות המשך — what is still open on everyone who signed. Rows come from the
+ * report engine's tasks entity (one row per task), so the tab, the reports and
+ * the exports agree; `kind` narrows it to one of the campaign's tasks.
  */
-async function SetupTab({ projectId, session, query }: { projectId: string; session: StaffSession; query: Record<string, string | undefined> }) {
+async function SetupTab({ projectId, session, query, defined }: { projectId: string; session: StaffSession; query: Record<string, string | undefined>; defined: TaskDef[] }) {
   const status = (['pending', 'in_progress', 'done', 'not_needed'] as const).find((s) => s === query.status) ?? 'all'
-  const clauses: ReportDefinition['clauses'] = [inCampaign(projectId), { any: [{ field: 'kind', op: 'is', value: 'site_product' }] }]
+  const kind = defined.find((t) => t.key === query.kind)?.key ?? null
+  const clauses: ReportDefinition['clauses'] = [inCampaign(projectId)]
+  if (kind) clauses.push({ any: [{ field: 'kind', op: 'is', value: kind }] })
   if (status !== 'all') clauses.push({ any: [{ field: 'status', op: 'is', value: status }] })
   const [report, counts] = await Promise.all([
-    runReport(session, { entity: 'tasks', clauses, columns: ['company', 'contact_name', 'contact_phone', 'signed_at', 'status', 'assignee', 'assignee_name', 'due_at', 'link', 'note'], sort: { field: 'signed_at', dir: 'desc' }, page: 1, pageSize: 100 }),
-    taskCounts(session, projectId),
+    runReport(session, { entity: 'tasks', clauses, columns: ['task', 'kind', 'company', 'contact_name', 'contact_phone', 'signed_at', 'status', 'assignee', 'assignee_name', 'due_at', 'link', 'note'], sort: { field: 'signed_at', dir: 'desc' }, page: 1, pageSize: 200 }),
+    taskCounts(session, projectId, kind),
   ])
   const team = await getDb().select({ id: schema.users.id, name: schema.users.name, email: schema.users.email }).from(schema.users).where(inArray(schema.users.organizationId, [session.organizationId]))
   const rows: SetupRow[] = report.rows.map((r) => ({
     taskId: r.id,
+    kind: String(r.cells.kind ?? ''),
+    title: String(r.cells.task ?? '—'),
     leadId: r.links.lead ?? null,
     companyId: r.links.company ?? null,
     agreementId: r.links.agreement ?? null,
@@ -326,8 +331,8 @@ async function SetupTab({ projectId, session, query }: { projectId: string; sess
   return (
     <>
       {/* The file is the query above it, columns included. */}
-      <TableExport definition={{ entity: 'tasks', clauses, columns: ['company', 'contact_name', 'contact_phone', 'signed_at', 'status', 'assignee_name', 'due_at', 'link', 'note'], sort: { field: 'signed_at', dir: 'desc' } }} />
-      <SetupTable projectId={projectId} rows={rows} counts={counts} status={status} team={team.map((u) => ({ id: u.id, name: u.name || u.email }))} />
+      <TableExport definition={{ entity: 'tasks', clauses, columns: ['task', 'company', 'contact_name', 'contact_phone', 'signed_at', 'status', 'assignee_name', 'due_at', 'link', 'note'], sort: { field: 'signed_at', dir: 'desc' } }} />
+      <SetupTable projectId={projectId} rows={rows} counts={counts} status={status} kind={kind} tasks={defined} team={team.map((u) => ({ id: u.id, name: u.name || u.email }))} />
     </>
   )
 }

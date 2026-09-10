@@ -37,7 +37,9 @@ export type EntityDef = {
 
 const AGREEMENT_STATUS: Record<string, string> = { draft: 'טיוטה', sent: 'ממתין לחתימה', viewed: 'ממתין לחתימה', signed: 'נחתם', expired: 'פג תוקף', canceled: 'בוטל', declined: 'סורב' }
 const PROCESS: Record<string, string> = { invited: 'הוזמן', registered: 'נרשם', awaiting_signature: 'ממתין לחתימה', signed: 'חתם', failed: 'נכשל' }
-const TASK: Record<string, string> = { pending: 'ממתין להקמה', in_progress: 'בטיפול', done: 'הוקם באתר', not_needed: 'לא נדרש' }
+/* A campaign names its own tasks, so the four states are named plainly here;
+   the task's own name travels beside them in every export. */
+const TASK: Record<string, string> = { pending: 'ממתין', in_progress: 'בטיפול', done: 'בוצע', not_needed: 'לא נדרש' }
 const SOURCE: Record<string, string> = { xtra: 'XTRA Sign', crm: 'CRM' }
 const CHANNEL: Record<string, string> = { sms: 'SMS', email: 'אימייל', whatsapp: 'WhatsApp' }
 const EVENT: Record<string, string> = { invitation: 'הזמנה', reminder: 'תזכורת', signed_confirmation: 'עותק חתום', registration_completed: 'קישור לחתימה', distribution: 'הפצה' }
@@ -143,7 +145,7 @@ function companyEntity(kind: 'supplier' | 'customer'): EntityDef {
       f('signature_status', 'סטטוס חתימה', 'enum', sql`la.status`, { options: opts(AGREEMENT_STATUS), labels: AGREEMENT_STATUS, defaultVisible: true, group: 'הסכם' }),
       f('signed_at', 'מועד חתימה', 'date', sql`la.completed_at`, { group: 'הסכם', defaultVisible: true }),
       f('sent_at', 'נשלח לחתימה', 'date', sql`la.sent_at`, { group: 'הסכם' }),
-      f('task_status', 'סטטוס הקמה', 'enum', sql`lt.status`, { options: opts(TASK), labels: TASK, group: 'משימת המשך', defaultVisible: true }),
+      f('task_status', 'סטטוס המשימה', 'enum', sql`lt.status`, { options: opts(TASK), labels: TASK, group: 'משימת המשך', defaultVisible: true }),
       f('task_link', 'קישור למוצר', 'text', sql`lt.link`, { group: 'משימת המשך' }),
       f('task_due_at', 'תאריך יעד', 'date', sql`lt.due_at`, { group: 'משימת המשך' }),
       f('assignee', 'אחראי', 'user', sql`coalesce(lt.assignee_user_id, ll.assignee_user_id)::text`, { group: 'מעקב' }),
@@ -203,7 +205,7 @@ const people: EntityDef = {
     // match on the sentence above it — so a filter and an export can say
     // "our own outreach" without depending on how it is worded.
     f('invited_by_us', 'הזמנה שלנו', 'boolean', sql`(pl.invited_by is not null or pl.source = 'invitation')`, { labels: YES_NO, group: 'קמפיין', sortable: false }),
-    f('task_status', 'סטטוס הקמה', 'enum', sql`lt.status`, { options: opts(TASK), labels: TASK, group: 'משימת המשך' }),
+    f('task_status', 'סטטוס המשימה', 'enum', sql`lt.status`, { options: opts(TASK), labels: TASK, group: 'משימת המשך' }),
     f('task_link', 'קישור למוצר', 'text', sql`lt.link`, { group: 'משימת המשך' }),
     f('last_activity_at', 'פעילות אחרונה', 'date', sql`coalesce(pl.last_activity_at, pl.created_at)`, { defaultVisible: true, group: 'תאריכים' }),
     f('created_at', 'נוצר', 'date', sql`pl.created_at`, { group: 'תאריכים' }),
@@ -257,7 +259,7 @@ const agreements: EntityDef = {
     f('owner', 'נשלח על ידי', 'user', sql`a.owner_id::text`, { group: 'שליחה' }),
     f('owner_name', 'שם השולח', 'text', sql`uo.name`, { group: 'שליחה', filterable: false }),
     f('last_send_result', 'שליחה אחרונה', 'enum', sql`case when ls.channel is null then null when ls.channel = 'whatsapp' then coalesce(ls.manual_state, 'opened') when ls.ok then 'sent' when ls.error = 'reserved' then 'reserved' else 'failed' end`, { options: opts(SEND_RESULT), labels: SEND_RESULT, group: 'שליחה', defaultVisible: true }),
-    f('task_status', 'סטטוס הקמה', 'enum', sql`lt.status`, { options: opts(TASK), labels: TASK, group: 'משימת המשך' }),
+    f('task_status', 'סטטוס המשימה', 'enum', sql`lt.status`, { options: opts(TASK), labels: TASK, group: 'משימת המשך' }),
     f('attention', 'דורש טיפול', 'boolean', attentionSql('a'), { labels: YES_NO, sortable: false }),
     f('attention_reason', 'מה דורש טיפול', 'text', sql`null`, { filterable: false, sortable: false }),
   ],
@@ -275,7 +277,9 @@ const tasks: EntityDef = {
   id: sql`t.id`,
   links: { company: sql`t.company_id`, agreement: sql`t.agreement_id`, lead: sql`t.lead_id`, group: sql`t.group_id`, task: sql`t.id` },
   fields: [
-    f('kind', 'משימה', 'enum', sql`t.kind`, { options: [{ value: 'site_product', label: 'הקמת מוצר באתר' }], labels: { site_product: 'הקמת מוצר באתר' }, defaultVisible: true }),
+    f('task', 'משימה', 'text', sql`t.title`, { defaultVisible: true }),
+    // The stable id behind the name, for a filter that survives a rename.
+    f('kind', 'מזהה המשימה', 'text', sql`t.kind`),
     f('status', 'סטטוס', 'enum', sql`t.status`, { options: opts(TASK), labels: TASK, defaultVisible: true }),
     f('company', 'ספק/לקוח', 'text', sql`coalesce(co.name, pl.data->>'name', pl.data->>'businessName')`, { defaultVisible: true }),
     f('contact_name', 'איש קשר', 'text', sql`coalesce(co.contact_name, pl.data->>'contactName')`),
@@ -288,7 +292,7 @@ const tasks: EntityDef = {
     f('created_at', 'נוצר', 'date', sql`t.created_at`, { group: 'תאריכים' }),
     f('completed_at', 'הושלם', 'date', sql`t.completed_at`, { group: 'תאריכים' }),
     f('note', 'הערה', 'text', sql`t.note`, { sortable: false }),
-    f('link', 'קישור למוצר', 'text', sql`t.link`),
+    f('link', 'קישור', 'text', sql`t.link`),
   ],
 }
 

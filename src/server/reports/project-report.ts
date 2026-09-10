@@ -58,8 +58,8 @@ export type RegistrationRow = {
   agreement: { id: string; status: string; sentAt: Date | null; completedAt: Date | null } | null
   /** Registration → signature, in seconds. */
   secondsToSign: number | null
-  /** The follow-up task a signature created, when the campaign asks for one. */
-  task: TaskSummary | null
+  /** The follow-up tasks a signature created, in the order the campaign lists them. */
+  tasks: TaskSummary[]
   /** Saved on a local row because the CRM had no single match: a person should link it. */
   linkingNeeded: boolean
   /** Staff follow-up on the registration itself. */
@@ -581,8 +581,7 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
         ? { id: r.agreementId, status: r.agreementStatus ?? '', sentAt: r.sentAt ? new Date(r.sentAt) : null, completedAt }
         : null,
       secondsToSign: completedAt ? Math.max(0, Math.round((completedAt.getTime() - createdAt.getTime()) / 1000)) : null,
-      // ponytail: one built-in kind today, so the first task is the task.
-      task: tasks.get(r.id)?.map(summarizeTask)[0] ?? null,
+      tasks: (tasks.get(r.id) ?? []).map(summarizeTask),
       linkingNeeded: (r.meta as { linking?: unknown } | null)?.linking === 'needed',
       followUp: { assigneeUserId: r.assigneeUserId ?? null, followUpAt: r.followUpAt ? new Date(r.followUpAt).toISOString() : null, callOutcome: r.callOutcome ?? null, internalNote: r.internalNote ?? null },
       progress: joiningProgress({

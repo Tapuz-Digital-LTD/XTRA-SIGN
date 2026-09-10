@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { TASK_STATUSES, type TaskStatus, type TaskSummary } from '@/server/follow-up/labels'
+import { TASK_STATUSES, taskWords, type TaskStatus, type TaskSummary } from '@/server/follow-up/labels'
 
 /**
  * The whole task, for a drawer: where it stands as four big cards, who
- * handles it, by when, a note, and the product's address once it exists.
- * One save button; the words are the team's, not the system's.
+ * handles it, by when, a note, and an address once there is one. One save
+ * button; the words are the task's own, not the system's.
  */
 
 const input = 'mt-1 min-h-11 w-full rounded-lg border border-line bg-bg px-3 text-sm text-fg outline-none focus:border-brand'
@@ -15,6 +15,7 @@ const primary = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-
 type Member = { id: string; name: string; email: string }
 
 export function TaskPanel({ projectId, task, onSaved }: { projectId: string; task: TaskSummary; onSaved: (task: TaskSummary) => void }) {
+  const words = taskWords(task.kind)
   const [status, setStatus] = useState<TaskStatus>((task.status in TASK_STATUSES ? task.status : 'pending') as TaskStatus)
   const [assignee, setAssignee] = useState(task.assigneeUserId ?? '')
   const [dueAt, setDueAt] = useState(task.dueAt ? task.dueAt.slice(0, 10) : '')
@@ -59,14 +60,14 @@ export function TaskPanel({ projectId, task, onSaved }: { projectId: string; tas
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-muted">כאן מעדכנים איפה ההקמה עומדת, מי מטפל ועד מתי.</p>
+      <p className="text-sm text-muted">כאן מעדכנים איפה המשימה עומדת, מי מטפל ועד מתי.</p>
       <fieldset>
-        <legend className="text-sm text-muted">מצב ההקמה</legend>
+        <legend className="text-sm text-muted">{words.state}</legend>
         <div className="mt-1 grid grid-cols-2 gap-2">
           {(Object.keys(TASK_STATUSES) as TaskStatus[]).map((key) => (
             <label key={key} className={`flex min-h-12 cursor-pointer items-center justify-center rounded-lg border px-3 text-center text-sm font-medium transition ${status === key ? 'border-brand bg-brand text-white' : 'border-line bg-bg text-fg hover:border-brand'}`}>
               <input type="radio" name="task-status" value={key} checked={status === key} onChange={() => setStatus(key)} className="sr-only" />
-              {TASK_STATUSES[key]}
+              {words.statuses[key]}
             </label>
           ))}
         </div>
@@ -91,7 +92,7 @@ export function TaskPanel({ projectId, task, onSaved }: { projectId: string; tas
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-fg outline-none focus:border-brand" />
       </label>
       <label className="block text-sm">
-        <span className="text-muted">קישור למוצר באתר</span>
+        <span className="text-muted">{words.link}</span>
         <input type="url" inputMode="url" dir="ltr" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" className={input} />
       </label>
       <div className="flex flex-wrap items-center gap-3">

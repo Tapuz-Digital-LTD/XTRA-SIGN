@@ -101,13 +101,15 @@ describe('one task per registration', () => {
 })
 
 describe('tasksForCompany', () => {
-  it('returns the newest first, this organization only', async () => {
+  it('returns them in the order they were opened, this organization only', async () => {
     const c = await company()
     const older = await signed(c)
     await db.update(schema.followUpTasks).set({ createdAt: new Date('2026-01-01T00:00:00Z') }).where(eq(schema.followUpTasks.id, older.task.id))
     const newer = await signed(c)
 
-    expect((await tasksForCompany(orgId, c)).map((t) => t.id)).toEqual([newer.task.id, older.task.id])
+    // The card lists a company's tasks in the campaign's own order, which is
+    // the order a signature opened them; one added later joins the end.
+    expect((await tasksForCompany(orgId, c)).map((t) => t.id)).toEqual([older.task.id, newer.task.id])
     expect(await tasksForCompany(crypto.randomUUID(), c)).toEqual([])
     expect(await tasksForCompany(orgId, 'not-a-uuid')).toEqual([])
     expect(await tasksForCompany(orgId, await company())).toEqual([])

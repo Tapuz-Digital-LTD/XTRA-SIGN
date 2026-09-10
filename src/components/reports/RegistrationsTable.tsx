@@ -10,7 +10,7 @@ import { currentUrlFor, withReturnTo } from '@/lib/return-to'
 import type { ActionPlan, ActionResult, RegistrationAction, RegistrationDetail } from '@/server/reports/registration-actions'
 import type { ProjectReportData } from './ProjectReportView'
 import { EditLeadDialog } from '@/components/projects/LeadsPanel'
-import { TaskBadge } from '@/components/follow-up/TaskBadge'
+import { TaskBadge, TaskLine } from '@/components/follow-up/TaskBadge'
 import { TaskFilterChips } from '@/components/follow-up/TaskFilterChips'
 import { TaskPanel } from '@/components/follow-up/TaskPanel'
 import { FollowUpPanel, hasOpenWork } from '@/components/follow-up/FollowUpPanel'
@@ -100,14 +100,14 @@ export function RegistrationsTable({
   // This report, filters and all: a card opened from it comes back here.
   const here = currentUrlFor(usePathname(), searchParams)
 
-  const taskOf = (r: Row): TaskSummary | null => taskOverrides[r.id] ?? r.task
-  const setTask = (leadId: string, task: TaskSummary) => {
-    setTaskOverrides((o) => ({ ...o, [leadId]: task }))
+  const tasksOf = (r: Row): TaskSummary[] => r.tasks.map((t) => taskOverrides[t.id] ?? t)
+  const setTask = (task: TaskSummary) => {
+    setTaskOverrides((o) => ({ ...o, [task.id]: task }))
     setTaskVersion((v) => v + 1)
   }
   // ponytail: filtered over the rows on screen (200 at most). Beyond that,
   // add a taskFilter condition to rowConditions and pass query.taskFilter from the page.
-  const visible = taskFilter ? rows.filter((r) => taskOf(r)?.status === taskFilter) : rows
+  const visible = taskFilter ? rows.filter((r) => tasksOf(r).some((t) => t.status === taskFilter)) : rows
 
   const status = (r: Row) => r.agreement?.status ?? r.registrationStatus
   const canRemind = (r: Row) => status(r) === 'sent' || status(r) === 'viewed'
@@ -192,7 +192,7 @@ export function RegistrationsTable({
         setNotice({ tone: 'error', text: data?.error?.message ?? 'הפעולה נכשלה.' })
         return
       }
-      setNotice({ tone: 'ok', text: `${data.updated ?? 0} משימות סומנו כהוקמו.` })
+      setNotice({ tone: 'ok', text: `${data.updated ?? 0} משימות סומנו כבוצעו.` })
       setMarking(null)
       setSelected(new Set())
       setTaskVersion((v) => v + 1)
@@ -203,12 +203,19 @@ export function RegistrationsTable({
   }
 
   const openTaskIds = (ids: Iterable<string>) =>
-    [...ids].map((id) => rows.find((r) => r.id === id)).map((r) => (r ? taskOf(r) : null)).filter((t): t is TaskSummary => Boolean(t && (t.status === 'pending' || t.status === 'in_progress'))).map((t) => t.id)
+    [...ids]
+      .flatMap((id) => { const r = rows.find((x) => x.id === id); return r ? tasksOf(r) : [] })
+      .filter((t) => t.status === 'pending' || t.status === 'in_progress')
+      .map((t) => t.id)
 
-  const taskBadge = (r: Row) => {
-    const task = taskOf(r)
-    return isSigned(r) && task ? <TaskBadge projectId={projectId} task={task} name={r.businessName} onChange={(t) => setTask(r.id, t)} /> : null
-  }
+  const taskBadge = (r: Row) =>
+    isSigned(r) ? (
+      <span className="inline-flex flex-wrap items-center gap-2">
+        {tasksOf(r).map((task) => (
+          <TaskBadge key={task.id} projectId={projectId} task={task} name={r.businessName} onChange={setTask} />
+        ))}
+      </span>
+    ) : null
 
   const menuFor = (r: Row): (RowMenuItem | null)[] => [
     { label: 'פתח פרטים', onSelect: () => setOpenId(r.id) },
@@ -284,7 +291,7 @@ export function RegistrationsTable({
           </button>
           {openTaskIds(selected).length > 0 ? (
             <button type="button" onClick={() => setMarking(openTaskIds(selected))} className={buttonClass}>
-              סמן כהוקם באתר
+              סמן משימות כבוצעו
             </button>
           ) : null}
           <button type="button" onClick={() => setSelected(new Set())} className="text-xs text-muted hover:underline">
@@ -402,8 +409,8 @@ export function RegistrationsTable({
         linkingNeeded={Boolean(openId && rows.find((x) => x.id === openId)?.linkingNeeded)}
         followUp={openId ? (rows.find((x) => x.id === openId)?.followUp ?? null) : null}
         progress={openId ? (rows.find((x) => x.id === openId)?.progress ?? null) : null}
-        task={openId ? (() => { const r = rows.find((x) => x.id === openId); return r && isSigned(r) ? taskOf(r) : null })() : null}
-        onTaskSaved={(t) => { if (openId) setTask(openId, t) }}
+        tasks={openId ? (() => { const r = rows.find((x) => x.id === openId); return r && isSigned(r) ? tasksOf(r) : [] })() : []}
+        onTaskSaved={setTask}
         onClose={() => setOpenId(null)}
         onAct={(action, id) => ask(action, [id])}
         onShare={(id, via) => { const r = rows.find((x) => x.id === id); if (r) void share(r, via) }}
@@ -424,8 +431,8 @@ export function RegistrationsTable({
       {marking ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 sm:items-center sm:p-4" onClick={() => setMarking(null)}>
           <div role="dialog" aria-modal="true" aria-labelledby="mk-title" className="w-full max-w-md rounded-t-2xl bg-surface p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 id="mk-title" className="text-base font-semibold text-fg">סימון כהוקם באתר</h3>
-            <p className="mt-2 text-sm text-fg">{marking.length === 1 ? 'משימה אחת תסומן כהוקמה באתר.' : `${marking.length} משימות יסומנו כהוקמו באתר.`}</p>
+            <h3 id="mk-title" className="text-base font-semibold text-fg">סימון משימות כבוצעו</h3>
+            <p className="mt-2 text-sm text-fg">{marking.length === 1 ? 'משימה אחת תסומן כבוצעה.' : `${marking.length} משימות יסומנו כבוצעו.`}</p>
             <p className="mt-2 text-xs text-muted">ההסכמים עצמם לא משתנים — רק מצב ההקמה.</p>
             <div className="mt-4 flex flex-wrap justify-end gap-2">
               <button type="button" onClick={() => setMarking(null)} className={buttonClass}>
@@ -485,7 +492,7 @@ function RegistrationDrawer({
   linkingNeeded,
   followUp,
   progress,
-  task,
+  tasks,
   onTaskSaved,
   onClose,
   onAct,
@@ -496,7 +503,7 @@ function RegistrationDrawer({
   linkingNeeded: boolean
   followUp: { assigneeUserId: string | null; followUpAt: string | null; callOutcome: string | null; internalNote: string | null } | null
   progress: JoiningProgress | null
-  task: TaskSummary | null
+  tasks: TaskSummary[]
   onTaskSaved: (task: TaskSummary) => void
   onClose: () => void
   onAct: (action: RegistrationAction, id: string) => void
@@ -626,19 +633,21 @@ function RegistrationDrawer({
             </section>
           ) : null}
 
-          {task ? (
-            <section>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">הקמת מוצר באתר</h4>
-              <TaskPanel key={task.id} projectId={projectId} task={task} onSaved={onTaskSaved} />
+          {tasks.map((task) => (
+            <section key={task.id}>
+              <h4 className="mb-2 text-sm">
+                <TaskLine task={task} />
+              </h4>
+              <TaskPanel projectId={projectId} task={task} onSaved={onTaskSaved} />
             </section>
-          ) : null}
+          ))}
 
           {/* Signed is not done: the follow-up stays while a task is open, a call-back is due or someone owns it. */}
           <FollowUpPanel
             leadId={detail.id}
             values={followUp ?? { assigneeUserId: null, followUpAt: null, callOutcome: null, internalNote: null }}
-            openWork={hasOpenWork({ signed: detail.agreement?.status === 'signed', taskStatus: task?.status ?? null, followUpAt: followUp?.followUpAt ?? null, assigneeUserId: followUp?.assigneeUserId ?? null, callOutcome: followUp?.callOutcome ?? null })}
-            doneText={task ? 'ההצטרפות וההקמה הושלמו.' : 'ההצטרפות הושלמה.'}
+            openWork={hasOpenWork({ signed: detail.agreement?.status === 'signed', taskStatuses: tasks.map((t) => t.status), followUpAt: followUp?.followUpAt ?? null, assigneeUserId: followUp?.assigneeUserId ?? null, callOutcome: followUp?.callOutcome ?? null })}
+            doneText={tasks.length ? 'ההצטרפות וכל המשימות הושלמו.' : 'ההצטרפות הושלמה.'}
           />
 
           <section>

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { TaskBadge } from '@/components/follow-up/TaskBadge'
+import { TaskBadge, TaskLine } from '@/components/follow-up/TaskBadge'
 import { TaskPanel } from '@/components/follow-up/TaskPanel'
 import { CopyButton } from '@/components/ui/CopyButton'
 import { Drawer } from '@/components/ui/Drawer'
@@ -251,11 +251,11 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                     {global ? `${row.groupName} · ` : ''}{row.lastActivity} · {dateFormat.format(new Date(row.lastActivityAt ?? row.createdAt))}
                     {row.assignee ? ` · ${row.assignee.name}` : row.invitedBy ? ` · ${row.invitedBy.name}` : ''}
                   </span>
-                  {row.task ? (
-                    <span onClick={(e) => e.stopPropagation()}>
-                      <TaskBadge projectId={projectId} task={row.task} name={row.name} onChange={() => router.refresh()} />
+                  {row.tasks.map((task) => (
+                    <span key={task.id} onClick={(e) => e.stopPropagation()}>
+                      <TaskBadge projectId={projectId} task={task} name={row.name} onChange={() => router.refresh()} />
                     </span>
-                  ) : null}
+                  ))}
                 </div>
               </li>
             ))}
@@ -303,11 +303,11 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                     <td className="px-4 py-3">
                       <StatusChip status={row.status} />
                       <ProgressLine progress={row.progress} className="mt-1" />
-                      {row.task ? (
-                        <span className="mt-1 block" onClick={(e) => e.stopPropagation()}>
-                          <TaskBadge projectId={projectId} task={row.task} name={row.name} onChange={() => router.refresh()} />
+                      {row.tasks.map((task) => (
+                        <span key={task.id} className="mt-1 block" onClick={(e) => e.stopPropagation()}>
+                          <TaskBadge projectId={projectId} task={task} name={row.name} onChange={() => router.refresh()} />
                         </span>
-                      ) : null}
+                      ))}
                     </td>
                     <td className="px-4 py-3 text-fg">
                       <span className="block truncate">{row.assignee?.name ?? row.invitedBy?.name ?? '—'}</span>
@@ -522,7 +522,8 @@ function PersonDrawer({ row, projectId, onClose, onNotice, onRemove }: { row: Au
   const here = currentUrlFor(usePathname(), useSearchParams())
   const [history, setHistory] = useState<SendHistoryItem[] | null>(null)
   const [link, setLink] = useState<string | null>(null)
-  const [task, setTask] = useState<TaskSummary | null>(row.task)
+  // Each task keeps what this person changed until the next refresh.
+  const [tasks, setTasks] = useState<TaskSummary[]>(row.tasks)
 
   useEffect(() => {
     let live = true
@@ -635,20 +636,22 @@ function PersonDrawer({ row, projectId, onClose, onNotice, onRemove }: { row: Au
           />
         ) : null}
 
-        {task ? (
-          <section>
-            <h3 className="text-sm font-semibold text-fg">הקמת מוצר באתר</h3>
+        {tasks.map((task) => (
+          <section key={task.id}>
+            <h3 className="text-sm">
+              <TaskLine task={task} />
+            </h3>
             <div className="mt-2">
-              <TaskPanel projectId={projectId} task={task} onSaved={(t) => { setTask(t); router.refresh() }} />
+              <TaskPanel projectId={projectId} task={task} onSaved={(t) => { setTasks((list) => list.map((x) => (x.id === t.id ? t : x))); router.refresh() }} />
             </div>
           </section>
-        ) : null}
+        ))}
 
         <FollowUpPanel
           leadId={row.id}
           values={{ assigneeUserId: row.assignee?.id ?? null, followUpAt: row.followUpAt, callOutcome: row.callOutcome, internalNote: row.internalNote }}
-          openWork={hasOpenWork({ signed: row.status === 'signed', taskStatus: task?.status ?? null, followUpAt: row.followUpAt, assigneeUserId: row.assignee?.id ?? null, callOutcome: row.callOutcome })}
-          doneText={task ? 'ההצטרפות וההקמה הושלמו.' : 'ההצטרפות הושלמה.'}
+          openWork={hasOpenWork({ signed: row.status === 'signed', taskStatuses: tasks.map((t) => t.status), followUpAt: row.followUpAt, assigneeUserId: row.assignee?.id ?? null, callOutcome: row.callOutcome })}
+          doneText={tasks.length ? 'ההצטרפות וכל המשימות הושלמו.' : 'ההצטרפות הושלמה.'}
           onSaved={() => onNotice({ tone: 'ok', text: 'נשמר.' })}
           onError={(m) => onNotice({ tone: 'error', text: m })}
         />

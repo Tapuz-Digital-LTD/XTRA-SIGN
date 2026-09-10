@@ -5,17 +5,18 @@ import { useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 /**
- * Three chips over the registrations: who signed and still has no product,
- * whose product is being set up, whose is up. Counts come from the server
- * so they are right beyond the rows on screen; the chip is a link that
- * sets `taskFilter`, and the active one clears it. Nothing is drawn until
- * the campaign has at least one task.
+ * Three chips over the registrations: who has follow-up work waiting, whose
+ * is being handled, whose is done. Counts come from the server so they are
+ * right beyond the rows on screen; the chip is a link that sets `taskFilter`,
+ * and the active one clears it. Nothing is drawn until the campaign has at
+ * least one task. Plain words, because a campaign may have several tasks and
+ * a chip counts them all.
  */
 
 const CHIPS = [
-  { key: 'pending', label: 'חתמו וטרם הוקמו' },
-  { key: 'in_progress', label: 'הקמה בטיפול' },
-  { key: 'done', label: 'הוקמו באתר' },
+  { key: 'pending', label: 'משימות ממתינות' },
+  { key: 'in_progress', label: 'משימות בטיפול' },
+  { key: 'done', label: 'משימות שבוצעו' },
 ] as const
 
 type Counts = Record<(typeof CHIPS)[number]['key'] | 'not_needed', number>
@@ -50,7 +51,7 @@ export function TaskFilterChips({ projectId, version = 0 }: { projectId: string;
   }
 
   return (
-    <div className="flex flex-wrap gap-2" role="group" aria-label="סינון לפי הקמת המוצר">
+    <div className="flex flex-wrap gap-2" role="group" aria-label="סינון לפי מצב המשימות">
       {CHIPS.map((chip) => {
         const on = active === chip.key
         return (

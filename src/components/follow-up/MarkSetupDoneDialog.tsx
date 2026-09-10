@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import type { TaskSummary } from '@/server/follow-up/labels'
+import { taskWords, type TaskSummary } from '@/server/follow-up/labels'
 
 /**
- * "סמן כהוקם": the one question a worker answers once the product is up on
- * the site — where it is, anything worth noting — and one save. It changes
- * the task alone; the agreement stays signed, and the dialog says so.
+ * The one question a worker answers once a task is done — a link if there is
+ * one, anything worth noting — and one save. It changes the task alone; the
+ * agreement stays signed, and the dialog says so.
  */
 const field = 'mt-1 min-h-11 w-full rounded-lg border border-line bg-bg px-3 text-base text-fg outline-none focus:border-brand'
 
@@ -14,16 +14,20 @@ export function MarkSetupDoneDialog({
   projectId,
   task,
   name,
+  title,
   onClose,
   onDone,
 }: {
   projectId: string
-  task: { id: string; link: string | null; note: string | null }
-  /** Whose product, under the title. */
+  task: { id: string; kind?: string | null; link: string | null; note: string | null }
+  /** Whose work it is, under the title. */
   name?: string
+  /** The task's own name, when the row does not already say it. */
+  title?: string
   onClose: () => void
   onDone: (task: TaskSummary) => void
 }) {
+  const words = taskWords(task.kind)
   const [link, setLink] = useState(task.link ?? '')
   const [note, setNote] = useState(task.note ?? '')
   const [busy, setBusy] = useState(false)
@@ -77,18 +81,18 @@ export function MarkSetupDoneDialog({
         className="w-full max-w-md rounded-t-2xl bg-surface p-5 shadow-xl sm:rounded-2xl"
       >
         <h2 id="mark-done-title" className="text-lg font-bold text-fg">
-          סמן כהוקם באתר
+          {words.markDone}
         </h2>
-        {name ? <p className="mt-1 text-sm text-muted">{name}</p> : null}
+        {name || title ? <p className="mt-1 text-sm text-muted">{[name, title].filter(Boolean).join(' · ')}</p> : null}
         <label className="mt-4 block text-sm">
-          <span className="text-muted">קישור למוצר באתר (לא חובה)</span>
+          <span className="text-muted">{words.link} (לא חובה)</span>
           <input ref={first} type="url" inputMode="url" dir="ltr" placeholder="https://" value={link} onChange={(e) => setLink(e.target.value)} className={field} />
         </label>
         <label className="mt-3 block text-sm">
           <span className="text-muted">הערה (לא חובה)</span>
           <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={2000} className="mt-1 w-full rounded-lg border border-line bg-bg px-3 py-2 text-base text-fg outline-none focus:border-brand" />
         </label>
-        <p className="mt-3 text-sm text-fg">הספק יסומן כ״הוקם באתר״. סטטוס החתימה לא משתנה.</p>
+        <p className="mt-3 text-sm text-fg">המשימה תסומן כ״{words.done}״. סטטוס החתימה לא משתנה.</p>
         {error ? (
           <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {error}
