@@ -9,7 +9,7 @@ import { readReturnTo, withReturnTo } from '@/lib/return-to'
 import { AudienceTable } from '@/components/projects/AudienceTable'
 import { TabPicker } from '@/components/projects/TabPicker'
 import { SetupTable, type SetupRow } from '@/components/follow-up/SetupTable'
-import { cleanFollowUpConfig, taskCounts, type TaskDef } from '@/server/follow-up/tasks'
+import { cleanFollowUpConfig, taskCounts, taskCountsByKind, type TaskDef, type TaskKindCounts } from '@/server/follow-up/tasks'
 import { runReport } from '@/server/reports/engine/query'
 import { inArray } from 'drizzle-orm'
 import { getDb, schema } from '@/server/db'
@@ -67,7 +67,7 @@ export default async function ProjectPage({
   const selfService = (project.landingConfig as { selfService?: { enabled?: boolean; skin?: string | null } } | null)?.selfService
   const shape = describeCampaign({ goal: project.goal, entryMethod: project.entryMethod, campaignKind: project.campaignKind, selfServiceEnabled: selfService?.enabled === true, selfServiceSkin: selfService?.skin ?? null, landingEnabled: project.landingEnabled })
   // "משימות המשך" has its own place when the campaign opens any after a signature, or already has some.
-  const setupCounts = await taskCounts(session, id)
+  const [setupCounts, setupByKind] = await Promise.all([taskCounts(session, id), taskCountsByKind(session, id)])
   const followUp = cleanFollowUpConfig(project.followUpConfig).afterSign
   const setupEnabled = followUp.length > 0 || Object.values(setupCounts).some((n) => n > 0)
   const TABS = tabsFor(shape.entry, { setup: setupEnabled })
@@ -138,7 +138,7 @@ export default async function ProjectPage({
           <h2 className="text-xl font-bold text-fg">{TAB_LABELS[tab]}</h2>
           <p className="mt-1 text-sm text-muted">{TAB_INTROS[tab]}</p>
         </div>
-        {tab === 'overview' ? <OverviewTab projectId={id} projectName={project.name} campaignKind={campaignKind} companies={companies} leads={leads} session={session} setup={setupEnabled ? { pending: setupCounts.pending, inProgress: setupCounts.in_progress, done: setupCounts.done } : null} /> : null}
+        {tab === 'overview' ? <OverviewTab projectId={id} projectName={project.name} campaignKind={campaignKind} companies={companies} leads={leads} session={session} setup={setupEnabled ? setupByKind : null} /> : null}
         {tab === 'audience' ? <SuppliersTab projectId={id} projectName={project.name} companies={companies} search={query.q ?? ''} session={session} /> : null}
         {tab === 'joining' ? <JoiningTab projectId={id} session={session} query={query} askKind={project.kind === null} audienceNoun={project.kind === 'customer' ? 'לקוח' : 'ספק'} publicUrl={await publicAddress(session, id)} /> : null}
         {tab === 'distributions' ? (
@@ -192,7 +192,7 @@ export default async function ProjectPage({
 }
 
 /** סקירה — the campaign's front door: what needs attention, each card leading to the filtered view that acts on it. */
-async function OverviewTab({ projectId, projectName, campaignKind, companies, leads, session, setup }: { projectId: string; projectName: string; campaignKind: CampaignKind; companies: Awaited<ReturnType<typeof listGroupCompanies>>; leads: Awaited<ReturnType<typeof listLeads>>; session: StaffSession; setup: { pending: number; inProgress: number; done: number } | null }) {
+async function OverviewTab({ projectId, projectName, campaignKind, companies, leads, session, setup }: { projectId: string; projectName: string; campaignKind: CampaignKind; companies: Awaited<ReturnType<typeof listGroupCompanies>>; leads: Awaited<ReturnType<typeof listLeads>>; session: StaffSession; setup: TaskKindCounts[] | null }) {
   const [audience, registrations, awaitingSignature, attention, publicUrl] = await Promise.all([
     listAudience(session, projectId, { view: 'all', limit: 1 }),
     registrationCount(projectId, {} as ReturnType<typeof parseProjectReportFilters>),
