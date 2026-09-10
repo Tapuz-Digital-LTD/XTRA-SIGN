@@ -44,6 +44,11 @@ export function utmFrom(params: URLSearchParams | Record<string, string | string
  * Campaign tags win over the referrer: a Facebook ad tagged `utm_source=fb`
  * is "Facebook / paid" even when the browser reports l.facebook.com. With
  * no tags, the referring host is read; with neither, the visit is direct.
+ *
+ * Our own addresses are never a channel. Somebody moving from the campaign
+ * page to the joining page referred themselves, and printing that beside
+ * Google and Facebook makes our own site look like a partner sending us
+ * traffic. It is named as what it is, and a screen can leave it out.
  */
 export type TrafficSource = {
   /** Stable key for grouping. */
@@ -66,6 +71,9 @@ const KNOWN: { key: string; label: string; match: RegExp }[] = [
   { key: 'twitter', label: 'X / Twitter', match: /twitter|\bx\.com|t\.co/i },
   { key: 'telegram', label: 'Telegram', match: /telegram|t\.me/i },
 ]
+
+/** Ours: the campaign domains and the app's own hosts. */
+const OURS = /(^|\.)xtra\.co\.il$|(^|\.)xtra-sign[a-z0-9-]*\.vercel\.app$|^localhost(:\d+)?$/i
 
 const MEDIUM_LABELS: Record<string, string> = {
   cpc: 'paid',
@@ -94,12 +102,15 @@ export function classifySource(utm: Utm | null | undefined, referrer: string | n
       : { key: `utm:${source.toLowerCase().slice(0, 40)}`, label: source.slice(0, 40), medium: mediumLabel }
   }
   if (referrer) {
+    const host = referrer.replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, '').slice(0, 60)
+    if (host && OURS.test(host)) return { key: 'internal', label: 'מעבר פנימי באתר שלנו', medium: mediumLabel ?? 'internal' }
     const known = KNOWN.find((k) => k.match.test(referrer))
     if (known) return { key: known.key, label: known.label, medium: mediumLabel ?? 'organic' }
-    const host = referrer.replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, '').slice(0, 60)
     if (host) return { key: `ref:${host}`, label: host, medium: mediumLabel ?? 'referral' }
   }
-  return { key: 'direct', label: 'ישירות', medium: mediumLabel }
+  // "Direct" is a traffic source, never an invitation: nothing here knows
+  // about personal outreach, and no screen may present it as one.
+  return { key: 'direct', label: 'ישירות / לא מזוהה', medium: mediumLabel }
 }
 
 /** The host of a referring page — what the report needs, and nothing more. */

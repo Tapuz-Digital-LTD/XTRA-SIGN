@@ -58,54 +58,55 @@ export function ProjectReportView({
         </p>
       ) : null}
 
-      <Summary report={report} reduced={reduced} />
+      <Kpis report={report} reduced={reduced} />
 
-      {report.invitations ? (
-        <section className={`${card} p-5`} aria-labelledby="rp-invitations">
-          <h2 id="rp-invitations" className="text-sm font-semibold text-fg">הזמנות אישיות</h2>
-          <p className="mt-1 text-xs text-muted">
-            כל הזמנה נספרת פעם אחת, גם אם נשלחה שוב. המכנה לכל האחוזים הוא ההזמנות שנשלחו בפועל
-            ({report.invitations.stages[0].count.toLocaleString('he-IL')} מתוך {report.invitations.created.toLocaleString('he-IL')} שנוצרו).
-          </p>
-          <div className="mt-3 grid gap-4 lg:grid-cols-5">
-            <div className="min-w-0 lg:col-span-3">
-              <Funnel stages={report.invitations.stages} reduced={reduced} />
-            </div>
-            <dl className="grid grid-cols-2 gap-3 self-start text-sm lg:col-span-2">
-              {report.invitations.stages.slice(1).map((stage, i) => {
-                const base = report.invitations!.stages[0].count
-                return (
-                  <div key={stage.key} className={`rounded-lg bg-bg p-3 ${i === 2 ? 'ring-1 ring-brand' : ''}`}>
-                    <dt className="text-xs text-muted">נשלחו ← {stage.label}</dt>
-                    <dd className="mt-1 text-lg font-semibold tabular-nums text-fg">
-                      {base > 0 ? pct(Math.round((stage.count / base) * 1000) / 10) : '—'}
-                    </dd>
-                  </div>
-                )
-              })}
-            </dl>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <FunnelCard
+          id="rp-invitations"
+          title="הזמנות אישיות"
+          blurb="אנשים שהצוות פנה אליהם בעצמו. כל מוזמן נספר פעם אחת, גם אם נשלחה לו הזמנה שוב."
+          steps={report.funnels.invitations}
+          empty="עדיין לא נשלחו הזמנות אישיות בקמפיין הזה."
+          ofLabel="מכלל המוזמנים"
+          reduced={reduced}
+        />
+        <FunnelCard
+          id="rp-site"
+          title="הגעה עצמאית מהאתר"
+          blurb="אנשים שהגיעו לעמוד בלי הזמנה אישית. ״מבקר״ הוא דפדפן ייחודי, לא צפייה בדף."
+          steps={report.funnels.site}
+          empty="עדיין אין תנועה עצמאית לעמוד הקמפיין."
+          ofLabel="מכלל המבקרים"
+          reduced={reduced}
+        />
+      </div>
+
+      <Reminders reminders={report.funnels.reminders} />
+
+      {report.funnels.stuck.length > 0 ? (
+        <section className={`${card} p-5`} aria-labelledby="rp-stuck">
+          <h2 id="rp-stuck" className="text-sm font-semibold text-fg">איפה אנשים נתקעים</h2>
+          <p className="mt-1 text-xs text-muted">כל מספר הוא רשימה — לחיצה פותחת בדיוק את האנשים האלה.</p>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {report.funnels.stuck.map((s) => (
+              <Link key={s.key} href={s.href} className="rounded-lg border border-line bg-bg p-3 transition hover:border-brand" title={s.hint}>
+                <span className="block text-2xl font-bold tabular-nums text-fg">{number.format(s.count)}</span>
+                <span className="mt-1 block text-xs text-fg">{s.label}</span>
+              </Link>
+            ))}
           </div>
         </section>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-5">
-        {report.funnel.length > 2 ? (
-          <section className={`${card} min-w-0 p-5 lg:col-span-2`} aria-labelledby="rp-funnel">
-            <h2 id="rp-funnel" className="text-sm font-semibold text-fg">המשפך</h2>
-            <Funnel stages={report.funnel} reduced={reduced} />
-            <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-lg bg-bg p-3">
-                <dt className="text-xs text-muted">כניסה ← הרשמה</dt>
-                <dd className="mt-1 text-lg font-semibold tabular-nums text-fg">{pct(report.conversion.visitToRegistration)}</dd>
-              </div>
-              <div className="rounded-lg bg-bg p-3">
-                <dt className="text-xs text-muted">הרשמה ← חתימה</dt>
-                <dd className="mt-1 text-lg font-semibold tabular-nums text-fg">{pct(report.conversion.registrationToSignature)}</dd>
-              </div>
-            </dl>
+        {report.hasCampaignPage ? (
+          <section className={`${card} min-w-0 p-5 lg:col-span-2`} aria-labelledby="rp-sources">
+            <h2 id="rp-sources" className="text-sm font-semibold text-fg">מקורות תנועה באתר</h2>
+            <p className="mt-1 text-xs text-muted">רק מי שהגיע בעצמו. מעבר בין הדפים שלנו אינו מקור חיצוני.</p>
+            <Sources projectId={projectId} sources={report.sources} reduced={reduced} />
           </section>
         ) : null}
-        <section className={`${card} min-w-0 p-5 ${report.funnel.length > 2 ? 'lg:col-span-3' : 'lg:col-span-5'}`} aria-labelledby="rp-timeline">
+        <section className={`${card} min-w-0 p-5 ${report.hasCampaignPage ? 'lg:col-span-3' : 'lg:col-span-5'}`} aria-labelledby="rp-timeline">
           <h2 id="rp-timeline" className="text-sm font-semibold text-fg">
             פעילות לאורך זמן <span className="font-normal text-muted">· לפי {report.timeline.granularity === 'day' ? 'יום' : 'שבוע'}</span>
           </h2>
@@ -113,18 +114,10 @@ export function ProjectReportView({
         </section>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className={`${card} min-w-0 p-5`} aria-labelledby="rp-status">
-          <h2 id="rp-status" className="text-sm font-semibold text-fg">סטטוס ההסכמים</h2>
-          <Donut projectId={projectId} slices={report.statuses} reduced={reduced} />
-        </section>
-        {report.hasCampaignPage ? (
-          <section className={`${card} min-w-0 p-5`} aria-labelledby="rp-sources">
-            <h2 id="rp-sources" className="text-sm font-semibold text-fg">מקורות מובילים</h2>
-            <Sources projectId={projectId} sources={report.sources} reduced={reduced} />
-          </section>
-        ) : null}
-      </div>
+      <section className={`${card} p-5`} aria-labelledby="rp-status">
+        <h2 id="rp-status" className="text-sm font-semibold text-fg">סטטוס ההסכמים</h2>
+        <Donut projectId={projectId} slices={report.statuses} reduced={reduced} />
+      </section>
 
       <RegistrationsTable rows={report.registrations} total={report.registrationTotal} projectId={projectId} />
     </div>
@@ -231,28 +224,134 @@ function Filters({ projectId, values, sources, exportHref }: { projectId: string
 
 // ── summary cards ─────────────────────────────────────────────────────────
 
-function Summary({ report, reduced }: { report: ProjectReportData; reduced: boolean }) {
-  const k = report.kpis
-  const cards: { label: string; kpi: { value: number; previous: number | null } | null; text?: string; hint?: string }[] = [
-    ...(report.hasCampaignPage ? [{ label: 'כניסות לדף', kpi: k.visits, hint: 'מבקרים ייחודיים' }] : []),
-    { label: 'נרשמו', kpi: k.registrations },
-    { label: 'הסכמים שנוצרו', kpi: k.agreements },
-    { label: 'חתמו', kpi: k.signed },
-    { label: 'ממתינים לחתימה', kpi: k.pending },
-    { label: 'אחוז השלמה', kpi: null, text: pct(k.completionRate), hint: 'חתמו מתוך הנרשמים' },
+/**
+ * The five numbers a campaign manager opens the screen for, and the two
+ * conversion rates that matter — one per route, never blended: an invitation
+ * that turned into a signature, and a visit that turned into one.
+ */
+function Kpis({ report, reduced }: { report: ProjectReportData; reduced: boolean }) {
+  const h = report.funnels.headline
+  const cards: { label: string; value: number | null; text?: string; hint?: string }[] = [
+    { label: 'הזמנות אישיות', value: h.invited, hint: 'אנשים ייחודיים שהוזמנו' },
+    ...(report.hasCampaignPage ? [{ label: 'מבקרי אתר', value: h.visitors, hint: `${number.format(h.sessions)} ביקורים` }] : []),
+    { label: 'הרשמות', value: report.kpis.registrations.value, hint: 'טפסים שהוגשו' },
+    { label: 'חתימות', value: h.signedTotal, hint: `${number.format(h.invitedSigned)} מהזמנה · ${number.format(h.siteSigned)} מהאתר` },
+    { label: 'המרת הזמנות', value: null, text: pct(h.invitedConversion), hint: 'חתמו מתוך המוזמנים' },
+    ...(report.hasCampaignPage ? [{ label: 'המרת האתר', value: null, text: pct(h.siteConversion), hint: 'חתמו מתוך המבקרים' }] : []),
   ]
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       {cards.map((c) => (
         <div key={c.label} className={`${card} p-4`}>
           <p className="text-xs text-muted">{c.label}</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-fg">
-            {c.kpi ? <CountUp value={c.kpi.value} reduced={reduced} /> : c.text}
-          </p>
-          {c.kpi && c.kpi.previous !== null ? <Delta value={c.kpi.value} previous={c.kpi.previous} /> : c.hint ? <p className="mt-1 text-[11px] text-muted">{c.hint}</p> : null}
+          <p className="mt-1 text-2xl font-bold tabular-nums text-fg">{c.value === null ? c.text : <CountUp value={c.value} reduced={reduced} />}</p>
+          {c.hint ? <p className="mt-1 text-[11px] text-muted">{c.hint}</p> : null}
         </div>
       ))}
     </div>
+  )
+}
+
+/**
+ * One route, step by step.
+ *
+ * Each step carries three numbers a person actually asks for: how many, how
+ * many of the step before, and how many of everyone who entered. The bar is
+ * the share of the first step, so two funnels side by side are comparable at
+ * a glance. The hint on each row says where the number is counted from —
+ * an percentage nobody can explain is worse than no percentage.
+ */
+function FunnelCard({ id, title, blurb, steps, empty, ofLabel, reduced }: { id: string; title: string; blurb: string; steps: ProjectReportData['funnels']['invitations']; empty: string; ofLabel: string; reduced: boolean }) {
+  const grown = useGrow(reduced)
+  const start = steps[0]?.people ?? 0
+  return (
+    <section className={`${card} min-w-0 p-5`} aria-labelledby={id}>
+      <h2 id={id} className="text-sm font-semibold text-fg">
+        {title}
+      </h2>
+      <p className="mt-1 text-xs text-muted">{blurb}</p>
+      {start === 0 ? (
+        <p className="mt-4 rounded-lg border border-dashed border-line bg-bg px-4 py-6 text-center text-sm text-muted">{empty}</p>
+      ) : (
+        <ol className="mt-3 flex flex-col gap-2">
+          {steps.map((s, i) => {
+            const width = start > 0 ? Math.min(100, Math.max(2, (s.people / start) * 100)) : 0
+            const last = i === steps.length - 1
+            return (
+              <li key={s.key} className="min-w-0">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0 truncate text-sm text-fg" title={s.source}>
+                    {s.href ? (
+                      <Link href={s.href} className="hover:underline">
+                        {s.label}
+                      </Link>
+                    ) : (
+                      s.label
+                    )}
+                  </span>
+                  <span className="shrink-0 text-base font-semibold tabular-nums text-fg">{number.format(s.people)}</span>
+                </div>
+                <div className="mt-1 h-2 w-full overflow-hidden rounded bg-bg">
+                  <div
+                    className={`h-full rounded transition-[width] duration-700 ease-out ${last ? 'bg-green-600' : 'bg-brand'}`}
+                    style={{ width: grown ? `${width}%` : 0 }}
+                  />
+                </div>
+                <p className="mt-1 text-[11px] text-muted">
+                  {i === 0
+                    ? s.source
+                    : s.exceedsPrevious
+                      ? 'יותר מהשלב הקודם — חלק מהאנשים האלה לא נמדדו בשלב הקודם'
+                      : [s.fromPrevious === null ? null : `${pct(s.fromPrevious)} מהשלב הקודם`, s.fromStart === null ? null : `${pct(s.fromStart)} ${ofLabel}`]
+                          .filter(Boolean)
+                          .join(' · ') || s.source}
+                </p>
+              </li>
+            )
+          })}
+        </ol>
+      )}
+    </section>
+  )
+}
+
+/**
+ * Reminders, without claiming a cause.
+ *
+ * Nobody can prove a person signed *because* of a reminder, so the screen
+ * says "חתמו לאחר תזכורת" and defines it: a reminder went out before the
+ * signature. The stronger reading — the reminder was the last thing that
+ * reached them — is shown beside it when the message ledger can prove it.
+ */
+function Reminders({ reminders }: { reminders: ProjectReportData['funnels']['reminders'] }) {
+  const r = reminders
+  const cards: { label: string; text: string; hint?: string }[] = [
+    { label: 'תזכורות שנשלחו', text: number.format(r.sent), hint: r.perPerson ? `${number.format(r.perPerson)} בממוצע לאדם` : undefined },
+    { label: 'אנשים שקיבלו תזכורת', text: number.format(r.people) },
+    { label: 'חתמו לאחר תזכורת', text: number.format(r.signedAfter), hint: r.people > 0 ? `${pct(Math.round((r.signedAfter / r.people) * 1000) / 10)} מהמקבלים` : undefined },
+    { label: 'קיבלו ועדיין לא חתמו', text: number.format(r.remindedNotSigned) },
+    ...(r.lastTouch !== null ? [{ label: 'התזכורת הייתה המגע האחרון', text: number.format(r.lastTouch), hint: 'ההודעה האחרונה לפני החתימה' }] : []),
+  ]
+  return (
+    <section className={`${card} p-5`} aria-labelledby="rp-reminders">
+      <h2 id="rp-reminders" className="text-sm font-semibold text-fg">השפעת תזכורות</h2>
+      <p className="mt-1 text-xs text-muted">
+        {r.sent === 0
+          ? 'עדיין לא נשלחו תזכורות בקמפיין הזה.'
+          : '״חתמו לאחר תזכורת״ = נשלחה להם תזכורת לפני החתימה. אי אפשר לדעת שהם חתמו בגללה, ולכן לא נטען כך.'}
+      </p>
+      {r.sent > 0 ? (
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {cards.map((c) => (
+            <div key={c.label} className="rounded-lg bg-bg p-3">
+              <p className="text-xs text-muted">{c.label}</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-fg">{c.text}</p>
+              {c.hint ? <p className="mt-1 text-[11px] text-muted">{c.hint}</p> : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
   )
 }
 
@@ -289,49 +388,6 @@ function CountUp({ value, reduced }: { value: number; reduced: boolean }) {
   }, [value, reduced])
   return <>{number.format(shown)}</>
 }
-
-// ── funnel ────────────────────────────────────────────────────────────────
-
-function Funnel({ stages, reduced }: { stages: ProjectReportData['funnel']; reduced: boolean }) {
-  const max = Math.max(1, ...stages.map((s) => s.count))
-  const grown = useGrow(reduced)
-  return (
-    <ol className="mt-4 flex flex-col gap-2">
-      {stages.map((s, i) => {
-        const prev = stages[i - 1]
-        const raw = prev && prev.count > 0 ? Math.round((s.count / prev.count) * 100) : null
-        // More than the stage before it means the earlier stage was not measured
-        // for everyone (registrations through the API, traffic counted only
-        // since a date) — not a conversion, so no number is shown.
-        const step = raw !== null && raw <= 100 ? raw : null
-        return (
-          <li key={s.key}>
-            {i > 0 ? (
-              <p className="mb-1 text-[11px] text-muted" aria-hidden="true" title={raw !== null && raw > 100 ? 'השלב הקודם לא נמדד עבור כולם' : undefined}>
-                ↓ {step === null ? '—' : `${step}%`}
-              </p>
-            ) : null}
-            <div className="relative h-10 overflow-hidden rounded-lg bg-bg">
-              <div
-                className="absolute inset-y-0 end-0 rounded-lg bg-brand/15 transition-[width] duration-700 ease-out"
-                style={{ width: grown ? `${Math.max(4, (s.count / max) * 100)}%` : '0%' }}
-              />
-              <div className="relative flex h-full items-center justify-between px-3 text-sm">
-                <span className="text-fg">
-                  {s.label}
-                  {i > 0 && step !== null ? <span className="sr-only"> — {step}% מהשלב הקודם</span> : null}
-                </span>
-                <span className="font-semibold tabular-nums text-fg">{number.format(s.count)}</span>
-              </div>
-            </div>
-          </li>
-        )
-      })}
-    </ol>
-  )
-}
-
-// ── timeline (area chart) ─────────────────────────────────────────────────
 
 function Timeline({ projectId, points, showVisits, reduced }: { projectId: string; points: ProjectReportData['timeline']['points']; showVisits: boolean; reduced: boolean }) {
   const W = 600

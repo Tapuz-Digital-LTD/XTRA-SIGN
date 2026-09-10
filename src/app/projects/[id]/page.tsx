@@ -13,7 +13,7 @@ import { cleanFollowUpConfig, taskCounts, taskCountsByKind, type TaskDef, type T
 import { runReport } from '@/server/reports/engine/query'
 import { inArray } from 'drizzle-orm'
 import { getDb, schema } from '@/server/db'
-import { listAudience, type AudienceView } from '@/server/invitations/invitations'
+import { isStuckFilter, listAudience, type AudienceView, type StuckFilter } from '@/server/invitations/invitations'
 import { ProjectSettings } from '@/components/projects/ProjectSettings'
 import { ForbiddenError, getSession } from '@/server/auth/session'
 import { listBatches } from '@/server/groups/bulk-send'
@@ -287,11 +287,36 @@ function joiningExport(projectId: string, view: JoiningView): ReportDefinition {
 }
 
 async function PeopleView({ projectId, session, query, askKind, view }: { projectId: string; session: StaffSession; query: Record<string, string | undefined>; askKind: boolean; view: 'invitations' | 'all' }) {
+  // A number on the statistics screen links here with `stuck=`; the list then
+  // holds exactly the people that number counted.
+  const stuck = isStuckFilter(query.stuck) ? query.stuck : undefined
   const [audience, due] = await Promise.all([
-    listAudience(session, projectId, { view, q: query.q, followUpDue: query.due === '1' }),
+    listAudience(session, projectId, { view, q: query.q, followUpDue: query.due === '1', stuck, includeSigned: stuck === 'submitted_not_signed' ? false : undefined }),
     listAudience(session, projectId, { followUpDue: true, limit: 200 }),
   ])
-  return <AudienceTable projectId={projectId} rows={audience.rows} counts={audience.counts} view={view} q={query.q ?? ''} askKind={askKind} dueToday={query.due === '1' ? 0 : due.total} hideViews extraParams={{ view }} />
+  return (
+    <AudienceTable
+      projectId={projectId}
+      rows={audience.rows}
+      counts={audience.counts}
+      view={view}
+      q={query.q ?? ''}
+      askKind={askKind}
+      dueToday={query.due === '1' ? 0 : due.total}
+      hideViews
+      extraParams={{ view, ...(stuck ? { stuck } : {}) }}
+      stuck={stuck ? { key: stuck, label: STUCK_LABELS[stuck], href: `/projects/${projectId}?tab=joining&view=${view}` } : null}
+    />
+  )
+}
+
+/** The same words the statistics screen uses for each of the five. */
+const STUCK_LABELS: Record<StuckFilter, string> = {
+  not_opened: 'הוזמנו ולא פתחו',
+  opened_not_submitted: 'פתחו ולא הגישו',
+  submitted_not_signed: 'הגישו ולא חתמו',
+  reminded_not_signed: 'קיבלו תזכורת ולא חתמו',
+  failed: 'תהליך שנכשל',
 }
 
 /**
