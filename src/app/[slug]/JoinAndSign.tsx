@@ -572,8 +572,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
             <label className="tj-consent">
               <input type="checkbox" checked={values.optionalExtension} onChange={(e) => setField('optionalExtension', e.target.checked)} disabled={frozen} />
               <span>
-                הרחבה אופציונלית: במידה ובית העסק יבחר בכך (על פי שיקול דעתו הבלעדי), יורשה להעניק את ההטבה לכלל פעילות שאר האזורים בארץ לאורך כל
-                חודש התיירות הישראלית (11.2026).
+                הרחבה אופציונלית: במידה ובית העסק יבחר בכך (על פי שיקול דעתו הבלעדי), יורשה להעניק את ההטבה, לאורך כל שבוע התיירות האזורי.
               </span>
             </label>
           </section>

@@ -6,11 +6,25 @@ import { readFileSync } from 'node:fs'
  * characters) and looks for each one in the text layer of the Ministry's PDF.
  * Spacing, quotes and bracket shapes are ignored — the words are not.
  *
+ * The Ministry's file is a picture: each page is one raster image, and the
+ * text layer over it is copied from the edition before, so what can be
+ * extracted may lag behind what is printed (the 2026-09-16 edition changed
+ * three regions lines and the extension clause in the picture only). A
+ * sentence the picture carries and the layer does not is listed in BY_EYE,
+ * with the date it was read off the rendered page.
+ *
  *   npx tsx scripts/qa/agreement-words.ts [path/to/agreement.pdf]
  */
 
 const PDF = process.argv[2] ?? '.design/tourism-2026/agreement-v2.pdf'
-const SOURCES = ['src/app/[slug]/JoinAndSign.tsx', 'src/app/[slug]/AgreementText.tsx']
+const SOURCES = ['src/app/[slug]/JoinAndSign.tsx', 'src/app/[slug]/AgreementText.tsx', 'src/lib/self-service-registration.ts']
+/** Printed on the page, absent from its text layer — confirmed on the rendered page 2, 2026-09-16. */
+const BY_EYE = [
+  'צפון, גליל, רמת הגולן וחיפה',
+  'אשדוד, אשקלון, ים המלח, אילת וערבה',
+  'מרכז, כרמל עד יבנה והשפלה',
+  'הרחבה אופציונלית: במידה ובית העסק יבחר בכך (על פי שיקול דעתו הבלעדי), יורשה להעניק את ההטבה, לאורך כל שבוע התיירות האזורי.',
+]
 /** The system's own sentences: about the form, not from the document. */
 const OURS = [/^ארבעה שלבים/, /^הפרטים נשמרו/, /^מולא לפי/, /^אם העסק פועל/, /^אליו יישלח/, /^חתימת מורשה/, /^לאחר החתימה/, /^אני מאשר/, /לשינוי פרטים/, /^לדוגמה/, /^מה שמילאתם/, /^יש ל/, /^אין כרגע/, /^לא הצלחנו/, /^הקוד/, /^ההרשמה שלכם/, /^סביבת בדיקה/, /נכשל/]
 
@@ -50,10 +64,11 @@ async function main() {
     // heading and its date); then every part must be there on its own.
     const parts = sentence.split(/\s[-–—:]\s/).map(squash).filter(Boolean)
     const byParts = !whole && parts.length > 1 && parts.every((part) => haystack.includes(part))
-    if (!whole && !byParts) missing++
-    console.log(`${whole ? '✓' : byParts ? '✓ (in parts)' : '✗'} ${sentence.slice(0, 90)}${sentence.length > 90 ? '…' : ''}`)
+    const byEye = !whole && !byParts && BY_EYE.some((line) => squash(line) === squash(sentence))
+    if (!whole && !byParts && !byEye) missing++
+    console.log(`${whole ? '✓' : byParts ? '✓ (in parts)' : byEye ? '✓ (by eye)' : '✗'} ${sentence.slice(0, 90)}${sentence.length > 90 ? '…' : ''}`)
   }
-  console.log(missing === 0 ? '\nevery sentence of the form is in the document' : `\n${missing} sentence(s) not found in ${PDF}`)
+  console.log(missing === 0 ? '\nevery sentence of the form is in the document' : `\n${missing} sentence(s) not found in ${PDF} — the text layer can be older than the picture: check the rendered page before trusting either`)
   process.exit(missing === 0 ? 0 : 1)
 }
 

@@ -11,9 +11,9 @@ import { normalizeIsraeliPhone } from './phone'
 /** The four regional weeks, exactly as the agreement lists them. */
 export const TOURISM_WEEKS = [
   { id: 'week_1', title: 'שבוע ראשון - ירושלים', dates: '4-7/11', regions: 'ירושלים, מטה יהודה, מעלה אדומים, צפון ים המלח, יהודה ושומרון' },
-  { id: 'week_2', title: 'שבוע שני - צפון', dates: '11-14/11', regions: 'צפון, בקעה, שומרון ומחיפה לרמת הגולן' },
-  { id: 'week_3', title: 'שבוע שלישי - דרום', dates: '18-21/11', regions: 'מאשדוד לעזה ומזרחה לים המלח, עד אילת' },
-  { id: 'week_4', title: 'שבוע רביעי - מרכז', dates: '25-28/11', regions: 'כרמל עד יבנה והשפלה' },
+  { id: 'week_2', title: 'שבוע שני - צפון', dates: '11-14/11', regions: 'צפון, גליל, רמת הגולן וחיפה' },
+  { id: 'week_3', title: 'שבוע שלישי - דרום', dates: '18-21/11', regions: 'אשדוד, אשקלון, ים המלח, אילת וערבה' },
+  { id: 'week_4', title: 'שבוע רביעי - מרכז', dates: '25-28/11', regions: 'מרכז, כרמל עד יבנה והשפלה' },
 ] as const
 
 export type TourismWeekId = (typeof TOURISM_WEEKS)[number]['id']
