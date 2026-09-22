@@ -171,6 +171,36 @@ describe('report engine', () => {
     await db.delete(schema.projectLeads).where(eq(schema.projectLeads.id, invited[0].id))
   })
 
+  /**
+   * "שם העסק המסחרי" is a box in the Ministry's agreement. Registrations
+   * made before 2026-09-22 kept it only on the agreement's frozen snapshot;
+   * newer ones carry it on the lead as well. The column reads both, so the
+   * campaign's first weeks never export as blanks.
+   */
+  it('the commercial name: from the lead, or from the agreement it filled', async () => {
+    const inCampaign = { any: [{ field: 'campaign', op: 'one_of' as const, value: [campaignId] }] }
+    const [old] = await db
+      .insert(schema.agreements)
+      .values({ organizationId: orgId, ownerId: session.userId, title: 'ישן', status: 'sent', mergeSnapshot: { values: { commercialName: 'אולמות האבירים' } } })
+      .returning({ id: schema.agreements.id })
+    const leads = await db
+      .insert(schema.projectLeads)
+      .values([
+        { organizationId: orgId, groupId: campaignId, status: 'converted', source: 'self_service', data: { name: 'החברה לפיתוח עכו' }, formSnapshot: [], agreementId: old.id },
+        { organizationId: orgId, groupId: campaignId, status: 'converted', source: 'self_service', data: { name: 'תיירות ראש הנקרה', commercialName: 'ראש הנקרה' }, formSnapshot: [] },
+      ])
+      .returning({ id: schema.projectLeads.id })
+
+    const report = await runReport(session, { entity: 'people', clauses: [inCampaign], columns: ['name', 'commercial_name'], sort: null, page: 1, pageSize: 50 })
+    const byName = Object.fromEntries(report.rows.map((r) => [r.cells.name, r.cells.commercial_name]))
+    expect(byName['החברה לפיתוח עכו']).toBe('אולמות האבירים')
+    expect(byName['תיירות ראש הנקרה']).toBe('ראש הנקרה')
+    expect(byName['מלון הצפון']).toBeNull()
+
+    for (const lead of leads) await db.delete(schema.projectLeads).where(eq(schema.projectLeads.id, lead.id))
+    await db.delete(schema.agreements).where(eq(schema.agreements.id, old.id))
+  })
+
   /*
    * Every definition a screen ships. A field that changes type — `kind` went
    * from enum to text when campaigns started naming their own tasks — makes

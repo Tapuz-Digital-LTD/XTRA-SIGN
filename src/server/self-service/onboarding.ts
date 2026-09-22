@@ -321,6 +321,7 @@ function leadData(data: RegistrationValues) {
   return {
     name: data.businessName,
     taxId: data.taxId,
+    commercialName: data.commercialName,
     contactPerson: data.contactPerson,
     contactName: data.signatoryName,
     custom_signatory_role: data.signatoryRole,
