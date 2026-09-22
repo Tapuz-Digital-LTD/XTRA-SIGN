@@ -276,7 +276,7 @@ async function JoiningTab({ projectId, session, query, askKind, audienceNoun, pu
  * "כל התהליכים" is all of them — the same three questions the chips ask.
  */
 function joiningExport(projectId: string, view: JoiningView): ReportDefinition {
-  const columns = ['name', 'phone', 'email', 'source', 'process_status', 'progress_stage', 'invited_by_name', 'assignee_name', 'follow_up_at', 'signed_at', 'last_activity_at', 'created_at']
+  const columns = ['name', 'commercial_name', 'phone', 'email', 'source', 'process_status', 'progress_stage', 'invited_by_name', 'assignee_name', 'follow_up_at', 'signed_at', 'last_activity_at', 'created_at']
   const clauses: ReportDefinition['clauses'] = [inCampaign(projectId)]
   if (view === 'invitations') {
     clauses.push({ any: [{ field: 'invited_by_us', op: 'is', value: true }] })

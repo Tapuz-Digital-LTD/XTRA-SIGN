@@ -45,6 +45,8 @@ export type RegistrationRow = {
   id: string
   createdAt: Date
   businessName: string
+  /** The name the business trades under — the document's own box for it. */
+  commercialName: string
   taxId: string
   contactName: string
   phone: string
@@ -443,7 +445,7 @@ function rowConditions(groupId: string, filters: ProjectReportFilters): SQL {
     sourceMatch(filters.source, leadUtmSource, leadReferrer),
     filters.status ? STATUS_SETS[filters.status] : sql`true`,
     filters.q
-      ? sql`(${schema.projectLeads.data}->>'name' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'businessName' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'contactName' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'taxId' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'phone' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'email' ilike ${'%' + filters.q + '%'})`
+      ? sql`(${schema.projectLeads.data}->>'name' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'businessName' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'contactName' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'taxId' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'phone' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'email' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'commercialName' ilike ${'%' + filters.q + '%'} or a.merge_snapshot->'values'->>'commercialName' ilike ${'%' + filters.q + '%'})`
       : sql`true`,
   )!
 }
@@ -482,6 +484,8 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
       agreementId: sql<string | null>`a.id`,
       agreementStatus: sql<string | null>`a.status`,
       formSnapshot: schema.projectLeads.formSnapshot,
+      // Until 2026-09-22 the trading name lived only on the agreement's snapshot.
+      snapshotCommercialName: sql<string | null>`a.merge_snapshot->'values'->>'commercialName'`,
       sentAt: sql<Date | null>`a.sent_at`,
       completedAt: sql<Date | null>`a.completed_at`,
     })
@@ -513,6 +517,7 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
       id: r.id,
       createdAt,
       businessName: text('name') || text('businessName'),
+      commercialName: text('commercialName') || (r.snapshotCommercialName ?? ''),
       taxId: text('taxId'),
       contactName: text('contactName') || text('signatoryName'),
       phone: text('phone'),
@@ -549,6 +554,7 @@ export async function buildProjectWorkbook(session: StaffSession, projectId: str
   sheet.columns = [
     { header: 'תאריך הרשמה', key: 'createdAt', width: 18 },
     { header: 'שם העסק', key: 'businessName', width: 30 },
+    { header: 'שם העסק המסחרי', key: 'commercialName', width: 26 },
     { header: 'ח.פ.', key: 'taxId', width: 12 },
     { header: 'איש קשר', key: 'contactName', width: 22 },
     { header: 'טלפון', key: 'phone', width: 14 },
@@ -566,6 +572,7 @@ export async function buildProjectWorkbook(session: StaffSession, projectId: str
     sheet.addRow({
       createdAt: fmt.format(r.createdAt),
       businessName: r.businessName,
+      commercialName: r.commercialName,
       taxId: r.taxId,
       contactName: r.contactName,
       phone: r.phone,

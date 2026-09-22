@@ -254,6 +254,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                     </span>
                     <StatusChip status={row.status} />
                   </span>
+                  {row.commercialName ? <span className="truncate text-sm text-fg">{row.commercialName}</span> : null}
                   <ProgressLine progress={row.progress} />
                   <span className="text-sm text-muted" dir="ltr">
                     {row.phone ?? row.email ?? ''}
@@ -276,11 +277,12 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                   <th className="w-10 px-2 py-3">
                     <input type="checkbox" aria-label="בחירת הכול" className="size-4" checked={selectable.length > 0 && selectable.every((r) => selected.has(r.id))} onChange={(e) => setSelected(e.target.checked ? new Set(selectable.map((r) => r.id)) : new Set())} />
                   </th>
-                  <th className="w-[24%] px-4 py-3 text-start font-medium">שם</th>
-                  {global ? <th className="w-[14%] px-4 py-3 text-start font-medium">קמפיין</th> : null}
-                  <th className="w-[14%] px-4 py-3 text-start font-medium">טלפון</th>
-                  <th className="w-[18%] px-4 py-3 text-start font-medium">סטטוס</th>
-                  <th className="w-[13%] px-4 py-3 text-start font-medium">נציג</th>
+                  <th className="w-[20%] px-4 py-3 text-start font-medium">שם</th>
+                  <th className="w-[13%] px-4 py-3 text-start font-medium">שם מסחרי</th>
+                  {global ? <th className="w-[12%] px-4 py-3 text-start font-medium">קמפיין</th> : null}
+                  <th className="w-[12%] px-4 py-3 text-start font-medium">טלפון</th>
+                  <th className="w-[16%] px-4 py-3 text-start font-medium">סטטוס</th>
+                  <th className="w-[12%] px-4 py-3 text-start font-medium">נציג</th>
                   <th className="px-4 py-3 text-start font-medium">פעילות אחרונה</th>
                   <th className="sticky end-0 w-14 bg-bg px-2 py-3"></th>
                 </tr>
@@ -298,6 +300,9 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                         {row.companyName ? ` · ${row.companyName}` : ''}
                         {row.linkingNeeded ? ' · לא שויך ב-CRM' : ''}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 text-fg" title={row.commercialName ?? undefined}>
+                      <span className="block truncate">{row.commercialName ?? '—'}</span>
                     </td>
                     {global ? (
                       <td className="px-4 py-3 text-fg">

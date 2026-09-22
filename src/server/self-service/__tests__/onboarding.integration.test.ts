@@ -210,6 +210,8 @@ describe('startSelfServiceSigning', () => {
     expect(registration.companyId).toBe(supplier.id)
     expect(registration.agreementId).toBe(agreement.id)
     expect(registration.source).toBe('self_service')
+    // The trading name travels on the registration row, not only inside the document.
+    expect((registration.data as Record<string, unknown>).commercialName).toBe('מלון הנוף')
     expect(registration.meta).toMatchObject({ utm_source: 'facebook', utm_campaign: 'nov', landing_url: 'https://x/tourism-2026' })
     expect((registration.meta as Record<string, unknown>).junk).toBeUndefined()
 

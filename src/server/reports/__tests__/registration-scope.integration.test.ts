@@ -81,4 +81,25 @@ describe('registrations vs. tracking', () => {
     // Never an English status on screen.
     for (const r of await registrationRows(groupId, {} as never, 100)) expect(/^[a-z_]+$/.test(r.statusLabel)).toBe(false)
   })
+
+  it('the commercial name: from the row, or from the agreement an older registration filled', async () => {
+    const [old] = await db
+      .insert(schema.agreements)
+      .values({ organizationId: orgId, ownerId: session.userId, title: 'ישן', status: 'sent', mergeSnapshot: { values: { commercialName: 'אולמות האבירים' } } })
+      .returning({ id: schema.agreements.id })
+    await db.insert(schema.projectLeads).values([
+      submittedRow({ data: { name: 'החברה לפיתוח עכו' }, agreementId: old.id }),
+      submittedRow({ data: { name: 'תיירות ראש הנקרה', commercialName: 'מערות הים' } }),
+    ])
+    const rows = await registrationRows(groupId, {} as never, 100)
+    expect(rows.find((r) => r.businessName === 'החברה לפיתוח עכו')?.commercialName).toBe('אולמות האבירים')
+    expect(rows.find((r) => r.businessName === 'תיירות ראש הנקרה')?.commercialName).toBe('מערות הים')
+    expect(rows.find((r) => r.businessName === 'ישיר')?.commercialName).toBe('')
+
+    // The search box finds them by that name too, wherever it is kept.
+    const found = async (q: string) => (await registrationRows(groupId, { q } as never, 100)).map((r) => r.businessName)
+    expect(await found('האבירים')).toEqual(['החברה לפיתוח עכו'])
+    expect(await found('מערות')).toEqual(['תיירות ראש הנקרה'])
+    expect(await registrationCount(groupId, { q: 'האבירים' } as never)).toBe(1)
+  })
 })

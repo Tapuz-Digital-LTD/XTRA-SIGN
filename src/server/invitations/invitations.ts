@@ -410,6 +410,8 @@ export type AudienceRow = {
   /** A direct send from the home page rather than a campaign. */
   isDirect: boolean
   name: string
+  /** The name the business trades under, from the row or from the agreement it filled. */
+  commercialName: string | null
   phone: string | null
   maskedPhone: string | null
   email: string | null
@@ -492,7 +494,7 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
   const scope = and(
     inArray(schema.projectLeads.groupId, groupIds),
     sql`${schema.projectLeads.status} <> 'pending'`,
-    like ? sql`(${schema.projectLeads.data}::text ilike ${like} or ${schema.companies.name} ilike ${like}${digits.length >= 4 ? sql` or ${schema.projectLeads.phone} like ${`%${digits.slice(-9)}%`}` : sql``})` : undefined,
+    like ? sql`(${schema.projectLeads.data}::text ilike ${like} or ${schema.companies.name} ilike ${like} or ${schema.agreements.mergeSnapshot}->'values'->>'commercialName' ilike ${like}${digits.length >= 4 ? sql` or ${schema.projectLeads.phone} like ${`%${digits.slice(-9)}%`}` : sql``})` : undefined,
     filters.rep && UUID_RE.test(filters.rep) ? or(eq(schema.projectLeads.invitedBy, filters.rep), eq(schema.projectLeads.assigneeUserId, filters.rep)) : undefined,
     filters.channel ? eq(schema.projectLeads.inviteChannel, filters.channel) : undefined,
     filters.followUpDue ? sql`${schema.projectLeads.followUpAt} <= now()` : undefined,
@@ -502,6 +504,8 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
       lead: schema.projectLeads,
       agreementStatus: schema.agreements.status,
       companyName: schema.companies.name,
+      // Until 2026-09-22 the trading name lived only on the agreement's snapshot.
+      snapshotCommercialName: sql<string | null>`${schema.agreements.mergeSnapshot}->'values'->>'commercialName'`,
     })
     .from(schema.projectLeads)
     .leftJoin(schema.agreements, eq(schema.agreements.id, schema.projectLeads.agreementId))
@@ -557,7 +561,7 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
     leadSendEvidence(leadIds),
     invitationOpenEvidence(leadIds),
   ])
-  const all: AudienceRow[] = rows.map(({ lead, agreementStatus, companyName }) => {
+  const all: AudienceRow[] = rows.map(({ lead, agreementStatus, companyName, snapshotCommercialName }) => {
     const status = processStatus(lead.status, agreementStatus)
     const last = sends.find((s) => s.leadId === lead.id || (lead.agreementId && s.agreementId === lead.agreementId)) ?? null
     const meta = (lead.meta ?? {}) as Record<string, unknown>
@@ -568,6 +572,7 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
       groupName: group.systemKey === DIRECT_SIGNING_KEY ? 'חתימה ישירה' : group.name,
       isDirect: group.systemKey === DIRECT_SIGNING_KEY,
       name: nameOf(lead.data) || companyName || '—',
+      commercialName: stringIn(lead.data, 'commercialName') || snapshotCommercialName || null,
       phone: lead.phone ?? stringIn(lead.data, 'phone'),
       maskedPhone: maskPhone(lead.phone ?? stringIn(lead.data, 'phone')) ?? null,
       email: lead.email ?? stringIn(lead.data, 'email'),

@@ -172,6 +172,10 @@ const people: EntityDef = {
   links: { company: sql`pl.company_id`, agreement: sql`pl.agreement_id`, lead: sql`pl.id`, group: sql`pl.group_id`, task: sql`lt.id` },
   fields: [
     f('name', 'שם', 'text', sql`coalesce(nullif(pl.data->>'name', ''), nullif(pl.data->>'businessName', ''), co.name)`, { defaultVisible: true }),
+    // The Ministry's document has a box for the trading name. Until 2026-09-22 a
+    // registration kept it only on the agreement's frozen snapshot; since then
+    // the lead carries it too. Both are read, so the first weeks are not blanks.
+    f('commercial_name', 'שם העסק המסחרי', 'text', sql`coalesce(nullif(pl.data->>'commercialName', ''), nullif(a.merge_snapshot->'values'->>'commercialName', ''))`),
     f('phone', 'טלפון', 'text', sql`coalesce(pl.phone, pl.data->>'phone')`, { defaultVisible: true }),
     f('email', 'אימייל', 'text', sql`coalesce(pl.email, pl.data->>'email')`),
     f('kind', 'ספק/לקוח', 'enum', sql`coalesce(pl.kind, g.kind)`, { options: opts(KIND), labels: KIND }),

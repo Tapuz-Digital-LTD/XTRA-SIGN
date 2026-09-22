@@ -37,7 +37,7 @@ const when = new Intl.DateTimeFormat('he-IL', { dateStyle: 'medium', timeStyle: 
 
 export type RegistrationDetail = {
   id: string
-  business: { name: string; taxId: string; contactName: string; role: string; phone: string; email: string; companyId: string | null }
+  business: { name: string; commercialName: string; taxId: string; contactName: string; role: string; phone: string; email: string; companyId: string | null }
   submission: { fields: { label: string; value: string }[]; registeredAt: string; source: string; utm: Utm; referrer: string | null; campaign: string | null }
   agreement: {
     id: string
@@ -80,6 +80,7 @@ export async function registrationDetail(session: StaffSession, projectId: strin
   const utm: Utm = {}
   for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'] as const) if (typeof meta[key] === 'string') utm[key] = meta[key] as string
   const source = classifySource(utm, lead.referrer)
+  let commercialName = text('commercialName')
 
   let agreement: RegistrationDetail['agreement'] = null
   let timeline: RegistrationDetail['timeline'] = [{ type: 'registered', at: lead.createdAt.toISOString(), detail: null }]
@@ -87,6 +88,9 @@ export async function registrationDetail(session: StaffSession, projectId: strin
   if (lead.agreementId) {
     const [a] = await db.select().from(schema.agreements).where(eq(schema.agreements.id, lead.agreementId)).limit(1)
     if (a) {
+      // Until 2026-09-22 the trading name lived only on the agreement's snapshot.
+      const snapshot = (a.mergeSnapshot as { values?: { commercialName?: unknown } } | null)?.values?.commercialName
+      if (!commercialName && typeof snapshot === 'string') commercialName = snapshot
       const events = await db
         .select({ type: schema.auditEvents.type, createdAt: schema.auditEvents.createdAt, metadata: schema.auditEvents.metadata })
         .from(schema.auditEvents)
@@ -120,6 +124,7 @@ export async function registrationDetail(session: StaffSession, projectId: strin
     id: lead.id,
     business: {
       name: text('name') || text('businessName'),
+      commercialName,
       taxId: text('taxId'),
       contactName: text('contactName') || text('signatoryName'),
       role: text('custom_signatory_role') || text('signatoryRole'),

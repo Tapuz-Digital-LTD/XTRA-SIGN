@@ -136,3 +136,23 @@ describe('removeInvitation', () => {
     expect(audit.some((a) => (a.metadata as { leadId?: string } | null)?.leadId === id && a.actorEmail === session.email)).toBe(true)
   })
 })
+
+describe('שם העסק המסחרי', () => {
+  it('reads the row, or the agreement an older registration filled, and finds either by search', async () => {
+    const [old] = await db
+      .insert(schema.agreements)
+      .values({ organizationId: orgId, ownerId: userId, title: 'ישן', status: 'sent', mergeSnapshot: { values: { commercialName: 'אולמות האבירים' } } })
+      .returning({ id: schema.agreements.id })
+    await lead('החברה לפיתוח עכו', { submitted: true, agreementId: old.id })
+    await db.insert(schema.projectLeads).values({ organizationId: orgId, groupId, status: 'converted', source: 'self_service', data: { name: 'תיירות ראש הנקרה', commercialName: 'מערות הים' }, formSnapshot: [{ id: 'name', label: 'שם' }] })
+
+    const rows = (await listAudience(session, groupId, { view: 'all', limit: 500 })).rows
+    expect(rows.find((r) => r.name === 'החברה לפיתוח עכו')?.commercialName).toBe('אולמות האבירים')
+    expect(rows.find((r) => r.name === 'תיירות ראש הנקרה')?.commercialName).toBe('מערות הים')
+    expect(rows.find((r) => r.name === 'הצטרף מהאתר וחתם')?.commercialName).toBeNull()
+
+    const found = async (q: string) => (await listAudience(session, groupId, { view: 'all', q, limit: 500 })).rows.map((r) => r.name)
+    expect(await found('האבירים')).toEqual(['החברה לפיתוח עכו'])
+    expect(await found('מערות')).toEqual(['תיירות ראש הנקרה'])
+  })
+})

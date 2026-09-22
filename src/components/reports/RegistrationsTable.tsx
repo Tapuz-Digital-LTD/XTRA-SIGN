@@ -325,6 +325,7 @@ export function RegistrationsTable({
                   <input type="checkbox" className="mt-1 size-4" checked={selected.has(r.id)} onChange={() => toggle(r.id)} aria-label={`בחירת ${r.businessName}`} />
                   <button type="button" onClick={() => setOpenId(r.id)} className="min-w-0 flex-1 text-start">
                     <span className="block truncate text-sm font-medium text-fg">{r.businessName || '—'}</span>
+                    {r.commercialName ? <span className="block truncate text-xs text-fg">{r.commercialName}</span> : null}
                     <span className="mt-0.5 block text-xs text-muted">
                       {r.contactName || '—'} · {dateTime.format(new Date(r.createdAt))} · {r.source.label}
                     </span>
@@ -354,11 +355,12 @@ export function RegistrationsTable({
                   <th className="w-8 py-2">
                     <input type="checkbox" className="size-4" checked={allSelected} onChange={toggleAll} aria-label="בחירת כל ההרשמות" />
                   </th>
-                  <th className="w-[24%] py-2 pe-3 text-start font-medium">עסק</th>
-                  <th className="w-[17%] py-2 pe-3 text-start font-medium">איש קשר</th>
+                  <th className="w-[20%] py-2 pe-3 text-start font-medium">עסק</th>
+                  <th className="w-[14%] py-2 pe-3 text-start font-medium">שם מסחרי</th>
+                  <th className="w-[14%] py-2 pe-3 text-start font-medium">איש קשר</th>
                   <th className="w-[14%] py-2 pe-3 text-start font-medium">סטטוס</th>
-                  <th className="w-[12%] py-2 pe-3 text-start font-medium">נרשם</th>
-                  <th className="w-[11%] py-2 pe-3 text-start font-medium">מקור</th>
+                  <th className="w-[11%] py-2 pe-3 text-start font-medium">נרשם</th>
+                  <th className="w-[10%] py-2 pe-3 text-start font-medium">מקור</th>
                   <th className="py-2 text-start font-medium">
                     <span className="sr-only">פעולות</span>
                   </th>
@@ -373,6 +375,9 @@ export function RegistrationsTable({
                     <td className="truncate py-2 pe-3 font-medium text-fg" title={r.businessName}>
                       {r.businessName || '—'}
                       {r.taxId ? <span className="ms-2 text-xs font-normal text-muted tabular-nums" dir="ltr">{r.taxId}</span> : null}
+                    </td>
+                    <td className="truncate py-2 pe-3 text-fg" title={r.commercialName}>
+                      {r.commercialName || '—'}
                     </td>
                     <td className="truncate py-2 pe-3 text-fg">{r.contactName || '—'}</td>
                     <td className="py-2 pe-3">
@@ -559,6 +564,7 @@ function RegistrationDrawer({
             <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">פרטי העסק</h4>
             {dl([
               { label: 'שם', value: detail.business.name },
+              { label: 'שם מסחרי', value: detail.business.commercialName },
               { label: 'ח.פ.', value: detail.business.taxId, dir: 'ltr' },
               { label: 'איש קשר', value: detail.business.contactName },
               { label: 'תפקיד', value: detail.business.role },
