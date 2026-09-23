@@ -72,6 +72,41 @@ export function normalizeContact(input: { phone?: unknown; email?: unknown }): {
   return { ok: true, contact: { phone, email: rawEmail || null } }
 }
 
+/** Every address a person may be reached at: the primary phone and email, and any more the rep added. */
+export type ContactPoints = { phones: string[]; emails: string[] }
+const MAX_ADDRESSES = 5
+
+/**
+ * Several phones and emails for one person, cleaned: E.164, lower-case,
+ * no duplicates, and a message that names the one that is wrong.
+ */
+export function normalizeContacts(input: { phones?: unknown; emails?: unknown }): { ok: true; points: ContactPoints } | { ok: false; message: string } {
+  const list = (v: unknown) => (Array.isArray(v) ? v : [v]).filter((x): x is string => typeof x === 'string' && x.trim() !== '')
+  const phones: string[] = []
+  for (const raw of list(input.phones)) {
+    const phone = normalizeIsraeliPhone(raw)
+    if (!phone) return { ok: false, message: `מספר הטלפון ${raw.trim()} לא תקין. הזינו מספר נייד ישראלי.` }
+    if (!phones.includes(phone)) phones.push(phone)
+  }
+  const emails: string[] = []
+  for (const raw of list(input.emails)) {
+    const email = raw.trim().toLowerCase()
+    if (!EMAIL_RE.test(email)) return { ok: false, message: `כתובת האימייל ${raw.trim()} לא תקינה.` }
+    if (!emails.includes(email)) emails.push(email)
+  }
+  if (phones.length === 0 && emails.length === 0) return { ok: false, message: 'נדרש טלפון או אימייל.' }
+  if (phones.length > MAX_ADDRESSES || emails.length > MAX_ADDRESSES) return { ok: false, message: `עד ${MAX_ADDRESSES} מספרים ו-${MAX_ADDRESSES} כתובות בהזמנה אחת.` }
+  return { ok: true, points: { phones, emails } }
+}
+
+/** The addresses a row holds: its primary phone and email, and the extra ones kept in its data. */
+export function contactPointsOf(lead: { phone: string | null; email: string | null; data: unknown }): ContactPoints {
+  const d = (lead.data && typeof lead.data === 'object' ? lead.data : {}) as { phones?: unknown; emails?: unknown }
+  const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
+  const uniq = (list: (string | null)[]) => [...new Set(list.filter((x): x is string => Boolean(x)))]
+  return { phones: uniq([lead.phone, ...strings(d.phones)]), emails: uniq([lead.email, ...strings(d.emails)]) }
+}
+
 /**
  * The internal context that holds one-off documents sent from the home
  * page. Behaves like a campaign for tracking and reports, never listed as
@@ -153,6 +188,9 @@ export type CreateInvitationInput = {
   name: string
   phone?: string | null
   email?: string | null
+  /** More addresses for the same person. The first phone and the first email (after `phone`/`email`) are the primary ones. */
+  phones?: unknown
+  emails?: unknown
   kind?: AudienceKind | null
   /** An existing supplier/customer the person belongs to, chosen by the rep. */
   companyId?: string | null
@@ -160,7 +198,7 @@ export type CreateInvitationInput = {
   agreementId?: string | null
 }
 
-export type Invitation = { id: string; name: string; contact: Contact; link: string | null; /** True when this call found the row an earlier attempt made. */ replayed?: boolean }
+export type Invitation = { id: string; name: string; contact: Contact; points: ContactPoints; link: string | null; /** True when this call found the row an earlier attempt made. */ replayed?: boolean }
 
 export function operationKey(groupId: string, operationId: string): string {
   return createHash('sha256').update(`${groupId}:op:${operationId.trim().slice(0, 120)}`).digest('hex')
@@ -170,8 +208,10 @@ export async function createInvitation(session: StaffSession, input: CreateInvit
   const group = await authorizeGroup(session, input.groupId)
   const name = input.name.replace(/\s+/g, ' ').trim().slice(0, 120)
   if (!name) return { ok: false, message: 'נדרש שם.' }
-  const normalized = normalizeContact({ phone: input.phone, email: input.email })
+  const normalized = normalizeContacts({ phones: [input.phone, ...(Array.isArray(input.phones) ? input.phones : [])], emails: [input.email, ...(Array.isArray(input.emails) ? input.emails : [])] })
   if (!normalized.ok) return normalized
+  const { points } = normalized
+  const contact: Contact = { phone: points.phones[0] ?? null, email: points.emails[0] ?? null }
   const kind = input.kind ?? (group.kind === 'customer' ? 'customer' : group.kind === 'supplier' ? 'supplier' : null)
   if (group.kind === null && !kind && !group.systemKey) return { ok: false, message: 'בחרו אם זה ספק או לקוח.' }
   const db = getDb()
@@ -182,10 +222,10 @@ export async function createInvitation(session: StaffSession, input: CreateInvit
       organizationId: session.organizationId,
       groupId: group.id,
       status: input.agreementId ? 'converted' : 'invited',
-      data: { name, phone: normalized.contact.phone, email: normalized.contact.email },
+      data: { name, phone: contact.phone, email: contact.email, ...(points.phones.length > 1 ? { phones: points.phones } : {}), ...(points.emails.length > 1 ? { emails: points.emails } : {}) },
       source: 'invitation',
-      phone: normalized.contact.phone,
-      email: normalized.contact.email,
+      phone: contact.phone,
+      email: contact.email,
       kind,
       invitedBy: session.userId,
       companyId: input.companyId ?? null,
@@ -195,11 +235,11 @@ export async function createInvitation(session: StaffSession, input: CreateInvit
     })
     .onConflictDoNothing()
     .returning({ id: schema.projectLeads.id })
-  if (inserted[0]) return { ok: true, invitation: { id: inserted[0].id, name, contact: normalized.contact, link: await invitationLink(group.id, inserted[0].id) } }
+  if (inserted[0]) return { ok: true, invitation: { id: inserted[0].id, name, contact, points, link: await invitationLink(group.id, inserted[0].id) } }
   // The same action, again (a retry, a second click): the row it already made.
   const [existing] = await db.select({ id: schema.projectLeads.id }).from(schema.projectLeads).where(and(eq(schema.projectLeads.groupId, group.id), eq(schema.projectLeads.idempotencyKey, idempotencyKey!))).limit(1)
   if (!existing) return { ok: false, message: 'ההזמנה לא נשמרה. נסו שוב.' }
-  return { ok: true, invitation: { id: existing.id, name, contact: normalized.contact, link: await invitationLink(group.id, existing.id), replayed: true } }
+  return { ok: true, invitation: { id: existing.id, name, contact, points, link: await invitationLink(group.id, existing.id), replayed: true } }
 }
 
 async function ownedLead(session: StaffSession, leadId: string) {
@@ -281,16 +321,27 @@ async function renderInvitation(session: StaffSession, groupId: string, lead: { 
 
 export type SendResult = { ok: true; sendId: string; state: 'sent' | 'duplicate' } | { ok: false; message: string; state: string; retryAfter?: number }
 
-export type SendOptions = { attemptKey?: string | null; force?: boolean }
+export type SendOptions = { attemptKey?: string | null; force?: boolean; /** One of the person's own addresses; the primary one when absent. */ to?: string | null }
 
 /**
  * SMS or email, through the dispatcher: permission, eligibility, the
  * do-not-contact list, the rate limit, the 24-hour cooldown and the
  * reservation all happen before the provider hears about it.
  */
+/** The address a send goes to: the one asked for, if it is the person's, else the primary. */
+function targetAddress(lead: { phone: string | null; email: string | null; data: unknown }, channel: 'sms' | 'email' | 'whatsapp', to: string | null | undefined): { ok: true; to: string | null } | { ok: false; message: string; state: string } {
+  if (!to) return { ok: true, to: null }
+  const cleaned = channel === 'email' ? to.trim().toLowerCase() : normalizeIsraeliPhone(to)
+  const own = channel === 'email' ? contactPointsOf(lead).emails : contactPointsOf(lead).phones
+  if (!cleaned || !own.includes(cleaned)) return { ok: false, message: 'הכתובת הזו אינה רשומה על האדם הזה.', state: 'not_eligible' }
+  return { ok: true, to: cleaned }
+}
+
 export async function sendInvitation(session: StaffSession, leadId: string, channel: 'sms' | 'email', options: SendOptions = {}): Promise<SendResult> {
   const lead = await ownedLead(session, leadId)
   if (!lead) return { ok: false, message: 'ההזמנה לא נמצאה.', state: 'not_found' }
+  const target = targetAddress(lead, channel, options.to)
+  if (!target.ok) return target
   const link = await invitationLink(lead.groupId, lead.id)
   if (!link) return { ok: false, message: 'לקמפיין אין עמוד ציבורי לשלוח אליו.', state: 'not_eligible' }
   const status = await statusOfLead(lead)
@@ -302,14 +353,15 @@ export async function sendInvitation(session: StaffSession, leadId: string, chan
     event: 'invitation',
     attemptKey: options.attemptKey,
     force: options.force,
+    to: target.to,
     render: async () => {
       const rendered = await renderInvitation(session, lead.groupId, lead, link)
       if (channel === 'sms') {
         if (!rendered.sms) throw new Error('לקמפיין אין נוסח SMS להזמנה.')
-        return { to: lead.phone!, subject: null, body: rendered.sms, variables: rendered.vars }
+        return { to: target.to ?? lead.phone!, subject: null, body: rendered.sms, variables: rendered.vars }
       }
       if (!rendered.email) throw new Error('לקמפיין אין נוסח אימייל להזמנה.')
-      return { to: lead.email!, subject: rendered.email.subject, body: rendered.email.text, html: rendered.email.html, variables: rendered.vars }
+      return { to: target.to ?? lead.email!, subject: rendered.email.subject, body: rendered.email.text, html: rendered.email.html, variables: rendered.vars }
     },
     send: (message) =>
       channel === 'sms'
@@ -346,6 +398,8 @@ export function humanSendError(error: string | undefined): string {
 export async function whatsappInvitation(session: StaffSession, leadId: string, options: SendOptions = {}): Promise<{ ok: true; sendId: string; url: string; text: string } | { ok: false; message: string; state: string }> {
   const lead = await ownedLead(session, leadId)
   if (!lead) return { ok: false, message: 'ההזמנה לא נמצאה.', state: 'not_found' }
+  const target = targetAddress(lead, 'whatsapp', options.to)
+  if (!target.ok) return target
   const link = await invitationLink(lead.groupId, lead.id)
   if (!link) return { ok: false, message: 'לקמפיין אין עמוד ציבורי לשלוח אליו.', state: 'not_eligible' }
   const status = await statusOfLead(lead)
@@ -357,14 +411,15 @@ export async function whatsappInvitation(session: StaffSession, leadId: string, 
     event: 'invitation',
     attemptKey: options.attemptKey,
     force: options.force,
+    to: target.to,
     render: async () => {
       const rendered = await renderInvitation(session, lead.groupId, lead, link)
-      return { to: lead.phone!, subject: null, body: rendered.sms ?? `שלום ${rendered.name}, מצורף קישור אישי: ${link}`, variables: rendered.vars }
+      return { to: target.to ?? lead.phone!, subject: null, body: rendered.sms ?? `שלום ${rendered.name}, מצורף קישור אישי: ${link}`, variables: rendered.vars }
     },
   }).catch((error): DispatchResultLike => ({ ok: false, state: 'failed', message: error instanceof Error ? error.message : 'השליחה נכשלה.' }))
   if (!result.ok) return { ok: false, message: result.message, state: result.state }
   await db_touch(lead.id, lead.inviteChannel ?? 'whatsapp')
-  const url = buildWhatsAppShareUrl({ recipientName: nameOf(lead.data), signingLink: link, phoneE164: lead.phone }).replace(/\?text=.*$/, `?text=${encodeURIComponent(result.body)}`)
+  const url = buildWhatsAppShareUrl({ recipientName: nameOf(lead.data), signingLink: link, phoneE164: target.to ?? lead.phone }).replace(/\?text=.*$/, `?text=${encodeURIComponent(result.body)}`)
   return { ok: true, sendId: result.sendId, url, text: result.body }
 }
 
