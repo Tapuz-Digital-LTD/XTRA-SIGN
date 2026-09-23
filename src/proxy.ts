@@ -20,6 +20,7 @@ const SHARED_ALLOW = [
   /^\/_next\//, // scripts, styles, fonts, images
   /^\/favicon\.ico/,
   /^\/(icon|apple-icon)\.png/, // the X of the wordmark, in the tab and on a home screen
+  /^\/xtra-logo\.png$/, // the wordmark in the joining page's header
   /^\/api\/self-service\//, // registration + page events
   /^\/api\/sign\//, // OTP, signature, signed file, secure download
   /^\/api\/public\//, // share images
