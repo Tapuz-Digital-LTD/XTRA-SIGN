@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { RowMenu, type RowMenuItem } from '@/components/deletion/RowMenu'
 import { Drawer } from '@/components/ui/Drawer'
 import { LinkCompanyPanel } from '@/components/invitations/LinkCompanyPanel'
+import { formatAnswer, type FormColumn } from '@/lib/form-columns'
 import { currentUrlFor, withReturnTo } from '@/lib/return-to'
 import type { ActionPlan, ActionResult, RegistrationAction, RegistrationDetail } from '@/server/reports/registration-actions'
 import type { ProjectReportData } from './ProjectReportView'
@@ -40,7 +41,7 @@ const TONE: Record<Row['statusTone'], string> = {
   bad: 'bg-red-50 text-red-800',
 }
 
-const buttonClass = 'inline-flex min-h-9 items-center justify-center rounded-lg border border-line bg-surface px-3 text-xs font-medium text-fg transition hover:border-brand disabled:opacity-50'
+const buttonClass = 'inline-flex min-h-9 items-center justify-center whitespace-nowrap rounded-lg border border-line bg-surface px-3 text-xs font-medium text-fg transition hover:border-brand disabled:opacity-50'
 const primaryClass = 'inline-flex min-h-10 items-center justify-center rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50'
 
 const TIMELINE_LABELS: Record<string, string> = {
@@ -74,6 +75,7 @@ export function RegistrationsTable({
   title = 'הרשמות בקמפיין',
   audienceNoun = 'ספק',
   publicUrl,
+  extraColumns = [],
 }: {
   projectId: string
   rows: Row[]
@@ -83,6 +85,8 @@ export function RegistrationsTable({
   audienceNoun?: 'ספק' | 'לקוח'
   /** The campaign's public page, offered from the empty state when nobody has registered yet. */
   publicUrl?: string | null
+  /** The form answers this campaign chose to show beside the name (JoiningColumns). */
+  extraColumns?: FormColumn[]
 }) {
   const router = useRouter()
   const [editing, setEditing] = useState<Row | null>(null)
@@ -209,6 +213,8 @@ export function RegistrationsTable({
       .filter((t) => t.status === 'pending' || t.status === 'in_progress')
       .map((t) => t.id)
 
+  const extras = (r: Row) => extraColumns.map((c) => ({ key: c.key, label: c.label, value: formatAnswer(c, r.answers[c.key]) }))
+
   const taskBadge = (r: Row) => (isSigned(r) ? <RowTasks projectId={projectId} tasks={tasksOf(r)} name={r.businessName} onChange={setTask} /> : null)
 
   const menuFor = (r: Row): (RowMenuItem | null)[] => [
@@ -325,7 +331,7 @@ export function RegistrationsTable({
                   <input type="checkbox" className="mt-1 size-4" checked={selected.has(r.id)} onChange={() => toggle(r.id)} aria-label={`בחירת ${r.businessName}`} />
                   <button type="button" onClick={() => setOpenId(r.id)} className="min-w-0 flex-1 text-start">
                     <span className="block truncate text-sm font-medium text-fg">{r.businessName || '—'}</span>
-                    {r.commercialName ? <span className="block truncate text-xs text-fg">{r.commercialName}</span> : null}
+                    {extras(r).some((x) => x.value) ? <span className="block truncate text-xs text-fg">{extras(r).filter((x) => x.value).map((x) => `${x.label}: ${x.value}`).join(' · ')}</span> : null}
                     <span className="mt-0.5 block text-xs text-muted">
                       {r.contactName || '—'} · {dateTime.format(new Date(r.createdAt))} · {r.source.label}
                     </span>
@@ -348,20 +354,26 @@ export function RegistrationsTable({
           </ul>
 
           {/* wider screens: the summary table */}
-          <div className="mt-3 hidden md:block">
-            <table className="w-full table-fixed text-sm">
+          <div className="mt-3 hidden overflow-x-auto md:block">
+            {/* Chosen columns widen the table rather than squeeze the fixed ones; the wrapper scrolls. */}
+            <table className="w-full table-fixed text-sm" style={{ minWidth: extraColumns.length ? 1000 + 150 * extraColumns.length : undefined }}>
               <thead>
                 <tr className="text-xs text-muted">
                   <th className="w-8 py-2">
                     <input type="checkbox" className="size-4" checked={allSelected} onChange={toggleAll} aria-label="בחירת כל ההרשמות" />
                   </th>
                   <th className="w-[20%] py-2 pe-3 text-start font-medium">עסק</th>
-                  <th className="w-[14%] py-2 pe-3 text-start font-medium">שם מסחרי</th>
+                  {extraColumns.map((c) => (
+                    <th key={c.key} className="py-2 pe-3 text-start font-medium" style={{ width: 150 }}>
+                      {c.label}
+                    </th>
+                  ))}
                   <th className="w-[14%] py-2 pe-3 text-start font-medium">איש קשר</th>
                   <th className="w-[14%] py-2 pe-3 text-start font-medium">סטטוס</th>
                   <th className="w-[11%] py-2 pe-3 text-start font-medium">נרשם</th>
                   <th className="w-[10%] py-2 pe-3 text-start font-medium">מקור</th>
-                  <th className="py-2 text-start font-medium">
+                  {/* Stays in view while chosen columns scroll the rest, like the audience table. */}
+                  <th className={`sticky end-0 bg-surface py-2 text-start font-medium${extraColumns.length ? ' w-36' : ''}`}>
                     <span className="sr-only">פעולות</span>
                   </th>
                 </tr>
@@ -376,9 +388,11 @@ export function RegistrationsTable({
                       {r.businessName || '—'}
                       {r.taxId ? <span className="ms-2 text-xs font-normal text-muted tabular-nums" dir="ltr">{r.taxId}</span> : null}
                     </td>
-                    <td className="truncate py-2 pe-3 text-fg" title={r.commercialName}>
-                      {r.commercialName || '—'}
-                    </td>
+                    {extras(r).map((x) => (
+                      <td key={x.key} className="truncate py-2 pe-3 text-fg" title={x.value}>
+                        {x.value || '—'}
+                      </td>
+                    ))}
                     <td className="truncate py-2 pe-3 text-fg">{r.contactName || '—'}</td>
                     <td className="py-2 pe-3">
                       <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${TONE[r.statusTone]}`}>{r.statusLabel}</span>
@@ -388,7 +402,7 @@ export function RegistrationsTable({
                     </td>
                     <td className="whitespace-nowrap py-2 pe-3 tabular-nums text-muted">{dateTime.format(new Date(r.createdAt))}</td>
                     <td className="truncate py-2 pe-3 text-muted">{r.source.label}</td>
-                    <td className="py-1" onClick={(e) => e.stopPropagation()}>
+                    <td className="sticky end-0 bg-surface py-1" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         {quick(r)}
                         <RowMenu items={menuFor(r)} />

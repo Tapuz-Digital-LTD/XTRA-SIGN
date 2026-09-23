@@ -1,4 +1,5 @@
 import { sql, type SQL } from 'drizzle-orm'
+import { TOURISM_FORM_COLUMNS } from '@/lib/form-columns'
 import type { StaffSession } from '@/server/auth/session'
 import { attentionForAgreements, topReason } from '@/server/attention/attention'
 import { getDb } from '@/server/db'
@@ -36,7 +37,13 @@ export async function fieldsFor(session: StaffSession, entity: ReportEntity): Pr
     group by x.id, x.label
     order by x.label
     limit 60`)).rows as { id: string; label: string; campaigns: string }[]
-  return [...base, ...rows.map((r) => formField(r.id, r.label, `רק בקמפיינים: ${r.campaigns}`))]
+  // The self-service form asks the same questions in every campaign that has a page.
+  const [branded] = (await getDb().execute(sql`
+    select string_agg(g.name, ', ' order by g.name) as campaigns
+    from groups g
+    where g.organization_id = ${session.organizationId} and g.deleted_at is null and g.landing_config->'selfService'->>'skin' is not null`)).rows as { campaigns: string | null }[]
+  const tourism = branded?.campaigns ? TOURISM_FORM_COLUMNS.map((c) => formField(c.key, c.label, `רק בקמפיינים: ${branded.campaigns}`, c.options)) : []
+  return [...base, ...tourism, ...rows.map((r) => formField(r.id, r.label, `רק בקמפיינים: ${r.campaigns}`))]
 }
 
 function fieldOf(fields: FieldDef[], key: string): FieldDef {

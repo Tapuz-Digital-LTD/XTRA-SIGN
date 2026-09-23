@@ -92,9 +92,9 @@ describe('registrations vs. tracking', () => {
       submittedRow({ data: { name: 'תיירות ראש הנקרה', commercialName: 'מערות הים' } }),
     ])
     const rows = await registrationRows(groupId, {} as never, 100)
-    expect(rows.find((r) => r.businessName === 'החברה לפיתוח עכו')?.commercialName).toBe('אולמות האבירים')
-    expect(rows.find((r) => r.businessName === 'תיירות ראש הנקרה')?.commercialName).toBe('מערות הים')
-    expect(rows.find((r) => r.businessName === 'ישיר')?.commercialName).toBe('')
+    expect(rows.find((r) => r.businessName === 'החברה לפיתוח עכו')?.answers.commercialName).toBe('אולמות האבירים')
+    expect(rows.find((r) => r.businessName === 'תיירות ראש הנקרה')?.answers.commercialName).toBe('מערות הים')
+    expect(rows.find((r) => r.businessName === 'ישיר')?.answers.commercialName).toBeUndefined()
 
     // The search box finds them by that name too, wherever it is kept.
     const found = async (q: string) => (await registrationRows(groupId, { q } as never, 100)).map((r) => r.businessName)
