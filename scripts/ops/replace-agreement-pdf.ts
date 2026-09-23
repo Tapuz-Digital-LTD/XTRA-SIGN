@@ -25,7 +25,9 @@ import { createTemplateFromPdf } from '../../src/server/templates/templates'
  *   EXPECT='a phrase that must be in the new file' \
  *   npx dotenv-cli -e .env.local -- npx tsx scripts/ops/replace-agreement-pdf.ts
  *
- * Add APPLY=1 to write; without it the script says what it would do.
+ * Add APPLY=1 to write; without it the script says what it would do. FORCE=1
+ * makes a new edition even when the campaign's file already carries the
+ * phrase — for the same file after the intake changed what it records.
  */
 
 const PROJECT_NAME = process.env.PROJECT_NAME ?? 'חודש התיירות הישראלית 2026'
@@ -33,6 +35,7 @@ const PDF = process.env.PDF ?? '.design/tourism-2026/agreement-digital.pdf'
 /** A phrase that proves the right file was handed over. */
 const EXPECT = process.env.EXPECT ?? 'מסובסדת על ידי משרד התיירות'
 const APPLY = process.env.APPLY === '1'
+const FORCE = process.env.FORCE === '1'
 
 async function main() {
   const bytes = readFileSync(PDF)
@@ -64,8 +67,8 @@ async function main() {
   if (!current) throw new Error(`template ${currentId} not found`)
 
   const currentText = current.sourceFileKey ? await extractPdfText(await getStorage().get(current.sourceFileKey)) : ''
-  if (currentText.includes(EXPECT)) {
-    console.log(`the campaign's agreement already carries "${EXPECT}" — nothing to do`)
+  if (currentText.includes(EXPECT) && !FORCE) {
+    console.log(`the campaign's agreement already carries "${EXPECT}" — nothing to do (FORCE=1 to make a new edition anyway)`)
     return
   }
 

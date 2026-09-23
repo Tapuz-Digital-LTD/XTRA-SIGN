@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react'
  * button twice, and it never covers anything: the page keeps bottom room for
  * it (tourism.css, .tl-page).
  */
-export function FloatingCta({ href, watch, formId }: { href: string; watch: string; formId: string }) {
+export function FloatingCta({ href, watch, formId, label = 'פרטים נוספים' }: { href: string; watch: string; formId: string; label?: string }) {
   const [hidden, setHidden] = useState(false)
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export function FloatingCta({ href, watch, formId }: { href: string; watch: stri
 
   return (
     <Link href={href} onClick={() => track(formId, 'join_cta_clicked')} className={`tl-float${hidden ? ' tl-float-hidden' : ''}`} aria-hidden={hidden} tabIndex={hidden ? -1 : 0}>
-      <span>מכאן מצטרפים</span>
+      <span>{label}</span>
       <span aria-hidden="true" className="tl-float-arrow">
         ←
       </span>

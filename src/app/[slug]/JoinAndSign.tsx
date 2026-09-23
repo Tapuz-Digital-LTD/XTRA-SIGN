@@ -12,7 +12,7 @@ import {
   type RegistrationValues,
   type TourismWeekId,
 } from '@/lib/self-service-registration'
-import { AgreementPreamble, AgreementSystemNote, AgreementTerms } from './AgreementText'
+import { AgreementSystemNote, AgreementTerms } from './AgreementText'
 import { track, visitId } from './track'
 import { OtpInput } from '@/components/ui/OtpInput'
 import { useCaptcha } from '@/components/captcha/useCaptcha'
@@ -22,13 +22,17 @@ import { CAPTCHA_ACTIONS, type CaptchaPublicConfig } from '@/lib/captcha'
  * Page 2 — join, read, sign.
  *
  * The agreement, as a form: every clause beside the control that answers it,
- * in the document's own words and order, in four short steps —
+ * in the document's own words and order, in two steps —
  *
- *   1  פרטי בית העסק     who is joining
- *   2  פרטי ההטבה        what they give, and how a customer redeems it
- *   3  תקופת ההתחייבות   which regional week, and the optional extension
- *   4  אישור וחתימה      what they filled in, the terms, the declarations,
- *                        the signatory, the signature — then "חתום ושלח"
+ *   1  פרטי בית העסק וההטבה   who is joining, what they give and how a
+ *                             customer redeems it, which regional week
+ *                             and the optional extension
+ *   2  אישור וחתימה           what they filled in, the terms, the
+ *                             declarations, the signatory, the signature —
+ *                             then "חתום ושלח"
+ *
+ * What the project is — the story a visitor needs before any of this — is
+ * the explainer page before the form (about/page.tsx), not a paragraph here.
  *
  * Pressing it registers the business (supplier, project, agreement and
  * signing link are created behind the scenes) and the page turns into the
@@ -42,18 +46,16 @@ import { CAPTCHA_ACTIONS, type CaptchaPublicConfig } from '@/lib/captcha'
  * is no server-side draft to keep them in.
  *
  * `resume` is the same page reached from the SMS or the email after the
- * browser was closed: details locked by the server, straight to step 4.
+ * browser was closed: details locked by the server, straight to step 2.
  */
 
-const FORM_VERSION = '2026-09-09.1'
+const FORM_VERSION = '2026-09-23.1'
 /** The engine's consent wording — the same sentence the standard signer shows. */
 const CONSENT_TEXT = 'אני מאשר/ת שקראתי את המסמך ושחתימתי ניתנת על ידי מרצוני.'
 
-/** The four steps, and which of the agreement's answers each one asks for. */
+/** The two steps, and which of the agreement's answers each one asks for. */
 const STEPS = [
-  { key: 'business', title: 'פרטי בית העסק', fields: ['businessName', 'taxId', 'commercialName', 'email', 'contactPerson', 'phone'] },
-  { key: 'benefit', title: 'פרטי ההטבה', fields: ['benefit1', 'benefit2', 'benefit3', 'benefitNotes', 'redemption', 'couponCode'] },
-  { key: 'week', title: 'תקופת ההתחייבות', fields: ['week', 'optionalExtension'] },
+  { key: 'details', title: 'פרטי בית העסק וההטבה', fields: ['businessName', 'taxId', 'commercialName', 'email', 'contactPerson', 'phone', 'benefit1', 'benefit2', 'benefit3', 'benefitNotes', 'redemption', 'couponCode', 'week', 'optionalExtension'] },
   { key: 'sign', title: 'אישור וחתימה', fields: ['declareLicense', 'declareInsurance', 'signatoryName', 'signatoryRole'] },
 ] as const satisfies readonly { key: string; title: string; fields: readonly RegistrationField[] }[]
 const LAST = STEPS.length - 1
@@ -223,8 +225,8 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
-  /** Move to a step and bring its top into view — the heading, not the field. */
-  function goTo(next: number) {
+  /** Move to a step and bring its top into view — the heading, not the field; or a card of it, from the summary's "עריכה". */
+  function goTo(next: number, anchor?: string) {
     let current = values
     if (next === LAST && mode === 'new' && !values.signatoryName.trim() && values.contactPerson.trim()) {
       current = { ...values, signatoryName: values.contactPerson }
@@ -233,7 +235,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
     setStage(next)
     setMessage(null)
     if (mode === 'new') writeDraft(formId, { values: current, stage: next })
-    requestAnimationFrame(() => stepRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    requestAnimationFrame(() => ((anchor ? document.getElementById(anchor) : null) ?? stepRef.current)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }
 
   /** "המשך": this step's own answers, on the server's rules; nothing typed is touched. */
@@ -439,11 +441,11 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
   return (
     <div className="tj-flow">
       <section className="tj-intro">
-        <h1 className="tj-h1">הצטרפות ל{projectName}</h1>
+        <h1 className="tj-h1">הסכם לחתימת בית העסק</h1>
         <p className="tj-lead">
           {lockedMode
             ? 'הפרטים נשמרו בהרשמה. נשארו החתימה והקוד שנשלח לנייד.'
-            : 'ארבעה שלבים קצרים: פרטי בית העסק, ההטבה, שבוע התיירות, ואישור וחתימה. אפשר לחזור ולתקן בכל שלב. כל השדות חובה, אלא אם צוין אחרת.'}
+            : `הצטרפות ל${projectName} בשני שלבים קצרים: פרטי בית העסק וההטבה, ואישור וחתימה. אפשר לחזור ולתקן. כל השדות חובה, אלא אם צוין אחרת.`}
         </p>
       </section>
 
@@ -479,7 +481,6 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
 
         {stage === 0 ? (
           <>
-          <AgreementPreamble />
           <section className="tj-card" aria-labelledby="tj-business-heading">
             <h2 id="tj-business-heading" className="tj-h2">פרטי בית העסק</h2>
             <div className="tj-fields">
@@ -494,10 +495,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
               בית העסק מביע בזאת את רצונו להצטרף כבית עסק משתתף במסגרת פרויקט &quot;חודש התיירות הישראלית&quot; שיתקיים בחודש נובמבר 2026
             </p>
           </section>
-          </>
-        ) : null}
 
-        {stage === 1 ? (
           <section className="tj-card" aria-labelledby="tj-benefit-heading">
             <h2 id="tj-benefit-heading" className="tj-h2">פרטי ההטבה</h2>
             <p className="tj-clause tj-clause-lead">
@@ -542,9 +540,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
               ) : null}
             </fieldset>
           </section>
-        ) : null}
 
-        {stage === 2 ? (
           <section className="tj-card" aria-labelledby="tj-week-heading">
             <h2 id="tj-week-heading" className="tj-h2">תקופת ההתחייבות</h2>
             <p className="tj-clause tj-clause-lead">
@@ -579,11 +575,12 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
               </span>
             </label>
           </section>
+          </>
         ) : null}
 
         {stage === LAST ? (
           <>
-            {!lockedMode ? <Summary values={values} onEdit={goTo} /> : null}
+            {!lockedMode ? <Summary values={values} onEdit={(anchor) => goTo(0, anchor)} /> : null}
 
             <section className="tj-card" aria-labelledby="tj-terms-heading">
               <h2 id="tj-terms-heading" className="tj-h2">תנאים והגבלות למימוש ההטבה</h2>
@@ -718,15 +715,15 @@ function keepNumbers(text: string): string {
   return text.replace(/(\d[\d.,]*%)/g, '\u200e$1\u200e')
 }
 
-function Summary({ values, onEdit }: { values: FormValues; onEdit: (stage: number) => void }) {
+function Summary({ values, onEdit }: { values: FormValues; onEdit: (anchor: string) => void }) {
   const week = TOURISM_WEEKS.find((w) => w.id === values.week)
   const redemption =
     values.redemption === 'generic_xtra25' ? 'קוד גנרי XTRA25' : values.redemption === 'business_pos_code' ? `קוד קופון על פי קופת בית העסק · ${values.couponCode || '—'}` : '—'
   const benefits = [values.benefit1, values.benefit2, values.benefit3].filter(Boolean)
-  const rows: { stage: number; title: string; items: [string, string][] }[] = [
+  const rows: { anchor: string; title: string; items: [string, string][] }[] = [
     {
-      stage: 0,
-      title: STEPS[0].title,
+      anchor: 'tj-business-heading',
+      title: 'פרטי בית העסק',
       items: [
         [REGISTRATION_LABELS.businessName, values.businessName || '—'],
         [REGISTRATION_LABELS.taxId, values.taxId || '—'],
@@ -737,8 +734,8 @@ function Summary({ values, onEdit }: { values: FormValues; onEdit: (stage: numbe
       ],
     },
     {
-      stage: 1,
-      title: STEPS[1].title,
+      anchor: 'tj-benefit-heading',
+      title: 'פרטי ההטבה',
       items: [
         ['סוג ההטבה', benefits.length ? benefits.map((b, i) => `${i + 1}. ${b}`).join(' · ') : '—'],
         ...(values.benefitNotes ? ([[REGISTRATION_LABELS.benefitNotes, values.benefitNotes]] as [string, string][]) : []),
@@ -746,8 +743,8 @@ function Summary({ values, onEdit }: { values: FormValues; onEdit: (stage: numbe
       ],
     },
     {
-      stage: 2,
-      title: STEPS[2].title,
+      anchor: 'tj-week-heading',
+      title: 'תקופת ההתחייבות',
       items: [
         [REGISTRATION_LABELS.week, week ? `${week.title} · ${week.dates}` : '—'],
         [REGISTRATION_LABELS.optionalExtension, values.optionalExtension ? 'כן' : 'לא'],
@@ -760,10 +757,10 @@ function Summary({ values, onEdit }: { values: FormValues; onEdit: (stage: numbe
         מה שמילאתם
       </h2>
       {rows.map((group) => (
-        <div key={group.stage} className="tj-summary-group">
+        <div key={group.anchor} className="tj-summary-group">
           <div className="tj-summary-head">
             <h3>{group.title}</h3>
-            <button type="button" className="tj-summary-edit" onClick={() => onEdit(group.stage)}>
+            <button type="button" className="tj-summary-edit" onClick={() => onEdit(group.anchor)}>
               עריכה
             </button>
           </div>

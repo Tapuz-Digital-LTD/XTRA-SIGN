@@ -1,10 +1,11 @@
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import postgres from 'postgres'
 import puppeteer, { type Browser, type Page } from 'puppeteer-core'
 import { PDFDocument } from 'pdf-lib'
 import { extractPdfText } from '../../src/server/crm/__tests__/pdf-text'
 import { TOURISM_WEEKS } from '../../src/lib/self-service-registration'
 import { renderPdf, ink, type Box } from './render-pdf'
+import { buttonKey, buttonWidgetBoxes } from '../../src/server/documents/acroform'
 
 /**
  * The whole public journey in a real browser against a server with log-only
@@ -62,8 +63,19 @@ function scenarios(): Scenario[] {
  */
 const box = (xPt: number, yTopPt: number, wPt = 14, hPt = 14): Box => ({ x: xPt / 595, y: yTopPt / 842, w: wPt / 595, h: hPt / 842 })
 const WEEK_MARKS: Record<Week, Box> = { week_1: box(310, 205), week_2: box(55, 205), week_3: box(310, 262), week_4: box(55, 262) }
-const REDEMPTION_MARKS: Record<Redemption, Box> = { generic_xtra25: box(539, 842 - 244, 11, 11), business_pos_code: box(539, 842 - 214, 11, 11) }
-const EXTENSION_MARK = box(541, 842 - 546, 11, 11)
+// The coupon radios and the extension checkbox: the 2026-09-16 edition's places, or
+// read off the edition under test (E2E_TEMPLATE_PDF=path/to/the-unflattened.pdf).
+let REDEMPTION_MARKS: Record<Redemption, Box> = { generic_xtra25: box(539, 842 - 244, 11, 11), business_pos_code: box(539, 842 - 214, 11, 11) }
+let EXTENSION_MARK = box(541, 842 - 546, 11, 11)
+async function marksFromTemplate() {
+  const file = process.env.E2E_TEMPLATE_PDF
+  if (!file) return
+  const boxes = await buttonWidgetBoxes(readFileSync(file))
+  const of = (key: string): Box => { const b = boxes[key]; if (!b) throw new Error(`${file} has no ${key}`); return { x: b.x, y: b.y, w: b.width, h: b.height } }
+  REDEMPTION_MARKS = { generic_xtra25: of(buttonKey('redemption_method', 'generic_xtra25')), business_pos_code: of(buttonKey('redemption_method', 'business_pos_code')) }
+  EXTENSION_MARK = of(buttonKey('optional_extension', 'Yes'))
+  console.log(`tick boxes read off ${file}`)
+}
 
 const sql = postgres(DB, { max: 1 })
 
@@ -115,16 +127,25 @@ async function journey(browser: Browser, sc: Scenario, first: boolean) {
     check('share link opened the protected preview', page.url().startsWith(BASE), page.url())
   }
 
-  // ── Page 1 → Page 2 ────────────────────────────────────────────────────
+  // ── Page 1 → the explainer → Page 2 ────────────────────────────────────
   // Another version of the call (E2E_LANDING_QUERY=hotel=true, with its own
-  // button, E2E_CTA=a.th-cta) must land on the very same joining page.
+  // button, E2E_CTA=a.th-cta) must land on the very same explainer and form.
   await page.goto(`${BASE}/tourism-2026?utm_source=e2e&utm_campaign=local${LANDING_QUERY ? `&${LANDING_QUERY}` : ''}`, { waitUntil: 'networkidle0', timeout: 60000 })
   if (first) {
     const ctaHref = await page.$eval(CTA, (a) => (a as HTMLAnchorElement).getAttribute('href'))
-    check('Page 1 CTA carries the campaign query to the joining page', ctaHref === '/tourism-2026/join?utm_source=e2e&utm_campaign=local', String(ctaHref))
+    check('Page 1 CTA carries the campaign query to the explainer', ctaHref === '/tourism-2026/about?utm_source=e2e&utm_campaign=local', String(ctaHref))
   }
   await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 60000 }), page.click(CTA)])
+  check('landed on /tourism-2026/about', page.url().includes('/tourism-2026/about'), page.url())
+  if (first) {
+    const aboutHref = await page.$eval('a.tj-about-button', (a) => (a as HTMLAnchorElement).getAttribute('href'))
+    check('the explainer carries the same query on to the joining page', aboutHref === '/tourism-2026/join?utm_source=e2e&utm_campaign=local', String(aboutHref))
+    const about = await page.$eval('main', (m) => m.textContent ?? '')
+    check('the explainer names the four weeks, the contact and no field', about.includes('ארבעת השבועות') && about.includes('050-5323298') && !about.includes('לילך') && (await page.$$('main input, main textarea, main select')).length === 0)
+  }
+  await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 60000 }), page.click('a.tj-about-button')])
   check('landed on /tourism-2026/join', page.url().includes('/tourism-2026/join'), page.url())
+  if (first) check('the agreement screen opens on its own heading, without the preamble', await page.$eval('h1', (h) => h.textContent?.trim() === 'הסכם לחתימת בית העסק') && !(await page.$eval('main', (m) => m.textContent?.includes('יוזמה לאומית') ?? false)))
   // Each run is a new business: no draft from the last one.
   await page.evaluate(() => sessionStorage.clear())
   await page.reload({ waitUntil: 'networkidle0' })
@@ -145,11 +166,8 @@ async function journey(browser: Browser, sc: Scenario, first: boolean) {
   await page.type('#tj-email', email)
   await page.type('#tj-contactPerson', contact)
   await page.type('#tj-phone', `${phone.slice(0, 3)}-${phone.slice(3)}`)
-  await shot('step1')
-  await next('#tj-benefit1')
-  check('step 2 reached', (await stepNow()).includes('שלב 2'))
 
-  // ── Step 2: the benefit ────────────────────────────────────────────────
+  // ── Still step 1: the benefit ──────────────────────────────────────────
   const benefit1 = await page.$eval('#tj-benefit1', (el) => (el as HTMLInputElement).value)
   check('benefit 1 starts at the minimum, "25% הנחה"', benefit1 === '25% הנחה', benefit1)
   await page.type('#tj-benefit1', ' על לינה')
@@ -161,23 +179,23 @@ async function journey(browser: Browser, sc: Scenario, first: boolean) {
   } else {
     check('no coupon number asked on the generic path', (await page.$('#tj-couponCode')) === null)
   }
-  await shot('step2')
-  await next('#tj-week')
 
-  // ── Step 3: the week ───────────────────────────────────────────────────
+  // ── Still step 1: the week ─────────────────────────────────────────────
   if (first) {
+    // Everything else is filled: "המשך" now names only the week, and stays.
     await page.click('.tj-actions button[type=submit]')
     await page.waitForSelector('#tj-week-error', { timeout: 5000 })
-    check('a week is required, said next to the choice', (await stepNow()).includes('שלב 3'))
+    check('a week is required, said next to the choice, still on step 1', (await stepNow()).includes('שלב 1'))
   }
   await page.click(`input[name=week][value=${sc.week}]`)
   const extension = 'input[type=checkbox]'
   check('the extension starts ticked', await page.$eval(extension, (el) => (el as HTMLInputElement).checked))
   if (!sc.extension) await page.click(extension)
-  await shot('step3')
+  await shot('step1')
   await next('canvas.tj-pad')
+  check('step 2 reached', (await stepNow()).includes('שלב 2 מתוך 2'))
 
-  // ── Step 4: summary, terms, declarations, signatory, signature ─────────
+  // ── Step 2: summary, terms, declarations, signatory, signature ─────────
   const signatory = await page.$eval('#tj-signatoryName', (el) => (el as HTMLInputElement).value)
   check('signatory pre-filled from the contact person', signatory === contact, signatory)
   check('both declarations start ticked', await page.$$eval('#tj-declareLicense, #tj-declareInsurance', (els) => els.every((e) => (e as HTMLInputElement).checked)))
@@ -185,13 +203,18 @@ async function journey(browser: Browser, sc: Scenario, first: boolean) {
   const summary = await page.$eval('.tj-summary', (el) => el.textContent ?? '')
   check('summary names the business, the week and the coupon path', summary.includes(business) && summary.includes(weekTitle) && (sc.redemption === 'business_pos_code' ? summary.includes(coupon) : summary.includes('XTRA25')))
   if (first) {
-    // "עריכה" goes back to step 1 with everything kept, and three "המשך" return here.
-    await page.click('.tj-summary-edit')
+    // "עריכה" goes back to step 1 with everything kept — the business, the benefit
+    // and the week alike — and one "המשך" returns here.
+    // Clicks in the DOM: the page is still scrolling smoothly to the step, and a pointer click can land beside a moving button.
+    await page.$eval('.tj-summary-edit', (b) => (b as HTMLButtonElement).click())
     await page.waitForSelector('#tj-businessName', { timeout: 5000 })
-    const kept = await page.$eval('#tj-businessName', (el) => (el as HTMLInputElement).value)
-    check('edit from the summary returns to step 1 with the value kept', kept === business)
-    await next('#tj-benefit1')
-    await next('#tj-week')
+    const kept = await page.evaluate(() => ({ business: (document.getElementById('tj-businessName') as HTMLInputElement).value, benefit: (document.getElementById('tj-benefit1') as HTMLInputElement).value, week: (document.querySelector('input[name=week]:checked') as HTMLInputElement | null)?.value }))
+    check('edit from the summary returns to step 1 with every value kept', kept.business === business && kept.benefit.includes('25% הנחה') && kept.benefit.includes('על לינה') && kept.week === sc.week, JSON.stringify(kept))
+    await next('canvas.tj-pad')
+    // And "חזרה" from step 2, then "המשך" again: still nothing lost.
+    await page.$eval('.tj-back', (b) => (b as HTMLButtonElement).click())
+    await page.waitForSelector('#tj-businessName', { timeout: 5000 })
+    check('back from step 2 keeps the values too', (await page.$eval('#tj-businessName', (el) => (el as HTMLInputElement).value)) === business)
     await next('canvas.tj-pad')
   }
   await page.type('#tj-signatoryRole', 'מנכ"ל')
@@ -213,7 +236,7 @@ async function journey(browser: Browser, sc: Scenario, first: boolean) {
   await page.mouse.up()
   check('signature registered on the pad', (await page.$eval('.tj-pad-clear', (b) => (b as HTMLButtonElement).disabled)) === false)
   await page.click('.tj-consent input[type=checkbox]:not(#tj-declareLicense):not(#tj-declareInsurance)')
-  await shot('step4')
+  await shot('step2')
 
   // Double click: one registration.
   await page.click('.tj-actions button[type=submit]')
@@ -316,6 +339,7 @@ async function journey(browser: Browser, sc: Scenario, first: boolean) {
 }
 
 async function main() {
+  await marksFromTemplate()
   mkdirSync(OUT, { recursive: true })
   const browser = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true })
   const list = scenarios()

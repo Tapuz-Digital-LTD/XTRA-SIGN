@@ -493,7 +493,9 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* One segment per step, however many the form has. */
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   gap: 6px;
 }
 
@@ -992,5 +994,67 @@
   }
   .tj-summary-row dt {
     font-size: 15.5px;
+  }
+}
+
+/* ── the explainer (about/page.tsx) ──────────────────────────────────────
+   The same cards as the form, with the four weeks laid side by side and one
+   button at the end. */
+
+.tj-about-p {
+  margin-top: 12px;
+}
+
+.tj-about-p:first-of-type {
+  margin-top: calc(var(--tj-block-gap) * -1 + 6px);
+}
+
+.tj-about-weeks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.tj-about-week {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1.5px solid var(--tl-line);
+  background: #fff;
+}
+
+.tj-about-contact {
+  margin: var(--tj-block-gap) 0 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #1c3550;
+}
+
+.tj-about-contact a {
+  color: var(--tl-cyan-deep);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.tj-about-button {
+  margin-top: var(--tj-block-gap);
+  width: 100%;
+}
+
+@media (max-width: 859.98px) {
+  .tj-about-weeks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 559.98px) {
+  .tj-about-weeks {
+    grid-template-columns: 1fr;
   }
 }

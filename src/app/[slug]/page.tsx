@@ -5,7 +5,7 @@ import { skinByKey } from '@/lib/self-service-skins'
 import { getSession } from '@/server/auth/session'
 import { FloatingCta } from './FloatingCta'
 import { HotelCall } from './HotelCall'
-import { campaignProject, type SearchParams } from './resolve'
+import { campaignProject, carriedHref, type SearchParams } from './resolve'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +27,8 @@ export const dynamic = 'force-dynamic'
  * Two things the paper cannot do, the page does: the printed QR sends people
  * to a form of the Ministry's producer, and here it carries this campaign's
  * own address (public/tourism-2026/qr.svg); and the signpost is a link to
- * the joining page instead of an instruction to scan.
+ * the explainer page — what the project is, before the form — instead of an
+ * instruction to scan.
  *
  * Under 860px the same pieces stack in reading order, the landscape becomes
  * the header image, and the joining card grows a full-width button.
@@ -72,17 +73,6 @@ function Lines({ lines }: { lines: string[] }) {
   )
 }
 
-/**
- * What travels from the poster to the joining page on the link.
- *
- * `xs_inv` is the personal invitation the visitor arrived through, and it
- * matters more than any of the rest: the joining form reads these off its own
- * address, so a key dropped here is a registration that cannot be tied back
- * to the invitation that produced it — a second row for one person, and an
- * invitation left reading "הוזמן" after they signed.
- */
-const CARRIED_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'xs_inv'] as const
-
 export default async function TourismCallPage({
   params,
   searchParams,
@@ -95,12 +85,8 @@ export default async function TourismCallPage({
   const preview = query.preview === 'ended' || query.preview === 'paused' ? (query.preview as 'ended' | 'paused') : null
   const closed = project.closed ?? (preview && (await getSession()) ? preview : null)
   if (closed) return <ClosedView slug={slug} state={closed} campaignName={project.projectName} message={project.endedMessage} logoSrc={`${skinByKey(project.config.skin)?.assetsPath ?? ''}/logo.webp`} website={project.orgWebsite} />
-  const carried = new URLSearchParams()
-  for (const key of CARRIED_KEYS) {
-    const value = query[key]
-    if (typeof value === 'string' && value.trim()) carried.set(key, value.trim().slice(0, 200))
-  }
-  const joinHref = carried.size > 0 ? `/${slug}/join?${carried}` : `/${slug}/join`
+  // Every version of the call leads to the same explainer, and from there to the same form.
+  const joinHref = carriedHref(slug, 'about', query)
 
   // The hotels' version of the call: another look, the same form on the same address.
   if (query.hotel === 'true') return <HotelCall formId={project.formId} joinHref={joinHref} />
@@ -178,10 +164,10 @@ export default async function TourismCallPage({
               <p className="tl-deadline">{DEADLINE}</p>
             </div>
           </div>
-          <CtaLink formId={project.formId} href={joinHref} className="tl-cta" aria-label="מכאן מצטרפים — להרשמה ולחתימה על הסכם ההצטרפות">
+          <CtaLink formId={project.formId} href={joinHref} className="tl-cta" aria-label="פרטים נוספים — על המיזם, ומשם להרשמה ולחתימה על ההסכם">
             <img src="/tourism-2026/signpost.webp" alt="" width={269} height={205} />
             <span className="tl-cta-label" aria-hidden="true">
-              מכאן מצטרפים
+              פרטים נוספים
               <span className="tl-cta-arrow">←</span>
             </span>
           </CtaLink>

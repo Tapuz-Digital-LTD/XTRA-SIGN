@@ -10,6 +10,7 @@ import { createCompany } from '@/server/companies/companies'
 import { getDb, schema } from '@/server/db'
 import { authorizeAgreementAccess } from '@/server/documents/authorization'
 import { cancelAgreement } from '@/server/documents/lifecycle'
+import { buttonKey } from '@/server/documents/acroform'
 import { loadFields, saveFields, saveRecipient } from '@/server/documents/save-fields'
 import {
   deliverSigningLink,
@@ -658,6 +659,9 @@ async function fillFromRegistration(session: StaffSession, agreementId: string, 
   }
 
   const fields = await loadFields(agreement.currentVersionId)
+  // The document's own coupon radios and extension checkbox, when the intake
+  // recorded them (buttonKey): the chosen ones are ticked in place.
+  const ticked = (key: string) => key === buttonKey('redemption_method', data.redemption) || (data.optionalExtension && key.startsWith(buttonKey('optional_extension', '')))
   const filled = fields.map((field) =>
     field.variableKey && values[field.variableKey] !== undefined
       ? // The intake marks every box as ours and required. What the form was
@@ -666,8 +670,11 @@ async function fillFromRegistration(session: StaffSession, agreementId: string, 
         // empty too — validateRegistration is the gate for what must be there,
         // and an empty optional box must not stop the file from being sent.
         { ...field, ownedBy: 'sender' as const, value: values[field.variableKey], required: values[field.variableKey].trim().length > 0 }
-      : field,
+      : field.type === 'checkbox' && field.variableKey && ticked(field.variableKey)
+        ? { ...field, value: 'true' }
+        : field,
   )
+  const hasOwn = (prefix: string) => fields.some((f) => f.variableKey?.startsWith(prefix))
   const unmatched = Object.keys(values).filter((key) => !fields.some((f) => f.variableKey === key))
   if (unmatched.length > 0) log.warn('self-service template lacks boxes for', { agreementId, unmatched })
 
@@ -689,12 +696,13 @@ async function fillFromRegistration(session: StaffSession, agreementId: string, 
   const marks: PlacedField[] = []
   if (week && pages >= WEEK_MARK_PAGE) marks.push(mark(`week-${week.id}`, 'שבוע התיירות האזורי', WEEK_MARK_PAGE, WEEK_MARKS[week.id]))
   // The coupon choice and the extension are printed as a radio pair and a
-  // checkbox. The intake keeps them as drawn and never makes fields of them
-  // (a box drawn in a document is a statement, not a question), so the
-  // chosen one is ticked here, over its own printed box.
+  // checkbox. The intake keeps them as drawn — a box drawn in a document is a
+  // statement, not a question — and, since September 2026, records where
+  // they are (ticked above). The 2026-09-16 edition was intaken before that.
+  // An edition intaken before its boxes were kept is ticked at the measured places.
   const coupon = REDEMPTION_MARKS[data.redemption]
-  if (coupon && pages >= coupon.page) marks.push(mark(`redemption-${data.redemption}`, 'קוד קופון / מימוש', coupon.page, coupon))
-  if (data.optionalExtension && pages >= EXTENSION_MARK.page) marks.push(mark('optional-extension', 'הרחבה אופציונלית', EXTENSION_MARK.page, EXTENSION_MARK))
+  if (coupon && pages >= coupon.page && !hasOwn(buttonKey('redemption_method', ''))) marks.push(mark(`redemption-${data.redemption}`, 'קוד קופון / מימוש', coupon.page, coupon))
+  if (data.optionalExtension && pages >= EXTENSION_MARK.page && !hasOwn(buttonKey('optional_extension', ''))) marks.push(mark('optional-extension', 'הרחבה אופציונלית', EXTENSION_MARK.page, EXTENSION_MARK))
   const marked = [...filled, ...marks]
 
   const saved = await saveFields({ session, agreementId, fields: marked })

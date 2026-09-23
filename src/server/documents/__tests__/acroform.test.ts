@@ -73,6 +73,35 @@ describe('intakeAcroForm', () => {
     expect(date.autoFill).toBe(true)
   })
 
+  it('keeps where the printed radios and checkboxes are, keyed by name and state, as unvalued checkbox fields', async () => {
+    // A form of our own: a text box, a radio pair and a checkbox at known places.
+    const pdf = await PDFDocument.create()
+    const page = pdf.addPage([595, 842])
+    const form = pdf.getForm()
+    form.createTextField('name').addToPage(page, { x: 55, y: 700, width: 200, height: 17 })
+    const choice = form.createRadioGroup('redemption_method')
+    choice.addOptionToPage('generic_xtra25', page, { x: 539, y: 233, width: 11, height: 11 })
+    choice.addOptionToPage('business_pos_code', page, { x: 539, y: 203, width: 11, height: 11 })
+    form.createCheckBox('optional_extension').addToPage(page, { x: 541, y: 535, width: 11, height: 11 })
+    const bytes = Buffer.from(await pdf.save())
+
+    const { pages } = await readPdfGeometry(bytes)
+    const { fields, flattened } = (await intakeAcroForm(bytes, pages))!
+    expect(fields.map((f) => f.variableKey)).toEqual(['name', 'redemption_method__generic_xtra25', 'redemption_method__business_pos_code', 'optional_extension__yes'])
+    const generic = fields.find((f) => f.variableKey === 'redemption_method__generic_xtra25')!
+    expect(generic.type).toBe('checkbox')
+    expect(generic.ownedBy).toBe('sender')
+    expect(generic.required).toBe(false)
+    expect(generic.value).toBeNull()
+    // pdf-lib draws its radios half a point wider than asked; the box is the widget's, to the point.
+    expect(generic.x).toBeCloseTo(539 / 595, 2)
+    expect(generic.y).toBeCloseTo((842 - 244) / 842, 2)
+    expect(generic.width).toBeCloseTo(11 / 595, 2)
+    expect(fields.find((f) => f.variableKey === 'optional_extension__yes')!.y).toBeCloseTo((842 - 546) / 842, 2)
+    // The widgets are gone from the file; the boxes were drawn into the page.
+    expect((await PDFDocument.load(flattened)).getForm().getFields()).toHaveLength(0)
+  })
+
   it('flattens the form without changing the page', async () => {
     const { pages } = await readPdfGeometry(FIXTURE)
     const { flattened } = (await intakeAcroForm(FIXTURE, pages))!

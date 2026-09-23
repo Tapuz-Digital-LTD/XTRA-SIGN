@@ -7,22 +7,6 @@
  * note that is the system's rather than the document's.
  */
 
-/**
- * The document's title and its opening paragraph — the first thing on the
- * Ministry's page, before any blank to fill. Read only: nothing here is
- * typed, and nothing here reaches the PDF, which already carries it.
- */
-export function AgreementPreamble() {
-  return (
-    <section className="tj-card" aria-labelledby="tj-agreement-heading">
-      <h2 id="tj-agreement-heading" className="tj-h2">הסכם לחתימת בית העסק</h2>
-      <p className="tj-clause">
-        חודש התיירות הישראלית הוא יוזמה לאומית של משרד התיירות בהפקת חברת בנדה הפקות, שמטרתה לחשוף את הקהל הרחב לעושר התרבותי, ההיסטורי והנופי של ישראל. במהלך החודש יתקיימו מאות סיורים ופעילויות ברחבי הארץ במחירים מסובסדים, במטרה לעודד תיירות פנים ולחזק את עסקי התיירות המקומיים. כל שבוע מוקדש לאזור אחר בארץ, והפעילויות מתקיימות מיום רביעי עד שבת.
-      </p>
-    </section>
-  )
-}
-
 /** "תנאים והגבלות למימוש ההטבה" — the five terms, word for word. */
 export function AgreementTerms() {
   return (
