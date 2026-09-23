@@ -42,7 +42,7 @@ const html = `<!doctype html><html dir="rtl" lang="he"><head><meta charset="utf-
   <img class="producer" src="${asset('producer-logo.webp')}" alt="">
   <img class="kicker" src="${asset('headline-script.webp')}" alt="">
   <img class="title" src="${asset('headline-title.webp')}" alt="">
-  <div class="line">ארבעה שבועות של פעילות, בימים רביעי עד שבת.<br>להצטרפות עד: 22 בספטמבר 2026</div>
+  <div class="line">ארבעה שבועות של פעילות, בימים רביעי עד שבת.<br>להצטרפות עד: 22 באוקטובר 2026</div>
   <div class="pill">מכאן מצטרפים <span>←</span></div>
 </div></body></html>`
 
