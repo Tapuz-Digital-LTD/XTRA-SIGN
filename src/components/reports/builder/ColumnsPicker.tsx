@@ -10,7 +10,7 @@ import { btnLink, btnSecondary, defaultColumns, fieldClass } from './shared'
  * side, the chosen ones with ↑↓ on the other; "איפוס" goes back to what
  * the entity shows by default.
  */
-export function ColumnsPicker({ fields, columns, onChange }: { fields: FieldMeta[]; columns: string[]; onChange: (columns: string[]) => void }) {
+export function ColumnsPicker({ fields, columns, onChange, title = 'עמודות הדוח', hint = 'סמנו מה יופיע בדוח; מימין אפשר לסדר את העמודות.', orderTitle = 'הסדר בדוח' }: { fields: FieldMeta[]; columns: string[]; onChange: (columns: string[]) => void; title?: string; hint?: string; orderTitle?: string }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
 
@@ -35,7 +35,7 @@ export function ColumnsPicker({ fields, columns, onChange }: { fields: FieldMeta
       <Dialog
         open={open}
         onClose={() => setOpen(false)}
-        title="עמודות הדוח"
+        title={title}
         wide
         footer={
           <>
@@ -48,7 +48,7 @@ export function ColumnsPicker({ fields, columns, onChange }: { fields: FieldMeta
           </>
         }
       >
-        <p className="text-sm text-muted">סמנו מה יופיע בדוח; מימין אפשר לסדר את העמודות.</p>
+        <p className="text-sm text-muted">{hint}</p>
         <div className="mt-3 grid gap-4 md:grid-cols-2">
           <div>
             <label htmlFor="columns-search" className="sr-only">
@@ -77,7 +77,7 @@ export function ColumnsPicker({ fields, columns, onChange }: { fields: FieldMeta
             </div>
           </div>
           <div>
-            <div className="text-xs font-semibold text-muted">הסדר בדוח ({chosen.length})</div>
+            <div className="text-xs font-semibold text-muted">{orderTitle} ({chosen.length})</div>
             <ol className="mt-2 max-h-80 overflow-y-auto">
               {chosen.map((field, index) => (
                 <li key={field.key} className="flex min-h-11 items-center gap-1 border-b border-line text-sm text-fg last:border-b-0">

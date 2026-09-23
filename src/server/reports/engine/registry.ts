@@ -340,8 +340,14 @@ export function fieldMeta(def: FieldDef): FieldMeta {
   return { key, label, type, options, defaultVisible, filterable, sortable, group, ...(campaignsNote ? { campaignsNote } : {}) }
 }
 
-/** A custom form field as a report field: `form.<id>` reads the registration's answer. */
-export function formField(id: string, label: string, note: string): FieldDef {
+/**
+ * A form's answer as a report field: `form.<id>` reads it from the lead row,
+ * or from the agreement's frozen snapshot when the row never kept it (the
+ * self-service form keeps only a few of its answers on the row). `labels`
+ * turn a stored code into the form's words, and let a filter pick from them.
+ */
+export function formField(id: string, label: string, note: string, labels?: Record<string, string>): FieldDef {
   const safe = id.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60)
-  return f(`form.${safe}`, `טופס: ${label}`, 'text', sql`pl.data->>${safe}`, { group: 'שדות טופס', campaignsNote: note, sortable: false })
+  const expr = sql`coalesce(nullif(pl.data->>${safe}, ''), nullif(a.merge_snapshot->'values'->>${safe}, ''))`
+  return f(`form.${safe}`, `טופס: ${label}`, labels ? 'enum' : 'text', expr, { group: 'שדות טופס', campaignsNote: note, sortable: false, ...(labels ? { labels, options: opts(labels) } : {}) })
 }

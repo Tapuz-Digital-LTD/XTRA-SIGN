@@ -12,6 +12,7 @@ import { Drawer } from '@/components/ui/Drawer'
 import { LinkCompanyPanel } from '@/components/invitations/LinkCompanyPanel'
 import { FollowUpPanel, hasOpenWork } from '@/components/follow-up/FollowUpPanel'
 import { JoiningProgressPanel, ProgressLine } from '@/components/progress/JoiningProgressPanel'
+import { formatAnswer, type FormColumn } from '@/lib/form-columns'
 import { currentUrlFor, withReturnTo } from '@/lib/return-to'
 import type { TaskSummary } from '@/server/follow-up/labels'
 import type { AudienceRow, AudienceView, SendHistoryItem } from '@/server/invitations/invitations'
@@ -41,7 +42,7 @@ const dateFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'sh
 const dayFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short' })
 const bigButton = 'inline-flex min-h-12 items-center justify-center rounded-xl px-4 text-base font-semibold transition disabled:opacity-50'
 
-export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueToday, global = false, basePath, extraParams, hideViews = false, stuck = null, calls = [] }: { projectId: string; rows: AudienceRow[]; counts: Record<AudienceView, number>; view: AudienceView; q: string; askKind: boolean; dueToday: number; /** The organisation-wide tracking screen: a campaign column, no invite button. */ global?: boolean; basePath?: string; extraParams?: Record<string, string>; /** The campaign page draws its own view chips above the table. */ hideViews?: boolean; /** Opened from a number on the statistics screen: which question, and the way back to everyone. */ stuck?: { key: string; label: string; href: string } | null; /** The versions of the campaign's call page, offered in the invitation dialog when there is more than one. */ calls?: { key: string; label: string; hint: string }[] }) {
+export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueToday, global = false, basePath, extraParams, hideViews = false, stuck = null, extraColumns = [], calls = [] }: { projectId: string; rows: AudienceRow[]; counts: Record<AudienceView, number>; view: AudienceView; q: string; askKind: boolean; dueToday: number; /** The organisation-wide tracking screen: a campaign column, no invite button. */ global?: boolean; basePath?: string; extraParams?: Record<string, string>; /** The campaign page draws its own view chips above the table. */ hideViews?: boolean; /** Opened from a number on the statistics screen: which question, and the way back to everyone. */ stuck?: { key: string; label: string; href: string } | null; /** The form answers this campaign chose to show beside the name (JoiningColumns). */ extraColumns?: FormColumn[]; /** The versions of the campaign's call page, offered in the invitation dialog when there is more than one. */ calls?: { key: string; label: string; hint: string }[] }) {
   const router = useRouter()
   const [inviteOpen, setInviteOpen] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
@@ -55,6 +56,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
   const current = rows.find((r) => r.id === openId) ?? null
   const toggle = (id: string) => setSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next })
   const selectable = rows.filter((r) => r.status !== 'signed' && r.status !== 'failed')
+  const extras = (row: AudienceRow) => extraColumns.map((c) => ({ key: c.key, label: c.label, value: formatAnswer(c, row.answers[c.key]) }))
 
   async function previewReminders() {
     const ids = [...selected]
@@ -254,7 +256,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                     </span>
                     <StatusChip status={row.status} />
                   </span>
-                  {row.commercialName ? <span className="truncate text-sm text-fg">{row.commercialName}</span> : null}
+                  {extras(row).some((x) => x.value) ? <span className="truncate text-xs text-fg">{extras(row).filter((x) => x.value).map((x) => `${x.label}: ${x.value}`).join(' · ')}</span> : null}
                   <ProgressLine progress={row.progress} />
                   <span className="text-sm text-muted" dir="ltr">
                     {row.phone ?? row.email ?? ''}
@@ -271,14 +273,19 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
 
           {/* Desktop: the compact table. */}
           <div className="hidden overflow-x-auto rounded-[var(--radius-card)] border border-line bg-surface md:block">
-            <table className="w-full min-w-[800px] table-fixed text-sm">
+            {/* Chosen columns widen the table rather than squeeze the fixed ones; the wrapper scrolls. */}
+            <table className="w-full table-fixed text-sm" style={{ minWidth: 850 + 160 * extraColumns.length }}>
               <thead className="bg-bg text-xs text-muted">
                 <tr>
                   <th className="w-10 px-2 py-3">
                     <input type="checkbox" aria-label="בחירת הכול" className="size-4" checked={selectable.length > 0 && selectable.every((r) => selected.has(r.id))} onChange={(e) => setSelected(e.target.checked ? new Set(selectable.map((r) => r.id)) : new Set())} />
                   </th>
                   <th className="w-[20%] px-4 py-3 text-start font-medium">שם</th>
-                  <th className="w-[13%] px-4 py-3 text-start font-medium">שם מסחרי</th>
+                  {extraColumns.map((c) => (
+                    <th key={c.key} className="px-4 py-3 text-start font-medium" style={{ width: 150 }}>
+                      {c.label}
+                    </th>
+                  ))}
                   {global ? <th className="w-[12%] px-4 py-3 text-start font-medium">קמפיין</th> : null}
                   <th className="w-[12%] px-4 py-3 text-start font-medium">טלפון</th>
                   <th className="w-[16%] px-4 py-3 text-start font-medium">סטטוס</th>
@@ -301,9 +308,11 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                         {row.linkingNeeded ? ' · לא שויך ב-CRM' : ''}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-fg" title={row.commercialName ?? undefined}>
-                      <span className="block truncate">{row.commercialName ?? '—'}</span>
-                    </td>
+                    {extras(row).map((x) => (
+                      <td key={x.key} className="px-4 py-3 text-fg" title={x.value}>
+                        <span className="block truncate">{x.value || '—'}</span>
+                      </td>
+                    ))}
                     {global ? (
                       <td className="px-4 py-3 text-fg">
                         <span className="block truncate">{row.groupName}</span>

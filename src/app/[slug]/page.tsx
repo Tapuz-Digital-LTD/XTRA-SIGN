@@ -57,7 +57,7 @@ const BENEFITS = [
 
 /** The white card at the foot of the artwork, beside the code. */
 const JOIN = ['לתקנון המפורט ולפרטים נוספים', 'סירקו את הברקוד משמאל', 'או כנסו בלחיצה על הכפתור']
-const DEADLINE = 'להצטרפות עד: 22 בספטמבר 2026'
+const DEADLINE = 'להצטרפות עד: 22 באוקטובר 2026'
 
 function Lines({ lines }: { lines: string[] }) {
   return (

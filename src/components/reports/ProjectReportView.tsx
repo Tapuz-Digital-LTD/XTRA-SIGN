@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState, useSyncExternalStore } from 'react'
+import type { FormColumn } from '@/lib/form-columns'
 import type { ProjectReport, RegistrationRow } from '@/server/reports/project-report'
 import { RegistrationsTable } from './RegistrationsTable'
 
@@ -36,11 +37,14 @@ export function ProjectReportView({
   report,
   values,
   exportHref,
+  extraColumns = [],
 }: {
   projectId: string
   report: ProjectReportData
   values: Values
   exportHref: string
+  /** The form answers this campaign chose as columns — the same ones the file carries. */
+  extraColumns?: FormColumn[]
 }) {
   const reduced = useReducedMotion()
   const sourceOptions = report.sources.map((s) => ({ key: s.key, label: s.medium ? `${s.label} / ${s.medium}` : s.label }))
@@ -123,7 +127,7 @@ export function ProjectReportView({
         <Donut projectId={projectId} slices={report.statuses} reduced={reduced} />
       </section>
 
-      <RegistrationsTable rows={report.registrations} total={report.registrationTotal} projectId={projectId} />
+      <RegistrationsTable rows={report.registrations} total={report.registrationTotal} projectId={projectId} extraColumns={extraColumns} />
     </div>
   )
 }

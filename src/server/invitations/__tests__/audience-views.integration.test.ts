@@ -147,9 +147,9 @@ describe('שם העסק המסחרי', () => {
     await db.insert(schema.projectLeads).values({ organizationId: orgId, groupId, status: 'converted', source: 'self_service', data: { name: 'תיירות ראש הנקרה', commercialName: 'מערות הים' }, formSnapshot: [{ id: 'name', label: 'שם' }] })
 
     const rows = (await listAudience(session, groupId, { view: 'all', limit: 500 })).rows
-    expect(rows.find((r) => r.name === 'החברה לפיתוח עכו')?.commercialName).toBe('אולמות האבירים')
-    expect(rows.find((r) => r.name === 'תיירות ראש הנקרה')?.commercialName).toBe('מערות הים')
-    expect(rows.find((r) => r.name === 'הצטרף מהאתר וחתם')?.commercialName).toBeNull()
+    expect(rows.find((r) => r.name === 'החברה לפיתוח עכו')?.answers.commercialName).toBe('אולמות האבירים')
+    expect(rows.find((r) => r.name === 'תיירות ראש הנקרה')?.answers.commercialName).toBe('מערות הים')
+    expect(rows.find((r) => r.name === 'הצטרף מהאתר וחתם')?.answers.commercialName).toBeUndefined()
 
     const found = async (q: string) => (await listAudience(session, groupId, { view: 'all', q, limit: 500 })).rows.map((r) => r.name)
     expect(await found('האבירים')).toEqual(['החברה לפיתוח עכו'])

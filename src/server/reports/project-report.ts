@@ -1,6 +1,7 @@
 import { Workbook } from 'exceljs'
 import { and, eq, isNull, sql, type SQL } from 'drizzle-orm'
 import { classifySource, type Utm } from '@/lib/campaign-events'
+import { answersOf, formatAnswer } from '@/lib/form-columns'
 import { formatDuration } from '@/lib/format-duration'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
@@ -11,6 +12,7 @@ import { summarizeTask, type TaskSummary } from '@/server/follow-up/labels'
 import { tasksForLeads } from '@/server/follow-up/tasks'
 import { authorizeGroup } from '@/server/groups/groups'
 import { campaignFunnels, type CampaignFunnels } from './campaign-funnels'
+import { listColumnsOf } from '@/server/projects/list-columns'
 import { selfServiceOf } from '@/server/projects/self-service'
 
 /**
@@ -45,8 +47,8 @@ export type RegistrationRow = {
   id: string
   createdAt: Date
   businessName: string
-  /** The name the business trades under — the document's own box for it. */
-  commercialName: string
+  /** Every answer the form holds, by key — the row's, else the agreement's snapshot. The campaign picks which become columns. */
+  answers: Record<string, string>
   taxId: string
   contactName: string
   phone: string
@@ -484,8 +486,8 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
       agreementId: sql<string | null>`a.id`,
       agreementStatus: sql<string | null>`a.status`,
       formSnapshot: schema.projectLeads.formSnapshot,
-      // Until 2026-09-22 the trading name lived only on the agreement's snapshot.
-      snapshotCommercialName: sql<string | null>`a.merge_snapshot->'values'->>'commercialName'`,
+      // The whole form, frozen when the agreement was made: the row keeps only some of it.
+      snapshotValues: sql<unknown>`a.merge_snapshot->'values'`,
       sentAt: sql<Date | null>`a.sent_at`,
       completedAt: sql<Date | null>`a.completed_at`,
     })
@@ -517,7 +519,7 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
       id: r.id,
       createdAt,
       businessName: text('name') || text('businessName'),
-      commercialName: text('commercialName') || (r.snapshotCommercialName ?? ''),
+      answers: answersOf(r.data, r.snapshotValues),
       taxId: text('taxId'),
       contactName: text('contactName') || text('signatoryName'),
       phone: text('phone'),
@@ -549,12 +551,14 @@ export async function registrationRows(groupId: string, filters: ProjectReportFi
 export async function buildProjectWorkbook(session: StaffSession, projectId: string, filters: ProjectReportFilters): Promise<Workbook> {
   const group = await authorizeGroup(session, projectId)
   const rows = await registrationRows(group.id, filters, 20_000)
+  const extras = listColumnsOf(group.landingConfig)
   const workbook = new Workbook()
   const sheet = workbook.addWorksheet('הרשמות', { views: [{ rightToLeft: true }] })
   sheet.columns = [
     { header: 'תאריך הרשמה', key: 'createdAt', width: 18 },
     { header: 'שם העסק', key: 'businessName', width: 30 },
-    { header: 'שם העסק המסחרי', key: 'commercialName', width: 26 },
+    // The answers this campaign chose as columns — the same ones its tables show.
+    ...extras.map((c) => ({ header: c.label, key: `form.${c.key}`, width: 24 })),
     { header: 'ח.פ.', key: 'taxId', width: 12 },
     { header: 'איש קשר', key: 'contactName', width: 22 },
     { header: 'טלפון', key: 'phone', width: 14 },
@@ -572,7 +576,7 @@ export async function buildProjectWorkbook(session: StaffSession, projectId: str
     sheet.addRow({
       createdAt: fmt.format(r.createdAt),
       businessName: r.businessName,
-      commercialName: r.commercialName,
+      ...Object.fromEntries(extras.map((c) => [`form.${c.key}`, formatAnswer(c, r.answers[c.key])])),
       taxId: r.taxId,
       contactName: r.contactName,
       phone: r.phone,
