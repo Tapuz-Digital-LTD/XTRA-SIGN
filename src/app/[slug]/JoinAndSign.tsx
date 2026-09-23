@@ -12,7 +12,7 @@ import {
   type RegistrationValues,
   type TourismWeekId,
 } from '@/lib/self-service-registration'
-import { AgreementSystemNote, AgreementTerms } from './AgreementText'
+import { AgreementPreamble, AgreementSystemNote, AgreementTerms } from './AgreementText'
 import { track, visitId } from './track'
 import { OtpInput } from '@/components/ui/OtpInput'
 import { useCaptcha } from '@/components/captcha/useCaptcha'
@@ -478,6 +478,8 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
         <div ref={stepRef} className="tj-step-anchor" />
 
         {stage === 0 ? (
+          <>
+          <AgreementPreamble />
           <section className="tj-card" aria-labelledby="tj-business-heading">
             <h2 id="tj-business-heading" className="tj-h2">פרטי בית העסק</h2>
             <div className="tj-fields">
@@ -492,6 +494,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
               בית העסק מביע בזאת את רצונו להצטרף כבית עסק משתתף במסגרת פרויקט &quot;חודש התיירות הישראלית&quot; שיתקיים בחודש נובמבר 2026
             </p>
           </section>
+          </>
         ) : null}
 
         {stage === 1 ? (
