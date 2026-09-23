@@ -43,7 +43,7 @@ const html = `<!doctype html><html dir="rtl" lang="he"><head><meta charset="utf-
   <img class="kicker" src="${asset('headline-script.webp')}" alt="">
   <img class="title" src="${asset('headline-title.webp')}" alt="">
   <div class="line">ארבעה שבועות של פעילות, בימים רביעי עד שבת.<br>להצטרפות עד: 22 באוקטובר 2026</div>
-  <div class="pill">מכאן מצטרפים <span>←</span></div>
+  <div class="pill">פרטים נוספים <span>←</span></div>
 </div></body></html>`
 
 async function shoot(args: string[] = []) {
