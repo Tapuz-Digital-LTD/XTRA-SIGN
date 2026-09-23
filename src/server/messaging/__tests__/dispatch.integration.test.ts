@@ -69,6 +69,18 @@ describe('dispatch', () => {
     expect(await rowsFor(l.id)).toHaveLength(1)
   })
 
+  it('a person reached at two numbers is two conversations: each address has its own cooldown', async () => {
+    const l = await lead()
+    const other = `+97252${String(Math.floor(Math.random() * 1e7)).padStart(7, '0')}`
+    const at = (to: string) => send(l, { to, render: async () => ({ ...(await render()), to }) })
+    expect((await at(l.phone!)).ok).toBe(true)
+    const second = await at(other)
+    expect(second.ok && second.state === 'sent' && second.to === other).toBe(true)
+    const again = await at(other)
+    expect(!again.ok && again.state === 'cooldown').toBe(true)
+    expect((await rowsFor(l.id)).map((r) => r.recipient).sort()).toEqual([l.phone, other].sort())
+  })
+
   it('a second send within 24 hours is refused; an admin may force it and that is audited; a rep may not', async () => {
     const l = await lead()
     expect((await send(l)).ok).toBe(true)

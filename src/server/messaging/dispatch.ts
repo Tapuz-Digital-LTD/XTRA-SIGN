@@ -14,7 +14,7 @@ import { log } from '@/server/log'
  *   3. suppression — someone who asked not to be contacted is not, unless an
  *      admin explicitly sends an operational message anyway (audited);
  *   4. rate limit — per staff member;
- *   5. cooldown — the same message on the same channel to the same person
+ *   5. cooldown — the same message on the same channel to the same address
  *      waits 24 hours, unless an admin overrides (audited);
  *   6. reservation — the row is written first, under a lock on the person,
  *      with the caller's attempt key: the same key never sends twice, and
@@ -50,6 +50,8 @@ export type DispatchInput = {
   attemptKey?: string | null
   /** An admin's explicit decision to send despite a cooldown or a suppression. Audited. */
   force?: boolean
+  /** One of the person's own addresses other than the primary one (a second phone, a second email). The caller vouches it is theirs. */
+  to?: string | null
   render: () => Promise<RenderedMessage>
   /** Absent for WhatsApp. */
   send?: (message: RenderedMessage) => Promise<ProviderResult>
@@ -99,7 +101,7 @@ export async function dispatch(input: DispatchInput): Promise<DispatchResult> {
   if (input.processStatus === 'signed') return { ok: false, state: 'not_eligible', message: 'כבר חתם — אין מה לשלוח.' }
   if (input.processStatus === 'failed') return { ok: false, state: 'not_eligible', message: 'התהליך נכשל או בוטל.' }
   if (event === 'reminder' && !lead.agreementId) return { ok: false, state: 'not_eligible', message: 'עדיין אין הסכם לתזכורת.' }
-  const address = addressFor(lead, channel)
+  const address = input.to ? (channel === 'email' ? input.to.toLowerCase() : input.to) : addressFor(lead, channel)
   if (!address) return { ok: false, state: 'not_eligible', message: channel === 'email' ? 'אין אימייל.' : 'אין טלפון.' }
 
   // 3. suppression
@@ -155,6 +157,8 @@ export async function dispatch(input: DispatchInput): Promise<DispatchResult> {
         eq(schema.messageSends.leadId, lead.id),
         eq(schema.messageSends.channel, channel),
         eq(schema.messageSends.event, event),
+        // A person reached at two numbers is two conversations: the cooldown is per address.
+        eq(schema.messageSends.recipient, address),
         eq(schema.messageSends.isTest, false),
         gt(schema.messageSends.sentAt, since),
         channel === 'whatsapp' ? eq(schema.messageSends.manualState, 'sent') : or(eq(schema.messageSends.ok, true), eq(schema.messageSends.error, RESERVED)),

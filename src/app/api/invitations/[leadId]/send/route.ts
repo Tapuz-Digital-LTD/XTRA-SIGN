@@ -10,12 +10,12 @@ export async function POST(request: Request, context: { params: Promise<{ leadId
     assertSameOrigin(request)
     const session = await requireSession()
     const { leadId } = await context.params
-    const body = (await request.json().catch(() => null)) as { channel?: unknown; attemptKey?: unknown; force?: unknown } | null
+    const body = (await request.json().catch(() => null)) as { channel?: unknown; attemptKey?: unknown; force?: unknown; to?: unknown } | null
     const channel = body?.channel
     // Every send goes through the dispatcher: permission, eligibility, the
     // do-not-contact list, the rate limit, the 24-hour cooldown, and one
     // reservation per attempt key. `force` is honoured for admins only, audited.
-    const options = { attemptKey: typeof body?.attemptKey === 'string' ? body.attemptKey : null, force: body?.force === true }
+    const options = { attemptKey: typeof body?.attemptKey === 'string' ? body.attemptKey : null, force: body?.force === true, to: typeof body?.to === 'string' ? body.to : null }
     const status = (state: string) => (state === 'cooldown' || state === 'suppressed' ? 409 : state === 'rate_limited' ? 429 : state === 'forbidden' ? 403 : state === 'not_found' ? 404 : 400)
     if (channel === 'whatsapp') {
       const share = await whatsappInvitation(session, leadId, options)

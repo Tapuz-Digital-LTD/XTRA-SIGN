@@ -18,30 +18,53 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   }
 }
 
-/** "שליחת הזמנה": name, phone or email, channel — one row, one message. */
+type Channel = 'sms' | 'email' | 'whatsapp'
+/** SMS and email leave from here; WhatsApp only reserves and hands the rep a link, so it comes last. */
+const CHANNELS: Channel[] = ['sms', 'email', 'whatsapp']
+export type InvitationSend = { channel: Channel; to: string; ok: boolean; sendId?: string; state?: string; message?: string; whatsapp?: { sendId: string; url: string; text: string } }
+
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : typeof v === 'string' ? [v] : [])
+
+/**
+ * "שליחת הזמנה": one person, every door at once. One row, and then one
+ * message per chosen channel per address it serves — SMS and WhatsApp to
+ * every phone, email to every address — all on the same personal link.
+ * Sends go one after another on purpose: a person holds one reservation
+ * per channel at a time, and the provider is never asked twice for one
+ * attempt. Each send answers for itself, so a number the provider refused
+ * never hides the email that went out.
+ */
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     assertSameOrigin(request)
     const session = await requireSession()
     const { id } = await context.params
-    const body = (await request.json().catch(() => null)) as { name?: unknown; phone?: unknown; email?: unknown; kind?: unknown; channel?: unknown; companyId?: unknown; operationId?: unknown; force?: unknown } | null
+    const body = (await request.json().catch(() => null)) as { name?: unknown; phone?: unknown; email?: unknown; phones?: unknown; emails?: unknown; kind?: unknown; channel?: unknown; channels?: unknown; companyId?: unknown; operationId?: unknown; force?: unknown } | null
     if (!body || typeof body.name !== 'string') return NextResponse.json({ error: { message: 'נדרש שם.' } }, { status: 400 })
-    const channel = body.channel === 'sms' || body.channel === 'email' || body.channel === 'whatsapp' ? body.channel : null
+    const channels = [...new Set([...strings(body.channel), ...strings(body.channels)])].filter((c): c is Channel => (CHANNELS as string[]).includes(c))
     const kind: AudienceKind | null = body.kind === 'supplier' || body.kind === 'customer' ? body.kind : null
     const operationId = typeof body.operationId === 'string' && /^[A-Za-z0-9:_-]{8,120}$/.test(body.operationId) ? body.operationId : null
     if (!operationId) return NextResponse.json({ error: { message: 'חסר מזהה פעולה.' } }, { status: 400 })
-    const created = await createInvitation(session, { groupId: id, operationId, name: body.name, phone: typeof body.phone === 'string' ? body.phone : null, email: typeof body.email === 'string' ? body.email : null, kind, companyId: typeof body.companyId === 'string' ? body.companyId : null })
+    const created = await createInvitation(session, { groupId: id, operationId, name: body.name, phones: [...strings(body.phone), ...strings(body.phones)], emails: [...strings(body.email), ...strings(body.emails)], kind, companyId: typeof body.companyId === 'string' ? body.companyId : null })
     if (!created.ok) return NextResponse.json({ error: { message: created.message } }, { status: 400 })
-    if (!channel) return NextResponse.json({ ok: true, invitation: created.invitation })
-    // The send carries the same operation: a retry finds the reservation instead of sending twice.
-    const options = { attemptKey: `${operationId}:${channel}`, force: body.force === true }
-    if (channel === 'whatsapp') {
-      const share = await whatsappInvitation(session, created.invitation.id, options)
-      if (!share.ok) return NextResponse.json({ ok: true, invitation: created.invitation, send: { ok: false, message: share.message, state: share.state } })
-      return NextResponse.json({ ok: true, invitation: created.invitation, whatsapp: { sendId: share.sendId, url: share.url, text: share.text } })
+
+    const sends: InvitationSend[] = []
+    for (const channel of CHANNELS) {
+      if (!channels.includes(channel)) continue
+      const targets = channel === 'email' ? created.invitation.points.emails : created.invitation.points.phones
+      for (const [index, to] of targets.entries()) {
+        // The same operation, channel and address: a retry finds its reservation instead of sending twice.
+        const options = { attemptKey: `${operationId}:${channel}:${index}`, force: body.force === true, to }
+        if (channel === 'whatsapp') {
+          const share = await whatsappInvitation(session, created.invitation.id, options)
+          sends.push(share.ok ? { channel, to, ok: true, sendId: share.sendId, whatsapp: { sendId: share.sendId, url: share.url, text: share.text } } : { channel, to, ok: false, message: share.message, state: share.state })
+        } else {
+          const sent = await sendInvitation(session, created.invitation.id, channel, options)
+          sends.push(sent.ok ? { channel, to, ok: true, sendId: sent.sendId, state: sent.state } : { channel, to, ok: false, message: sent.message, state: sent.state })
+        }
+      }
     }
-    const sent = await sendInvitation(session, created.invitation.id, channel, options)
-    return NextResponse.json({ ok: true, invitation: created.invitation, send: sent.ok ? { ok: true, sendId: sent.sendId, state: sent.state } : { ok: false, message: sent.message, state: sent.state } })
+    return NextResponse.json({ ok: true, invitation: created.invitation, sends })
   } catch (error) {
     return templateFailure(error)
   }
