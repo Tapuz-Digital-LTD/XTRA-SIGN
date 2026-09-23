@@ -22,24 +22,20 @@
 /* ── the picture ─────────────────────────────────────────────────────────── */
 
 .th-hero {
-  position: relative;
   width: min(100%, 2000px);
   margin: 0 auto;
 }
 
 .th-hero-media {
   margin: 0;
-  overflow: hidden;
 }
 
+/* Typed on the element: `.tl-root img` sets the same properties at the same weight. */
+img.th-hero-media,
 .th-hero-media img {
+  display: block;
   width: 100%;
   height: auto;
-}
-
-/* Drawn only where the crop hides the ad's own badge (phones, below). */
-.th-badge {
-  display: none;
 }
 
 /* ── the column ──────────────────────────────────────────────────────────── */
@@ -325,71 +321,19 @@
 @media (max-width: 859.98px) {
   /* The picture is cropped to what a narrow screen can read: the three marks
      and the headline, with the badge drawn back in at the corner. */
-  /* Wide enough to keep all three marks; the badge is drawn back in at the corner. */
-  .th-hero-media {
-    aspect-ratio: 15 / 16;
+  /* The leaves stay at the edges, small, and only where a picture is: at
+     the top corners of each band, behind the circles and the marks, never
+     on the copy above. */
+  .th-leaf-weeks-right,
+  .th-leaf-weeks-left {
+    top: 6px;
+    width: 58px;
   }
 
-  .th-hero-media img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: 52% 0;
-  }
-
-  .th-badge {
-    position: absolute;
-    right: 6px;
-    bottom: 4px;
-    display: grid;
-    place-content: center;
-    width: 92px;
-    aspect-ratio: 1;
-    margin: 0;
-    border-radius: 50%;
-    background: var(--th-sun);
-    color: #2f4f8f;
-    text-align: center;
-    line-height: 1;
-    transform: rotate(-8deg);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
-  }
-
-  .th-badge span {
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  .th-badge strong {
-    font-size: 31px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-  }
-
-  .th-badge small {
-    margin-top: 2px;
-    font-size: 9px;
-    font-weight: 600;
-  }
-
-  /* The leaves stay at the edges, smaller, behind the pictures. */
-  .th-leaf-weeks-left,
+  .th-leaf-benefits-right,
   .th-leaf-benefits-left {
-    top: -8px;
-  }
-
-  /* Under the strip there is no white left for the mark: it gets its own line. */
-  .th-foot {
-    padding-bottom: 12px;
-    background: #fff;
-  }
-
-  .th-foot-mark {
-    position: static;
-    display: block;
-    width: 104px;
-    margin: 10px auto 0;
-    transform: none;
+    top: -6px;
+    width: 52px;
   }
 
   .th-body {

@@ -12,14 +12,14 @@ import { FloatingCta } from './FloatingCta'
  * form, on the same address, and the form knows nothing about it.
  *
  * The ad's top — terrace, bay, the three marks, the headline in its own
- * faces and the discount badge — is one picture, since none of that type
- * has a font. Everything under it is real text: the invitation, the four
- * regional weeks with the ad's own photographs, the hotel packages, the
- * four kinds of exposure, the contact line and the button, with the ad's
- * leaves at the paper's edges. On a phone the picture is cropped to the
- * three marks and the headline, and the badge is drawn again in CSS, where
- * the crop cannot reach it. The ad signs off with its own XTRA mark; here
- * the real wordmark stands in its place.
+ * faces, the badge, the sun's glow behind the type — is one picture, exactly
+ * as the ad draws it; none of that type has a font. A phone gets the same
+ * top cut to its text column: the three marks, the headline and the badge,
+ * whole, and no terrace. Everything under the picture is real text: the
+ * invitation, the four regional weeks with the ad's own photographs, the
+ * hotel packages, the four kinds of exposure, the contact line and the
+ * button, with the ad's leaves at the paper's edges. The ad signs off with
+ * its own XTRA mark; here the real wordmark stands in its place.
  */
 
 const INTRO = [
@@ -49,20 +49,17 @@ const CONTACT = { name: 'יהודית', phone: '050-5323298', whatsapp: 'https:/
 
 const HERO_ALT = 'הצטרפו למיזם הלאומי: חודש התיירות הישראלית, נובמבר 2026, שנה שנייה ברציפות. החל מ־25% הנחה למשך שבוע בלבד. משרד התיירות, התאחדות המלונות בישראל, בנדה הפקות.'
 
+
 export function HotelCall({ formId, joinHref }: { formId: string; joinHref: string }) {
   return (
     <main className="tl-page th-page">
       <header className="th-hero">
         <h1 className="th-hero-media">
-          <img src="/tourism-2026/hotel/hero.webp" alt={HERO_ALT} width={1676} height={926} fetchPriority="high" />
+          <picture>
+            <source media="(max-width: 859.98px)" srcSet="/tourism-2026/hotel/hero-phone.webp" width={1250} height={924} />
+            <img src="/tourism-2026/hotel/hero.webp" alt={HERO_ALT} width={1676} height={924} fetchPriority="high" />
+          </picture>
         </h1>
-        {/* The badge is in the picture; a phone's crop loses it, so it is drawn again there. */}
-        <p className="th-badge" aria-hidden="true">
-          <span>החל מ־</span>
-          <strong>25%</strong>
-          <span>הנחה</span>
-          <small>למשך שבוע בלבד</small>
-        </p>
       </header>
 
       <div className="th-body">
