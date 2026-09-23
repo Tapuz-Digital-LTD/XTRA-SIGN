@@ -104,15 +104,15 @@ export async function saveLandingSettings(
         .slice(0, 20)
     : undefined
 
-  // The self-service settings share the column and are edited elsewhere;
-  // saving the joining form must not wipe them.
+  // The self-service settings and the chosen list columns share the column
+  // and are edited elsewhere; saving the joining form must not wipe them.
   const previous = (group.landingConfig && typeof group.landingConfig === 'object' ? group.landingConfig : {}) as Record<string, unknown>
   await db
     .update(schema.groups)
     .set({
       landingEnabled: input.enabled,
       landingSlug: slug,
-      landingConfig: previous.selfService ? { ...config, selfService: previous.selfService } : config,
+      landingConfig: { ...previous, ...config },
       ...(notifyEmails ? { notifyEmails } : {}),
     })
     .where(eq(schema.groups.id, group.id))

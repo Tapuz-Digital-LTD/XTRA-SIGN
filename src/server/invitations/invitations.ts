@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { answersOf } from '@/lib/form-columns'
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
 import { cleanOverrides, renderTemplate, resolveMessage, type Variables } from '@/lib/message-template'
@@ -410,8 +411,8 @@ export type AudienceRow = {
   /** A direct send from the home page rather than a campaign. */
   isDirect: boolean
   name: string
-  /** The name the business trades under, from the row or from the agreement it filled. */
-  commercialName: string | null
+  /** Every answer the form holds, by key — the row's, else the agreement's snapshot. The campaign picks which become columns. */
+  answers: Record<string, string>
   phone: string | null
   maskedPhone: string | null
   email: string | null
@@ -504,8 +505,8 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
       lead: schema.projectLeads,
       agreementStatus: schema.agreements.status,
       companyName: schema.companies.name,
-      // Until 2026-09-22 the trading name lived only on the agreement's snapshot.
-      snapshotCommercialName: sql<string | null>`${schema.agreements.mergeSnapshot}->'values'->>'commercialName'`,
+      // The whole form, frozen when the agreement was made: the row keeps only some of it.
+      snapshotValues: sql<unknown>`${schema.agreements.mergeSnapshot}->'values'`,
     })
     .from(schema.projectLeads)
     .leftJoin(schema.agreements, eq(schema.agreements.id, schema.projectLeads.agreementId))
@@ -561,7 +562,7 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
     leadSendEvidence(leadIds),
     invitationOpenEvidence(leadIds),
   ])
-  const all: AudienceRow[] = rows.map(({ lead, agreementStatus, companyName, snapshotCommercialName }) => {
+  const all: AudienceRow[] = rows.map(({ lead, agreementStatus, companyName, snapshotValues }) => {
     const status = processStatus(lead.status, agreementStatus)
     const last = sends.find((s) => s.leadId === lead.id || (lead.agreementId && s.agreementId === lead.agreementId)) ?? null
     const meta = (lead.meta ?? {}) as Record<string, unknown>
@@ -572,7 +573,7 @@ async function audienceRows(session: StaffSession, groups: GroupRow[], filters: 
       groupName: group.systemKey === DIRECT_SIGNING_KEY ? 'חתימה ישירה' : group.name,
       isDirect: group.systemKey === DIRECT_SIGNING_KEY,
       name: nameOf(lead.data) || companyName || '—',
-      commercialName: stringIn(lead.data, 'commercialName') || snapshotCommercialName || null,
+      answers: answersOf(lead.data, snapshotValues),
       phone: lead.phone ?? stringIn(lead.data, 'phone'),
       maskedPhone: maskPhone(lead.phone ?? stringIn(lead.data, 'phone')) ?? null,
       email: lead.email ?? stringIn(lead.data, 'email'),
