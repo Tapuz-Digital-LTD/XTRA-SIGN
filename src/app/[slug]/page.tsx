@@ -164,10 +164,10 @@ export default async function TourismCallPage({
               <p className="tl-deadline">{DEADLINE}</p>
             </div>
           </div>
-          <CtaLink formId={project.formId} href={joinHref} className="tl-cta" aria-label="מכאן מצטרפים — להרשמה ולחתימה על הסכם ההצטרפות">
+          <CtaLink formId={project.formId} href={joinHref} className="tl-cta" aria-label="פרטים נוספים — על המיזם, ומשם להרשמה ולחתימה על ההסכם">
             <img src="/tourism-2026/signpost.webp" alt="" width={269} height={205} />
             <span className="tl-cta-label" aria-hidden="true">
-              מכאן מצטרפים
+              פרטים נוספים
               <span className="tl-cta-arrow">←</span>
             </span>
           </CtaLink>

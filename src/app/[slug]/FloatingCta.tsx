@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react'
  * button twice, and it never covers anything: the page keeps bottom room for
  * it (tourism.css, .tl-page).
  */
-export function FloatingCta({ href, watch, formId, label = 'מכאן מצטרפים' }: { href: string; watch: string; formId: string; label?: string }) {
+export function FloatingCta({ href, watch, formId, label = 'פרטים נוספים' }: { href: string; watch: string; formId: string; label?: string }) {
   const [hidden, setHidden] = useState(false)
 
   useEffect(() => {
