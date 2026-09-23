@@ -32,6 +32,8 @@ const SHARE = process.env.E2E_SHARE_URL ?? ''
 const WIDTH = Number(process.env.E2E_WIDTH ?? 390)
 const OUT = process.env.SHOT_OUT ?? '.design/qa/agreement-v2'
 const NIL = '00000000-0000-0000-0000-000000000000'
+const LANDING_QUERY = process.env.E2E_LANDING_QUERY ?? ''
+const CTA = process.env.E2E_CTA ?? 'a.tl-cta'
 
 const WEEKS = ['week_1', 'week_2', 'week_3', 'week_4'] as const
 const REDEMPTIONS = ['generic_xtra25', 'business_pos_code'] as const
@@ -114,12 +116,14 @@ async function journey(browser: Browser, sc: Scenario, first: boolean) {
   }
 
   // ── Page 1 → Page 2 ────────────────────────────────────────────────────
-  await page.goto(`${BASE}/tourism-2026?utm_source=e2e&utm_campaign=local`, { waitUntil: 'networkidle0', timeout: 60000 })
+  // Another version of the call (E2E_LANDING_QUERY=hotel=true, with its own
+  // button, E2E_CTA=a.th-cta) must land on the very same joining page.
+  await page.goto(`${BASE}/tourism-2026?utm_source=e2e&utm_campaign=local${LANDING_QUERY ? `&${LANDING_QUERY}` : ''}`, { waitUntil: 'networkidle0', timeout: 60000 })
   if (first) {
-    const ctaHref = await page.$eval('a.tl-cta', (a) => (a as HTMLAnchorElement).getAttribute('href'))
+    const ctaHref = await page.$eval(CTA, (a) => (a as HTMLAnchorElement).getAttribute('href'))
     check('Page 1 CTA carries the campaign query to the joining page', ctaHref === '/tourism-2026/join?utm_source=e2e&utm_campaign=local', String(ctaHref))
   }
-  await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 60000 }), page.click('a.tl-cta')])
+  await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 60000 }), page.click(CTA)])
   check('landed on /tourism-2026/join', page.url().includes('/tourism-2026/join'), page.url())
   // Each run is a new business: no draft from the last one.
   await page.evaluate(() => sessionStorage.clear())

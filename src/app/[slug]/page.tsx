@@ -4,6 +4,7 @@ import { ClosedView } from './ClosedView'
 import { skinByKey } from '@/lib/self-service-skins'
 import { getSession } from '@/server/auth/session'
 import { FloatingCta } from './FloatingCta'
+import { HotelCall } from './HotelCall'
 import { campaignProject, type SearchParams } from './resolve'
 
 export const dynamic = 'force-dynamic'
@@ -100,6 +101,9 @@ export default async function TourismCallPage({
     if (typeof value === 'string' && value.trim()) carried.set(key, value.trim().slice(0, 200))
   }
   const joinHref = carried.size > 0 ? `/${slug}/join?${carried}` : `/${slug}/join`
+
+  // The hotels' version of the call: another look, the same form on the same address.
+  if (query.hotel === 'true') return <HotelCall formId={project.formId} joinHref={joinHref} />
 
   return (
     <main className="tl-page">

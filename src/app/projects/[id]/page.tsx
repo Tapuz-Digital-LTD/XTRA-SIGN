@@ -24,7 +24,8 @@ import { authorizeGroup, listGroupCompanies } from '@/server/groups/groups'
 import { listDocuments } from '@/server/documents/queries'
 import { listLeads } from '@/server/projects/leads'
 import { getLandingSettings } from '@/server/projects/landing'
-import { getSelfServiceConfig } from '@/server/projects/self-service'
+import { getSelfServiceConfig, selfServiceOf } from '@/server/projects/self-service'
+import { callVersionsOf } from '@/lib/self-service-skins'
 import { listUsers } from '@/server/users/users'
 import type { StaffSession } from '@/server/auth/session'
 import { publicBaseUrl } from '@/server/http/public-url'
@@ -248,6 +249,7 @@ async function JoiningTab({ projectId, session, query, askKind, audienceNoun, pu
   // The form answers this campaign shows as columns — in every view, and in the file.
   const options = formColumnsOf(landingConfig)
   const extras = listColumnsOf(landingConfig)
+  const calls = callVersionsOf(selfServiceOf(landingConfig).skin)
   const [counts, registrations] = await Promise.all([listAudience(session, projectId, { view: 'all', limit: 1 }), registrationCount(projectId, {} as ReturnType<typeof parseProjectReportFilters>)])
   const chips = JOINING_VIEWS.map((v) => ({ ...v, count: v.key === 'invitations' ? counts.counts.invitations : v.key === 'registrations' ? registrations : counts.counts.all }))
   return (
@@ -270,7 +272,7 @@ async function JoiningTab({ projectId, session, query, askKind, audienceNoun, pu
         {view === 'registrations' ? (
           <RegistrationsTab projectId={projectId} query={query} session={session} audienceNoun={audienceNoun} publicUrl={publicUrl} extraColumns={extras} />
         ) : (
-          <PeopleView projectId={projectId} session={session} query={query} askKind={askKind} view={view} extraColumns={extras} />
+          <PeopleView projectId={projectId} session={session} query={query} askKind={askKind} view={view} extraColumns={extras} calls={calls} />
         )}
       </div>
     </div>
@@ -297,7 +299,7 @@ function joiningExport(projectId: string, view: JoiningView, extras: FormColumn[
   return { entity: 'people', clauses, columns, sort: { field: 'last_activity_at', dir: 'desc' } }
 }
 
-async function PeopleView({ projectId, session, query, askKind, view, extraColumns }: { projectId: string; session: StaffSession; query: Record<string, string | undefined>; askKind: boolean; view: 'invitations' | 'all'; extraColumns: FormColumn[] }) {
+async function PeopleView({ projectId, session, query, askKind, view, extraColumns, calls }: { projectId: string; session: StaffSession; query: Record<string, string | undefined>; askKind: boolean; view: 'invitations' | 'all'; extraColumns: FormColumn[]; calls: ReturnType<typeof callVersionsOf> }) {
   // A number on the statistics screen links here with `stuck=`; the list then
   // holds exactly the people that number counted.
   const stuck = isStuckFilter(query.stuck) ? query.stuck : undefined
@@ -318,6 +320,7 @@ async function PeopleView({ projectId, session, query, askKind, view, extraColum
       extraParams={{ view, ...(stuck ? { stuck } : {}) }}
       stuck={stuck ? { key: stuck, label: STUCK_LABELS[stuck], href: `/projects/${projectId}?tab=joining&view=${view}` } : null}
       extraColumns={extraColumns}
+      calls={calls}
     />
   )
 }

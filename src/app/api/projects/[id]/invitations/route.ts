@@ -39,13 +39,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     assertSameOrigin(request)
     const session = await requireSession()
     const { id } = await context.params
-    const body = (await request.json().catch(() => null)) as { name?: unknown; phone?: unknown; email?: unknown; phones?: unknown; emails?: unknown; kind?: unknown; channel?: unknown; channels?: unknown; companyId?: unknown; operationId?: unknown; force?: unknown } | null
+    const body = (await request.json().catch(() => null)) as { name?: unknown; phone?: unknown; email?: unknown; phones?: unknown; emails?: unknown; kind?: unknown; channel?: unknown; channels?: unknown; companyId?: unknown; operationId?: unknown; force?: unknown; call?: unknown } | null
     if (!body || typeof body.name !== 'string') return NextResponse.json({ error: { message: 'נדרש שם.' } }, { status: 400 })
     const channels = [...new Set([...strings(body.channel), ...strings(body.channels)])].filter((c): c is Channel => (CHANNELS as string[]).includes(c))
     const kind: AudienceKind | null = body.kind === 'supplier' || body.kind === 'customer' ? body.kind : null
     const operationId = typeof body.operationId === 'string' && /^[A-Za-z0-9:_-]{8,120}$/.test(body.operationId) ? body.operationId : null
     if (!operationId) return NextResponse.json({ error: { message: 'חסר מזהה פעולה.' } }, { status: 400 })
-    const created = await createInvitation(session, { groupId: id, operationId, name: body.name, phones: [...strings(body.phone), ...strings(body.phones)], emails: [...strings(body.email), ...strings(body.emails)], kind, companyId: typeof body.companyId === 'string' ? body.companyId : null })
+    const created = await createInvitation(session, { groupId: id, operationId, name: body.name, phones: [...strings(body.phone), ...strings(body.phones)], emails: [...strings(body.email), ...strings(body.emails)], kind, companyId: typeof body.companyId === 'string' ? body.companyId : null, call: typeof body.call === 'string' ? body.call : null })
     if (!created.ok) return NextResponse.json({ error: { message: created.message } }, { status: 400 })
 
     const sends: InvitationSend[] = []
