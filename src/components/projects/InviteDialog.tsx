@@ -39,10 +39,11 @@ const link = 'inline-flex min-h-11 items-center px-1 text-sm font-medium text-br
 const messagesWord = (n: number) => (n === 1 ? 'הודעה אחת' : `${n} הודעות`)
 
 /** Mounted only while open, so every opening starts clean. */
-export function InviteDialog({ projectId, askKind, onClose }: { projectId: string; askKind: boolean; onClose: () => void }) {
+export function InviteDialog({ projectId, askKind, calls = [], onClose }: { projectId: string; askKind: boolean; /** The versions of the campaign's call page, when it has more than one: the chosen one travels on the personal link. */ calls?: { key: string; label: string; hint: string }[]; onClose: () => void }) {
   const router = useRouter()
   const [name, setName] = useState('')
   const [kind, setKind] = useState<'supplier' | 'customer' | ''>('')
+  const [call, setCall] = useState<string>(calls[0]?.key ?? '')
   const [channels, setChannels] = useState<Channel[]>(['sms'])
   const [phones, setPhones] = useState<string[]>([''])
   const [emails, setEmails] = useState<string[]>([''])
@@ -133,7 +134,7 @@ export function InviteDialog({ projectId, askKind, onClose }: { projectId: strin
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // Every address typed is kept on the person; the channels decide what leaves now.
-        body: JSON.stringify({ operationId: operationId.current, name: name.trim(), phones: cleanPhones, emails: cleanEmails, kind: kind || null, channels }),
+        body: JSON.stringify({ operationId: operationId.current, name: name.trim(), phones: cleanPhones, emails: cleanEmails, kind: kind || null, channels, ...(call ? { call } : {}) }),
       })
       const data = await response.json().catch(() => null)
       if (!response.ok || !data?.ok) {
@@ -258,6 +259,21 @@ export function InviteDialog({ projectId, askKind, onClose }: { projectId: strin
                   </label>
                 ))}
               </div>
+            ) : null}
+
+            {calls.length > 1 ? (
+              <fieldset>
+                <legend className="block text-sm font-medium text-fg">איזה קול קורא לשלוח?</legend>
+                <div role="radiogroup" aria-label="גרסת הקול הקורא" className="mt-1 grid grid-cols-2 gap-2">
+                  {calls.map((c) => (
+                    <label key={c.key} className={`${choice} ${call === c.key ? 'border-brand bg-blue-50 text-fg' : 'border-line bg-bg text-fg hover:border-brand'}`}>
+                      <input type="radio" name="inv-call" className="sr-only" checked={call === c.key} onChange={() => setCall(c.key)} />
+                      {c.label}
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-1 text-sm text-muted">{calls.find((c) => c.key === call)?.hint}</p>
+              </fieldset>
             ) : null}
 
             <fieldset>

@@ -41,7 +41,7 @@ const dateFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'sh
 const dayFormat = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short' })
 const bigButton = 'inline-flex min-h-12 items-center justify-center rounded-xl px-4 text-base font-semibold transition disabled:opacity-50'
 
-export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueToday, global = false, basePath, extraParams, hideViews = false, stuck = null }: { projectId: string; rows: AudienceRow[]; counts: Record<AudienceView, number>; view: AudienceView; q: string; askKind: boolean; dueToday: number; /** The organisation-wide tracking screen: a campaign column, no invite button. */ global?: boolean; basePath?: string; extraParams?: Record<string, string>; /** The campaign page draws its own view chips above the table. */ hideViews?: boolean; /** Opened from a number on the statistics screen: which question, and the way back to everyone. */ stuck?: { key: string; label: string; href: string } | null }) {
+export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueToday, global = false, basePath, extraParams, hideViews = false, stuck = null, calls = [] }: { projectId: string; rows: AudienceRow[]; counts: Record<AudienceView, number>; view: AudienceView; q: string; askKind: boolean; dueToday: number; /** The organisation-wide tracking screen: a campaign column, no invite button. */ global?: boolean; basePath?: string; extraParams?: Record<string, string>; /** The campaign page draws its own view chips above the table. */ hideViews?: boolean; /** Opened from a number on the statistics screen: which question, and the way back to everyone. */ stuck?: { key: string; label: string; href: string } | null; /** The versions of the campaign's call page, offered in the invitation dialog when there is more than one. */ calls?: { key: string; label: string; hint: string }[] }) {
   const router = useRouter()
   const [inviteOpen, setInviteOpen] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
@@ -335,7 +335,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
         </>
       )}
 
-      {inviteOpen ? <InviteDialog projectId={projectId} askKind={askKind} onClose={() => setInviteOpen(false)} /> : null}
+      {inviteOpen ? <InviteDialog projectId={projectId} askKind={askKind} calls={calls} onClose={() => setInviteOpen(false)} /> : null}
       {current ? <PersonDrawer row={current} projectId={current.groupId || projectId} onClose={() => setOpenId(null)} onNotice={setNotice} onRemove={() => setRemoving(current)} /> : null}
 
       {removing ? (

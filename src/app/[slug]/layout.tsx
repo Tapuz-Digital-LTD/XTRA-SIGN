@@ -3,6 +3,7 @@ import { shareForSlug } from '@/server/projects/share'
 import { Assistant } from 'next/font/google'
 import './tourism.css'
 import './campaign.css'
+import './hotel.css'
 
 /**
  * The Ministry of Tourism campaign pages: call-for-suppliers, joining and

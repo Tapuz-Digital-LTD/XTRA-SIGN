@@ -22,6 +22,7 @@ import { listDocuments } from '@/server/documents/queries'
 import { listLeads } from '@/server/projects/leads'
 import { getLandingSettings } from '@/server/projects/landing'
 import { getSelfServiceConfig } from '@/server/projects/self-service'
+import { callVersionsOf } from '@/lib/self-service-skins'
 import { listUsers } from '@/server/users/users'
 import type { StaffSession } from '@/server/auth/session'
 import { publicBaseUrl } from '@/server/http/public-url'
@@ -140,7 +141,7 @@ export default async function ProjectPage({
         </div>
         {tab === 'overview' ? <OverviewTab projectId={id} projectName={project.name} campaignKind={campaignKind} companies={companies} leads={leads} session={session} setup={setupEnabled ? setupByKind : null} /> : null}
         {tab === 'audience' ? <SuppliersTab projectId={id} projectName={project.name} companies={companies} search={query.q ?? ''} session={session} /> : null}
-        {tab === 'joining' ? <JoiningTab projectId={id} session={session} query={query} askKind={project.kind === null} audienceNoun={project.kind === 'customer' ? 'לקוח' : 'ספק'} publicUrl={await publicAddress(session, id)} /> : null}
+        {tab === 'joining' ? <JoiningTab projectId={id} session={session} query={query} askKind={project.kind === null} audienceNoun={project.kind === 'customer' ? 'לקוח' : 'ספק'} publicUrl={await publicAddress(session, id)} calls={callVersionsOf(selfService?.skin)} /> : null}
         {tab === 'distributions' ? (
           <>
             <TableExport definition={{ entity: 'sends', clauses: [inCampaign(id)], columns: ['sent_at', 'person', 'recipient', 'channel', 'event', 'result', 'error', 'agreement_title', 'sent_by_name'], sort: { field: 'sent_at', dir: 'desc' } }} label="ייצוא שליחות לאקסל" />
@@ -239,7 +240,7 @@ const inCampaign = (projectId: string): ReportDefinition['clauses'][number] => (
  * something (ממתינים להשלמה), who actually submitted the form (הרשמות),
  * and the full history (כל התהליכים). The same rows behind every view.
  */
-async function JoiningTab({ projectId, session, query, askKind, audienceNoun, publicUrl }: { projectId: string; session: StaffSession; query: Record<string, string | undefined>; askKind: boolean; audienceNoun: 'ספק' | 'לקוח'; publicUrl: string | null }) {
+async function JoiningTab({ projectId, session, query, askKind, audienceNoun, publicUrl, calls }: { projectId: string; session: StaffSession; query: Record<string, string | undefined>; askKind: boolean; audienceNoun: 'ספק' | 'לקוח'; publicUrl: string | null; /** The versions of the campaign's call page, when it has more than one. */ calls: ReturnType<typeof callVersionsOf> }) {
   const view: JoiningView = (['invitations', 'registrations', 'all'] as const).find((v) => v === query.view) ?? LEGACY_JOINING_VIEWS[query.view ?? ''] ?? 'registrations'
   const [counts, registrations] = await Promise.all([listAudience(session, projectId, { view: 'all', limit: 1 }), registrationCount(projectId, {} as ReturnType<typeof parseProjectReportFilters>)])
   const chips = JOINING_VIEWS.map((v) => ({ ...v, count: v.key === 'invitations' ? counts.counts.invitations : v.key === 'registrations' ? registrations : counts.counts.all }))
@@ -261,7 +262,7 @@ async function JoiningTab({ projectId, session, query, askKind, audienceNoun, pu
         {view === 'registrations' ? (
           <RegistrationsTab projectId={projectId} query={query} session={session} audienceNoun={audienceNoun} publicUrl={publicUrl} />
         ) : (
-          <PeopleView projectId={projectId} session={session} query={query} askKind={askKind} view={view} />
+          <PeopleView projectId={projectId} session={session} query={query} askKind={askKind} view={view} calls={calls} />
         )}
       </div>
     </div>
@@ -286,7 +287,7 @@ function joiningExport(projectId: string, view: JoiningView): ReportDefinition {
   return { entity: 'people', clauses, columns, sort: { field: 'last_activity_at', dir: 'desc' } }
 }
 
-async function PeopleView({ projectId, session, query, askKind, view }: { projectId: string; session: StaffSession; query: Record<string, string | undefined>; askKind: boolean; view: 'invitations' | 'all' }) {
+async function PeopleView({ projectId, session, query, askKind, view, calls }: { projectId: string; session: StaffSession; query: Record<string, string | undefined>; askKind: boolean; view: 'invitations' | 'all'; calls: ReturnType<typeof callVersionsOf> }) {
   // A number on the statistics screen links here with `stuck=`; the list then
   // holds exactly the people that number counted.
   const stuck = isStuckFilter(query.stuck) ? query.stuck : undefined
@@ -306,6 +307,7 @@ async function PeopleView({ projectId, session, query, askKind, view }: { projec
       hideViews
       extraParams={{ view, ...(stuck ? { stuck } : {}) }}
       stuck={stuck ? { key: stuck, label: STUCK_LABELS[stuck], href: `/projects/${projectId}?tab=joining&view=${view}` } : null}
+      calls={calls}
     />
   )
 }

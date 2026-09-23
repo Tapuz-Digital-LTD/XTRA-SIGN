@@ -1,0 +1,371 @@
+/*
+ * חודש התיירות הישראלית 2026 — the hotels' call (HotelCall.tsx).
+ *
+ * Tokens come from the hotels' ad: white paper, the headline's navy, the sea
+ * blue of the button, the coral of the packages line, the badge's yellow,
+ * and one colour per regional week. The picture at the top is the ad's own;
+ * the rest is set in the campaign face (Assistant) on a plain white column.
+ */
+
+.th-page {
+  --th-navy: #1f3a6e;
+  --th-navy-deep: #12285a;
+  --th-sea: #2b8ff5;
+  --th-sea-deep: #0e5fd6;
+  --th-coral: #e8452f;
+  --th-sun: #f7d64a;
+  --th-rule: #cfe0ee;
+  background: #ffffff;
+  color: var(--th-navy);
+}
+
+/* ── the picture ─────────────────────────────────────────────────────────── */
+
+.th-hero {
+  position: relative;
+  width: min(100%, 2000px);
+  margin: 0 auto;
+}
+
+.th-hero-media {
+  margin: 0;
+  overflow: hidden;
+}
+
+.th-hero-media img {
+  width: 100%;
+  height: auto;
+}
+
+/* Drawn only where the crop hides the ad's own badge (phones, below). */
+.th-badge {
+  display: none;
+}
+
+/* ── the column ──────────────────────────────────────────────────────────── */
+
+.th-body {
+  width: min(100%, 1180px);
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.th-intro {
+  margin: 8px auto 32px;
+  text-align: center;
+  font-size: clamp(17px, 1.55vw, 22px);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.th-intro p {
+  margin: 0;
+}
+
+/* ── the four weeks ──────────────────────────────────────────────────────── */
+
+.th-weeks {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.th-week {
+  padding: 0 16px;
+  text-align: center;
+}
+
+/* Hairlines between the weeks, as the ad rules them; the first week is on
+   the right, so every later one carries its rule on its inline start. */
+.th-week:not(:first-child) {
+  border-inline-start: 1px solid var(--th-rule);
+}
+
+.th-week img {
+  width: min(100%, 250px);
+  margin: 0 auto;
+}
+
+.th-week h2 {
+  margin: 10px 0 0;
+  font-size: clamp(17px, 1.5vw, 22px);
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.th-dates {
+  margin: 2px 0 8px;
+  font-size: clamp(18px, 1.6vw, 23px);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.th-regions {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  font-weight: 500;
+}
+
+/* ── packages, exposure, contact ─────────────────────────────────────────── */
+
+.th-packages {
+  margin: 40px 0 32px;
+  text-align: center;
+  color: var(--th-coral);
+  font-size: clamp(20px, 2.3vw, 31px);
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.th-line {
+  display: block;
+}
+
+.th-benefits {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+}
+
+.th-benefit {
+  text-align: center;
+}
+
+.th-benefit img {
+  width: 92px;
+  margin: 0 auto;
+}
+
+.th-benefit h3 {
+  margin: 6px 0 0;
+  font-size: clamp(17px, 1.5vw, 21px);
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.th-benefit p {
+  margin: 2px 0 0;
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+.th-contact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 12px;
+  margin: 36px 0 22px;
+  font-size: clamp(18px, 1.7vw, 24px);
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.th-contact a {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.th-contact a:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.th-contact a:focus-visible {
+  outline: 3px solid var(--th-sea);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.th-contact img {
+  width: 38px;
+  height: auto;
+}
+
+/* ── the button ──────────────────────────────────────────────────────────── */
+
+/* The ad sets the button on the wave: it hangs over the foot picture. */
+.th-join {
+  position: relative;
+  z-index: 2;
+  margin: 8px 0 -36px;
+  text-align: center;
+}
+
+.th-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 72px;
+  padding: 0 52px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #4ba6ff 0%, var(--th-sea) 45%, var(--th-sea-deep) 100%);
+  color: #ffffff;
+  font-size: clamp(26px, 2.4vw, 32px);
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow:
+    0 0 0 4px rgba(255, 255, 255, 0.95),
+    0 16px 34px rgba(14, 95, 214, 0.35),
+    0 3px 8px rgba(0, 0, 0, 0.18);
+  transition: transform 180ms ease, filter 180ms ease;
+}
+
+.th-cta:hover {
+  filter: brightness(1.06);
+  transform: translateY(-2px);
+}
+
+.th-cta:focus-visible {
+  outline: 3px solid var(--th-navy);
+  outline-offset: 6px;
+}
+
+.th-cta-arrow {
+  font-size: 40px;
+  line-height: 1;
+  transform: translateY(-3px);
+}
+
+.th-foot {
+  display: block;
+  width: min(100%, 2000px);
+  margin: 0 auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .th-cta {
+    transition: none;
+  }
+
+  .th-cta:hover {
+    transform: none;
+  }
+}
+
+/* ── phones and tablets ──────────────────────────────────────────────────── */
+
+@media (max-width: 859.98px) {
+  /* The picture is cropped to what a narrow screen can read: the three marks
+     and the headline, with the badge drawn back in at the corner. */
+  .th-hero-media {
+    aspect-ratio: 5 / 6;
+  }
+
+  .th-hero-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 52% 0;
+  }
+
+  .th-badge {
+    position: absolute;
+    right: 10px;
+    bottom: 6px;
+    display: grid;
+    place-content: center;
+    width: 106px;
+    aspect-ratio: 1;
+    margin: 0;
+    border-radius: 50%;
+    background: var(--th-sun);
+    color: #2f4f8f;
+    text-align: center;
+    line-height: 1;
+    transform: rotate(-8deg);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+  }
+
+  .th-badge span {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .th-badge strong {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  .th-badge small {
+    margin-top: 3px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .th-body {
+    padding: 0 16px 96px;
+  }
+
+  .th-intro {
+    font-size: 16px;
+    margin: 14px auto 26px;
+  }
+
+  .th-weeks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 12px;
+  }
+
+  .th-week {
+    padding: 0;
+  }
+
+  .th-week:not(:first-child) {
+    border-inline-start: 0;
+  }
+
+  .th-week img {
+    width: min(100%, 190px);
+  }
+
+  .th-regions {
+    font-size: 14px;
+  }
+
+  .th-packages {
+    margin: 32px 0 24px;
+    font-size: 21px;
+  }
+
+  .th-benefits {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 12px;
+  }
+
+  .th-benefit img {
+    width: 78px;
+  }
+
+  .th-contact {
+    flex-direction: column;
+    gap: 2px;
+    font-size: 18px;
+    margin: 28px 0 18px;
+  }
+
+  .th-cta {
+    width: 100%;
+    max-width: 420px;
+    min-height: 64px;
+    font-size: 26px;
+  }
+
+  .th-join {
+    margin-bottom: -28px;
+  }
+}

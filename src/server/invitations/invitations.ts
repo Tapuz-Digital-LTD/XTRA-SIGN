@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto'
+import { callVersionsOf } from '@/lib/self-service-skins'
+import { selfServiceOf } from '@/server/projects/self-service'
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import type { StaffSession } from '@/server/auth/session'
 import { cleanOverrides, renderTemplate, resolveMessage, type Variables } from '@/lib/message-template'
@@ -129,11 +131,21 @@ export async function directSigningGroup(session: StaffSession): Promise<{ id: s
   return raced
 }
 
-/** The personal link: the campaign's public page, with the invitation on it. */
+/**
+ * The personal link: the campaign's public page, with the invitation on it —
+ * and, when the invitation was sent with another version of the call (the
+ * hotels' one), that version's query, so every send, reminder and copied
+ * link shows the page the rep chose.
+ */
 export async function invitationLink(groupId: string, leadId: string): Promise<string | null> {
-  const [group] = await getDb().select({ landingSlug: schema.groups.landingSlug }).from(schema.groups).where(eq(schema.groups.id, groupId)).limit(1)
+  const db = getDb()
+  const [group] = await db.select({ landingSlug: schema.groups.landingSlug, landingConfig: schema.groups.landingConfig }).from(schema.groups).where(eq(schema.groups.id, groupId)).limit(1)
   const base = await campaignUrlFor(groupId, group?.landingSlug ?? null)
-  return base ? `${base}?xs_inv=${leadId}` : null
+  if (!base) return null
+  const [lead] = await db.select({ meta: schema.projectLeads.meta }).from(schema.projectLeads).where(eq(schema.projectLeads.id, leadId)).limit(1)
+  const callKey = (lead?.meta as { call?: unknown } | null)?.call
+  const call = typeof callKey === 'string' ? callVersionsOf(selfServiceOf(group?.landingConfig).skin).find((c) => c.key === callKey) : undefined
+  return `${base}?xs_inv=${leadId}${call?.query ? `&${call.query}` : ''}`
 }
 
 export type ExistingInvitee = { id: string; name: string; status: ProcessStatus; matchedOn: 'phone' | 'email'; lastActivityAt: Date | null }
@@ -191,6 +203,8 @@ export type CreateInvitationInput = {
   phones?: unknown
   emails?: unknown
   kind?: AudienceKind | null
+  /** Which version of the call page the person is sent to, when the campaign has more than one (self-service-skins.ts). */
+  call?: string | null
   /** An existing supplier/customer the person belongs to, chosen by the rep. */
   companyId?: string | null
   /** The agreement a direct send made for them, when there is one already. */
@@ -213,6 +227,8 @@ export async function createInvitation(session: StaffSession, input: CreateInvit
   const contact: Contact = { phone: points.phones[0] ?? null, email: points.emails[0] ?? null }
   const kind = input.kind ?? (group.kind === 'customer' ? 'customer' : group.kind === 'supplier' ? 'supplier' : null)
   if (group.kind === null && !kind && !group.systemKey) return { ok: false, message: 'בחרו אם זה ספק או לקוח.' }
+  // Only a version this campaign's page actually has, and only one that changes the link.
+  const call = callVersionsOf(selfServiceOf(group.landingConfig).skin).find((c) => c.key === input.call && c.query)
   const db = getDb()
   const idempotencyKey = input.operationId && /^[A-Za-z0-9:_-]{8,120}$/.test(input.operationId) ? operationKey(group.id, input.operationId) : null
   const inserted = await db
@@ -231,6 +247,7 @@ export async function createInvitation(session: StaffSession, input: CreateInvit
       agreementId: input.agreementId ?? null,
       idempotencyKey,
       lastActivityAt: new Date(),
+      ...(call ? { meta: { call: call.key } } : {}),
     })
     .onConflictDoNothing()
     .returning({ id: schema.projectLeads.id })

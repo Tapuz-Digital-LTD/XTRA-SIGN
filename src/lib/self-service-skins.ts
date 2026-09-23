@@ -25,6 +25,15 @@ export const SELF_SERVICE_SKINS = [
       description: 'קול קורא לעסקי תיירות להצטרף למיזם: ארבעה שבועות של פעילות, בימים רביעי עד שבת. הרשמה וחתימה דיגיטלית על הסכם ההצטרפות, עד 22 בספטמבר 2026.',
       image: '/tourism-2026/og.png',
     },
+    /**
+     * The versions of the call page. The invitation dialog offers them, the
+     * personal link carries the chosen one as `query`, and the page picks its
+     * look by it. Every version leads to the same joining form.
+     */
+    calls: [
+      { key: 'regular', label: 'רגיל', hint: 'הקול הקורא הרגיל, כפי שהוא היום.', query: '' },
+      { key: 'hotel', label: 'מלונות', hint: 'הקול הקורא בעיצוב המודעה למלונות. אותו טופס ואותו הסכם.', query: 'hotel=true' },
+    ],
   },
 ] as const
 
@@ -33,4 +42,12 @@ export type SkinKey = SelfServiceSkin['key']
 
 export function skinByKey(key: string | null | undefined): SelfServiceSkin | null {
   return SELF_SERVICE_SKINS.find((skin) => skin.key === key) ?? null
+}
+
+export type CallVersion = SelfServiceSkin['calls'][number]
+
+/** The call versions a project can send, when its campaign page has more than one. */
+export function callVersionsOf(skinKey: string | null | undefined): CallVersion[] {
+  const skin = skinByKey(skinKey)
+  return skin && skin.calls.length > 1 ? [...skin.calls] : []
 }
