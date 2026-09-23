@@ -62,6 +62,55 @@
   margin: 0;
 }
 
+/* ── the leaves ──────────────────────────────────────────────────────────── */
+
+/* A band is a section that lets the ad's leaves out of the column, to the
+   paper's edges — the page clips whatever a leaf pushes past the viewport. */
+.th-band {
+  position: relative;
+}
+
+.th-band > ol,
+.th-band > ul {
+  position: relative;
+  z-index: 1;
+}
+
+.th-leaf {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.th-leaf-right {
+  right: calc(50% - 50vw);
+}
+
+.th-leaf-left {
+  left: calc(50% - 50vw);
+}
+
+.th-leaf-weeks-right {
+  top: -12px;
+  width: clamp(72px, 9.2vw, 133px);
+}
+
+.th-leaf-weeks-left {
+  top: -100px;
+  width: clamp(72px, 9.4vw, 136px);
+}
+
+.th-leaf-benefits-right {
+  top: -14px;
+  width: clamp(76px, 9.8vw, 141px);
+}
+
+.th-leaf-benefits-left {
+  top: -92px;
+  width: clamp(90px, 12.3vw, 177px);
+}
+
 /* ── the four weeks ──────────────────────────────────────────────────────── */
 
 .th-weeks {
@@ -190,7 +239,7 @@
 }
 
 .th-contact img {
-  width: 38px;
+  width: 44px;
   height: auto;
 }
 
@@ -241,9 +290,24 @@
 }
 
 .th-foot {
-  display: block;
+  position: relative;
   width: min(100%, 2000px);
   margin: 0 auto;
+}
+
+.th-foot-strip {
+  display: block;
+  width: 100%;
+}
+
+/* The wordmark stands where the ad set its own: in the white of the wave. */
+.th-foot-mark {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  width: clamp(120px, 11.5%, 200px);
+  height: auto;
+  transform: translateX(-50%);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -261,8 +325,9 @@
 @media (max-width: 859.98px) {
   /* The picture is cropped to what a narrow screen can read: the three marks
      and the headline, with the badge drawn back in at the corner. */
+  /* Wide enough to keep all three marks; the badge is drawn back in at the corner. */
   .th-hero-media {
-    aspect-ratio: 5 / 6;
+    aspect-ratio: 15 / 16;
   }
 
   .th-hero-media img {
@@ -274,11 +339,11 @@
 
   .th-badge {
     position: absolute;
-    right: 10px;
-    bottom: 6px;
+    right: 6px;
+    bottom: 4px;
     display: grid;
     place-content: center;
-    width: 106px;
+    width: 92px;
     aspect-ratio: 1;
     margin: 0;
     border-radius: 50%;
@@ -291,20 +356,40 @@
   }
 
   .th-badge span {
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 700;
   }
 
   .th-badge strong {
-    font-size: 36px;
+    font-size: 31px;
     font-weight: 800;
     letter-spacing: -0.02em;
   }
 
   .th-badge small {
-    margin-top: 3px;
-    font-size: 11px;
+    margin-top: 2px;
+    font-size: 9px;
     font-weight: 600;
+  }
+
+  /* The leaves stay at the edges, smaller, behind the pictures. */
+  .th-leaf-weeks-left,
+  .th-leaf-benefits-left {
+    top: -8px;
+  }
+
+  /* Under the strip there is no white left for the mark: it gets its own line. */
+  .th-foot {
+    padding-bottom: 12px;
+    background: #fff;
+  }
+
+  .th-foot-mark {
+    position: static;
+    display: block;
+    width: 104px;
+    margin: 10px auto 0;
+    transform: none;
   }
 
   .th-body {

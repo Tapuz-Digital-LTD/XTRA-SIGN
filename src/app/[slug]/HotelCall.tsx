@@ -15,9 +15,11 @@ import { FloatingCta } from './FloatingCta'
  * faces and the discount badge — is one picture, since none of that type
  * has a font. Everything under it is real text: the invitation, the four
  * regional weeks with the ad's own photographs, the hotel packages, the
- * four kinds of exposure, the contact line and the button. On a phone the
- * picture is cropped to the headline and the badge is drawn again in CSS,
- * where the crop cannot reach it.
+ * four kinds of exposure, the contact line and the button, with the ad's
+ * leaves at the paper's edges. On a phone the picture is cropped to the
+ * three marks and the headline, and the badge is drawn again in CSS, where
+ * the crop cannot reach it. The ad signs off with its own XTRA mark; here
+ * the real wordmark stands in its place.
  */
 
 const INTRO = [
@@ -70,7 +72,9 @@ export function HotelCall({ formId, joinHref }: { formId: string; joinHref: stri
           ))}
         </section>
 
-        <section aria-label="ארבעת השבועות האזוריים">
+        <section className="th-band" aria-label="ארבעת השבועות האזוריים">
+          <img src="/tourism-2026/hotel/leaf-weeks-right.webp" alt="" className="th-leaf th-leaf-right th-leaf-weeks-right" width={133} height={315} loading="lazy" />
+          <img src="/tourism-2026/hotel/leaf-weeks-left.webp" alt="" className="th-leaf th-leaf-left th-leaf-weeks-left" width={136} height={442} loading="lazy" />
           <ol className="th-weeks">
             {WEEKS.map((week) => (
               <li key={week.image} className="th-week">
@@ -94,7 +98,9 @@ export function HotelCall({ formId, joinHref }: { formId: string; joinHref: stri
           ))}
         </p>
 
-        <section aria-label="מה אתם מקבלים">
+        <section className="th-band" aria-label="מה אתם מקבלים">
+          <img src="/tourism-2026/hotel/leaf-benefits-right.webp" alt="" className="th-leaf th-leaf-right th-leaf-benefits-right" width={141} height={291} loading="lazy" />
+          <img src="/tourism-2026/hotel/leaf-benefits-left.webp" alt="" className="th-leaf th-leaf-left th-leaf-benefits-left" width={177} height={392} loading="lazy" />
           <ul className="th-benefits">
             {BENEFITS.map((item) => (
               <li key={item.image} className="th-benefit">
@@ -110,7 +116,7 @@ export function HotelCall({ formId, joinHref }: { formId: string; joinHref: stri
           <span>לפרטים והצטרפות לשת״פ | {CONTACT.name}:</span>
           <a href={CONTACT.whatsapp} target="_blank" rel="noopener noreferrer" aria-label={`WhatsApp אל ${CONTACT.name}, ${CONTACT.phone}`}>
             <span dir="ltr">{CONTACT.phone}</span>
-            <img src="/tourism-2026/hotel/whatsapp.webp" alt="" width={76} height={75} loading="lazy" />
+            <img src="/tourism-2026/hotel/whatsapp.webp" alt="" width={98} height={99} loading="lazy" />
           </a>
         </p>
 
@@ -124,7 +130,10 @@ export function HotelCall({ formId, joinHref }: { formId: string; joinHref: stri
         </div>
       </div>
 
-      <img src="/tourism-2026/hotel/foot.webp" alt="" className="th-foot" width={1676} height={250} loading="lazy" />
+      <div className="th-foot">
+        <img src="/tourism-2026/hotel/foot.webp" alt="" className="th-foot-strip" width={1676} height={250} loading="lazy" />
+        <img src="/xtra-logo.png" alt="XTRA" className="th-foot-mark" width={2039} height={492} loading="lazy" />
+      </div>
 
       <FloatingCta href={joinHref} watch=".th-cta" formId={formId} />
       <CampaignTracker formId={formId} event="page_view" />
