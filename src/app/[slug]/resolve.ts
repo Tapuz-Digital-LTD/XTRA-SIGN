@@ -19,6 +19,28 @@ export async function campaignProject(slug: string, rest: string, searchParams?:
   return found.project
 }
 
+/**
+ * What travels from the call to the explainer to the joining page on the
+ * link.
+ *
+ * `xs_inv` is the personal invitation the visitor arrived through, and it
+ * matters more than any of the rest: the joining form reads these off its own
+ * address, so a key dropped on the way is a registration that cannot be tied
+ * back to the invitation that produced it — a second row for one person, and
+ * an invitation left reading "הוזמן" after they signed.
+ */
+export const CARRIED_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'xs_inv'] as const
+
+/** `/<slug>/<page>` with the carried keys of this address on it, and nothing else. */
+export function carriedHref(slug: string, page: string, query: SearchParams): string {
+  const carried = new URLSearchParams()
+  for (const key of CARRIED_KEYS) {
+    const value = query[key]
+    if (typeof value === 'string' && value.trim()) carried.set(key, value.trim().slice(0, 200))
+  }
+  return carried.size > 0 ? `/${slug}/${page}?${carried}` : `/${slug}/${page}`
+}
+
 export function queryString(searchParams?: SearchParams): string {
   if (!searchParams) return ''
   const carried = new URLSearchParams()

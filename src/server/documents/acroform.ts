@@ -1,4 +1,4 @@
-import { PDFDocument, PDFTextField, type PDFWidgetAnnotation } from 'pdf-lib'
+import { PDFCheckBox, PDFDocument, PDFRadioGroup, PDFTextField, type PDFWidgetAnnotation } from 'pdf-lib'
 import { clampToPage, type FieldType, type PlacedField } from '@/lib/fields'
 import { log } from '@/server/log'
 
@@ -16,6 +16,15 @@ import { log } from '@/server/log'
  * form on a document we are about to sign invites edits that never reach us.
  * Flattening draws the widgets' current appearance (the empty boxes) into the
  * page content — visually identical, verified against the original render.
+ *
+ * A printed radio pair or checkbox is a statement, not a question: it is
+ * never asked and never drawn again. But where it sits is kept, as a
+ * checkbox field keyed `<name>__<on state>` (a variable key: lower-case
+ * letters, digits and underscores, which is why "=" is not the joint) with
+ * no value — so a tick placed later by the system (the coupon path a
+ * business chose, the optional extension) lands on the box the document
+ * draws, whichever edition of the document this is. An unvalued checkbox
+ * field draws nothing.
  */
 
 export type AcroFormIntake = { fields: PlacedField[]; flattened: Buffer }
@@ -47,10 +56,32 @@ export async function intakeAcroForm(bytes: Buffer, pages: IntakePage[]): Promis
   const fields: PlacedField[] = []
 
   for (const formField of formFields) {
-    // Text boxes only. A checkbox or a dropdown on a form we are handed is
-    // kept as drawn (it is flattened with everything else) but not turned into
-    // a field — a checkbox drawn as already ticked is a statement, not a
-    // question.
+    if (formField instanceof PDFCheckBox || formField instanceof PDFRadioGroup) {
+      for (const widget of formField.acroField.getWidgets()) {
+        const pageIndex = pageIndexOf(widget, pageRefs)
+        const geometry = pages.find((p) => p.page === pageIndex + 1)
+        if (!geometry) continue
+        const rect = widget.getRectangle()
+        fields.push({
+          id: crypto.randomUUID(),
+          type: 'checkbox',
+          label: formField.getName(),
+          ownedBy: 'sender',
+          required: false,
+          page: pageIndex + 1,
+          ...clampToPage({ x: rect.x / geometry.widthPt, y: (geometry.heightPt - rect.y - rect.height) / geometry.heightPt, width: rect.width / geometry.widthPt, height: rect.height / geometry.heightPt }),
+          value: null,
+          options: null,
+          placeholder: null,
+          autoFill: false,
+          autoSource: null,
+          variableKey: buttonKey(formField.getName(), onStateOf(formField, widget)),
+        })
+      }
+      continue
+    }
+    // Text boxes only beyond that: a dropdown on a form we are handed is kept
+    // as drawn (it is flattened with everything else) but not turned into a field.
     if (!(formField instanceof PDFTextField)) continue
 
     const widget = formField.acroField.getWidgets()[0]
@@ -106,6 +137,17 @@ export async function intakeAcroForm(bytes: Buffer, pages: IntakePage[]): Promis
   return { fields, flattened: Buffer.from(await pdf.save()) }
 }
 
+/**
+ * What a widget says when it is on. A form made by hand names the state
+ * itself ("generic_xtra25"); a form made by a library numbers the states and
+ * keeps the names in the field's option list, so a number is looked up there.
+ */
+function onStateOf(formField: PDFCheckBox | PDFRadioGroup, widget: PDFWidgetAnnotation): string {
+  const state = widget.getOnValue()?.decodeText() ?? 'Yes'
+  if (formField instanceof PDFRadioGroup && /^\d+$/.test(state)) return formField.getOptions()[Number(state)] ?? state
+  return state
+}
+
 function pageIndexOf(widget: PDFWidgetAnnotation, pageRefs: { toString(): string }[]): number {
   const ref = widget.P()
   if (ref) {
@@ -138,4 +180,26 @@ function variableKeyFor(name: string, existing: string[]): string {
   let n = 2
   while (existing.includes(`${base}_${n}`)) n++
   return `${base}_${n}`
+}
+
+/** The variable key of a printed radio option or checkbox: the field's name and the state that means "on", as one key. */
+export function buttonKey(name: string, state: string): string {
+  return variableKeyFor(`${name}__${state}`, [])
+}
+
+/** The printed radios and checkboxes of a fillable PDF, by `buttonKey`, as page fractions (top-left origin) — what intake records, for a script that checks where a tick landed. */
+export async function buttonWidgetBoxes(bytes: Buffer): Promise<Record<string, { page: number; x: number; y: number; width: number; height: number }>> {
+  const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false })
+  const pages = pdf.getPages()
+  const out: Record<string, { page: number; x: number; y: number; width: number; height: number }> = {}
+  for (const formField of pdf.getForm().getFields()) {
+    if (!(formField instanceof PDFCheckBox || formField instanceof PDFRadioGroup)) continue
+    for (const widget of formField.acroField.getWidgets()) {
+      const index = pageIndexOf(widget, pages.map((page) => page.ref))
+      const { width, height } = pages[index].getSize()
+      const rect = widget.getRectangle()
+      out[buttonKey(formField.getName(), onStateOf(formField, widget))] = { page: index + 1, x: rect.x / width, y: (height - rect.y - rect.height) / height, width: rect.width / width, height: rect.height / height }
+    }
+  }
+  return out
 }

@@ -8,8 +8,9 @@ import { FloatingCta } from './FloatingCta'
  *
  * Reached with `?hotel=true` on the campaign's address; the personal link
  * of an invitation sent as "מלונות" carries it (self-service-skins.ts). It
- * changes only what the reader sees: the button goes to the same joining
- * form, on the same address, and the form knows nothing about it.
+ * changes only what the reader sees: the button goes to the same explainer
+ * and from there to the same joining form, on the same address, and neither
+ * knows anything about it.
  *
  * The ad's top — terrace, bay, the three marks, the headline in its own
  * faces, the badge, the sun's glow behind the type — is one picture, exactly
