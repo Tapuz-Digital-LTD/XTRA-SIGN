@@ -157,10 +157,10 @@ export async function startSelfServiceSigning(input: RegistrationInput): Promise
     const agreements = await findProjectAgreements(project, supplier.id)
     // Signed already — unless this is the 18 ₪ version and nothing they signed
     // carries the appendix: then they sign again, and what they signed stays.
-    const covering = agreements.find((a) => a.status === 'signed' && (!data.withAppendix || hasAppendix(a.mergeSnapshot)))
-    if (covering) {
-      await markRegistration(registration.id, { status: 'converted', companyId: supplier.id, agreementId: covering.id })
-      return alreadySigned(project, skin, covering.id)
+    const signed = agreements.find((a) => a.status === 'signed' && (!data.withAppendix || hasAppendix(a.mergeSnapshot))) ?? agreements.find((a) => a.status === 'signed')
+    if (signed && !(await mayResign(signed, data))) {
+      await markRegistration(registration.id, { status: 'converted', companyId: supplier.id, agreementId: signed.id })
+      return alreadySigned(project, skin, signed.id)
     }
     const existing = agreements[0] ?? null
     if (existing && (existing.status === 'sent' || existing.status === 'viewed') && sameDetails(existing.mergeSnapshot, data)) {
@@ -572,6 +572,19 @@ async function resolveLocal(session: StaffSession, data: RegistrationValues): Pr
   return { id: created.id, matchedOn: null, nameHint: sameName ?? null }
 }
 
+/**
+ * A signed business signs again only for the 18 ₪ version, only when what it
+ * signed lacks the appendix — and only from the phone that signed it. The
+ * code goes to the phone typed in the form, so that phone is the proof: a
+ * stranger who knows a company number must not open a new agreement in its
+ * name, least of all one that carries a bank account.
+ */
+async function mayResign(signed: { id: string; mergeSnapshot: unknown }, data: RegistrationValues): Promise<boolean> {
+  if (!data.withAppendix || hasAppendix(signed.mergeSnapshot)) return false
+  const [recipient] = await getDb().select({ phone: schema.recipients.phone }).from(schema.recipients).where(eq(schema.recipients.agreementId, signed.id)).limit(1)
+  return Boolean(recipient?.phone) && normalizeIsraeliPhone(recipient.phone ?? '') === data.phone
+}
+
 /** This supplier's agreements in this project, newest first. */
 async function findProjectAgreements(project: SelfServiceProject, companyId: string) {
   return getDb()
@@ -755,8 +768,8 @@ async function replay(
     .where(eq(schema.agreements.id, agreementId))
     .limit(1)
   if (!agreement) return null
-  // Signed without the appendix, and now the 18 ₪ version: not a repeat — the run goes on to a new document.
-  if (agreement.status === 'signed') return !data.withAppendix || hasAppendix(agreement.mergeSnapshot) ? alreadySigned(project, skin, agreement.id) : null
+  // Signed without the appendix, and now the 18 ₪ version from the phone that signed: not a repeat — the run goes on to a new document.
+  if (agreement.status === 'signed') return (await mayResign(agreement, data)) ? null : alreadySigned(project, skin, agreement.id)
   if ((agreement.status === 'sent' || agreement.status === 'viewed') && sameDetails(agreement.mergeSnapshot, data)) {
     return reissue(project, skin, session, agreement.id)
   }

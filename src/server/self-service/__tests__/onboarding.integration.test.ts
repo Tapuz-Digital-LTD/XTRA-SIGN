@@ -337,6 +337,13 @@ describe('startSelfServiceSigning', () => {
     let appendixAgreementId: string
     let appendixToken: string
 
+    it('is refused to anyone but the phone that signed: a company number alone opens no agreement in its name', async () => {
+      const result = await register('key-b18-0', { ...appendix, phone: '054-9998887', email: 'stranger@example.com', bankAccount: '111111111' })
+      expect(result.ok && result.kind).toBe('already_signed')
+      const open = await db.select().from(schema.agreements).where(and(eq(schema.agreements.organizationId, admin.organizationId), eq(schema.agreements.status, 'sent')))
+      expect(open.filter((a) => a.title.includes('הטבת 18'))).toHaveLength(0)
+    })
+
     it('a business that signed without the appendix signs again with it, and the first signature stays', async () => {
       const result = await register('key-b18-1', appendix)
       if (!result.ok || result.kind !== 'ready') throw new Error(`expected a new agreement, got ${JSON.stringify(result)}`)
