@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
-import type { RegistrationValues } from '@/lib/self-service-registration'
+import { NO_APPENDIX, type RegistrationValues } from '@/lib/self-service-registration'
 import { resolveSupplier } from '../onboarding'
 
 /**
@@ -44,6 +44,7 @@ const values = (over: Partial<RegistrationValues> = {}): RegistrationValues => (
   optionalExtension: false,
   declareLicense: true,
   declareInsurance: true,
+  ...NO_APPENDIX,
   ...over,
 })
 

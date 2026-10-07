@@ -1058,3 +1058,185 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── The 18 ₪ appendix (JoinAndSign, "רגיל + הטבת 18 ₪") ─────────────────
+   The same cards and inputs as the agreement; what is new is the service
+   table as rows, the ₪ beside a price, and the Tapuznet text in a box of its
+   own so the last step stays short. */
+
+/* Two answers side by side once there is room: address and city, branch
+   number and name, the other bank's name and number. */
+.tj-pair {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--tj-field-gap);
+}
+
+.tj-group-first {
+  margin-top: 0;
+}
+
+.tj-service {
+  margin-top: var(--tj-block-gap);
+  padding: 12px 16px 18px;
+  border-radius: 14px;
+  border: 1.5px solid var(--tl-line);
+  background: #fff;
+}
+
+.tj-service-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  margin-bottom: 8px;
+}
+
+.tj-service-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--tl-cyan-deep);
+}
+
+.tj-service-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.tj-add {
+  display: block;
+  width: 100%;
+  min-height: 50px;
+  margin-top: 14px;
+  padding: 0 18px;
+  border-radius: 14px;
+  border: 1.5px dashed #9fc2dd;
+  background: transparent;
+  color: var(--tl-navy);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.tj-add:hover {
+  border-color: var(--tl-cyan-deep);
+  background: #f3f9fd;
+}
+
+.tj-add:focus-visible {
+  outline: 3px solid var(--tl-navy);
+  outline-offset: 3px;
+}
+
+/* The list of banks: the input's own look, with its arrow on the reading end. */
+.tj-select {
+  appearance: none;
+  cursor: pointer;
+  padding-inline-end: 44px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%230c3257' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left 16px center;
+}
+
+.tj-select:disabled {
+  cursor: default;
+}
+
+/* ₪ beside a price: on the number's left, as a Hebrew page shows "₪ 120". */
+.tj-affix {
+  position: relative;
+}
+
+.tj-affix .tj-input {
+  padding-left: 40px;
+}
+
+.tj-affix-mark {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 17px;
+  font-weight: 600;
+  color: #5b7590;
+  pointer-events: none;
+}
+
+/* The appendix's words: a reading box, at a reading measure. */
+.tj-doc {
+  max-height: 26rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px 20px 8px;
+  border-radius: 12px;
+  border: 1px solid #d9e3ee;
+  background: #fbfcfe;
+  font-size: 15px;
+  line-height: 1.7;
+  color: #1c3550;
+}
+
+.tj-doc:focus-visible {
+  outline: 3px solid var(--tl-cyan);
+  outline-offset: 2px;
+}
+
+.tj-doc > * {
+  max-width: 68ch;
+}
+
+.tj-doc p {
+  margin: 0 0 10px;
+}
+
+.tj-doc h3 {
+  margin: 18px 0 6px;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--tl-navy);
+}
+
+.tj-doc ol {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+}
+
+.tj-doc li {
+  display: grid;
+  grid-template-columns: 1.6em 1fr;
+  margin-bottom: 6px;
+}
+
+.tj-doc-subject {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.tj-doc-lead {
+  font-weight: 400;
+}
+
+/* Ours, not the document's. */
+.tj-doc-note {
+  color: #5b7590;
+}
+
+@media (min-width: 600px) {
+  .tj-pair {
+    grid-template-columns: 1fr 1fr;
+  }
+  .tj-service-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .tj-choices-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

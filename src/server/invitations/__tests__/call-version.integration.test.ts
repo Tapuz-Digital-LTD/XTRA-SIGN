@@ -29,7 +29,7 @@ beforeAll(async () => {
 
 describe('the versions of the call', () => {
   it('exist only for a campaign page that has more than one', () => {
-    expect(callVersionsOf('tourism-2026').map((c) => c.key)).toEqual(['regular', 'hotel'])
+    expect(callVersionsOf('tourism-2026').map((c) => c.key)).toEqual(['regular', 'hotel', 'benefit18'])
     expect(callVersionsOf(null)).toEqual([])
     expect(callVersionsOf('nope')).toEqual([])
   })
@@ -48,6 +48,14 @@ describe('the versions of the call', () => {
     expect(none.invitation.link).toMatch(/\?xs_inv=[0-9a-f-]{36}$/)
     // Built again later — for a reminder, a copied link — it still carries the version.
     expect(await invitationLink(groupId, hotel.invitation.id)).toBe(hotel.invitation.link)
+  })
+
+  it('the 18 ₪ invitation carries benefit=18, which the call passes on to the form', async () => {
+    const groupId = await group({ selfService: { enabled: false, skin: 'tourism-2026' } })
+    const created = await createInvitation(session, { groupId, operationId: key(), name: 'מוזיאון', phone: '050-1234562', call: 'benefit18' })
+    expect(created.ok && created.invitation.link).toMatch(/\?xs_inv=[0-9a-f-]{36}&benefit=18$/)
+    if (!created.ok) return
+    expect(await invitationLink(groupId, created.invitation.id)).toBe(created.invitation.link)
   })
 
   it('a campaign without a branded page ignores the version', async () => {

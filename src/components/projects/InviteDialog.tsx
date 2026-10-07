@@ -264,7 +264,7 @@ export function InviteDialog({ projectId, askKind, calls = [], onClose }: { proj
             {calls.length > 1 ? (
               <fieldset>
                 <legend className="block text-sm font-medium text-fg">איזה קול קורא לשלוח?</legend>
-                <div role="radiogroup" aria-label="גרסת הקול הקורא" className="mt-1 grid grid-cols-2 gap-2">
+                <div role="radiogroup" aria-label="גרסת הקול הקורא" className={`mt-1 grid gap-2 ${calls.length > 2 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
                   {calls.map((c) => (
                     <label key={c.key} className={`${choice} ${call === c.key ? 'border-brand bg-blue-50 text-fg' : 'border-line bg-bg text-fg hover:border-brand'}`}>
                       <input type="radio" name="inv-call" className="sr-only" checked={call === c.key} onChange={() => setCall(c.key)} />
