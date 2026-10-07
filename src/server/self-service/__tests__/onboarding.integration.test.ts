@@ -18,6 +18,8 @@ import { resolveSigningToken } from '@/server/signing/session'
 import { getStorage } from '@/server/storage/blob'
 import { createTemplateFromPdf } from '@/server/templates/templates'
 import { startSelfServiceSigning, validateRegistration } from '../onboarding'
+import { APPENDIX_PAGES } from '../benefit18-appendix-layout'
+import { APPENDIX_PARTY_TAX_ID } from '@/lib/benefit18-appendix'
 
 /**
  * The whole self-service journey against the real schema, the real PDF and
@@ -308,6 +310,91 @@ describe('startSelfServiceSigning', () => {
     const agreements = await db.select().from(schema.agreements).where(eq(schema.agreements.organizationId, admin.organizationId))
     expect(agreements.filter((a) => a.status === 'signed')).toHaveLength(1)
     expect(agreements).toHaveLength(2)
+  })
+
+  /**
+   * "רגיל + הטבת 18 ₪": the same agreement, with the Tapuznet appendix after
+   * it — its pages appended to the document, its answers in their boxes, one
+   * signature on both.
+   */
+  describe('the 18 ₪ version', () => {
+    const appendix = {
+      withAppendix: true,
+      address: 'הנמל 3',
+      city: 'חיפה',
+      audience: 'both',
+      service1Type: 'כרטיס כניסה',
+      service1Details: 'כניסה ליום אחד',
+      service1Price: '120',
+      service1Net: '90',
+      bankAccountName: 'מלון הנוף הצפוני בע"מ',
+      bankName: 'בנק הפועלים',
+      bankNumber: '12',
+      bankBranch: '600',
+      bankAccount: '987654321',
+      consentAppendix: true,
+    }
+    let appendixAgreementId: string
+    let appendixToken: string
+
+    it('is refused to anyone but the phone that signed: a company number alone opens no agreement in its name', async () => {
+      const result = await register('key-b18-0', { ...appendix, phone: '054-9998887', email: 'stranger@example.com', bankAccount: '111111111' })
+      expect(result.ok && result.kind).toBe('already_signed')
+      const open = await db.select().from(schema.agreements).where(and(eq(schema.agreements.organizationId, admin.organizationId), eq(schema.agreements.status, 'sent')))
+      expect(open.filter((a) => a.title.includes('הטבת 18'))).toHaveLength(0)
+    })
+
+    it('a business that signed without the appendix signs again with it, and the first signature stays', async () => {
+      const result = await register('key-b18-1', appendix)
+      if (!result.ok || result.kind !== 'ready') throw new Error(`expected a new agreement, got ${JSON.stringify(result)}`)
+      expect(result.agreementId).not.toBe(firstAgreementId)
+      appendixAgreementId = result.agreementId
+      appendixToken = result.token
+      await result.afterResponse()
+
+      const [first] = await db.select().from(schema.agreements).where(eq(schema.agreements.id, firstAgreementId))
+      expect(first.status).toBe('signed')
+
+      const [agreement] = await db.select().from(schema.agreements).where(eq(schema.agreements.id, appendixAgreementId))
+      expect(agreement.title).toContain('הטבת 18 ₪')
+      const [version] = await db.select().from(schema.agreementVersions).where(eq(schema.agreementVersions.id, agreement.currentVersionId!))
+      // The fixture is the one-page edition; the appendix follows it.
+      expect(version.pageCount).toBe(1 + APPENDIX_PAGES)
+
+      const fields = await loadFields(agreement.currentVersionId!)
+      const byKey = Object.fromEntries(fields.map((f) => [f.variableKey, f]))
+      expect(byKey.business_name.value).toBe('מלון הנוף הצפוני')
+      expect(byKey.b18_letter_name.value).toBe('מלון הנוף הצפוני')
+      expect(byKey.b18_letter_address.value).toBe('הנמל 3')
+      expect(byKey.b18_s1_type.value).toBe('כרטיס כניסה')
+      expect(byKey.b18_s1_net.value).toBe('90 ₪')
+      expect(byKey.b18_audience_business.value).toBe('true')
+      expect(byKey.b18_audience_private.value).toBe('true')
+      expect(byKey.b18_bank_account.value).toBe('987654321')
+      expect(byKey.b18_letter_date.autoFill).toBe(true)
+      expect(byKey.b18_signature).toMatchObject({ type: 'signature', ownedBy: 'signer', page: 1 + APPENDIX_PAGES })
+      // Empty rows of the table stay empty and do not block the signature.
+      expect(byKey.b18_s2_type).toBeUndefined()
+    })
+
+    it('one signature signs both, and the appendix pages carry the answers', async () => {
+      const context = await resolveSigningToken(appendixToken)
+      const done = await completeSigning({ context: context!, signatureDataUrl: SIGNATURE, signatureMethod: 'drawn', consentText: 'מאשר' })
+      expect(done).toEqual({ ok: true })
+
+      const [version] = await db.select().from(schema.agreementVersions).where(eq(schema.agreementVersions.agreementId, appendixAgreementId))
+      const text = await extractPdfText(await getStorage().get(version.signedFileKey!))
+      expect(text).toContain('987654321')
+      expect(text).toContain(APPENDIX_PARTY_TAX_ID)
+      expect(text).toContain('515123456')
+    })
+
+    it('does not ask a business that signed with the appendix to sign again', async () => {
+      const again = await register('key-b18-2', appendix)
+      expect(again.ok && again.kind).toBe('already_signed')
+      const regular = await register('key-b18-3')
+      expect(regular.ok && regular.kind).toBe('already_signed')
+    })
   })
 
   it('creates a separate supplier on a name-only match and says so', async () => {

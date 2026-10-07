@@ -32,7 +32,8 @@ export default async function JoinPage({
 
   return (
     <CampaignFrame slug={slug} title="הצטרפות וחתימה">
-      <JoinAndSign mode="new" slug={slug} formId={project.formId} projectName={project.projectName} captcha={await captchaPublicConfig(CAPTCHA_ACTIONS.CAMPAIGN_REGISTRATION)} />
+      {/* "רגיל + הטבת 18 ₪": the link carried benefit=18 from the call, and the agreement gets the Tapuznet appendix. */}
+      <JoinAndSign mode="new" slug={slug} formId={project.formId} projectName={project.projectName} captcha={await captchaPublicConfig(CAPTCHA_ACTIONS.CAMPAIGN_REGISTRATION)} appendix={query.benefit === '18'} />
       <CampaignTracker formId={project.formId} event="page_view" />
     </CampaignFrame>
   )

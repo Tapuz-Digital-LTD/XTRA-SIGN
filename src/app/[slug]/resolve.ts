@@ -28,8 +28,12 @@ export async function campaignProject(slug: string, rest: string, searchParams?:
  * address, so a key dropped on the way is a registration that cannot be tied
  * back to the invitation that produced it — a second row for one person, and
  * an invitation left reading "הוזמן" after they signed.
+ *
+ * `benefit` is the one version of the call that changes the form itself:
+ * `benefit=18` ("רגיל + הטבת 18 ₪") adds the Tapuznet appendix there. The
+ * hotels' flag, a look of page 1 only, is not carried.
  */
-export const CARRIED_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'xs_inv'] as const
+export const CARRIED_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'xs_inv', 'benefit'] as const
 
 /** `/<slug>/<page>` with the carried keys of this address on it, and nothing else. */
 export function carriedHref(slug: string, page: string, query: SearchParams): string {

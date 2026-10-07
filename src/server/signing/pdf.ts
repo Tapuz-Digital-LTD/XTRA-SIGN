@@ -110,8 +110,12 @@ export async function buildSignedPdf(input: {
     const value = field.value ?? ''
     if (!value.trim()) continue
 
-    // Size to the box, floored so a tall narrow field stays readable.
-    const size = Math.max(7, Math.min(rect.height * 0.7, 14))
+    // Size to the box, floored so a tall narrow field stays readable — then
+    // down to the box's width, so a long value stays on its own line instead
+    // of running over the printed words beside it.
+    const natural = Math.max(7, Math.min(rect.height * 0.7, 14))
+    const wide = font.widthOfTextAtSize(shapeForPdf(value), natural)
+    const size = wide > rect.width - 4 ? Math.max(5, (natural * (rect.width - 4)) / wide) : natural
     drawRtlText(page, font, value, {
       // RTL: text starts at the box's right edge and runs leftwards.
       right: rect.x + rect.width - 2,

@@ -30,6 +30,7 @@ import { brandFor, registrationEmail, renderSubmission } from '@/server/notifica
 import { sendOtp } from '@/server/signing/otp'
 import { resolveSigningToken, type SigningContext } from '@/server/signing/session'
 import { createDocumentFromTemplate } from '@/server/templates/templates'
+import { APPENDIX_PAGES, appendixFields, appendixPdf, hasAppendix } from './benefit18-appendix'
 import { signedCopyCopy, signingLinkCopy } from './copy'
 
 /**
@@ -153,11 +154,15 @@ export async function startSelfServiceSigning(input: RegistrationInput): Promise
     }
 
     // ── One open agreement per supplier per project ─────────────────────────
-    const existing = await findProjectAgreement(project, supplier.id)
-    if (existing?.status === 'signed') {
-      await markRegistration(registration.id, { status: 'converted', companyId: supplier.id, agreementId: existing.id })
-      return alreadySigned(project, skin, existing.id)
+    const agreements = await findProjectAgreements(project, supplier.id)
+    // Signed already — unless this is the 18 ₪ version and nothing they signed
+    // carries the appendix: then they sign again, and what they signed stays.
+    const signed = agreements.find((a) => a.status === 'signed' && (!data.withAppendix || hasAppendix(a.mergeSnapshot))) ?? agreements.find((a) => a.status === 'signed')
+    if (signed && !(await mayResign(signed, data))) {
+      await markRegistration(registration.id, { status: 'converted', companyId: supplier.id, agreementId: signed.id })
+      return alreadySigned(project, skin, signed.id)
     }
+    const existing = agreements[0] ?? null
     if (existing && (existing.status === 'sent' || existing.status === 'viewed') && sameDetails(existing.mergeSnapshot, data)) {
       const reissued = await reissue(project, skin, session, existing.id)
       if (reissued) {
@@ -165,7 +170,7 @@ export async function startSelfServiceSigning(input: RegistrationInput): Promise
         return reissued
       }
     }
-    if (existing && existing.status !== 'canceled') {
+    if (existing && existing.status !== 'canceled' && existing.status !== 'signed') {
       // Different details, or a draft a crashed run left behind: the newest
       // submission wins, and the old link stops opening.
       await cancelAgreement({ session, agreementId: existing.id })
@@ -177,6 +182,8 @@ export async function startSelfServiceSigning(input: RegistrationInput): Promise
       templateId: project.template.id,
       companyId: supplier.id,
       ip: input.ip,
+      // "רגיל + הטבת 18 ₪": the Tapuznet appendix follows the agreement.
+      appendPdf: data.withAppendix ? await appendixPdf() : undefined,
     })
     if (!created.ok) throw new Error(created.message)
     const agreementId = created.agreementId
@@ -196,7 +203,7 @@ export async function startSelfServiceSigning(input: RegistrationInput): Promise
     await db
       .update(schema.agreements)
       .set({
-        title: `${project.template.name} — ${data.businessName}`.slice(0, 200),
+        title: `${project.template.name}${data.withAppendix ? ' + נספח הטבת 18 ₪' : ''} — ${data.businessName}`.slice(0, 200),
         mergeSnapshot: {
           selfService: { skin: skin.key, projectId: project.groupId, registrationId: registration.id },
           values: data,
@@ -565,8 +572,22 @@ async function resolveLocal(session: StaffSession, data: RegistrationValues): Pr
   return { id: created.id, matchedOn: null, nameHint: sameName ?? null }
 }
 
-async function findProjectAgreement(project: SelfServiceProject, companyId: string) {
-  const [row] = await getDb()
+/**
+ * A signed business signs again only for the 18 ₪ version, only when what it
+ * signed lacks the appendix — and only from the phone that signed it. The
+ * code goes to the phone typed in the form, so that phone is the proof: a
+ * stranger who knows a company number must not open a new agreement in its
+ * name, least of all one that carries a bank account.
+ */
+async function mayResign(signed: { id: string; mergeSnapshot: unknown }, data: RegistrationValues): Promise<boolean> {
+  if (!data.withAppendix || hasAppendix(signed.mergeSnapshot)) return false
+  const [recipient] = await getDb().select({ phone: schema.recipients.phone }).from(schema.recipients).where(eq(schema.recipients.agreementId, signed.id)).limit(1)
+  return Boolean(recipient?.phone) && normalizeIsraeliPhone(recipient.phone ?? '') === data.phone
+}
+
+/** This supplier's agreements in this project, newest first. */
+async function findProjectAgreements(project: SelfServiceProject, companyId: string) {
+  return getDb()
     .select({ id: schema.agreements.id, status: schema.agreements.status, mergeSnapshot: schema.agreements.mergeSnapshot })
     .from(schema.agreements)
     .where(
@@ -577,8 +598,6 @@ async function findProjectAgreement(project: SelfServiceProject, companyId: stri
       ),
     )
     .orderBy(desc(schema.agreements.createdAt))
-    .limit(1)
-  return row ?? null
 }
 
 function sameDetails(snapshot: unknown, data: RegistrationValues): boolean {
@@ -693,16 +712,19 @@ async function fillFromRegistration(session: StaffSession, agreementId: string, 
     .where(eq(schema.agreementVersions.id, agreement.currentVersionId))
     .limit(1)
   const pages = version?.pages ?? 1
+  // The agreement's own pages; the 18 ₪ appendix, when there is one, follows them.
+  const own = pages - (data.withAppendix ? APPENDIX_PAGES : 0)
   const marks: PlacedField[] = []
-  if (week && pages >= WEEK_MARK_PAGE) marks.push(mark(`week-${week.id}`, 'שבוע התיירות האזורי', WEEK_MARK_PAGE, WEEK_MARKS[week.id]))
+  if (week && own >= WEEK_MARK_PAGE) marks.push(mark(`week-${week.id}`, 'שבוע התיירות האזורי', WEEK_MARK_PAGE, WEEK_MARKS[week.id]))
   // The coupon choice and the extension are printed as a radio pair and a
   // checkbox. The intake keeps them as drawn — a box drawn in a document is a
   // statement, not a question — and, since September 2026, records where
   // they are (ticked above). The 2026-09-16 edition was intaken before that.
   // An edition intaken before its boxes were kept is ticked at the measured places.
   const coupon = REDEMPTION_MARKS[data.redemption]
-  if (coupon && pages >= coupon.page && !hasOwn(buttonKey('redemption_method', ''))) marks.push(mark(`redemption-${data.redemption}`, 'קוד קופון / מימוש', coupon.page, coupon))
-  if (data.optionalExtension && pages >= EXTENSION_MARK.page && !hasOwn(buttonKey('optional_extension', ''))) marks.push(mark('optional-extension', 'הרחבה אופציונלית', EXTENSION_MARK.page, EXTENSION_MARK))
+  if (coupon && own >= coupon.page && !hasOwn(buttonKey('redemption_method', ''))) marks.push(mark(`redemption-${data.redemption}`, 'קוד קופון / מימוש', coupon.page, coupon))
+  if (data.optionalExtension && own >= EXTENSION_MARK.page && !hasOwn(buttonKey('optional_extension', ''))) marks.push(mark('optional-extension', 'הרחבה אופציונלית', EXTENSION_MARK.page, EXTENSION_MARK))
+  if (data.withAppendix) marks.push(...appendixFields(data, own + 1))
   const marked = [...filled, ...marks]
 
   const saved = await saveFields({ session, agreementId, fields: marked })
@@ -746,7 +768,8 @@ async function replay(
     .where(eq(schema.agreements.id, agreementId))
     .limit(1)
   if (!agreement) return null
-  if (agreement.status === 'signed') return alreadySigned(project, skin, agreement.id)
+  // Signed without the appendix, and now the 18 ₪ version from the phone that signed: not a repeat — the run goes on to a new document.
+  if (agreement.status === 'signed') return (await mayResign(agreement, data)) ? null : alreadySigned(project, skin, agreement.id)
   if ((agreement.status === 'sent' || agreement.status === 'viewed') && sameDetails(agreement.mergeSnapshot, data)) {
     return reissue(project, skin, session, agreement.id)
   }

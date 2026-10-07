@@ -37,6 +37,8 @@ const nextConfig: NextConfig = {
      */
     '/api/**': [
       './src/server/signing/assets/**',
+      // The 18 ₪ appendix's printed pages, appended to the agreement at registration.
+      './src/server/self-service/assets/**',
       './node_modules/@sparticuz/chromium/bin/**',
     ],
   },
