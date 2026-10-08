@@ -1,11 +1,10 @@
 /**
- * Where the הטבת 18 ₪ document's answers go: its page (1–2 the agreement,
- * 3–5 the Tapuznet appendix) and page fractions, origin top-left, measured by
- * scripts/design/benefit18.ts off the same layout that printed
- * assets/benefit18.pdf. Generated — do not edit by hand; regenerate the two
- * together.
+ * Where the הטבת 18 ₪ agreement's answers go: their page and page fractions,
+ * origin top-left, measured by scripts/design/benefit18.ts off the same
+ * layout that printed assets/benefit18.pdf. Generated — do not edit by hand;
+ * regenerate the two together.
  */
-export const BENEFIT18_PAGES = 5
+export const BENEFIT18_PAGES = 2
 
 export const BENEFIT18_SLOTS = {
   a_business_name: { page: 1, x: 0.51429, y: 0.28226, w: 0.39334, h: 0.02087 },
@@ -24,51 +23,22 @@ export const BENEFIT18_SLOTS = {
   a_s3_tourism: { page: 1, x: 0.2901, y: 0.5794, w: 0.18285, h: 0.01782 },
   a_s3_site: { page: 1, x: 0.08696, y: 0.5794, w: 0.18287, h: 0.01782 },
   a_notes: { page: 1, x: 0.07619, y: 0.63913, w: 0.84763, h: 0.02087 },
-  a_week_1: { page: 1, x: 0.89728, y: 0.82858, w: 0.01386, h: 0.0098 },
-  a_week_2: { page: 1, x: 0.46872, y: 0.82858, w: 0.01386, h: 0.0098 },
-  a_week_3: { page: 1, x: 0.89728, y: 0.88118, w: 0.01386, h: 0.0098 },
-  a_week_4: { page: 1, x: 0.46872, y: 0.88118, w: 0.01386, h: 0.0098 },
-  a_extension: { page: 1, x: 0.90995, y: 0.92852, w: 0.01386, h: 0.0098 },
-  a_declare_license: { page: 2, x: 0.90995, y: 0.26662, w: 0.01386, h: 0.0098 },
-  a_declare_insurance: { page: 2, x: 0.90995, y: 0.29121, w: 0.01386, h: 0.0098 },
-  a_signatory: { page: 2, x: 0.51429, y: 0.36359, w: 0.40952, h: 0.02087 },
-  a_role: { page: 2, x: 0.07619, y: 0.36359, w: 0.40954, h: 0.02087 },
-  a_signature: { page: 2, x: 0.51429, y: 0.40526, w: 0.40952, h: 0.05387 },
-  a_date: { page: 2, x: 0.07619, y: 0.40526, w: 0.40954, h: 0.02087 },
-  letter_name: { page: 3, x: 0.6143, y: 0.16633, w: 0.29524, h: 0.01782 },
-  letter_address: { page: 3, x: 0.6143, y: 0.18854, w: 0.29524, h: 0.01782 },
-  letter_city: { page: 3, x: 0.6143, y: 0.21076, w: 0.29524, h: 0.01782 },
-  letter_contact: { page: 3, x: 0.6143, y: 0.23297, w: 0.25904, h: 0.01782 },
-  letter_phone: { page: 3, x: 0.6143, y: 0.25519, w: 0.24965, h: 0.01782 },
-  letter_date: { page: 3, x: 0.09046, y: 0.14836, w: 0.15812, h: 0.01782 },
-  clause_name: { page: 3, x: 0.60861, y: 0.51096, w: 0.27618, h: 0.01782 },
-  audience_business: { page: 3, x: 0.89568, y: 0.56104, w: 0.01386, h: 0.0098 },
-  audience_private: { page: 3, x: 0.73565, y: 0.56104, w: 0.01386, h: 0.0098 },
-  s1_type: { page: 3, x: 0.62515, y: 0.62122, w: 0.27362, h: 0.01782 },
-  s1_details: { page: 3, x: 0.3632, y: 0.62122, w: 0.24167, h: 0.01782 },
-  s1_price: { page: 3, x: 0.20986, y: 0.62122, w: 0.13306, h: 0.01782 },
-  s1_net: { page: 3, x: 0.10123, y: 0.62122, w: 0.08835, h: 0.01782 },
-  s2_type: { page: 3, x: 0.62515, y: 0.65152, w: 0.27362, h: 0.01782 },
-  s2_details: { page: 3, x: 0.3632, y: 0.65152, w: 0.24167, h: 0.01782 },
-  s2_price: { page: 3, x: 0.20986, y: 0.65152, w: 0.13306, h: 0.01782 },
-  s2_net: { page: 3, x: 0.10123, y: 0.65152, w: 0.08835, h: 0.01782 },
-  s3_type: { page: 3, x: 0.62515, y: 0.68183, w: 0.27362, h: 0.01782 },
-  s3_details: { page: 3, x: 0.3632, y: 0.68183, w: 0.24167, h: 0.01782 },
-  s3_price: { page: 3, x: 0.20986, y: 0.68183, w: 0.13306, h: 0.01782 },
-  s3_net: { page: 3, x: 0.10123, y: 0.68183, w: 0.08835, h: 0.01782 },
-  form_company: { page: 5, x: 0.59727, y: 0.44672, w: 0.23232, h: 0.01782 },
-  form_contact: { page: 5, x: 0.31888, y: 0.44672, w: 0.15962, h: 0.01782 },
-  form_tax_id: { page: 5, x: 0.09046, y: 0.44672, w: 0.16556, h: 0.01782 },
-  form_mailing: { page: 5, x: 0.09046, y: 0.47416, w: 0.67978, h: 0.01782 },
-  bank_account_name: { page: 5, x: 0.61649, y: 0.52446, w: 0.2121, h: 0.01782 },
-  bank_branch_name: { page: 5, x: 0.35347, y: 0.52446, w: 0.17047, h: 0.01782 },
-  bank_account: { page: 5, x: 0.09048, y: 0.52446, w: 0.13716, h: 0.01782 },
-  bank_name: { page: 5, x: 0.61649, y: 0.5519, w: 0.22429, h: 0.01782 },
-  bank_branch: { page: 5, x: 0.35347, y: 0.5519, w: 0.15413, h: 0.01782 },
-  bank_number: { page: 5, x: 0.09048, y: 0.5519, w: 0.1585, h: 0.01782 },
-  signatory_name: { page: 5, x: 0.46273, y: 0.60894, w: 0.36914, h: 0.01782 },
-  sign_date: { page: 5, x: 0.09048, y: 0.60894, w: 0.24644, h: 0.01782 },
-  signature: { page: 5, x: 0.60479, y: 0.65801, w: 0.30475, h: 0.07407 },
+  a_week_1: { page: 1, x: 0.89224, y: 0.82858, w: 0.0189, h: 0.01336 },
+  a_week_2: { page: 1, x: 0.46368, y: 0.82858, w: 0.0189, h: 0.01336 },
+  a_week_3: { page: 1, x: 0.89224, y: 0.88118, w: 0.0189, h: 0.01336 },
+  a_week_4: { page: 1, x: 0.46368, y: 0.88118, w: 0.0189, h: 0.01336 },
+  a_extension: { page: 1, x: 0.90491, y: 0.92752, w: 0.0189, h: 0.01336 },
+  a_bank_account_name: { page: 2, x: 0.51429, y: 0.2389, w: 0.40952, h: 0.02087 },
+  a_bank: { page: 2, x: 0.07619, y: 0.2389, w: 0.40954, h: 0.02087 },
+  a_bank_branch: { page: 2, x: 0.51429, y: 0.28056, w: 0.40952, h: 0.02087 },
+  a_bank_branch_name: { page: 2, x: 0.07619, y: 0.28056, w: 0.40954, h: 0.02087 },
+  a_bank_account: { page: 2, x: 0.51429, y: 0.32223, w: 0.40952, h: 0.02087 },
+  a_declare_license: { page: 2, x: 0.90491, y: 0.45126, w: 0.0189, h: 0.01336 },
+  a_declare_insurance: { page: 2, x: 0.90491, y: 0.47586, w: 0.0189, h: 0.01336 },
+  a_signatory: { page: 2, x: 0.51429, y: 0.54924, w: 0.40952, h: 0.02087 },
+  a_role: { page: 2, x: 0.07619, y: 0.54924, w: 0.40954, h: 0.02087 },
+  a_signature: { page: 2, x: 0.51429, y: 0.5909, w: 0.40952, h: 0.05387 },
+  a_date: { page: 2, x: 0.07619, y: 0.5909, w: 0.40954, h: 0.02087 },
 } as const
 
 export type Benefit18Slot = keyof typeof BENEFIT18_SLOTS

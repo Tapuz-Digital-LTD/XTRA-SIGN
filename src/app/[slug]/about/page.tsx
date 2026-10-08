@@ -54,6 +54,9 @@ const TERMS = [
   'התחייבות למתן שירות איכותי ולעמידה בכללי המיזם ובתנאיו.',
 ]
 
+/** הטבת 18 ₪ (?benefit=18) has nothing to do with the 25%: its first term is its own. */
+const BENEFIT18_TERMS = ['מתן מחיר מיוחד עבור חודש התיירות, הנמוך מהמחיר המפורסם באתר בית העסק, במהלך ימי הפעילות שבהם מתקיים המיזם באזורכם.', ...TERMS.slice(1)]
+
 const CLOSING = 'נשמח לראותכם שותפים במיזם חשוב זה, ויחד לקדם את התיירות הישראלית, לחזק את העסקים המקומיים ולחשוף את פעילותכם לקהלים חדשים מכל רחבי הארץ.'
 
 const CONTACT = { name: 'יהודית', phone: '050-5323298', tel: 'tel:+972505323298', whatsapp: 'https://wa.me/972505323298' }
@@ -111,7 +114,7 @@ export default async function AboutPage({ params, searchParams }: { params: Prom
         <section className="tj-card" aria-labelledby="ta-terms">
           <h2 id="ta-terms" className="tj-h2">תנאי ההצטרפות העיקריים</h2>
           <ul className="tj-terms">
-            {TERMS.map((text) => (
+            {(query.benefit === '18' ? BENEFIT18_TERMS : TERMS).map((text) => (
               <li key={text}>{text}</li>
             ))}
           </ul>

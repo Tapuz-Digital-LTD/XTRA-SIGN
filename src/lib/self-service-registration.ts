@@ -88,6 +88,9 @@ export type RegistrationValues = {
 
 export type RegistrationField = keyof RegistrationValues
 
+/** The 18 ₪ document's notes box holds one printed line. */
+export const BENEFIT18_NOTES_MAX = 200
+
 export const REGISTRATION_LABELS: Record<RegistrationField, string> = {
   businessName: 'שם העסק / החברה',
   taxId: 'מספר ח.פ.',
@@ -125,6 +128,16 @@ export const REGISTRATION_LABELS: Record<RegistrationField, string> = {
   bankBranch: 'מספר סניף',
   bankBranchName: 'שם הסניף',
   bankAccount: 'מספר החשבון',
+}
+
+/**
+ * Is this the הטבת 18 ₪ track? Its snapshots carry the flag and no coupon.
+ * The flag alone also marks the few made between 2026-10-07 and 2026-10-08 by
+ * the first version ("רגיל + הטבת 18 ₪": the 25% agreement with an appendix,
+ * coupon and all) — those are the regular agreement, and count as such.
+ */
+export function isBenefit18Values(values: { withAppendix?: unknown; redemption?: unknown } | null | undefined): boolean {
+  return values?.withAppendix === true && !values.redemption
 }
 
 /** The 18 ₪ benefit, row by row: what it is, its tourism-month price, its price on the business's site. */
@@ -185,6 +198,8 @@ export function validateRegistration(values: Record<string, unknown>): Registrat
   const benefit3 = benefit18 ? '' : clean(values.benefit3, 300)
   if (!benefit18 && !benefit1 && !benefit2 && !benefit3) fields.benefit1 = 'יש לתאר לפחות סוג הטבה אחד.'
   const benefitNotes = clean(values.benefitNotes, 1000)
+  // The 18 ₪ document prints the notes on one line: what fits it, said, not cut.
+  if (benefit18 && benefitNotes.length > BENEFIT18_NOTES_MAX) fields.benefitNotes = `עד ${BENEFIT18_NOTES_MAX} תווים בהערות.`
 
   const week = TOURISM_WEEKS.find((w) => w.id === values.week)?.id
   if (!week) fields.week = 'יש לבחור את שבוע התיירות האזורי שבו העסק משתתף.'

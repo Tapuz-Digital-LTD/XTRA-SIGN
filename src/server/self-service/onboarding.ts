@@ -125,8 +125,14 @@ export async function startSelfServiceSigning(input: RegistrationInput): Promise
   // ── The registration row is the lock ─────────────────────────────────────
   const claim = await claimRegistration(project, input, data)
   let registration = claim.row
+  // What this row stood for before this request, put back if the request is refused.
+  const previousAgreementId = registration.agreementId
 
   if (!claim.fresh) {
+    // The same key on a row of the other track (a regular row, now the 18 ₪
+    // form, or back): never this request's to rewrite — not its agreement,
+    // not its version, not the invitation it was.
+    if (!(await rowOnTrack(registration, data.withAppendix))) return { ok: false, message: 'הדף השתנה מאז שנפתח. יש לרענן אותו ולשלוח שוב.' }
     if (registration.status === 'pending') registration = await waitForSibling(registration)
 
     if (registration.status === 'converted' && registration.agreementId) {
@@ -163,8 +169,8 @@ export async function startSelfServiceSigning(input: RegistrationInput): Promise
       await markRegistration(registration.id, { status: 'converted', companyId: supplier.id, agreementId: signed.id })
       return alreadySigned(project, skin, signed.id)
     }
-    if (!(await mayAddTrack(all, data, registration))) {
-      await markRegistration(registration.id, { status: 'failed' })
+    if (!(await mayAddTrack(all, data, supplier.id))) {
+      await markRegistration(registration.id, previousAgreementId ? { status: 'converted', agreementId: previousAgreementId } : { status: 'failed' })
       return { ok: false, message: 'בית העסק כבר חתום בקמפיין הזה. כדי להוסיף את ההסכם השני יש להירשם מהטלפון שחתם על ההסכם הקודם, או דרך ההזמנה שנשלחה אליכם.' }
     }
     const existing = agreements[0] ?? null
@@ -182,7 +188,7 @@ export async function startSelfServiceSigning(input: RegistrationInput): Promise
     }
 
     // ── Agreement ───────────────────────────────────────────────────────────
-    // הטבת 18 ₪ has its own document (its agreement + the Tapuznet appendix);
+    // הטבת 18 ₪ has its own agreement document, saying what its form says;
     // the regular track is the campaign's template.
     const created = data.withAppendix
       ? await createDocumentFromPdf({ session, bytes: await benefit18Pdf(), name: BENEFIT18_DOCUMENT_NAME, companyId: supplier.id, ip: input.ip })
@@ -432,7 +438,9 @@ async function claimRegistration(
    * rows and left the invitation reading "הוזמן" after they had signed.
    */
   const invitationId = meta?.xs_inv && /^[0-9a-f-]{36}$/i.test(meta.xs_inv) ? meta.xs_inv : null
-  const invitation = await findInvitation(project.groupId, invitationId, phone, email, data.withAppendix)
+  const found = await findInvitation(project.groupId, invitationId, phone, email, data.withAppendix)
+  // An invitation already turned into the other track's agreement is not this registration's.
+  const invitation = found && (await rowOnTrack(found, data.withAppendix)) ? found : null
   if (invitation) {
     // Already a document: this is a repeat submission, not a second person.
     // Their own row goes back to the caller, which replays it.
@@ -597,16 +605,31 @@ async function resolveLocal(session: StaffSession, data: RegistrationValues): Pr
 
 /**
  * A business already signed in this campaign opens the other track's
- * agreement only from the phone that signed — the code goes to the phone
- * typed in the form, so that phone is the proof — or through an invitation a
- * person sent it. A stranger who knows a company number must not open a new
- * agreement in a signed business's name, least of all one with a bank account.
+ * agreement only from a phone known to be its own — one that signed there, or
+ * the one on its company record. The code goes to the phone typed in the form,
+ * so that phone is the proof. An invitation is not: anyone may hold one, and
+ * a stranger who knows a company number must not open a new agreement in a
+ * signed business's name, least of all one with a bank account.
  */
-async function mayAddTrack(all: { id: string; status: string; mergeSnapshot: unknown }[], data: RegistrationValues, registration: RegistrationRow): Promise<boolean> {
+async function mayAddTrack(all: { id: string; status: string; mergeSnapshot: unknown }[], data: RegistrationValues, companyId: string): Promise<boolean> {
   const signedOther = all.filter((a) => a.status === 'signed' && isBenefit18(a.mergeSnapshot) !== data.withAppendix)
-  if (signedOther.length === 0 || registration.invitedBy) return true
-  const phones = await getDb().select({ phone: schema.recipients.phone }).from(schema.recipients).where(inArray(schema.recipients.agreementId, signedOther.map((a) => a.id)))
-  return phones.some((r) => r.phone && normalizeIsraeliPhone(r.phone) === data.phone)
+  if (signedOther.length === 0) return true
+  const db = getDb()
+  const signers = await db.select({ phone: schema.recipients.phone }).from(schema.recipients).where(inArray(schema.recipients.agreementId, signedOther.map((a) => a.id)))
+  const [company] = await db.select({ phone: schema.companies.contactPhone }).from(schema.companies).where(eq(schema.companies.id, companyId)).limit(1)
+  return [...signers.map((r) => r.phone), company?.phone].some((phone) => phone && normalizeIsraeliPhone(phone) === data.phone)
+}
+
+/**
+ * Does a registration row belong to this track? Its agreement says so when it
+ * has one; otherwise the version it was sent or registered with.
+ */
+async function rowOnTrack(row: RegistrationRow, benefit18: boolean): Promise<boolean> {
+  if (row.agreementId) {
+    const [agreement] = await getDb().select({ mergeSnapshot: schema.agreements.mergeSnapshot }).from(schema.agreements).where(eq(schema.agreements.id, row.agreementId)).limit(1)
+    if (agreement) return isBenefit18(agreement.mergeSnapshot) === benefit18
+  }
+  return ((row.meta as { call?: unknown } | null)?.call === 'benefit18') === benefit18
 }
 
 /** This supplier's agreements in this project, newest first. */

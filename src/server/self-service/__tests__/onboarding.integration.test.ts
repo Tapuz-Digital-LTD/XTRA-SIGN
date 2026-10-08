@@ -19,7 +19,6 @@ import { getStorage } from '@/server/storage/blob'
 import { createTemplateFromPdf } from '@/server/templates/templates'
 import { startSelfServiceSigning, validateRegistration } from '../onboarding'
 import { BENEFIT18_PAGES } from '../benefit18-layout'
-import { APPENDIX_PARTY_TAX_ID } from '@/lib/benefit18'
 
 /**
  * The whole self-service journey against the real schema, the real PDF and
@@ -313,9 +312,8 @@ describe('startSelfServiceSigning', () => {
   })
 
   /**
-   * "הטבת 18 ₪": a separate track with its own document — the 18 ₪ agreement
-   * and the Tapuznet appendix — signed with one signature. The two tracks
-   * never answer for each other.
+   * "הטבת 18 ₪": a separate track with its own agreement document. The two
+   * tracks never answer for each other.
    */
   describe('the 18 ₪ track', () => {
     const benefit18 = {
@@ -340,6 +338,15 @@ describe('startSelfServiceSigning', () => {
       expect(result.ok).toBe(false)
       const open = await db.select().from(schema.agreements).where(and(eq(schema.agreements.organizationId, admin.organizationId), eq(schema.agreements.status, 'sent')))
       expect(open.filter((a) => a.title.includes('הטבת 18'))).toHaveLength(0)
+    })
+
+    it('is refused to a stranger holding an 18 ₪ invitation of their own: an invitation is no proof of the business', async () => {
+      const [theirs] = await db
+        .insert(schema.projectLeads)
+        .values({ organizationId: admin.organizationId, groupId, status: 'invited', source: 'invitation', data: { name: 'מישהו' }, phone: '+972541112222', invitedBy: admin.userId, inviteChannel: 'sms', meta: { call: 'benefit18' } })
+        .returning()
+      const result = await registerAs('key-b18-inv', { xs_inv: theirs.id }, { ...benefit18, phone: '054-1112222', email: 'attacker@example.com', bankAccount: '222222222' })
+      expect(result.ok).toBe(false)
     })
 
     it('is its own agreement: a business that signed the regular one signs the 18 ₪ document beside it', async () => {
@@ -367,17 +374,17 @@ describe('startSelfServiceSigning', () => {
       expect(byKey.b18_a_s1_tourism.value).toBe('60 ₪')
       expect(byKey.b18_a_s1_site.value).toBe('90 ₪')
       expect(byKey.b18_a_week_1.value).toBe('true')
-      expect(byKey.b18_letter_address.value).toBe('הנמל 3')
-      expect(byKey.b18_s1_price.value).toBe('90 ₪')
-      expect(byKey.b18_s1_net.value).toBe('60 ₪')
-      expect(byKey.b18_bank_account.value).toBe('987654321')
-      expect(byKey.b18_a_signature).toMatchObject({ type: 'signature', ownedBy: 'signer', page: 2 })
-      expect(byKey.b18_signature).toMatchObject({ type: 'signature', ownedBy: 'signer', page: BENEFIT18_PAGES })
+      expect(byKey.b18_a_address.value).toBe('הנמל 3, חיפה')
+      expect(byKey.b18_a_bank.value).toBe('בנק הפועלים (12)')
+      expect(byKey.b18_a_bank_account.value).toBe('987654321')
+      expect(byKey.b18_a_signature).toMatchObject({ type: 'signature', ownedBy: 'signer', page: BENEFIT18_PAGES })
+      // Nothing the form does not show: no appendix boxes.
+      expect(fields.filter((f) => f.type === 'signature')).toHaveLength(1)
       // Empty rows of the table stay empty and do not block the signature.
       expect(byKey.b18_a_s2_type).toBeUndefined()
     })
 
-    it('one signature signs both parts, and the pages carry the answers', async () => {
+    it('signs through the ordinary engine, and the pages carry the answers', async () => {
       const context = await resolveSigningToken(b18Token)
       const done = await completeSigning({ context: context!, signatureDataUrl: SIGNATURE, signatureMethod: 'drawn', consentText: 'מאשר' })
       expect(done).toEqual({ ok: true })
@@ -385,7 +392,6 @@ describe('startSelfServiceSigning', () => {
       const [version] = await db.select().from(schema.agreementVersions).where(eq(schema.agreementVersions.agreementId, b18AgreementId))
       const text = await extractPdfText(await getStorage().get(version.signedFileKey!))
       expect(text).toContain('987654321')
-      expect(text).toContain(APPENDIX_PARTY_TAX_ID)
       expect(text).toContain('515123456')
     })
 
