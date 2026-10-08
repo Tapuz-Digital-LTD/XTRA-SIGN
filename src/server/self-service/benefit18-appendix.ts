@@ -1,6 +1,5 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { audienceIncludes } from '@/lib/benefit18-appendix'
 import type { PlacedField } from '@/lib/fields'
 import { toIsraeliNationalFormat } from '@/lib/phone'
 import { SERVICE_ROW_FIELDS, type RegistrationValues } from '@/lib/self-service-registration'
@@ -70,13 +69,14 @@ export function appendixFields(data: RegistrationValues, firstPage: number): Pla
     ['letter_contact', 'לידי', data.contactPerson],
     ['letter_phone', 'טלפון', phone],
     ['clause_name', 'בית העסק', data.businessName],
-    ...SERVICE_ROW_FIELDS.flatMap(([type, details, price, net], i): [AppendixSlot, string, string][] => {
+    // The benefit rows in the table: the site's price is the price list, the
+    // tourism-month price is what the business is paid for each voucher.
+    ...SERVICE_ROW_FIELDS.flatMap(([type, tourism, site], i): [AppendixSlot, string, string][] => {
       const row = (['s1', 's2', 's3'] as const)[i]
       return [
         [`${row}_type`, `שורה ${i + 1} · סוג השירות/המוצר`, data[type]],
-        [`${row}_details`, `שורה ${i + 1} · פירוט`, data[details]],
-        [`${row}_price`, `שורה ${i + 1} · מחירון`, shekels(data[price])],
-        [`${row}_net`, `שורה ${i + 1} · מחיר נטו ל־Xtra`, shekels(data[net])],
+        [`${row}_price`, `שורה ${i + 1} · מחירון`, shekels(data[site])],
+        [`${row}_net`, `שורה ${i + 1} · מחיר נטו ל־Xtra`, shekels(data[tourism])],
       ]
     }),
     ['form_company', 'שם החברה', data.businessName],
@@ -94,9 +94,6 @@ export function appendixFields(data: RegistrationValues, firstPage: number): Pla
 
   return [
     ...text.filter(([, , value]) => value.trim()).map(([slot, label, value]) => field(slot, firstPage, label, { value, required: true })),
-    ...(['business', 'private'] as const)
-      .filter((id) => audienceIncludes(data.audience, id))
-      .map((id) => field(`audience_${id}`, firstPage, id === 'business' ? 'לקהל ארגוני עסקי' : 'חנות לפרטיים', { type: 'checkbox', value: 'true' })),
     // Dated on the day it is signed, like the agreement's own date.
     field('letter_date', firstPage, 'תאריך', { type: 'date', ownedBy: 'signer', autoFill: true, required: true }),
     field('sign_date', firstPage, 'תאריך חתימה', { type: 'date', ownedBy: 'signer', autoFill: true, required: true }),

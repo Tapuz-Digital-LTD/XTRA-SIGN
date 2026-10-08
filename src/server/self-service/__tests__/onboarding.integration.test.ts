@@ -320,19 +320,17 @@ describe('startSelfServiceSigning', () => {
   describe('the 18 ₪ version', () => {
     const appendix = {
       withAppendix: true,
+      redemption: '',
       address: 'הנמל 3',
       city: 'חיפה',
-      audience: 'both',
-      service1Type: 'כרטיס כניסה',
-      service1Details: 'כניסה ליום אחד',
-      service1Price: '120',
-      service1Net: '90',
+      service1Type: 'כניסה לאתר',
+      service1TourismPrice: '60',
+      service1SitePrice: '90',
       bankAccountName: 'מלון הנוף הצפוני בע"מ',
       bankName: 'בנק הפועלים',
       bankNumber: '12',
       bankBranch: '600',
       bankAccount: '987654321',
-      consentAppendix: true,
     }
     let appendixAgreementId: string
     let appendixToken: string
@@ -366,10 +364,10 @@ describe('startSelfServiceSigning', () => {
       expect(byKey.business_name.value).toBe('מלון הנוף הצפוני')
       expect(byKey.b18_letter_name.value).toBe('מלון הנוף הצפוני')
       expect(byKey.b18_letter_address.value).toBe('הנמל 3')
-      expect(byKey.b18_s1_type.value).toBe('כרטיס כניסה')
-      expect(byKey.b18_s1_net.value).toBe('90 ₪')
-      expect(byKey.b18_audience_business.value).toBe('true')
-      expect(byKey.b18_audience_private.value).toBe('true')
+      // The benefit row in the appendix's table (the one-page fixture has no benefit lines of its own).
+      expect(byKey.b18_s1_type.value).toBe('כניסה לאתר')
+      expect(byKey.b18_s1_price.value).toBe('90 ₪')
+      expect(byKey.b18_s1_net.value).toBe('60 ₪')
       expect(byKey.b18_bank_account.value).toBe('987654321')
       expect(byKey.b18_letter_date.autoFill).toBe(true)
       expect(byKey.b18_signature).toMatchObject({ type: 'signature', ownedBy: 'signer', page: 1 + APPENDIX_PAGES })

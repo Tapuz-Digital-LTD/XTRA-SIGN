@@ -41,8 +41,6 @@ export const APPENDIX_AUDIENCES = [
   { id: 'business', label: 'לקהל ארגוני עסקי' },
   { id: 'private', label: 'חנות לפרטיים' },
 ] as const
-export type AppendixAudience = 'business' | 'private' | 'both'
-export const audienceIncludes = (audience: string, id: 'business' | 'private') => audience === id || audience === 'both'
 
 export const APPENDIX_TABLE_HEADINGS = ['סוג השירות/המוצר', 'פירוט', 'מחירון', 'מחיר נטו ל־Xtra'] as const
 /** The document's table has three rows; the form asks for one and allows three. */
@@ -138,9 +136,6 @@ export const APPENDIX_ACCOUNTING = {
 }
 
 export const APPENDIX_FOOTER = `${APPENDIX_PARTY} – זרחין 10 ת.ד. 2465 רעננה 4366238 | טל: 09-7909500 | giftcard@xtra.co.il`
-
-/** "קראתי ואני מאשר/ת" — the appendix's own consent, apart from the agreement's. */
-export const APPENDIX_CONSENT = `קראתי את הסכם ההתקשרות עם ${APPENDIX_PARTY} (נספח הטבת 18 ₪) ואני מאשר/ת אותו בשם בית העסק. החתימה שלי תחול גם עליו.`
 
 /**
  * The banks a business account in Israel is held at, by their clearing

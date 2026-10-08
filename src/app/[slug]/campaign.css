@@ -1059,10 +1059,9 @@
   }
 }
 
-/* ── The 18 ₪ appendix (JoinAndSign, "רגיל + הטבת 18 ₪") ─────────────────
-   The same cards and inputs as the agreement; what is new is the service
-   table as rows, the ₪ beside a price, and the Tapuznet text in a box of its
-   own so the last step stays short. */
+/* ── הטבת 18 ₪ (JoinAndSign, ?benefit=18) ───────────────────────────────────
+   The same cards and inputs as the agreement; what is new is the benefit as
+   rows with two prices, the ₪ beside a price, the bank account and a note. */
 
 /* Two answers side by side once there is room: address and city, branch
    number and name, the other bank's name and number. */
@@ -1070,10 +1069,6 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--tj-field-gap);
-}
-
-.tj-group-first {
-  margin-top: 0;
 }
 
 .tj-service {
@@ -1098,12 +1093,6 @@
   font-size: 16px;
   font-weight: 700;
   color: var(--tl-cyan-deep);
-}
-
-.tj-service-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
 }
 
 .tj-add {
@@ -1167,76 +1156,32 @@
   pointer-events: none;
 }
 
-/* The appendix's words: a reading box, at a reading measure. */
-.tj-doc {
-  max-height: 26rem;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 18px 20px 8px;
+/* The 18 ₪ voucher mechanics: a note of the campaign, not a field. */
+.tj-note {
+  margin-top: var(--tj-block-gap);
+  padding: 14px 18px;
   border-radius: 12px;
-  border: 1px solid #d9e3ee;
-  background: #fbfcfe;
-  font-size: 15px;
-  line-height: 1.7;
+  background: #f3f7fb;
+  border-inline-start: 4px solid var(--tl-cyan);
+  font-size: 15.5px;
+  line-height: 1.6;
   color: #1c3550;
 }
 
-.tj-doc:focus-visible {
-  outline: 3px solid var(--tl-cyan);
-  outline-offset: 2px;
+.tj-note p {
+  margin: 0;
 }
 
-.tj-doc > * {
-  max-width: 68ch;
+.tj-note p + p {
+  margin-top: 8px;
 }
 
-.tj-doc p {
-  margin: 0 0 10px;
-}
-
-.tj-doc h3 {
-  margin: 18px 0 6px;
-  font-size: 15.5px;
-  font-weight: 700;
-  color: var(--tl-navy);
-}
-
-.tj-doc ol {
-  list-style: none;
-  margin: 0 0 10px;
-  padding: 0;
-}
-
-.tj-doc li {
-  display: grid;
-  grid-template-columns: 1.6em 1fr;
-  margin-bottom: 6px;
-}
-
-.tj-doc-subject {
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.tj-doc-lead {
-  font-weight: 400;
-}
-
-/* Ours, not the document's. */
-.tj-doc-note {
-  color: #5b7590;
+.tj-fields-after {
+  margin-top: var(--tj-block-gap);
 }
 
 @media (min-width: 600px) {
   .tj-pair {
     grid-template-columns: 1fr 1fr;
-  }
-  .tj-service-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-  .tj-choices-row {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

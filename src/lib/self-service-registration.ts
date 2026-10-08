@@ -1,4 +1,3 @@
-import type { AppendixAudience } from './benefit18-appendix'
 import { normalizeIsraeliPhone } from './phone'
 
 /**
@@ -42,7 +41,8 @@ export type RegistrationValues = {
   benefitNotes: string
   /** Which regional week the business takes part in. One, and required. */
   week: TourismWeekId
-  redemption: RedemptionMethod
+  /** Empty only in the 18 ₪ version, which has no coupon: the customer comes with an XTRA voucher. */
+  redemption: RedemptionMethod | ''
   /** Required only when the business uses its own code. */
   couponCode: string
   /** Opt-in, never pre-selected. */
@@ -52,35 +52,31 @@ export type RegistrationValues = {
   declareInsurance: boolean
 
   /**
-   * The "רגיל + הטבת 18 ₪" version: the agreement carries the Tapuznet
-   * appendix (benefit18-appendix.ts), and the fields below are its answers.
-   * In every other version they are empty and nothing asks for them.
+   * The "הטבת 18 ₪" version: the benefit is up to three rows — what it is,
+   * its tourism-month price and the price on the business's site — instead of
+   * benefit lines and a coupon, and the agreement carries the Tapuznet
+   * appendix (benefit18-appendix.ts), which asks for the address and the bank
+   * account. In every other version these are empty and nothing asks for them.
    */
   withAppendix: boolean
   address: string
   city: string
-  audience: AppendixAudience | ''
-  /** The appendix's service table, up to three rows. Prices are shekels, digits only. */
+  /** Prices are shekels, digits only. */
   service1Type: string
-  service1Details: string
-  service1Price: string
-  service1Net: string
+  service1TourismPrice: string
+  service1SitePrice: string
   service2Type: string
-  service2Details: string
-  service2Price: string
-  service2Net: string
+  service2TourismPrice: string
+  service2SitePrice: string
   service3Type: string
-  service3Details: string
-  service3Price: string
-  service3Net: string
+  service3TourismPrice: string
+  service3SitePrice: string
   bankAccountName: string
   bankName: string
   bankNumber: string
   bankBranch: string
   bankBranchName: string
   bankAccount: string
-  /** The appendix's own consent: one signature covers both documents, the consent does not. */
-  consentAppendix: boolean
 }
 
 export type RegistrationField = keyof RegistrationValues
@@ -104,39 +100,32 @@ export const REGISTRATION_LABELS: Record<RegistrationField, string> = {
   optionalExtension: 'הרחבה אופציונלית',
   declareLicense: 'רישיון עסק תקף כחוק',
   declareInsurance: 'פוליסת ביטוח בתוקף',
-  withAppendix: 'נספח הטבת 18 ₪',
+  withAppendix: 'הטבת 18 ₪',
   address: 'כתובת (רחוב ומספר)',
   city: 'עיר / יישוב',
-  audience: 'למי השירות מיועד',
-  service1Type: 'סוג השירות/המוצר',
-  service1Details: 'פירוט',
-  service1Price: 'מחירון',
-  service1Net: 'מחיר נטו ל־Xtra',
-  service2Type: 'סוג השירות/המוצר',
-  service2Details: 'פירוט',
-  service2Price: 'מחירון',
-  service2Net: 'מחיר נטו ל־Xtra',
-  service3Type: 'סוג השירות/המוצר',
-  service3Details: 'פירוט',
-  service3Price: 'מחירון',
-  service3Net: 'מחיר נטו ל־Xtra',
+  service1Type: 'סוג ההטבה',
+  service1TourismPrice: 'מחיר לטובת חודש התיירות',
+  service1SitePrice: 'מחיר קבוע באתר',
+  service2Type: 'סוג ההטבה',
+  service2TourismPrice: 'מחיר לטובת חודש התיירות',
+  service2SitePrice: 'מחיר קבוע באתר',
+  service3Type: 'סוג ההטבה',
+  service3TourismPrice: 'מחיר לטובת חודש התיירות',
+  service3SitePrice: 'מחיר קבוע באתר',
   bankAccountName: 'שם החשבון',
   bankName: 'שם הבנק',
   bankNumber: 'מספר בנק',
   bankBranch: 'מספר סניף',
   bankBranchName: 'שם הסניף',
   bankAccount: 'מספר החשבון',
-  consentAppendix: 'אישור נספח הטבת 18 ₪',
 }
 
-/** The appendix's service table, row by row: type, details, list price, net price to Xtra. */
+/** The 18 ₪ benefit, row by row: what it is, its tourism-month price, its price on the business's site. */
 export const SERVICE_ROW_FIELDS = [
-  ['service1Type', 'service1Details', 'service1Price', 'service1Net'],
-  ['service2Type', 'service2Details', 'service2Price', 'service2Net'],
-  ['service3Type', 'service3Details', 'service3Price', 'service3Net'],
+  ['service1Type', 'service1TourismPrice', 'service1SitePrice'],
+  ['service2Type', 'service2TourismPrice', 'service2SitePrice'],
+  ['service3Type', 'service3TourismPrice', 'service3SitePrice'],
 ] as const satisfies readonly (readonly RegistrationField[])[]
-
-const AUDIENCES: readonly AppendixAudience[] = ['business', 'private', 'both']
 
 /** A real-looking address: labels without doubled dots, a letters-only top level. */
 const EMAIL_RE = /^[^\s@]+@(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i
@@ -182,17 +171,20 @@ export function validateRegistration(values: Record<string, unknown>): Registrat
    * and offers three lines to do it in — it does not ask for three. One is
    * enough; none is not, because the whole document is about the benefit.
    */
-  const benefit1 = clean(values.benefit1, 300)
-  const benefit2 = clean(values.benefit2, 300)
-  const benefit3 = clean(values.benefit3, 300)
-  if (!benefit1 && !benefit2 && !benefit3) fields.benefit1 = 'יש לתאר לפחות סוג הטבה אחד.'
+  // The 18 ₪ version describes its benefit in rows of its own (validateAppendix), not in these lines.
+  const benefit18 = values.withAppendix === true
+  const benefit1 = benefit18 ? '' : clean(values.benefit1, 300)
+  const benefit2 = benefit18 ? '' : clean(values.benefit2, 300)
+  const benefit3 = benefit18 ? '' : clean(values.benefit3, 300)
+  if (!benefit18 && !benefit1 && !benefit2 && !benefit3) fields.benefit1 = 'יש לתאר לפחות סוג הטבה אחד.'
   const benefitNotes = clean(values.benefitNotes, 1000)
 
   const week = TOURISM_WEEKS.find((w) => w.id === values.week)?.id
   if (!week) fields.week = 'יש לבחור את שבוע התיירות האזורי שבו העסק משתתף.'
 
-  const redemption = REDEMPTION_METHODS.find((m) => m === values.redemption)
-  if (!redemption) fields.redemption = 'יש לבחור אחת משתי אפשרויות המימוש.'
+  // No coupon in the 18 ₪ version: the customer comes with an XTRA voucher number.
+  const redemption = benefit18 ? '' : REDEMPTION_METHODS.find((m) => m === values.redemption)
+  if (redemption === undefined) fields.redemption = 'יש לבחור אחת משתי אפשרויות המימוש.'
 
   // Only the business's own code needs a number; the generic one is XTRA25.
   const couponCode = clean(values.couponCode, 60)
@@ -223,7 +215,7 @@ export function validateRegistration(values: Record<string, unknown>): Registrat
       benefit3,
       benefitNotes,
       week: week!,
-      redemption: redemption!,
+      redemption: redemption ?? '',
       // A generic code carries no number of its own.
       couponCode: redemption === 'business_pos_code' ? couponCode : '',
       optionalExtension: values.optionalExtension === true,
@@ -233,7 +225,7 @@ export function validateRegistration(values: Record<string, unknown>): Registrat
   }
 }
 
-export type AppendixValues = Pick<RegistrationValues, Extract<RegistrationField, 'withAppendix' | 'address' | 'city' | 'audience' | 'bankAccountName' | 'bankName' | 'bankNumber' | 'bankBranch' | 'bankBranchName' | 'bankAccount' | 'consentAppendix' | `service${1 | 2 | 3}${'Type' | 'Details' | 'Price' | 'Net'}`>>
+export type AppendixValues = Pick<RegistrationValues, Extract<RegistrationField, 'withAppendix' | 'address' | 'city' | 'bankAccountName' | 'bankName' | 'bankNumber' | 'bankBranch' | 'bankBranchName' | 'bankAccount' | `service${1 | 2 | 3}${'Type' | 'TourismPrice' | 'SitePrice'}`>>
 
 /** "₪ 1,200" → "1200". Shekels, up to two decimals; anything else is not a price. */
 function shekels(value: unknown): string | null {
@@ -241,37 +233,33 @@ function shekels(value: unknown): string | null {
   return /^\d{1,6}(\.\d{1,2})?$/.test(raw) ? raw : null
 }
 
-/** The appendix's answers in every version that does not carry it. */
+/** The 18 ₪ answers in every version that does not ask for them. */
 export const NO_APPENDIX: AppendixValues = {
   withAppendix: false,
   address: '',
   city: '',
-  audience: '',
   service1Type: '',
-  service1Details: '',
-  service1Price: '',
-  service1Net: '',
+  service1TourismPrice: '',
+  service1SitePrice: '',
   service2Type: '',
-  service2Details: '',
-  service2Price: '',
-  service2Net: '',
+  service2TourismPrice: '',
+  service2SitePrice: '',
   service3Type: '',
-  service3Details: '',
-  service3Price: '',
-  service3Net: '',
+  service3TourismPrice: '',
+  service3SitePrice: '',
   bankAccountName: '',
   bankName: '',
   bankNumber: '',
   bankBranch: '',
   bankBranchName: '',
   bankAccount: '',
-  consentAppendix: false,
 }
 
 /**
- * The appendix's answers, when the version carries it. Rows of the service
- * table are checked only once something was typed in them, and the filled
- * ones are moved up, so the document's table never has a hole in it.
+ * The 18 ₪ answers, when the version asks for them. A benefit row is checked
+ * only once something was typed in it, and the filled ones are moved up, so
+ * the document's table never has a hole in it. The tourism-month price is the
+ * special one: it has to be below the price on the site.
  */
 function validateAppendix(values: Record<string, unknown>, fields: Partial<Record<RegistrationField, string>>): AppendixValues {
   if (values.withAppendix !== true) return NO_APPENDIX
@@ -283,31 +271,26 @@ function validateAppendix(values: Record<string, unknown>, fields: Partial<Recor
   out.city = clean(values.city, 60)
   if (out.city.length < 2) fields.city = 'יש להזין עיר או יישוב.'
 
-  const audience = AUDIENCES.find((a) => a === values.audience)
-  if (!audience) fields.audience = 'יש לבחור למי השירות מיועד.'
-  out.audience = audience ?? ''
-
-  const rows: { type: string; details: string; price: string; net: string }[] = []
-  SERVICE_ROW_FIELDS.forEach(([typeKey, detailsKey, priceKey, netKey]) => {
+  const rows: { type: string; tourism: string; site: string }[] = []
+  SERVICE_ROW_FIELDS.forEach(([typeKey, tourismKey, siteKey]) => {
     const type = clean(values[typeKey], 60)
-    const details = clean(values[detailsKey], 90)
-    const typedPrice = clean(values[priceKey], 40)
-    const typedNet = clean(values[netKey], 40)
-    if (!type && !details && !typedPrice && !typedNet) return
-    const price = shekels(typedPrice)
-    const net = shekels(typedNet)
-    if (!type) fields[typeKey] = 'יש להזין את סוג השירות או המוצר.'
-    if (price === null) fields[priceKey] = 'יש להזין מחיר בשקלים, לדוגמה 120.'
-    if (net === null) fields[netKey] = 'יש להזין את המחיר נטו ל־Xtra בשקלים, לדוגמה 90.'
-    rows.push({ type, details, price: price ?? '', net: net ?? '' })
+    const typedTourism = clean(values[tourismKey], 40)
+    const typedSite = clean(values[siteKey], 40)
+    if (!type && !typedTourism && !typedSite) return
+    const tourism = shekels(typedTourism)
+    const site = shekels(typedSite)
+    if (!type) fields[typeKey] = 'יש להזין את סוג ההטבה, לדוגמה ביקור, סדנה או כניסה לאתר.'
+    if (tourism === null) fields[tourismKey] = 'יש להזין את המחיר לחודש התיירות בשקלים, לדוגמה 60.'
+    else if (site !== null && Number(tourism) >= Number(site)) fields[tourismKey] = 'המחיר לחודש התיירות צריך להיות נמוך מהמחיר הקבוע באתר.'
+    if (site === null) fields[siteKey] = 'יש להזין את המחיר הקבוע באתר בשקלים, לדוגמה 90.'
+    rows.push({ type, tourism: tourism ?? '', site: site ?? '' })
   })
-  if (rows.length === 0) fields.service1Type = 'יש לפרט לפחות שירות או מוצר אחד.'
+  if (rows.length === 0) fields.service1Type = 'יש לפרט לפחות הטבה אחת.'
   rows.forEach((row, i) => {
-    const [typeKey, detailsKey, priceKey, netKey] = SERVICE_ROW_FIELDS[i]
+    const [typeKey, tourismKey, siteKey] = SERVICE_ROW_FIELDS[i]
     out[typeKey] = row.type
-    out[detailsKey] = row.details
-    out[priceKey] = row.price
-    out[netKey] = row.net
+    out[tourismKey] = row.tourism
+    out[siteKey] = row.site
   })
 
   out.bankAccountName = clean(values.bankAccountName, 120)
@@ -321,9 +304,6 @@ function validateAppendix(values: Record<string, unknown>, fields: Partial<Recor
   out.bankBranchName = clean(values.bankBranchName, 80)
   out.bankAccount = clean(values.bankAccount, 40).replace(/[\s-]/g, '')
   if (!/^\d{2,13}$/.test(out.bankAccount)) fields.bankAccount = 'יש להזין את מספר החשבון, ספרות בלבד.'
-
-  out.consentAppendix = values.consentAppendix === true
-  if (!out.consentAppendix) fields.consentAppendix = 'יש לאשר את הסכם ההתקשרות עם תפוזנט (נספח הטבת 18 ₪).'
 
   return out
 }

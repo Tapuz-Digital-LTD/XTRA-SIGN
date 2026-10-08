@@ -29,12 +29,12 @@ export const SELF_SERVICE_SKINS = [
      * The versions of the call page. The invitation dialog offers them, the
      * personal link carries the chosen one as `query`, and the page picks its
      * look by it. Every version leads to the same joining form; `benefit=18`
-     * travels on to it (CARRIED_KEYS) and adds the Tapuznet appendix there.
+     * travels on to it (CARRIED_KEYS) and turns it into the 18 ₪ form.
      */
     calls: [
       { key: 'regular', label: 'רגיל', hint: 'הקול הקורא הרגיל, כפי שהוא היום.', query: '' },
       { key: 'hotel', label: 'מלונות', hint: 'הקול הקורא בעיצוב המודעה למלונות. אותו טופס ואותו הסכם.', query: 'hotel=true' },
-      { key: 'benefit18', label: 'רגיל + הטבת 18 ₪', hint: 'הקול הקורא הרגיל, וההסכם כולל את נספח הטבת 18 ₪: הסכם ההתקשרות עם תפוזנט, עם פרטי השירות וחשבון הבנק. נחתם באותה חתימה.', query: 'benefit=18' },
+      { key: 'benefit18', label: 'הטבת 18 ₪', hint: 'קול קורא להטבת 18 ₪: בית העסק מפרט את ההטבה ושני מחירים, וההסכם כולל את נספח ההתקשרות עם תפוזנט עם פרטי חשבון הבנק. נחתם באותה חתימה.', query: 'benefit=18' },
     ],
   },
 ] as const
