@@ -51,6 +51,12 @@ const CONDITIONS = [
   { icon: 'icon-shield', lines: ['התחייבות לקיום כל האישורים, הרשיונות', 'והביטוחים בהתאם לחוק.'] },
 ]
 
+/** הטבת 18 ₪ (?benefit=18) has nothing to do with the 25%: its first condition is its own. */
+const BENEFIT18_CONDITIONS = [
+  { icon: 'icon-shop', lines: ['מחיר מיוחד לחודש התיירות, נמוך מהמחיר המפורסם', 'באתר העסק, בשבוע הממוקד של האזור שבו נמצא העסק שלכם.'] },
+  CONDITIONS[1],
+]
+
 const BENEFITS = [
   { icon: 'icon-laptop', lines: ['חשיפה ארצית באתר המיזם המקוון, תוך קידום', 'ממומן של משרד התיירות והגעה לאלפי גולשים'] },
   { icon: 'icon-megaphone', lines: ['חיבור מקומי וחיזוק', 'לתיירות הפנים.'] },
@@ -126,7 +132,7 @@ export default async function TourismCallPage({
         </h2>
         <p className="tl-sub">{SUB}</p>
         <ul className="tl-list tl-conditions">
-          {CONDITIONS.map((item) => (
+          {(query.benefit === '18' ? BENEFIT18_CONDITIONS : CONDITIONS).map((item) => (
             <li key={item.icon}>
               <img src={`/tourism-2026/${item.icon}.webp`} alt="" width={64} height={63} />
               <span>

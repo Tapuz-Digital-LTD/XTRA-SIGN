@@ -4,9 +4,11 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { SignaturePad } from '@/components/signer/SignaturePad'
 import {
+  BENEFIT18_NOTES_MAX,
   DECLARE_INSURANCE_TEXT,
   DECLARE_LICENSE_TEXT,
   EXTENSION_CLAUSE,
+  isBenefit18Values,
   NO_APPENDIX,
   REGISTRATION_LABELS,
   SERVICE_ROW_FIELDS,
@@ -175,7 +177,8 @@ function writeDraft(formId: string, withAppendix: boolean, draft: Omit<Draft, 'v
 
 export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: initialToken, values: locked, verified = false, maskedPhone: initialMasked, appendix = false }: Props) {
   const router = useRouter()
-  const withAppendix = locked ? locked.withAppendix === true : appendix
+  // A resumed form reads its track off the saved details (an agreement of the first, combined version is the regular one).
+  const withAppendix = locked ? isBenefit18Values(locked) : appendix
   const STEPS_NOW = withAppendix ? BENEFIT18_STEPS : STEPS
   const LAST = STEPS_NOW.length - 1
   const [values, setValues] = useState<FormValues>(() => (locked ? { ...emptyValues(withAppendix), ...locked } : emptyValues(withAppendix)))
@@ -620,7 +623,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
               ) : null}
               <p className="tj-hint tj-hint-block">{BENEFIT18_PRICES_NOTE}</p>
               <div className="tj-fields tj-fields-after">
-                <Field id="benefitNotes" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} multiline />
+                <Field id="benefitNotes" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} multiline hint={`עד ${BENEFIT18_NOTES_MAX} תווים.`} />
               </div>
               <div className="tj-note" role="note">
                 {BENEFIT18_VOUCHER_NOTE.map((text) => (

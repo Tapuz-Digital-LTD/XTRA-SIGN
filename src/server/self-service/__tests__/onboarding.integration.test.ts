@@ -342,6 +342,15 @@ describe('startSelfServiceSigning', () => {
       expect(open.filter((a) => a.title.includes('הטבת 18'))).toHaveLength(0)
     })
 
+    it('is refused to a stranger holding an 18 ₪ invitation of their own: an invitation is no proof of the business', async () => {
+      const [theirs] = await db
+        .insert(schema.projectLeads)
+        .values({ organizationId: admin.organizationId, groupId, status: 'invited', source: 'invitation', data: { name: 'מישהו' }, phone: '+972541112222', invitedBy: admin.userId, inviteChannel: 'sms', meta: { call: 'benefit18' } })
+        .returning()
+      const result = await registerAs('key-b18-inv', { xs_inv: theirs.id }, { ...benefit18, phone: '054-1112222', email: 'attacker@example.com', bankAccount: '222222222' })
+      expect(result.ok).toBe(false)
+    })
+
     it('is its own agreement: a business that signed the regular one signs the 18 ₪ document beside it', async () => {
       const result = await register('key-b18-1', benefit18)
       if (!result.ok || result.kind !== 'ready') throw new Error(`expected a new agreement, got ${JSON.stringify(result)}`)

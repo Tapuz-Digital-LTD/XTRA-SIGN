@@ -134,7 +134,7 @@ const agreement1 = `
   ${bar('פרטי ההטבה')}
   <p class="ag-p">${esc(BENEFIT18_BENEFIT_CLAUSE)}</p>
   <table class="ag-table">
-    <colgroup><col class="c-n"><col class="c-type"><col class="c-price"><col class="c-price"></colgroup>
+    <colgroup><col class="ag-c-n"><col class="ag-c-type"><col class="ag-c-price"><col class="ag-c-price"></colgroup>
     <thead><tr><th></th><th>סוג ההטבה</th><th>מחיר לטובת חודש התיירות</th><th>מחיר קבוע באתר</th></tr></thead>
     <tbody>${[1, 2, 3].map((n) => `<tr><td class="n">${n}.</td><td>${slot(`a_s${n}_type`, 'cell')}</td><td>${slot(`a_s${n}_tourism`, 'cell')}</td><td>${slot(`a_s${n}_site`, 'cell')}</td></tr>`).join('')}</tbody>
   </table>
@@ -281,7 +281,7 @@ return `<!doctype html><html dir="rtl" lang="he"><head><meta charset="utf-8">
 
   .aud { margin: 1.4mm 0 2mm; display: flex; align-items: center; gap: 2.4mm }
   .choice { display: inline-flex; align-items: center; gap: 1.6mm }
-  .box { display: inline-block; width: 11px; height: 11px; border: .8pt solid #4a4e54; border-radius: 1px }
+  .box { display: inline-block; width: 15px; height: 15px; border: .8pt solid #4a4e54; border-radius: 1px }
   .sep { color: #5c636b }
 
   .svc { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 1mm }
@@ -325,7 +325,7 @@ return `<!doctype html><html dir="rtl" lang="he"><head><meta charset="utf-8">
   .ag-table th { height: 6.4mm; background: #f5f8f9; font-size: 8.4pt; font-weight: 700 }
   .ag-table td { height: 7.6mm }
   .ag-table td.n { text-align: center; color: #575a5d; font-size: 8.4pt }
-  .c-n { width: 6% } .c-type { width: 46% } .c-price { width: 24% }
+  .ag-c-n { width: 6% } .ag-c-type { width: 46% } .ag-c-price { width: 24% }
   .ag-note { margin-top: 2.4mm; padding: 2mm 3mm; border-radius: 2.2mm; background: #f5f8f9; border-inline-start: 1.2mm solid #1599a6; font-size: 9pt }
   .ag-note p { margin: 0 } .ag-note p + p { margin-top: 1mm }
   .ag-weeks { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm }

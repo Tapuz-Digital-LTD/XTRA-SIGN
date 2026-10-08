@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { PlacedField } from '@/lib/fields'
 import { toIsraeliNationalFormat } from '@/lib/phone'
-import { SERVICE_ROW_FIELDS, type RegistrationValues } from '@/lib/self-service-registration'
+import { isBenefit18Values, SERVICE_ROW_FIELDS, type RegistrationValues } from '@/lib/self-service-registration'
 import { BENEFIT18_PAGES, BENEFIT18_SLOTS, type Benefit18Slot } from './benefit18-layout'
 
 /**
@@ -24,11 +24,15 @@ export function benefit18Pdf(): Promise<Buffer> {
 
 /** True when an agreement belongs to the 18 ₪ track — read off its snapshot. */
 export function isBenefit18(mergeSnapshot: unknown): boolean {
-  return (mergeSnapshot as { values?: { withAppendix?: unknown } } | null)?.values?.withAppendix === true
+  return isBenefit18Values((mergeSnapshot as { values?: { withAppendix?: unknown; redemption?: unknown } } | null)?.values)
 }
 
 function field(slot: Benefit18Slot, label: string, extra: Partial<PlacedField>): PlacedField {
-  const at = BENEFIT18_SLOTS[slot]
+  const measured = BENEFIT18_SLOTS[slot]
+  // The field store makes every field at least 0.02 of the page and keeps its
+  // corner, which would push a tick off a small printed box: a tick's field is
+  // that minimum, centred on the box it marks.
+  const at = extra.type === 'checkbox' ? { ...measured, x: measured.x + measured.w / 2 - 0.01, y: measured.y + measured.h / 2 - 0.01, w: 0.02, h: 0.02 } : measured
   return {
     id: `b18-${slot}`,
     type: 'text',
