@@ -58,7 +58,9 @@ describe('validateRegistration — הטבת 18 ₪', () => {
     expect(result.data.service1TourismPrice).toBe('60')
     expect(result.data.service1SitePrice).toBe('1200')
     expect(result.data.bankAccount).toBe('123456789')
-    expect(result.data.benefit1).toBe('')
+    // The row is the benefit line too — what the agreement's box and the staff tables show.
+    expect(result.data.benefit1).toBe('כניסה לאתר: 60 ₪ (במקום 1200 ₪)')
+    expect(result.data.benefit2).toBe('')
     expect(result.data.redemption).toBe('')
     expect(result.data.couponCode).toBe('')
   })

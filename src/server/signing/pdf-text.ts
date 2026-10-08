@@ -36,6 +36,11 @@ export function shapeForPdf(text: string): string {
   const segments = bidi.getReorderSegments(text, embedding)
 
   const chars = [...text]
+  // A bracket in a right-to-left run is drawn mirrored, as a browser draws it;
+  // without this "(במקום 90 ₪)" printed with its parentheses facing outwards.
+  bidi.getMirroredCharactersMap(text, embedding.levels).forEach((mirrored, index) => {
+    chars[index] = mirrored
+  })
   for (const [start, end] of segments) {
     const reversed = chars.slice(start, end + 1).reverse()
     for (let i = 0; i < reversed.length; i++) chars[start + i] = reversed[i]

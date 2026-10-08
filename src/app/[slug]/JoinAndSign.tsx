@@ -59,7 +59,7 @@ import { CAPTCHA_ACTIONS, type CaptchaPublicConfig } from '@/lib/captcha'
  * browser was closed: details locked by the server, straight to step 2.
  */
 
-const FORM_VERSION = '2026-10-07.1'
+const FORM_VERSION = '2026-10-08.1'
 /** The engine's consent wording — the same sentence the standard signer shows. */
 const CONSENT_TEXT = 'אני מאשר/ת שקראתי את המסמך ושחתימתי ניתנת על ידי מרצוני.'
 
@@ -93,7 +93,7 @@ type Props = {
   values?: RegistrationValues
   verified?: boolean
   maskedPhone?: string
-  /** "רגיל + הטבת 18 ₪": the agreement carries the Tapuznet appendix. A resumed form reads it off the saved details instead. */
+  /** "הטבת 18 ₪": its own benefit rows (two prices, no coupon), the bank account, and the Tapuznet appendix in the agreement. A resumed form reads it off the saved details instead. */
   appendix?: boolean
 }
 
@@ -242,7 +242,8 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
       if (mode === 'new') writeDraft(formId, withAppendix, { values: next, stage })
       return next
     })
-    const touched = Object.keys(changes) as RegistrationField[]
+    // A benefit row's two prices are judged together: changing either clears the "must be lower" on the tourism price.
+    const touched = (Object.keys(changes) as RegistrationField[]).flatMap((f) => [f, ...SERVICE_ROW_FIELDS.filter((row) => (row as readonly string[]).includes(f)).map((row) => row[1])])
     if (touched.some((f) => errors[f])) setErrors((e) => Object.fromEntries(Object.entries(e).filter(([f]) => !touched.includes(f as RegistrationField))))
   }
 
@@ -315,8 +316,9 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
     const own = STEPS_NOW[stage].fields
     const here: Partial<Record<RegistrationField, string>> = {}
     if (!checked.ok) for (const f of own) if (checked.fields[f]) here[f] = checked.fields[f]
+    // This step's verdict replaces its old one; another step's messages stay.
+    setErrors((e) => ({ ...Object.fromEntries(Object.entries(e).filter(([f]) => !own.includes(f as RegistrationField))), ...here }))
     if (Object.keys(here).length > 0) {
-      setErrors((e) => ({ ...e, ...here }))
       focusFirstError(here)
       return
     }
@@ -329,7 +331,13 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
     const checked = mode === 'new' ? validateRegistration(values) : ({ ok: true } as const)
     if (!checked.ok) {
       setErrors(checked.fields)
-      focusFirstError(checked.fields)
+      // An answer missing from an earlier step (an old draft, a field emptied) is shown there, never silently.
+      const first = ORDER.find((f) => checked.fields[f])
+      const at = STEPS_NOW.findIndex((s) => first !== undefined && s.fields.includes(first))
+      if (at >= 0 && at !== stage) {
+        goTo(at)
+        requestAnimationFrame(() => requestAnimationFrame(() => focusFirstError(checked.fields)))
+      } else focusFirstError(checked.fields)
       return
     }
     if (!signature) {
@@ -612,8 +620,8 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
                 <Field id="benefitNotes" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} multiline />
               </div>
               <div className="tj-note" role="note">
-                <p>הלקוח ישלם ל־xtra 18 ₪ עבור הפעילות המוצעת ויגיע לבית העסק עם מספר שובר. בית העסק יממש את השובר באמצעות ממשק הספקים, אשר יועבר אליו בצירוף פרטי משתמש.</p>
-                <p>בסיום הפעילות יעביר בית העסק ל־xtra דוח מפורט של כלל השוברים שמומשו בפועל, לצורך ביצוע התשלום בהתאם.</p>
+                <p>הלקוח ישלם ל־<bdi>xtra</bdi> 18 ₪ עבור הפעילות המוצעת ויגיע לבית העסק עם מספר שובר. בית העסק יממש את השובר באמצעות ממשק הספקים, אשר יועבר אליו בצירוף פרטי משתמש.</p>
+                <p>בסיום הפעילות יעביר בית העסק ל־<bdi>xtra</bdi> דוח מפורט של כלל השוברים שמומשו בפועל, לצורך ביצוע התשלום בהתאם.</p>
               </div>
             </section>
           ) : (
@@ -757,7 +765,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
 
             <section className="tj-card" aria-labelledby="tj-terms-heading">
               <h2 id="tj-terms-heading" className="tj-h2">תנאים והגבלות למימוש ההטבה</h2>
-              <AgreementTerms />
+              <AgreementTerms benefit18={withAppendix} />
             </section>
 
             <section className="tj-card" role="group" aria-labelledby="tj-declarations-heading">

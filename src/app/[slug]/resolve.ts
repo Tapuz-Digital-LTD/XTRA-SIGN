@@ -30,7 +30,7 @@ export async function campaignProject(slug: string, rest: string, searchParams?:
  * an invitation left reading "הוזמן" after they signed.
  *
  * `benefit` is the one version of the call that changes the form itself:
- * `benefit=18` ("רגיל + הטבת 18 ₪") adds the Tapuznet appendix there. The
+ * `benefit=18` ("הטבת 18 ₪") turns it into the 18 ₪ form, with the Tapuznet appendix. The
  * hotels' flag, a look of page 1 only, is not carried.
  */
 export const CARRIED_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'xs_inv', 'benefit'] as const

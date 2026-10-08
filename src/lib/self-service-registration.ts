@@ -196,6 +196,8 @@ export function validateRegistration(values: Record<string, unknown>): Registrat
   if (!declareInsurance) fields.declareInsurance = 'יש לאשר שברשות בית העסק פוליסת ביטוח בתוקף.'
 
   const appendix = validateAppendix(values, fields)
+  // The 18 ₪ rows are its benefit lines too: the agreement's boxes, the tables and the exports read them there.
+  const lines = benefit18 ? [0, 1, 2].map((i) => benefitLine(appendix, i)) : [benefit1, benefit2, benefit3]
 
   if (Object.keys(fields).length > 0) return { ok: false, fields }
   return {
@@ -210,9 +212,9 @@ export function validateRegistration(values: Record<string, unknown>): Registrat
       contactPerson,
       phone: phone!,
       email,
-      benefit1,
-      benefit2,
-      benefit3,
+      benefit1: lines[0],
+      benefit2: lines[1],
+      benefit3: lines[2],
       benefitNotes,
       week: week!,
       redemption: redemption ?? '',
@@ -226,6 +228,12 @@ export function validateRegistration(values: Record<string, unknown>): Registrat
 }
 
 export type AppendixValues = Pick<RegistrationValues, Extract<RegistrationField, 'withAppendix' | 'address' | 'city' | 'bankAccountName' | 'bankName' | 'bankNumber' | 'bankBranch' | 'bankBranchName' | 'bankAccount' | `service${1 | 2 | 3}${'Type' | 'TourismPrice' | 'SitePrice'}`>>
+
+/** "כניסה לאתר: 60 ₪ (במקום 90 ₪)" — one 18 ₪ benefit row, written as a benefit line. */
+export function benefitLine(values: Pick<RegistrationValues, (typeof SERVICE_ROW_FIELDS)[number][number]>, index: number): string {
+  const [type, tourism, site] = SERVICE_ROW_FIELDS[index]
+  return values[type] ? `${values[type]}: ${values[tourism]} ₪ (במקום ${values[site]} ₪)` : ''
+}
 
 /** "₪ 1,200" → "1200". Shekels, up to two decimals; anything else is not a price. */
 function shekels(value: unknown): string | null {

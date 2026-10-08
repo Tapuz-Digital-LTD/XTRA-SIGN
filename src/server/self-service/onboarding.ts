@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { and, desc, eq, gt, inArray, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm'
 import { maskPhone, normalizeIsraeliPhone, toIsraeliNationalFormat } from '@/lib/phone'
-import { SERVICE_ROW_FIELDS, TOURISM_WEEKS, validateRegistration, type RegistrationValues } from '@/lib/self-service-registration'
+import { TOURISM_WEEKS, validateRegistration, type RegistrationValues } from '@/lib/self-service-registration'
 import { skinByKey, type SelfServiceSkin } from '@/lib/self-service-skins'
 import type { RegistrationTarget } from '@/lib/campaigns'
 import type { PlacedField } from '@/lib/fields'
@@ -182,7 +182,7 @@ export async function startSelfServiceSigning(input: RegistrationInput): Promise
       templateId: project.template.id,
       companyId: supplier.id,
       ip: input.ip,
-      // "רגיל + הטבת 18 ₪": the Tapuznet appendix follows the agreement.
+      // "הטבת 18 ₪": the Tapuznet appendix follows the agreement.
       appendPdf: data.withAppendix ? await appendixPdf() : undefined,
     })
     if (!created.ok) throw new Error(created.message)
@@ -603,7 +603,8 @@ async function findProjectAgreements(project: SelfServiceProject, companyId: str
 function sameDetails(snapshot: unknown, data: RegistrationValues): boolean {
   const values = (snapshot as { values?: Partial<RegistrationValues> } | null)?.values
   if (!values) return false
-  return (Object.keys(data) as (keyof RegistrationValues)[]).every((key) => values[key] === data[key])
+  // A question the form did not ask when the snapshot was taken reads as its empty answer, not as a change.
+  return (Object.keys(data) as (keyof RegistrationValues)[]).every((key) => (values[key] ?? (typeof data[key] === 'boolean' ? false : '')) === data[key])
 }
 
 /** The form's answers, in the boxes the PDF named for them. */
@@ -655,12 +656,6 @@ function mark(id: string, label: string, page: number, at: MarkBox): PlacedField
   }
 }
 
-/** "כניסה לאתר: 60 ₪ (במקום 90 ₪)" — one 18 ₪ benefit row, as the agreement's benefit line. */
-function benefitRow(data: RegistrationValues, index: number): string {
-  const [type, tourism, site] = SERVICE_ROW_FIELDS[index]
-  return data[type] ? `${data[type]}: ${data[tourism]} ₪ (במקום ${data[site]} ₪)` : ''
-}
-
 async function fillFromRegistration(session: StaffSession, agreementId: string, data: RegistrationValues): Promise<void> {
   const agreement = await authorizeAgreementAccess(session, agreementId)
   if (!agreement.currentVersionId) throw new Error('agreement has no version')
@@ -674,10 +669,9 @@ async function fillFromRegistration(session: StaffSession, agreementId: string, 
     // The document has one box for both; the form asks for them apart.
     contact_phone: `${data.contactPerson}, ${national.slice(0, 3)}-${national.slice(3)}`,
     contact_email: data.email,
-    // The 18 ₪ version's benefit rows stand in the agreement's benefit lines.
-    benefit_type_1: data.withAppendix ? benefitRow(data, 0) : data.benefit1,
-    benefit_type_2: data.withAppendix ? benefitRow(data, 1) : data.benefit2,
-    benefit_type_3: data.withAppendix ? benefitRow(data, 2) : data.benefit3,
+    benefit_type_1: data.benefit1,
+    benefit_type_2: data.benefit2,
+    benefit_type_3: data.benefit3,
     benefit_notes: data.benefitNotes,
     business_coupon_code: data.couponCode,
     authorized_signatory: data.signatoryName,

@@ -1,6 +1,6 @@
 /**
  * נספח הטבת 18 ₪ — the supplier agreement between the business and Tapuznet
- * (XTRA), which the tourism campaign's "רגיל + הטבת 18 ₪" call attaches to
+ * (XTRA), which the tourism campaign's "הטבת 18 ₪" call attaches to
  * the agreement. The joining form shows it before the signature; the PDF
  * generator (scripts/design/benefit18-appendix.ts) lays the same words out
  * as the appendix pages the signed file carries.

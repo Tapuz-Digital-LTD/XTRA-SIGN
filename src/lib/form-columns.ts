@@ -39,6 +39,12 @@ export function formatAnswer(column: FormColumn, value: string | undefined): str
 }
 
 /**
+ * The 18 ₪ version's bank account: it belongs in the signed appendix and
+ * nowhere else — never in a table row, a staff browser's props or an export.
+ */
+const PRIVATE_ANSWERS = new Set(['bankAccountName', 'bankName', 'bankNumber', 'bankBranch', 'bankBranchName', 'bankAccount'])
+
+/**
  * Every answer a registration holds, as text by key: the agreement's frozen
  * snapshot first (the whole form), the lead row on top (what it keeps, and
  * what a person edited since). Codes stay codes — formatAnswer says them.
@@ -48,6 +54,7 @@ export function answersOf(data: unknown, snapshot: unknown): Record<string, stri
   for (const source of [snapshot, data]) {
     if (!source || typeof source !== 'object') continue
     for (const [key, v] of Object.entries(source as Record<string, unknown>)) {
+      if (PRIVATE_ANSWERS.has(key)) continue
       const text = Array.isArray(v) ? v.map(String).join(', ') : typeof v === 'boolean' || typeof v === 'number' ? String(v) : typeof v === 'string' ? v : ''
       if (text.trim()) out[key] = text
     }

@@ -313,7 +313,7 @@ describe('startSelfServiceSigning', () => {
   })
 
   /**
-   * "רגיל + הטבת 18 ₪": the same agreement, with the Tapuznet appendix after
+   * "הטבת 18 ₪": the campaign agreement, with the Tapuznet appendix after
    * it — its pages appended to the document, its answers in their boxes, one
    * signature on both.
    */
