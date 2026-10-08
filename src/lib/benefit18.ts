@@ -1,23 +1,14 @@
 /**
  * הטבת 18 ₪ — a separate track of the tourism campaign, chosen per
  * invitation like the hotels' call: its own form, its own terms and its own
- * document. The document is two parts, signed with one signature:
- *
- *   1. הסכם שיתוף פעולה — הטבת 18 ₪ (BENEFIT18_*): the business, its
- *      benefits at a tourism-month price, the regional week, the terms, the
- *      declarations — on the campaign's letterhead, like the regular agreement.
- *   2. נספח: the supplier agreement between the business and Tapuznet (XTRA)
- *      (APPENDIX_*), on the XTRA letterhead.
+ * document, "הסכם שיתוף פעולה — הטבת 18 ₪", on the campaign's letterhead
+ * like the regular agreement. The signed file says what the form says and
+ * nothing the form does not (owner, 2026-10-08): the Tapuznet supplier
+ * agreement that once followed it as an appendix left the screen and the
+ * document together.
  *
  * One source for the joining form and the PDF generator
  * (scripts/design/benefit18.ts).
- *
- * The appendix's words are the owner's Word document ("הסכם ספקים 2026",
- * December 2025), word for word, with only the fixes the owner approved on
- * 2026-10-07: the company's full name (תפוזנט פתרונות לשיווק ופרסום בע״מ, as
- * its stamp reads) in place of "תפוזנט בע"מ" and the typo "תפוזנו"; section 4
- * numbered; the fax line dropped; spelling (שירות, תיהנה, "כבית עסק"),
- * punctuation, and "ע"י במסגרתו" → "במסגרתו".
  */
 
 export const BENEFIT18_TITLE = 'הסכם שיתוף פעולה — הטבת 18 ₪'
@@ -32,131 +23,8 @@ export const BENEFIT18_VOUCHER_NOTE = [
 /** "תנאים והגבלות למימוש ההטבה" of this track: of the regular five, the only one that holds (owner, 2026-10-08). */
 export const BENEFIT18_TERMS = ['הענקת ההטבה מותנית בהצגת הקופון / הזנת קוד הקופון בבית העסק.']
 export const BENEFIT18_PRICES_NOTE = 'המחירים הינם נטו וכוללים מע״מ.'
-/** The line on the agreement that ties the two parts together. Ours. */
-export const BENEFIT18_APPENDIX_LINE = 'להסכם זה מצורף נספח: הסכם ההתקשרות בין בית העסק לבין תפוזנט פתרונות לשיווק ופרסום בע״מ (XTRA), כולל פרטי חשבון הבנק, הנחתם באותה חתימה.'
-
-export const APPENDIX_PARTY = 'תפוזנט פתרונות לשיווק ופרסום בע״מ'
-export const APPENDIX_PARTY_TAX_ID = '513915421'
-export const APPENDIX_HEADING = 'נספח הטבת 18 ₪ להסכם ההצטרפות לחודש התיירות הישראלית 2026'
-export const APPENDIX_SUBJECT = 'הסכם התקשרות'
-
-export const APPENDIX_INTRO = [
-  `${APPENDIX_PARTY} (להלן: "החברה") המפעילה את מותג xtra גיפט קארד הינה חברת שיווק שוברי גיפט קארד לקהל עסקי ופרטי.`,
-  'אקסטרא מאפשרת שליחה בקליק ומגוון פתרונות דרך מערכות הטכנולוגיה המתקדמות שפותחו בחברה המעניקה לארגונים וחברות שירות ניהול חכם לתקציבי רווחה ומתנות לעובדים לכל האירועים המשמחים בארגון.',
-  'XTRA מעניקה לאלפי עובדים בחברות מובילות חוויה נוחה, מהירה ומהנה בבחירת מתנה שמגיעה עד לנייד ולמייל.',
-]
-
-export const APPENDIX_JOINING = {
-  title: 'הצטרפות בתי עסק',
-  paragraphs: [
-    'בהצטרפותך כבית עסק תוכל למכור ולהיחשף למאות אלפי עובדים במגזר העסקי כספק מתנות, שירות וחוויות ע״י מימוש שובר מתנה עם שווי כספי ו/או שובר לקבלת מוצר ו/או שירות בבית העסק.',
-    'כבית עסק תיהנה מממשק ניהול שמרכז את כל המכירות והמימושים בקלות על פי ממשק קופה שברשותך או עצמאי.',
-  ],
-}
-
-/** Section 1 reads around the business's name: "<name> (להלן בית העסק) מעוניין…". */
-export const APPENDIX_SERVICE_CLAUSE = '(להלן בית העסק) מעוניין להשתתף ולהעניק למחזיקי שובר המתנה כמפורט לעיל את השירות הבא:'
-
-/** The two audiences section 1 names, "לקהל ארגוני עסקי / חנות לפרטיים". */
-export const APPENDIX_AUDIENCES = [
-  { id: 'business', label: 'לקהל ארגוני עסקי' },
-  { id: 'private', label: 'חנות לפרטיים' },
-] as const
-
-export const APPENDIX_TABLE_HEADINGS = ['סוג השירות/המוצר', 'פירוט', 'מחירון', 'מחיר נטו ל־Xtra'] as const
-/** The document's table has three rows; the form asks for one and allows three. */
-export const APPENDIX_SERVICE_ROWS = 3
-
-export type AppendixSection = { n: number; title: string; lead?: string; items?: string[]; paragraphs?: string[] }
-/** The document letters its items: א. ב. ג. */
-export const ITEM_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו'] as const
-
-/** Sections 2–10, in the document's order. Section 1 is the service table. */
-export const APPENDIX_SECTIONS: AppendixSection[] = [
-  {
-    n: 2,
-    title: 'מה זה כולל:',
-    lead: 'אנחנו המשווקים שלכם',
-    items: [
-      'שיווק ומכירת שוברי מתנה ומוצרים לחברות וארגונים כמוצר מתנה.',
-      'שת״פ בפרויקטים.',
-      'המחירים הינם נטו וכוללים מע״מ.',
-      'הקמת חנות אינטרנטית (מיניסייט) באתר xtra.co.il ללא עלות.',
-    ],
-  },
-  {
-    n: 3,
-    title: 'התמורה',
-    items: ['תשלום עבור שוברי xtra שמומשו בקניות בבית העסק, לאחר קבלת חשבונית מבית העסק, בתנאי תשלום שוטף+45 יום.'],
-  },
-  {
-    n: 4,
-    title: 'הצהרות והתחייבויות הצדדים',
-    items: [
-      'בית העסק מתחייב לכבד כל שובר של החברה, בהתאם לתנאים בהסכם זה ובלבד שהתמורה משולמת לבית העסק.',
-      'מלבד ההגבלות שיועברו ע״י בית העסק מראש, ויהיו מפורטות ע״ג השובר, לא רשאי בית העסק להחיל הגבלות נוספות על מימוש השובר/ים, והדבר יהיה באחריות בית העסק בלבד.',
-      'הצדדים מתחייבים לפעול בהתאם להוראות הדין.',
-      'כל צד מצהיר כי כל הרישיונות, הביטוחים, האישורים, ההיתרים, הזיכיונות וההרשאות הנדרשים ממנו לצורך ביצוע השירותים ולמילוי התחייבויותיו ע״פ הסכם זה מצויים ויהיו מצויים ברשותו כשהם בתוקף במהלך כל תקופת ההסכם.',
-      'החברה רשאית לנהל מבצעי מכירות והטבות במסגרת מועדונים ושיתופי פעולה על חשבונה. כן רשאית החברה למכור שוברים בסבסוד על דעת עצמה ובית העסק יקבל תשלום בגין שווי השובר ע״פ הסכם זה בלבד.',
-    ],
-  },
-  {
-    n: 5,
-    title: 'תקופת ההסכם',
-    items: [
-      'תוקפו של הסכם זה הינו למשך 12 חודשים ממועד חתימתו ויתחדש אוטומטית אלא אם הצדדים שלחו הודעה מוקדמת של 60 יום מראש ובכתב לצד השני, בכל עת, על הכוונה להביא לסיומו המוקדם.',
-      'יחד עם זאת, מובהר ומוסכם כי גם במקרה של ביטול ההתקשרות בין הצדדים, מכל סיבה שהיא, ימשיך בית העסק לכבד שוברים ברי תוקף למשך התקופה הנקובה על השובר, או הקבועה ע״פ דין, לפי המאוחר מבין השניים, והחברה מתחייבת לשלם בעדם את התמורה עפ״י ההסכם.',
-    ],
-  },
-  {
-    n: 6,
-    title: 'כללי מימוש ושימוש בשוברי מתנה / שוברי גיפט קארד דיגיטליים',
-    paragraphs: [
-      'למימוש כרטיסי גיפט קארד הדיגיטליים יש להשתמש במערכת מימוש קודים המותקנת אצלך על פי ממשק העבודה שהוסכם עליו מראש כדוגמא: מערכת xtra – ווליוקארד – פרקסל – מולטי פס ועוד...',
-    ],
-  },
-  {
-    n: 7,
-    title: 'אחריות בית העסק:',
-    items: [
-      'החברה אינה צד לעסקה בין בית העסק והלקוח, ובית העסק פוטר את החברה מכל חובה, טענה או תביעה בגין מחדלים של בית העסק, לרבות טיב המוצר והשירות, מועד האספקה, מחירו, תנאי המכירה, אי כיבוד השובר וכיו״ב. אם תוגש תביעה ו/או דרישה כלשהיא נגד החברה בגין מעשה או מחדל של בית העסק, מתחייב בית העסק לשפות את החברה תוך 7 ימים. האמור לעיל כפוף לכך שקודם לכן xtra גיפט קארד תודיע למוכר על כל טענה ו/או דרישה ו/או תביעה כאמור תוך זמן סביר, תאפשר למוכר לנהל את ההגנה על חשבונו הבלעדי של המוכר, תשתף פעולה באופן סביר עם המוכר בהתגוננות מפני כל הליך כאמור, והמוכר מתחייב כי לא יגיע לכל הסכמה ו/או הסכם ו/או פשרה המטילה חבות ו/או חובה כלשהי על xtra גיפט קארד ו/או על מי מטעמה ללא אישור מראש ובכתב של xtra גיפט קארד. היה ולא יעשה כן המוכר בתוך 7 ימים מיום שהודיעה לו xtra גיפט קארד על התביעה ו/או הטענה ו/או הדרישה, תהיה רשאית xtra גיפט קארד לפעול ע״פ שיקול דעתה המלא, ועל המוכר יהיה לפצותה ו/או לשפותה, לפי העניין.',
-      'תיאור ו/או מידע על בית העסק המופיע באתר החברה הינו באחריות בית העסק המתאר ו/או המוסר מידע זה ולא תחול כל אחריות בהקשר זה על החברה. החברה לא תהיה אחראית לכל נזק ישיר או עקיף, כספי או אחר, שיגרם ללקוח כתוצאה משימוש ו/או הסתמכות על המידע שמופיע באתרים ו/או בחנויות בית העסק שאליהם יגיע הלקוח באמצעות איזה מהשירותים באתר.',
-      'אף צד אינו רשאי להעביר ו/או להמחות ו/או להסב את זכויותיו על פי הסכם זה לכל אדם ו/או תאגיד ו/או גוף אחר כלשהו אלא בהסכמה מראש ובכתב של הצד השני.',
-    ],
-  },
-  {
-    n: 8,
-    title: 'ביטול ושינוי',
-    paragraphs: [
-      'לחברה שמורה הזכות ע״פ שיקול הדעת הבלעדי, לסרב לפרסם מידע ו/או כל דבר פרסום אחר שיבקש בית העסק לפרסם באתר. כל שינוי בהוראות הסכם זה יעשה על ידי הצדדים בחתימתם המשותפת.',
-    ],
-  },
-  {
-    n: 9,
-    title: 'סודיות',
-    paragraphs: ['הצדדים מתחייבים לשמור בסודיות את תנאי הסכם זה וכן כל מידע שיגיע אליהם במסגרתו, ולא לגלותו ו/או להעבירו לשום גורם.'],
-  },
-  {
-    n: 10,
-    title: 'קניין רוחני',
-    paragraphs: [
-      'כל זכויות הקניין הרוחני, לרבות זכויות יוצרים, פטנטים, סימני מסחר, סודות מסחריים, רשימת לקוחות וכיו״ב, לרבות זכויות שיצמחו במסגרת הסכם זה, הינם ויהיו קניינה הבלעדי והמלא של החברה (מבלי לגרוע מבעלותו ו/או זכויותיו של בית העסק בסימני מסחר, שמות מסחריים ויתר חומרים שהותר בהם שימוש לחברה במסגרת הסכם זה).',
-    ],
-  },
-]
-
-/** The accounting form at the end of the document. */
-export const APPENDIX_ACCOUNTING = {
-  title: 'טופס הקמת לקוח לצורכי הנהלת חשבונות',
-  invoice: `יש להוציא חשבונית ע״ש ${APPENDIX_PARTY} ח.פ ${APPENDIX_PARTY_TAX_ID}`,
-  address: 'זרחין 10, רעננה.',
-  bookkeeper: { name: 'מירה', email: 'mira@xtra.co.il' },
-  businessTitle: 'פרטי בית העסק',
-  bankTitle: 'פרטי חשבון הבנק',
-  closing: 'ולראיה באו הצדדים על החתום:',
-}
-
-export const APPENDIX_FOOTER = `${APPENDIX_PARTY} – זרחין 10 ת.ד. 2465 רעננה 4366238 | טל: 09-7909500 | giftcard@xtra.co.il`
+/** What the bank account is for — the same words on the form and on the document. */
+export const BENEFIT18_BANK_CLAUSE = 'לתשלום עבור השוברים שמומשו בבית העסק, לאחר קבלת חשבונית ובתנאי שוטף+45 יום.'
 
 /**
  * The banks a business account in Israel is held at, by their clearing

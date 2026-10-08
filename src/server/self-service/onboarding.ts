@@ -188,7 +188,7 @@ export async function startSelfServiceSigning(input: RegistrationInput): Promise
     }
 
     // ── Agreement ───────────────────────────────────────────────────────────
-    // הטבת 18 ₪ has its own document (its agreement + the Tapuznet appendix);
+    // הטבת 18 ₪ has its own agreement document, saying what its form says;
     // the regular track is the campaign's template.
     const created = data.withAppendix
       ? await createDocumentFromPdf({ session, bytes: await benefit18Pdf(), name: BENEFIT18_DOCUMENT_NAME, companyId: supplier.id, ip: input.ip })

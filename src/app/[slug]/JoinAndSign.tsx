@@ -21,7 +21,7 @@ import {
   WEEK_CLAUSE,
   WEEK_LEGEND,
 } from '@/lib/self-service-registration'
-import { APPENDIX_PARTY, BENEFIT18_BENEFIT_CLAUSE, BENEFIT18_JOIN_CLAUSE, BENEFIT18_PRICES_NOTE, BENEFIT18_VOUCHER_NOTE, ISRAELI_BANKS } from '@/lib/benefit18'
+import { BENEFIT18_BANK_CLAUSE, BENEFIT18_BENEFIT_CLAUSE, BENEFIT18_JOIN_CLAUSE, BENEFIT18_PRICES_NOTE, BENEFIT18_VOUCHER_NOTE, ISRAELI_BANKS } from '@/lib/benefit18'
 import { AgreementSystemNote, AgreementTerms } from './AgreementText'
 import { track, visitId } from './track'
 import { OtpInput } from '@/components/ui/OtpInput'
@@ -41,12 +41,11 @@ import { CAPTCHA_ACTIONS, type CaptchaPublicConfig } from '@/lib/captcha'
  *                             declarations, the signatory, the signature —
  *                             then "חתום ושלח"
  *
- * The "הטבת 18 ₪" version (`appendix`, from `?benefit=18` on the link) has
+ * The "הטבת 18 ₪" version (`benefit18`, from `?benefit=18` on the link) has
  * the same two steps: its benefit is up to three rows — what it is, the
  * tourism-month price, the price on the site — with no coupon, and step 1
- * also asks the address and the bank account the Tapuznet appendix needs.
- * One signature signs both; the appendix pages follow the agreement in the
- * same file (benefit18.ts on the server).
+ * also asks the address and the bank account. The signed file is that
+ * track's own agreement and says what this form says (benefit18.ts).
  *
  * What the project is — the story a visitor needs before any of this — is
  * the explainer page before the form (about/page.tsx), not a paragraph here.
@@ -80,7 +79,7 @@ const STEPS: readonly StepDef[] = [
   SIGN_STEP,
 ]
 
-/** "הטבת 18 ₪": the same two steps — benefit rows with two prices instead of lines and a coupon, plus the address and the bank account the Tapuznet appendix asks for. */
+/** "הטבת 18 ₪": the same two steps — benefit rows with two prices instead of lines and a coupon, plus the address and the bank account. */
 const BENEFIT18_STEPS: readonly StepDef[] = [
   { key: 'details', title: 'פרטי בית העסק וההטבה', fields: ['businessName', 'taxId', 'commercialName', 'email', 'contactPerson', 'phone', 'address', 'city', ...SERVICE_ROW_FIELDS.flat(), 'benefitNotes', 'week', 'optionalExtension', 'bankAccountName', 'bankName', 'bankNumber', 'bankBranch', 'bankBranchName', 'bankAccount'] },
   SIGN_STEP,
@@ -100,8 +99,8 @@ type Props = {
   values?: RegistrationValues
   verified?: boolean
   maskedPhone?: string
-  /** "הטבת 18 ₪": its own benefit rows (two prices, no coupon), the bank account, and the Tapuznet appendix in the agreement. A resumed form reads it off the saved details instead. */
-  appendix?: boolean
+  /** "הטבת 18 ₪": its own benefit rows (two prices, no coupon), the address and the bank account, and its own agreement. A resumed form reads it off the saved details instead. */
+  benefit18?: boolean
 }
 
 /**
@@ -175,10 +174,10 @@ function writeDraft(formId: string, withAppendix: boolean, draft: Omit<Draft, 'v
   }
 }
 
-export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: initialToken, values: locked, verified = false, maskedPhone: initialMasked, appendix = false }: Props) {
+export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: initialToken, values: locked, verified = false, maskedPhone: initialMasked, benefit18 = false }: Props) {
   const router = useRouter()
   // A resumed form reads its track off the saved details (an agreement of the first, combined version is the regular one).
-  const withAppendix = locked ? isBenefit18Values(locked) : appendix
+  const withAppendix = locked ? isBenefit18Values(locked) : benefit18
   const STEPS_NOW = withAppendix ? BENEFIT18_STEPS : STEPS
   const LAST = STEPS_NOW.length - 1
   const [values, setValues] = useState<FormValues>(() => (locked ? { ...emptyValues(withAppendix), ...locked } : emptyValues(withAppendix)))
@@ -270,7 +269,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
-  // ── The appendix's service table: one row shown, up to three ─────────────
+  // ── The 18 ₪ benefit rows: one shown, up to three ────────────────────────
   const startedRows = SERVICE_ROW_FIELDS.reduce((n, row, i) => (row.some((f) => String(values[f] ?? '').trim()) ? i + 1 : n), 0)
   const visibleRows = Math.max(shownRows, startedRows, 1)
 
@@ -712,9 +711,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
           {withAppendix ? (
             <section className="tj-card" aria-labelledby="tj-bank-heading">
               <h2 id="tj-bank-heading" className="tj-h2">פרטי חשבון הבנק</h2>
-              <p className="tj-clause tj-clause-lead">
-                לתשלום עבור השוברים שמומשו בבית העסק, לאחר קבלת חשבונית ובתנאי שוטף+45 יום. הפרטים נכנסים לטופס הקמת הלקוח שבנספח ההתקשרות עם {APPENDIX_PARTY}.
-              </p>
+              <p className="tj-clause tj-clause-lead">{BENEFIT18_BANK_CLAUSE}</p>
               <div className="tj-fields">
                 <Field id="bankAccountName" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} hint="השם שבו רשום החשבון בבנק." />
                 <div className="tj-field">
@@ -815,7 +812,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
             <section className="tj-card" ref={signatureRef} aria-labelledby="tj-signature-heading">
               <h2 id="tj-signature-heading" className="tj-h2">חתימה</h2>
               <p className="tj-hint tj-hint-lead">
-                {withAppendix ? 'חתימת מורשה/ת החתימה, על ההסכם ועל נספח ההתקשרות עם תפוזנט שמצורף אליו. התאריך יתמלא אוטומטית ביום החתימה.' : 'חתימת מורשה/ת החתימה. התאריך יתמלא אוטומטית ביום החתימה.'}
+                חתימת מורשה/ת החתימה. התאריך יתמלא אוטומטית ביום החתימה.
               </p>
               <SignaturePad onChange={setSignature} className={step === 'form' ? '' : 'tj-locked'} />
               <label className="tj-consent">
