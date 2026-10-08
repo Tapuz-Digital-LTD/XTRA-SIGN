@@ -413,7 +413,7 @@
     filter: brightness(1.06) drop-shadow(0 10px 18px rgba(0, 0, 0, 0.35));
   }
 
-  /* The signpost's words, in the artwork's own hand: "פרטים נוספים" — the button leads to the explainer, not straight to the form. */
+  /* The signpost's words are in the picture — the artwork's board, wiped and lettered "פרטים נוספים" by scripts/design/extract-tourism-assets.ts; the button leads to the explainer, not straight to the form. */
   .tl-cta-label {
     display: none;
   }

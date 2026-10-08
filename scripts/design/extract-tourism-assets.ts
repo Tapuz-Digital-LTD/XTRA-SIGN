@@ -1,4 +1,5 @@
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import puppeteer from 'puppeteer-core'
 import sharp from 'sharp'
 
 /**
@@ -13,6 +14,10 @@ import sharp from 'sharp'
  * Two pieces do not come from a plain rectangle:
  *   • the signpost stands over navy, the white card and the pink band at
  *     once, so it is keyed to transparency (its own colour, holes filled);
+ *     and since the page's button no longer goes where the artwork's sign
+ *     says ("מכאן מצטרפים" — straight to the form), the board is wiped and
+ *     lettered again with the page's own words, in the campaign face
+ *     (Chrome + Google Fonts, as tourism-og.ts does);
  *   • the Ministry's white-on-navy logo is not in this year's artwork — that
  *     one puts the dark logo on the sky — so the emails, the closed page and
  *     the phone header keep taking it from last year's file, PREV below.
@@ -134,6 +139,11 @@ async function keyOut(box: Box) {
 /** Where the signpost is looked for; the shape decides its own bounds. */
 const SIGNPOST = { left: 1230, top: 1340, right: 1580, bottom: 1596 }
 
+/** What the sign says, and where it leads: the explainer, not the form. */
+const SIGN_WORDS = 'פרטים נוספים'
+const CHROME = process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+const SCRATCH = process.env.SCRATCH ?? '/private/tmp'
+
 /**
  * The signpost, keyed out of three different backgrounds.
  *
@@ -141,6 +151,11 @@ const SIGNPOST = { left: 1230, top: 1340, right: 1580, bottom: 1596 }
  * post; the navy letters inside it are holes in that shape, so anything the
  * background cannot reach from the outside is kept. The soft drop shadow is
  * not part of the shape and is dropped — the page casts its own.
+ *
+ * The artwork's letters are then painted over with the board's own colour
+ * and the sign is lettered again with SIGN_WORDS (letterSign below): the
+ * artwork says "מכאן מצטרפים", but the page's button leads to the explainer
+ * first, and a sign must say where it goes.
  */
 async function signpost() {
   const w = SIGNPOST.right - SIGNPOST.left
@@ -211,11 +226,13 @@ async function signpost() {
   const hole = new Uint8Array(w * h)
   for (let i = 0; i < w * h; i++) if (!sign[i] && !outside[i]) hole[i] = 1
   const seenHole = new Uint8Array(w * h)
+  const letters = new Uint8Array(w * h)
   for (let i = 0; i < w * h; i++) {
     if (!hole[i] || seenHole[i]) continue
     const cells = component(i, hole, seenHole)
     const top = Math.min(...cells.map((c) => (c - (c % w)) / w))
     if (cells.length >= 600 || top < BOARD_TOP) for (const c of cells) outside[c] = 1
+    else for (const c of cells) letters[c] = 1
   }
 
   // JPEG noise leaves cyan specks around the sign; drop the tiny runs.
@@ -224,6 +241,22 @@ async function signpost() {
     if (!sign[i] || seenSign[i]) continue
     const cells = component(i, sign, seenSign)
     if (cells.length < 60) for (const c of cells) outside[c] = 1
+  }
+
+  // Wipe the artwork's lettering: the letters and their two-pixel fringe
+  // (JPEG blends navy into cyan around every stroke) take the board's colour
+  // from the nearest clean board pixels left and right on the same row.
+  const wipe = new Uint8Array(w * h)
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      if (!letters[y * w + x]) continue
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < w && y + dy < h) wipe[(y + dy) * w + x + dx] = 1
+    }
+  const boardAt = (x: number, y: number): [number, number, number] | null => {
+    const i = y * w + x
+    if (x < 0 || x >= w || outside[i] || wipe[i]) return null
+    const s = at(x, y)
+    return [data[s], data[s + 1], data[s + 2]]
   }
 
   const rgba = Buffer.alloc(w * h * 4)
@@ -237,9 +270,19 @@ async function signpost() {
       const keep = !outside[i]
       const s = at(x, y)
       const d = i * 4
-      rgba[d] = data[s]
-      rgba[d + 1] = data[s + 1]
-      rgba[d + 2] = data[s + 2]
+      let colour: [number, number, number] = [data[s], data[s + 1], data[s + 2]]
+      if (keep && wipe[i]) {
+        let l = x - 1, r = x + 1
+        while (l >= 0 && !boardAt(l, y)) l--
+        while (r < w && !boardAt(r, y)) r++
+        const cl = boardAt(l, y), cr = boardAt(r, y)
+        const t = cl && cr ? (x - l) / (r - l) : cl ? 0 : 1
+        const a = cl ?? cr ?? colour, b = cr ?? cl ?? colour
+        colour = [0, 1, 2].map((k) => Math.round(a[k] + (b[k] - a[k]) * t)) as [number, number, number]
+      }
+      rgba[d] = colour[0]
+      rgba[d + 1] = colour[1]
+      rgba[d + 2] = colour[2]
       rgba[d + 3] = keep ? 255 : 0
       if (keep) {
         if (x < left) left = x
@@ -249,13 +292,53 @@ async function signpost() {
       }
     }
 
-  await sharp(rgba, { raw: { width: w, height: h, channels: 4 } })
-    .extract({ left, top, width: right - left + 1, height: bottom - top + 1 })
+  const cw = right - left + 1
+  const ch = bottom - top + 1
+  const blank = await sharp(rgba, { raw: { width: w, height: h, channels: 4 } })
+    .extract({ left, top, width: cw, height: ch })
     // A one-pixel blur softens the key without eating the shape.
     .blur(0.4)
-    .webp({ quality: 95, effort: 6, alphaQuality: 100 })
-    .toFile(`${OUT}/signpost.webp`)
-  console.log(`signpost: ${right - left + 1}×${bottom - top + 1} at ${SIGNPOST.left + left},${SIGNPOST.top + top} (transparent)`)
+    .png()
+    .toBuffer()
+  await sharp(await letterSign(blank, cw, ch)).webp({ quality: 95, effort: 6, alphaQuality: 100 }).toFile(`${OUT}/signpost.webp`)
+  console.log(`signpost: ${cw}×${ch} at ${SIGNPOST.left + left},${SIGNPOST.top + top} (transparent), lettered "${SIGN_WORDS}" at 2×`)
+}
+
+/**
+ * Letters the wiped board in Chrome: the campaign face (Assistant 800, from
+ * Google Fonts like the page itself), the artwork's navy, at the artwork's
+ * measure — its letters stood 20px tall on a board 269 wide, centred on the
+ * board and leaning with it (the board drops ~2° to the left-hand tip's
+ * far end). Rendered at 2× so the words stay crisp where the page scales
+ * the sign up; the board under them is the artwork's, as sharp as it was.
+ */
+async function letterSign(blank: Buffer, w: number, h: number): Promise<Buffer> {
+  const html = `<!doctype html><html dir="rtl" lang="he"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@800&display=block" rel="stylesheet">
+<style>
+  html,body{margin:0;background:transparent;width:${w}px;height:${h}px;overflow:hidden}
+  .sign{position:relative;width:${w}px;height:${h}px}
+  .sign>img{position:absolute;inset:0;width:${w}px;height:${h}px}
+  .words{position:absolute;left:0;right:0;top:${(100 / 205) * h}px;transform:translateY(-50%) rotate(2deg);
+    font:800 ${(31 / 269) * w}px/1 Assistant,sans-serif;color:#0c3257;text-align:center;white-space:nowrap;letter-spacing:0.01em}
+  /* The arrow is drawn, not typed: as heavy as the letters' stems, like the artwork's own. */
+  .words svg{width:0.95em;height:0.62em;margin-inline-start:0.3em;vertical-align:-0.06em;overflow:visible}
+</style></head><body><div class="sign">
+  <img src="data:image/png;base64,${blank.toString('base64')}" alt="">
+  <div class="words">${SIGN_WORDS}<svg viewBox="0 0 30 20" aria-hidden="true"><path d="M28 10H4M11 3l-8 7 8 7" fill="none" stroke="#0c3257" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+</div></body></html>`
+  writeFileSync(`${SCRATCH}/tourism-signpost.html`, html)
+  const browser = await puppeteer.launch({ executablePath: CHROME, headless: true })
+  try {
+    const page = await browser.newPage()
+    await page.setViewport({ width: w, height: h, deviceScaleFactor: 2 })
+    await page.goto(`file://${SCRATCH}/tourism-signpost.html`, { waitUntil: 'networkidle0' })
+    await page.evaluate(() => (document as unknown as { fonts: { ready: Promise<unknown> } }).fonts.ready)
+    await page.evaluate(() => Promise.all(Array.from(document.images).map((img) => img.decode().catch(() => null))))
+    return Buffer.from(await page.screenshot({ type: 'png', omitBackground: true }))
+  } finally {
+    await browser.close()
+  }
 }
 
 async function main() {
