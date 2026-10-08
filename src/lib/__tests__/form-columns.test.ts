@@ -16,3 +16,10 @@ describe('form columns', () => {
     expect(formatAnswer(week, undefined)).toBe('')
   })
 })
+
+describe('answersOf — the 18 ₪ bank account', () => {
+  it('never leaves the server as an answer, whatever the snapshot holds', () => {
+    const answers = answersOf({ name: 'מוזיאון' }, { benefit1: 'כניסה: 60 ₪ (במקום 90 ₪)', bankAccount: '123456789', bankName: 'בנק הפועלים', bankNumber: '12', bankBranch: '600', bankBranchName: 'חיפה', bankAccountName: 'מוזיאון בע"מ' })
+    expect(answers).toEqual({ name: 'מוזיאון', benefit1: 'כניסה: 60 ₪ (במקום 90 ₪)' })
+  })
+})

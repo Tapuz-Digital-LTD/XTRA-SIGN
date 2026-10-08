@@ -492,4 +492,12 @@ describe('shapeForPdf', () => {
   it('handles an empty string without throwing', () => {
     expect(shapeForPdf('')).toBe('')
   })
+
+  it('mirrors brackets inside Hebrew, as a browser does', () => {
+    // Measured on a signed 18 ₪ agreement: "60 ₪ (במקום 90 ₪)" printed with
+    // its parentheses facing outwards — ")במקום 90 ₪(".
+    expect(asRendered('א (ב)')).toBe('(ב) א')
+    // Visual order, left to right: the bracketed part at the far left, opening on its left.
+    expect(asRendered('כניסה: 60 ₪ (במקום 90 ₪)')).toBe('(₪ 90 םוקמב) ₪ 60 :הסינכ')
+  })
 })

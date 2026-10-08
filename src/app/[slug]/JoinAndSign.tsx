@@ -4,6 +4,9 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { SignaturePad } from '@/components/signer/SignaturePad'
 import {
+  DECLARE_INSURANCE_TEXT,
+  DECLARE_LICENSE_TEXT,
+  EXTENSION_CLAUSE,
   NO_APPENDIX,
   REGISTRATION_LABELS,
   SERVICE_ROW_FIELDS,
@@ -13,9 +16,11 @@ import {
   type RegistrationField,
   type RegistrationValues,
   type TourismWeekId,
+  WEEK_CLAUSE,
+  WEEK_LEGEND,
 } from '@/lib/self-service-registration'
-import { APPENDIX_CONSENT, APPENDIX_PARTY, APPENDIX_SERVICE_CLAUSE, ISRAELI_BANKS, type AppendixAudience } from '@/lib/benefit18-appendix'
-import { AgreementSystemNote, AgreementTerms, AppendixTerms } from './AgreementText'
+import { APPENDIX_PARTY, BENEFIT18_BENEFIT_CLAUSE, BENEFIT18_JOIN_CLAUSE, BENEFIT18_PRICES_NOTE, BENEFIT18_VOUCHER_NOTE, ISRAELI_BANKS } from '@/lib/benefit18'
+import { AgreementSystemNote, AgreementTerms } from './AgreementText'
 import { track, visitId } from './track'
 import { OtpInput } from '@/components/ui/OtpInput'
 import { useCaptcha } from '@/components/captcha/useCaptcha'
@@ -34,12 +39,12 @@ import { CAPTCHA_ACTIONS, type CaptchaPublicConfig } from '@/lib/captcha'
  *                             declarations, the signatory, the signature —
  *                             then "חתום ושלח"
  *
- * In the "רגיל + הטבת 18 ₪" version (`appendix`, from `?benefit=18` on the
- * link) a step comes between the two — נספח הטבת 18 ₪: the answers the
- * Tapuznet appendix asks for (address, the service table, the bank account)
- * — and the last step adds the appendix's words and its own consent. One
- * signature then signs both; the appendix pages follow the agreement in the
- * same file (benefit18-appendix.ts on the server).
+ * The "הטבת 18 ₪" version (`appendix`, from `?benefit=18` on the link) has
+ * the same two steps: its benefit is up to three rows — what it is, the
+ * tourism-month price, the price on the site — with no coupon, and step 1
+ * also asks the address and the bank account the Tapuznet appendix needs.
+ * One signature signs both; the appendix pages follow the agreement in the
+ * same file (benefit18.ts on the server).
  *
  * What the project is — the story a visitor needs before any of this — is
  * the explainer page before the form (about/page.tsx), not a paragraph here.
@@ -59,28 +64,24 @@ import { CAPTCHA_ACTIONS, type CaptchaPublicConfig } from '@/lib/captcha'
  * browser was closed: details locked by the server, straight to step 2.
  */
 
-const FORM_VERSION = '2026-10-07.1'
+const FORM_VERSION = '2026-10-08.1'
 /** The engine's consent wording — the same sentence the standard signer shows. */
 const CONSENT_TEXT = 'אני מאשר/ת שקראתי את המסמך ושחתימתי ניתנת על ידי מרצוני.'
 
-type StepDef = { key: 'details' | 'appendix' | 'sign'; title: string; fields: readonly RegistrationField[] }
+type StepDef = { key: 'details' | 'sign'; title: string; fields: readonly RegistrationField[] }
 
-const DETAILS_STEP: StepDef = { key: 'details', title: 'פרטי בית העסק וההטבה', fields: ['businessName', 'taxId', 'commercialName', 'email', 'contactPerson', 'phone', 'benefit1', 'benefit2', 'benefit3', 'benefitNotes', 'redemption', 'couponCode', 'week', 'optionalExtension'] }
+const SIGN_STEP: StepDef = { key: 'sign', title: 'אישור וחתימה', fields: ['declareLicense', 'declareInsurance', 'signatoryName', 'signatoryRole'] }
 
 /** The two steps, and which of the agreement's answers each one asks for. */
-const STEPS: readonly StepDef[] = [DETAILS_STEP, { key: 'sign', title: 'אישור וחתימה', fields: ['declareLicense', 'declareInsurance', 'signatoryName', 'signatoryRole'] }]
-
-/** The 18 ₪ version: the appendix's answers get a step of their own, and its consent joins the last one. */
-const STEPS_WITH_APPENDIX: readonly StepDef[] = [
-  DETAILS_STEP,
-  { key: 'appendix', title: 'נספח הטבת 18 ₪', fields: ['address', 'city', 'audience', ...SERVICE_ROW_FIELDS.flat(), 'bankAccountName', 'bankName', 'bankNumber', 'bankBranch', 'bankBranchName', 'bankAccount'] },
-  { key: 'sign', title: 'אישור וחתימה', fields: ['declareLicense', 'declareInsurance', 'consentAppendix', 'signatoryName', 'signatoryRole'] },
+const STEPS: readonly StepDef[] = [
+  { key: 'details', title: 'פרטי בית העסק וההטבה', fields: ['businessName', 'taxId', 'commercialName', 'email', 'contactPerson', 'phone', 'benefit1', 'benefit2', 'benefit3', 'benefitNotes', 'redemption', 'couponCode', 'week', 'optionalExtension'] },
+  SIGN_STEP,
 ]
 
-const AUDIENCE_CHOICES: { id: AppendixAudience; label: string }[] = [
-  { id: 'business', label: 'לקהל ארגוני עסקי' },
-  { id: 'private', label: 'חנות לפרטיים' },
-  { id: 'both', label: 'לשניהם' },
+/** "הטבת 18 ₪": the same two steps — benefit rows with two prices instead of lines and a coupon, plus the address and the bank account the Tapuznet appendix asks for. */
+const BENEFIT18_STEPS: readonly StepDef[] = [
+  { key: 'details', title: 'פרטי בית העסק וההטבה', fields: ['businessName', 'taxId', 'commercialName', 'email', 'contactPerson', 'phone', 'address', 'city', ...SERVICE_ROW_FIELDS.flat(), 'benefitNotes', 'week', 'optionalExtension', 'bankAccountName', 'bankName', 'bankNumber', 'bankBranch', 'bankBranchName', 'bankAccount'] },
+  SIGN_STEP,
 ]
 
 type Step = 'form' | 'otp' | 'finishing' | 'already'
@@ -97,7 +98,7 @@ type Props = {
   values?: RegistrationValues
   verified?: boolean
   maskedPhone?: string
-  /** "רגיל + הטבת 18 ₪": the agreement carries the Tapuznet appendix. A resumed form reads it off the saved details instead. */
+  /** "הטבת 18 ₪": its own benefit rows (two prices, no coupon), the bank account, and the Tapuznet appendix in the agreement. A resumed form reads it off the saved details instead. */
   appendix?: boolean
 }
 
@@ -175,7 +176,7 @@ function writeDraft(formId: string, withAppendix: boolean, draft: Omit<Draft, 'v
 export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: initialToken, values: locked, verified = false, maskedPhone: initialMasked, appendix = false }: Props) {
   const router = useRouter()
   const withAppendix = locked ? locked.withAppendix === true : appendix
-  const STEPS_NOW = withAppendix ? STEPS_WITH_APPENDIX : STEPS
+  const STEPS_NOW = withAppendix ? BENEFIT18_STEPS : STEPS
   const LAST = STEPS_NOW.length - 1
   const [values, setValues] = useState<FormValues>(() => (locked ? { ...emptyValues(withAppendix), ...locked } : emptyValues(withAppendix)))
   const [stage, setStage] = useState<number>(() => (locked ? LAST : 0))
@@ -246,7 +247,8 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
       if (mode === 'new') writeDraft(formId, withAppendix, { values: next, stage })
       return next
     })
-    const touched = Object.keys(changes) as RegistrationField[]
+    // A benefit row's two prices are judged together: changing either clears the "must be lower" on the tourism price.
+    const touched = (Object.keys(changes) as RegistrationField[]).flatMap((f) => [f, ...SERVICE_ROW_FIELDS.filter((row) => (row as readonly string[]).includes(f)).map((row) => row[1])])
     if (touched.some((f) => errors[f])) setErrors((e) => Object.fromEntries(Object.entries(e).filter(([f]) => !touched.includes(f as RegistrationField))))
   }
 
@@ -319,8 +321,9 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
     const own = STEPS_NOW[stage].fields
     const here: Partial<Record<RegistrationField, string>> = {}
     if (!checked.ok) for (const f of own) if (checked.fields[f]) here[f] = checked.fields[f]
+    // This step's verdict replaces its old one; another step's messages stay.
+    setErrors((e) => ({ ...Object.fromEntries(Object.entries(e).filter(([f]) => !own.includes(f as RegistrationField))), ...here }))
     if (Object.keys(here).length > 0) {
-      setErrors((e) => ({ ...e, ...here }))
       focusFirstError(here)
       return
     }
@@ -333,7 +336,13 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
     const checked = mode === 'new' ? validateRegistration(values) : ({ ok: true } as const)
     if (!checked.ok) {
       setErrors(checked.fields)
-      focusFirstError(checked.fields)
+      // An answer missing from an earlier step (an old draft, a field emptied) is shown there, never silently.
+      const first = ORDER.find((f) => checked.fields[f])
+      const at = STEPS_NOW.findIndex((s) => first !== undefined && s.fields.includes(first))
+      if (at >= 0 && at !== stage) {
+        goTo(at)
+        requestAnimationFrame(() => requestAnimationFrame(() => focusFirstError(checked.fields)))
+      } else focusFirstError(checked.fields)
       return
     }
     if (!signature) {
@@ -521,9 +530,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
         <p className="tj-lead">
           {lockedMode
             ? 'הפרטים נשמרו בהרשמה. נשארו החתימה והקוד שנשלח לנייד.'
-            : withAppendix
-              ? `הצטרפות ל${projectName} בשלושה שלבים קצרים: פרטי בית העסק וההטבה, נספח הטבת 18 ₪, ואישור וחתימה. אפשר לחזור ולתקן. כל השדות חובה, אלא אם צוין אחרת.`
-              : `הצטרפות ל${projectName} בשני שלבים קצרים: פרטי בית העסק וההטבה, ואישור וחתימה. אפשר לחזור ולתקן. כל השדות חובה, אלא אם צוין אחרת.`}
+            : `הצטרפות ל${projectName} בשני שלבים קצרים: פרטי בית העסק וההטבה, ואישור וחתימה. אפשר לחזור ולתקן. כל השדות חובה, אלא אם צוין אחרת.`}
         </p>
       </section>
 
@@ -568,64 +575,112 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
               <Field id="email" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} type="email" inputMode="email" dir="ltr" autoComplete="email" />
               <Field id="contactPerson" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} autoComplete="name" />
               <Field id="phone" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} type="tel" inputMode="tel" dir="ltr" autoComplete="tel" placeholder="050-1234567" hint="אליו יישלח קוד האימות לחתימה." />
-            </div>
-            <p className="tj-clause">
-              בית העסק מביע בזאת את רצונו להצטרף כבית עסק משתתף במסגרת פרויקט &quot;חודש התיירות הישראלית&quot; שיתקיים בחודש נובמבר 2026
-            </p>
-          </section>
-
-          <section className="tj-card" aria-labelledby="tj-benefit-heading">
-            <h2 id="tj-benefit-heading" className="tj-h2">פרטי ההטבה</h2>
-            <p className="tj-clause tj-clause-lead">
-              בית העסק יעניק הטבה בלעדית של 25% הנחה ומעלה מהאתר המקוון של בית העסק עבור לקוחות שיגיעו דרך הפרסום באתר המיזם.
-            </p>
-            <p className="tj-legend">
-              סוג ההטבה: (מ־<span dir="ltr">25%</span> הנחה ומעלה)
-            </p>
-            <div className="tj-fields">
-              <Field id="benefit1" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} numbered="1." />
-              <Field id="benefit2" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} numbered="2." />
-              <Field id="benefit3" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} numbered="3." />
-              <Field id="benefitNotes" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} multiline />
-            </div>
-
-            <fieldset className="tj-group" id="tj-redemption" tabIndex={-1} disabled={frozen} aria-describedby={errors.redemption ? 'tj-redemption-error' : undefined}>
-              <legend className="tj-legend tj-legend-strong">קוד קופון / מימוש - נא לסמן את הבחירה</legend>
-              <div className="tj-choices">
-                <label className={`tj-choice${values.redemption === 'generic_xtra25' ? ' tj-choice-on' : ''}`}>
-                  <input type="radio" name="redemption" value="generic_xtra25" checked={values.redemption === 'generic_xtra25'} onChange={() => setField('redemption', 'generic_xtra25')} />
-                  <span className="tj-choice-body">
-                    <span className="tj-choice-title">קוד גנרי</span>
-                    <span className="tj-coupon">XTRA25</span>
-                  </span>
-                </label>
-                <label className={`tj-choice${values.redemption === 'business_pos_code' ? ' tj-choice-on' : ''}`}>
-                  <input type="radio" name="redemption" value="business_pos_code" checked={values.redemption === 'business_pos_code'} onChange={() => setField('redemption', 'business_pos_code')} />
-                  <span className="tj-choice-body">
-                    <span className="tj-choice-title">קוד קופון על פי קופת בית העסק</span>
-                  </span>
-                </label>
-              </div>
-              {values.redemption === 'business_pos_code' ? (
-                <div className="tj-choice-detail">
-                  <Field id="couponCode" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} dir="ltr" autoComplete="off" />
+              {withAppendix ? (
+                <div className="tj-pair">
+                  <Field id="address" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} autoComplete="street-address" />
+                  <Field id="city" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} autoComplete="address-level2" />
                 </div>
               ) : null}
-              {errors.redemption ? (
-                <p id="tj-redemption-error" role="alert" className="tj-error">
-                  {errors.redemption}
-                </p>
-              ) : null}
-            </fieldset>
+            </div>
+            <p className="tj-clause">
+              {withAppendix ? BENEFIT18_JOIN_CLAUSE : 'בית העסק מביע בזאת את רצונו להצטרף כבית עסק משתתף במסגרת פרויקט "חודש התיירות הישראלית" שיתקיים בחודש נובמבר 2026'}
+            </p>
           </section>
+
+          {withAppendix ? (
+            <section className="tj-card" aria-labelledby="tj-benefit-heading">
+              <h2 id="tj-benefit-heading" className="tj-h2">פרטי ההטבה</h2>
+              <p className="tj-clause tj-clause-lead">{BENEFIT18_BENEFIT_CLAUSE}</p>
+              {SERVICE_ROW_FIELDS.slice(0, visibleRows).map(([type, tourism, site], i) => (
+                <div key={type} className="tj-service" role="group" aria-labelledby={`tj-service-${i + 1}`}>
+                  <div className="tj-service-head">
+                    <h3 id={`tj-service-${i + 1}`} className="tj-service-title">
+                      הטבה {i + 1}
+                      {i > 0 ? <span className="tj-optional"> (לא חובה)</span> : null}
+                    </h3>
+                    {i > 0 && !lockedMode ? (
+                      <button type="button" className="tj-summary-edit" onClick={() => removeRow(i)} disabled={frozen} aria-label={`הסרת הטבה ${i + 1}`}>
+                        הסרה
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="tj-fields">
+                    <Field id={type} values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} placeholder="לדוגמה: ביקור, סדנה, כניסה לאתר" />
+                    <div className="tj-pair">
+                      <Field id={tourism} values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} inputMode="decimal" dir="ltr" autoComplete="off" shekels />
+                      <Field id={site} values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} inputMode="decimal" dir="ltr" autoComplete="off" shekels />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {visibleRows < SERVICE_ROW_FIELDS.length && !lockedMode ? (
+                <button type="button" className="tj-add" onClick={addRow} disabled={frozen}>
+                  הוספת הטבה נוספת
+                </button>
+              ) : null}
+              <p className="tj-hint tj-hint-block">{BENEFIT18_PRICES_NOTE}</p>
+              <div className="tj-fields tj-fields-after">
+                <Field id="benefitNotes" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} multiline />
+              </div>
+              <div className="tj-note" role="note">
+                {BENEFIT18_VOUCHER_NOTE.map((text) => (
+                  // "xtra 18 ₪": the Latin name is isolated, or the browser joins it and the price into one run and reads them backwards.
+                  <p key={text}>{text.split(/(xtra)/).map((part, i) => (part === 'xtra' ? <bdi key={i}>xtra</bdi> : part))}</p>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <section className="tj-card" aria-labelledby="tj-benefit-heading">
+              <h2 id="tj-benefit-heading" className="tj-h2">פרטי ההטבה</h2>
+              <p className="tj-clause tj-clause-lead">
+                בית העסק יעניק הטבה בלעדית של 25% הנחה ומעלה מהאתר המקוון של בית העסק עבור לקוחות שיגיעו דרך הפרסום באתר המיזם.
+              </p>
+              <p className="tj-legend">
+                סוג ההטבה: (מ־<span dir="ltr">25%</span> הנחה ומעלה)
+              </p>
+              <div className="tj-fields">
+                <Field id="benefit1" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} numbered="1." />
+                <Field id="benefit2" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} numbered="2." />
+                <Field id="benefit3" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} numbered="3." />
+                <Field id="benefitNotes" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} multiline />
+              </div>
+
+              <fieldset className="tj-group" id="tj-redemption" tabIndex={-1} disabled={frozen} aria-describedby={errors.redemption ? 'tj-redemption-error' : undefined}>
+                <legend className="tj-legend tj-legend-strong">קוד קופון / מימוש - נא לסמן את הבחירה</legend>
+                <div className="tj-choices">
+                  <label className={`tj-choice${values.redemption === 'generic_xtra25' ? ' tj-choice-on' : ''}`}>
+                    <input type="radio" name="redemption" value="generic_xtra25" checked={values.redemption === 'generic_xtra25'} onChange={() => setField('redemption', 'generic_xtra25')} />
+                    <span className="tj-choice-body">
+                      <span className="tj-choice-title">קוד גנרי</span>
+                      <span className="tj-coupon">XTRA25</span>
+                    </span>
+                  </label>
+                  <label className={`tj-choice${values.redemption === 'business_pos_code' ? ' tj-choice-on' : ''}`}>
+                    <input type="radio" name="redemption" value="business_pos_code" checked={values.redemption === 'business_pos_code'} onChange={() => setField('redemption', 'business_pos_code')} />
+                    <span className="tj-choice-body">
+                      <span className="tj-choice-title">קוד קופון על פי קופת בית העסק</span>
+                    </span>
+                  </label>
+                </div>
+                {values.redemption === 'business_pos_code' ? (
+                  <div className="tj-choice-detail">
+                    <Field id="couponCode" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} dir="ltr" autoComplete="off" />
+                  </div>
+                ) : null}
+                {errors.redemption ? (
+                  <p id="tj-redemption-error" role="alert" className="tj-error">
+                    {errors.redemption}
+                  </p>
+                ) : null}
+              </fieldset>
+            </section>
+          )}
 
           <section className="tj-card" aria-labelledby="tj-week-heading">
             <h2 id="tj-week-heading" className="tj-h2">תקופת ההתחייבות</h2>
-            <p className="tj-clause tj-clause-lead">
-              ההטבה הנ״ל מחייבת במהלך שבוע התיירות האזורי שבו משתתף בית העסק, בפרט מיום רביעי ועד מוצ״ש באותו השבוע.
-            </p>
+            <p className="tj-clause tj-clause-lead">{WEEK_CLAUSE}</p>
             <fieldset className="tj-group" id="tj-week" tabIndex={-1} disabled={frozen} aria-describedby={errors.week ? 'tj-week-error' : undefined}>
-              <legend className="tj-legend tj-legend-strong">תאריכי ההטבה ע״פ אזורי חלוקה - נובמבר 2026</legend>
+              <legend className="tj-legend tj-legend-strong">{WEEK_LEGEND}</legend>
               <div className="tj-weeks">
                 {TOURISM_WEEKS.map((week) => (
                   <label key={week.id} className={`tj-week${values.week === week.id ? ' tj-week-on' : ''}`}>
@@ -648,84 +703,14 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
             </fieldset>
             <label className="tj-consent">
               <input type="checkbox" checked={values.optionalExtension} onChange={(e) => setField('optionalExtension', e.target.checked)} disabled={frozen} />
-              <span>
-                הרחבה אופציונלית: במידה ובית העסק יבחר בכך (על פי שיקול דעתו הבלעדי), יורשה להעניק את ההטבה, לאורך כל שבוע התיירות האזורי.
-              </span>
+              <span>{EXTENSION_CLAUSE}</span>
             </label>
           </section>
-          </>
-        ) : null}
-
-        {current.key === 'appendix' ? (
-          <>
-            <section className="tj-card" aria-labelledby="tj-appendix-heading">
-              <h2 id="tj-appendix-heading" className="tj-h2">הסכם ההתקשרות עם XTRA</h2>
-              <p className="tj-clause tj-clause-lead">
-                בגרסה זו מצורף להסכם נספח: הסכם התקשרות בין בית העסק לבין {APPENDIX_PARTY}, המפעילה את מותג xtra גיפט קארד. כאן ממלאים את הפרטים שהנספח מבקש. הנוסח המלא מוצג לקריאה ולאישור בשלב הבא, לפני החתימה.
-              </p>
-              <div className="tj-fields tj-pair">
-                <Field id="address" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} autoComplete="street-address" />
-                <Field id="city" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} autoComplete="address-level2" />
-              </div>
-            </section>
-
-            <section className="tj-card" aria-labelledby="tj-service-heading">
-              <h2 id="tj-service-heading" className="tj-h2">השירות למחזיקי שובר המתנה</h2>
-              <p className="tj-clause tj-clause-lead">
-                {values.businessName || 'בית העסק'} {APPENDIX_SERVICE_CLAUSE}
-              </p>
-              <fieldset className="tj-group tj-group-first" id="tj-audience" tabIndex={-1} disabled={frozen} aria-describedby={errors.audience ? 'tj-audience-error' : undefined}>
-                <legend className="tj-legend tj-legend-strong">{REGISTRATION_LABELS.audience}</legend>
-                <div className="tj-choices tj-choices-row">
-                  {AUDIENCE_CHOICES.map((choice) => (
-                    <label key={choice.id} className={`tj-choice${values.audience === choice.id ? ' tj-choice-on' : ''}`}>
-                      <input type="radio" name="audience" value={choice.id} checked={values.audience === choice.id} onChange={() => setField('audience', choice.id)} />
-                      <span className="tj-choice-body">
-                        <span className="tj-choice-title">{choice.label}</span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                {errors.audience ? (
-                  <p id="tj-audience-error" role="alert" className="tj-error">
-                    {errors.audience}
-                  </p>
-                ) : null}
-              </fieldset>
-
-              {SERVICE_ROW_FIELDS.slice(0, visibleRows).map(([type, details, price, net], i) => (
-                <div key={type} className="tj-service" role="group" aria-labelledby={`tj-service-${i + 1}`}>
-                  <div className="tj-service-head">
-                    <h3 id={`tj-service-${i + 1}`} className="tj-service-title">
-                      שירות {i + 1}
-                      {i > 0 ? <span className="tj-optional"> (לא חובה)</span> : null}
-                    </h3>
-                    {i > 0 && !lockedMode ? (
-                      <button type="button" className="tj-summary-edit" onClick={() => removeRow(i)} disabled={frozen} aria-label={`הסרת שירות ${i + 1}`}>
-                        הסרה
-                      </button>
-                    ) : null}
-                  </div>
-                  <div className="tj-service-grid">
-                    <Field id={type} values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} placeholder="לדוגמה: כרטיס כניסה" />
-                    <Field id={details} values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} />
-                    <Field id={price} values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} inputMode="decimal" dir="ltr" autoComplete="off" shekels />
-                    <Field id={net} values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} inputMode="decimal" dir="ltr" autoComplete="off" shekels />
-                  </div>
-                </div>
-              ))}
-              {visibleRows < SERVICE_ROW_FIELDS.length && !lockedMode ? (
-                <button type="button" className="tj-add" onClick={addRow} disabled={frozen}>
-                  הוספת שירות נוסף
-                </button>
-              ) : null}
-              <p className="tj-hint tj-hint-block">המחירים הינם נטו וכוללים מע״מ.</p>
-            </section>
-
+          {withAppendix ? (
             <section className="tj-card" aria-labelledby="tj-bank-heading">
               <h2 id="tj-bank-heading" className="tj-h2">פרטי חשבון הבנק</h2>
               <p className="tj-clause tj-clause-lead">
-                לטופס הקמת הלקוח של הנהלת החשבונות בתפוזנט. התשלום עבור שוברים שמומשו בבית העסק: לאחר קבלת חשבונית, בתנאי שוטף+45 יום.
+                לתשלום עבור השוברים שמומשו בבית העסק, לאחר קבלת חשבונית ובתנאי שוטף+45 יום. הפרטים נכנסים לטופס הקמת הלקוח שבנספח ההתקשרות עם {APPENDIX_PARTY}.
               </p>
               <div className="tj-fields">
                 <Field id="bankAccountName" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} hint="השם שבו רשום החשבון בבנק." />
@@ -771,6 +756,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
                 <Field id="bankAccount" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} inputMode="numeric" dir="ltr" autoComplete="off" />
               </div>
             </section>
+          ) : null}
           </>
         ) : null}
 
@@ -780,14 +766,14 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
 
             <section className="tj-card" aria-labelledby="tj-terms-heading">
               <h2 id="tj-terms-heading" className="tj-h2">תנאים והגבלות למימוש ההטבה</h2>
-              <AgreementTerms />
+              <AgreementTerms benefit18={withAppendix} />
             </section>
 
             <section className="tj-card" role="group" aria-labelledby="tj-declarations-heading">
               <h2 id="tj-declarations-heading" className="tj-h2">הצהרות ואישורים</h2>
               <label className="tj-consent tj-consent-first">
                 <input id="tj-declareLicense" type="checkbox" checked={values.declareLicense} onChange={(e) => setField('declareLicense', e.target.checked)} disabled={frozen} aria-describedby={errors.declareLicense ? 'tj-declareLicense-error' : undefined} />
-                <span>הנני מצהיר/ה כי ברשות בית העסק רישיון עסק תקף כחוק.</span>
+                <span>{DECLARE_LICENSE_TEXT}</span>
               </label>
               {errors.declareLicense ? (
                 <p id="tj-declareLicense-error" role="alert" className="tj-error">
@@ -796,7 +782,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
               ) : null}
               <label className="tj-consent">
                 <input id="tj-declareInsurance" type="checkbox" checked={values.declareInsurance} onChange={(e) => setField('declareInsurance', e.target.checked)} disabled={frozen} aria-describedby={errors.declareInsurance ? 'tj-declareInsurance-error' : undefined} />
-                <span>הנני מצהיר/ה כי ברשות בית העסק פוליסת ביטוח בתוקף.</span>
+                <span>{DECLARE_INSURANCE_TEXT}</span>
               </label>
               {errors.declareInsurance ? (
                 <p id="tj-declareInsurance-error" role="alert" className="tj-error">
@@ -804,23 +790,6 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
                 </p>
               ) : null}
             </section>
-
-            {withAppendix ? (
-              <section className="tj-card" aria-labelledby="tj-appendix-terms-heading">
-                <h2 id="tj-appendix-terms-heading" className="tj-h2">נספח הטבת 18 ₪: הסכם התקשרות עם {APPENDIX_PARTY}</h2>
-                <p className="tj-hint tj-hint-lead">הנספח מצורף להסכם ונחתם באותה חתימה. הנוסח המלא:</p>
-                <AppendixTerms businessName={values.businessName} />
-                <label className="tj-consent">
-                  <input id="tj-consentAppendix" type="checkbox" checked={values.consentAppendix} onChange={(e) => setField('consentAppendix', e.target.checked)} disabled={frozen} aria-describedby={errors.consentAppendix ? 'tj-consentAppendix-error' : undefined} />
-                  <span>{APPENDIX_CONSENT}</span>
-                </label>
-                {errors.consentAppendix ? (
-                  <p id="tj-consentAppendix-error" role="alert" className="tj-error">
-                    {errors.consentAppendix}
-                  </p>
-                ) : null}
-              </section>
-            ) : null}
 
             <section className="tj-card" aria-labelledby="tj-signatory-heading">
               <h2 id="tj-signatory-heading" className="tj-h2">חתימת בית העסק</h2>
@@ -843,7 +812,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
             <section className="tj-card" ref={signatureRef} aria-labelledby="tj-signature-heading">
               <h2 id="tj-signature-heading" className="tj-h2">חתימה</h2>
               <p className="tj-hint tj-hint-lead">
-                {withAppendix ? 'חתימת מורשה/ת החתימה, על ההסכם ועל נספח הטבת 18 ₪. התאריך יתמלא אוטומטית ביום החתימה.' : 'חתימת מורשה/ת החתימה. התאריך יתמלא אוטומטית ביום החתימה.'}
+                {withAppendix ? 'חתימת מורשה/ת החתימה, על ההסכם ועל נספח ההתקשרות עם תפוזנט שמצורף אליו. התאריך יתמלא אוטומטית ביום החתימה.' : 'חתימת מורשה/ת החתימה. התאריך יתמלא אוטומטית ביום החתימה.'}
               </p>
               <SignaturePad onChange={setSignature} className={step === 'form' ? '' : 'tj-locked'} />
               <label className="tj-consent">
@@ -935,8 +904,16 @@ function Summary({ values, onEdit }: { values: FormValues; onEdit: (step: number
   const redemption =
     values.redemption === 'generic_xtra25' ? 'קוד גנרי XTRA25' : values.redemption === 'business_pos_code' ? `קוד קופון על פי קופת בית העסק · ${values.couponCode || '—'}` : '—'
   const benefits = [values.benefit1, values.benefit2, values.benefit3].filter(Boolean)
-  const audience = AUDIENCE_CHOICES.find((a) => a.id === values.audience)?.label ?? '—'
-  const services = SERVICE_ROW_FIELDS.map(([type, details, price, net]) => ({ type: values[type], details: values[details], price: values[price], net: values[net] })).filter((row) => row.type || row.price || row.net)
+  // "הטבת 18 ₪": the benefit rows, each with its two prices.
+  const offers = SERVICE_ROW_FIELDS.map(([type, tourism, site]) => ({ type: values[type], tourism: values[tourism], site: values[site] })).filter((row) => row.type || row.tourism || row.site)
+  const benefitItems: [string, string][] = values.withAppendix
+    ? offers.map((row, i): [string, string] => [`הטבה ${i + 1}`, `${row.type || '—'} · ₪${row.tourism || '—'} בחודש התיירות (במקום ₪${row.site || '—'})`])
+    : [
+        ['סוג ההטבה', benefits.length ? benefits.map((b, i) => `${i + 1}. ${b}`).join(' · ') : '—'],
+        ...(values.benefitNotes ? ([[REGISTRATION_LABELS.benefitNotes, values.benefitNotes]] as [string, string][]) : []),
+        [REGISTRATION_LABELS.redemption, redemption],
+      ]
+  if (values.withAppendix && values.benefitNotes) benefitItems.push([REGISTRATION_LABELS.benefitNotes, values.benefitNotes])
   const rows: { step: number; anchor: string; title: string; items: [string, string][] }[] = [
     {
       step: 0,
@@ -949,18 +926,10 @@ function Summary({ values, onEdit }: { values: FormValues; onEdit: (step: number
         [REGISTRATION_LABELS.email, values.email || '—'],
         [REGISTRATION_LABELS.contactPerson, values.contactPerson || '—'],
         [REGISTRATION_LABELS.phone, values.phone || '—'],
+        ...(values.withAppendix ? ([['כתובת', [values.address, values.city].filter(Boolean).join(', ') || '—']] as [string, string][]) : []),
       ],
     },
-    {
-      step: 0,
-      anchor: 'tj-benefit-heading',
-      title: 'פרטי ההטבה',
-      items: [
-        ['סוג ההטבה', benefits.length ? benefits.map((b, i) => `${i + 1}. ${b}`).join(' · ') : '—'],
-        ...(values.benefitNotes ? ([[REGISTRATION_LABELS.benefitNotes, values.benefitNotes]] as [string, string][]) : []),
-        [REGISTRATION_LABELS.redemption, redemption],
-      ],
-    },
+    { step: 0, anchor: 'tj-benefit-heading', title: 'פרטי ההטבה', items: benefitItems },
     {
       step: 0,
       anchor: 'tj-week-heading',
@@ -973,14 +942,14 @@ function Summary({ values, onEdit }: { values: FormValues; onEdit: (step: number
     ...(values.withAppendix
       ? [
           {
-            step: 1,
-            anchor: 'tj-appendix-heading',
-            title: 'נספח הטבת 18 ₪',
+            step: 0,
+            anchor: 'tj-bank-heading',
+            title: 'פרטי חשבון הבנק',
             items: [
-              ['כתובת בית העסק', [values.address, values.city].filter(Boolean).join(', ') || '—'],
-              [REGISTRATION_LABELS.audience, audience],
-              ...services.map((row, i): [string, string] => [`שירות ${i + 1}`, [row.type, row.details, `מחירון ₪${row.price}`, `נטו ל־Xtra ₪${row.net}`].filter(Boolean).join(' · ')]),
-              ['חשבון הבנק', [values.bankAccountName, `${values.bankName} (${values.bankNumber})`, `סניף ${values.bankBranch}${values.bankBranchName ? ` ${values.bankBranchName}` : ''}`, `חשבון ${values.bankAccount}`].join(' · ')],
+              [REGISTRATION_LABELS.bankAccountName, values.bankAccountName || '—'],
+              ['הבנק', values.bankName ? `${values.bankName} (${values.bankNumber})` : '—'],
+              ['סניף', `${values.bankBranch || '—'}${values.bankBranchName ? ` · ${values.bankBranchName}` : ''}`],
+              [REGISTRATION_LABELS.bankAccount, values.bankAccount || '—'],
             ] as [string, string][],
           },
         ]
@@ -1016,9 +985,9 @@ function Summary({ values, onEdit }: { values: FormValues; onEdit: (step: number
 /**
  * Only the fields the agreement insists on are required; the benefit lines
  * beyond the first, the trading name and the notes are not — nor, in the
- * appendix, a service's details or the branch's name.
+ * 18 ₪ version, the bank branch's name.
  */
-const OPTIONAL_FIELDS: readonly RegistrationField[] = ['commercialName', 'benefit2', 'benefit3', 'benefitNotes', 'bankBranchName', ...SERVICE_ROW_FIELDS.map((row) => row[1])]
+const OPTIONAL_FIELDS: readonly RegistrationField[] = ['commercialName', 'benefit2', 'benefit3', 'benefitNotes', 'bankBranchName']
 
 function Field({
   id,
