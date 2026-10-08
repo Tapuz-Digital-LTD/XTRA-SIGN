@@ -4,6 +4,9 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { SignaturePad } from '@/components/signer/SignaturePad'
 import {
+  DECLARE_INSURANCE_TEXT,
+  DECLARE_LICENSE_TEXT,
+  EXTENSION_CLAUSE,
   NO_APPENDIX,
   REGISTRATION_LABELS,
   SERVICE_ROW_FIELDS,
@@ -13,8 +16,10 @@ import {
   type RegistrationField,
   type RegistrationValues,
   type TourismWeekId,
+  WEEK_CLAUSE,
+  WEEK_LEGEND,
 } from '@/lib/self-service-registration'
-import { APPENDIX_PARTY, ISRAELI_BANKS } from '@/lib/benefit18-appendix'
+import { APPENDIX_PARTY, BENEFIT18_BENEFIT_CLAUSE, BENEFIT18_JOIN_CLAUSE, BENEFIT18_PRICES_NOTE, BENEFIT18_VOUCHER_NOTE, ISRAELI_BANKS } from '@/lib/benefit18'
 import { AgreementSystemNote, AgreementTerms } from './AgreementText'
 import { track, visitId } from './track'
 import { OtpInput } from '@/components/ui/OtpInput'
@@ -39,7 +44,7 @@ import { CAPTCHA_ACTIONS, type CaptchaPublicConfig } from '@/lib/captcha'
  * tourism-month price, the price on the site — with no coupon, and step 1
  * also asks the address and the bank account the Tapuznet appendix needs.
  * One signature signs both; the appendix pages follow the agreement in the
- * same file (benefit18-appendix.ts on the server).
+ * same file (benefit18.ts on the server).
  *
  * What the project is — the story a visitor needs before any of this — is
  * the explainer page before the form (about/page.tsx), not a paragraph here.
@@ -578,16 +583,14 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
               ) : null}
             </div>
             <p className="tj-clause">
-              בית העסק מביע בזאת את רצונו להצטרף כבית עסק משתתף במסגרת פרויקט &quot;חודש התיירות הישראלית&quot; שיתקיים בחודש נובמבר 2026
+              {withAppendix ? BENEFIT18_JOIN_CLAUSE : 'בית העסק מביע בזאת את רצונו להצטרף כבית עסק משתתף במסגרת פרויקט "חודש התיירות הישראלית" שיתקיים בחודש נובמבר 2026'}
             </p>
           </section>
 
           {withAppendix ? (
             <section className="tj-card" aria-labelledby="tj-benefit-heading">
               <h2 id="tj-benefit-heading" className="tj-h2">פרטי ההטבה</h2>
-              <p className="tj-clause tj-clause-lead">
-                בית העסק יעניק מחיר מיוחד עבור חודש התיירות, הנמוך מהמחיר המפורסם באתר בית העסק, עבור לקוחות שיגיעו דרך הפרסום באתר המיזם.
-              </p>
+              <p className="tj-clause tj-clause-lead">{BENEFIT18_BENEFIT_CLAUSE}</p>
               {SERVICE_ROW_FIELDS.slice(0, visibleRows).map(([type, tourism, site], i) => (
                 <div key={type} className="tj-service" role="group" aria-labelledby={`tj-service-${i + 1}`}>
                   <div className="tj-service-head">
@@ -615,13 +618,15 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
                   הוספת הטבה נוספת
                 </button>
               ) : null}
-              <p className="tj-hint tj-hint-block">המחירים הינם נטו וכוללים מע״מ.</p>
+              <p className="tj-hint tj-hint-block">{BENEFIT18_PRICES_NOTE}</p>
               <div className="tj-fields tj-fields-after">
                 <Field id="benefitNotes" values={values} errors={errors} onChange={setField} locked={lockedMode} disabled={frozen} multiline />
               </div>
               <div className="tj-note" role="note">
-                <p>הלקוח ישלם ל־<bdi>xtra</bdi> 18 ₪ עבור הפעילות המוצעת ויגיע לבית העסק עם מספר שובר. בית העסק יממש את השובר באמצעות ממשק הספקים, אשר יועבר אליו בצירוף פרטי משתמש.</p>
-                <p>בסיום הפעילות יעביר בית העסק ל־<bdi>xtra</bdi> דוח מפורט של כלל השוברים שמומשו בפועל, לצורך ביצוע התשלום בהתאם.</p>
+                {BENEFIT18_VOUCHER_NOTE.map((text) => (
+                  // "xtra 18 ₪": the Latin name is isolated, or the browser joins it and the price into one run and reads them backwards.
+                  <p key={text}>{text.split(/(xtra)/).map((part, i) => (part === 'xtra' ? <bdi key={i}>xtra</bdi> : part))}</p>
+                ))}
               </div>
             </section>
           ) : (
@@ -673,11 +678,9 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
 
           <section className="tj-card" aria-labelledby="tj-week-heading">
             <h2 id="tj-week-heading" className="tj-h2">תקופת ההתחייבות</h2>
-            <p className="tj-clause tj-clause-lead">
-              ההטבה הנ״ל מחייבת במהלך שבוע התיירות האזורי שבו משתתף בית העסק, בפרט מיום רביעי ועד מוצ״ש באותו השבוע.
-            </p>
+            <p className="tj-clause tj-clause-lead">{WEEK_CLAUSE}</p>
             <fieldset className="tj-group" id="tj-week" tabIndex={-1} disabled={frozen} aria-describedby={errors.week ? 'tj-week-error' : undefined}>
-              <legend className="tj-legend tj-legend-strong">תאריכי ההטבה ע״פ אזורי חלוקה - נובמבר 2026</legend>
+              <legend className="tj-legend tj-legend-strong">{WEEK_LEGEND}</legend>
               <div className="tj-weeks">
                 {TOURISM_WEEKS.map((week) => (
                   <label key={week.id} className={`tj-week${values.week === week.id ? ' tj-week-on' : ''}`}>
@@ -700,9 +703,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
             </fieldset>
             <label className="tj-consent">
               <input type="checkbox" checked={values.optionalExtension} onChange={(e) => setField('optionalExtension', e.target.checked)} disabled={frozen} />
-              <span>
-                הרחבה אופציונלית: במידה ובית העסק יבחר בכך (על פי שיקול דעתו הבלעדי), יורשה להעניק את ההטבה, לאורך כל שבוע התיירות האזורי.
-              </span>
+              <span>{EXTENSION_CLAUSE}</span>
             </label>
           </section>
           {withAppendix ? (
@@ -772,7 +773,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
               <h2 id="tj-declarations-heading" className="tj-h2">הצהרות ואישורים</h2>
               <label className="tj-consent tj-consent-first">
                 <input id="tj-declareLicense" type="checkbox" checked={values.declareLicense} onChange={(e) => setField('declareLicense', e.target.checked)} disabled={frozen} aria-describedby={errors.declareLicense ? 'tj-declareLicense-error' : undefined} />
-                <span>הנני מצהיר/ה כי ברשות בית העסק רישיון עסק תקף כחוק.</span>
+                <span>{DECLARE_LICENSE_TEXT}</span>
               </label>
               {errors.declareLicense ? (
                 <p id="tj-declareLicense-error" role="alert" className="tj-error">
@@ -781,7 +782,7 @@ export function JoinAndSign({ mode, slug, formId, projectName, captcha, token: i
               ) : null}
               <label className="tj-consent">
                 <input id="tj-declareInsurance" type="checkbox" checked={values.declareInsurance} onChange={(e) => setField('declareInsurance', e.target.checked)} disabled={frozen} aria-describedby={errors.declareInsurance ? 'tj-declareInsurance-error' : undefined} />
-                <span>הנני מצהיר/ה כי ברשות בית העסק פוליסת ביטוח בתוקף.</span>
+                <span>{DECLARE_INSURANCE_TEXT}</span>
               </label>
               {errors.declareInsurance ? (
                 <p id="tj-declareInsurance-error" role="alert" className="tj-error">

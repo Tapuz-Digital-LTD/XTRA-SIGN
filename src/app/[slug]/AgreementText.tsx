@@ -1,3 +1,5 @@
+import { BENEFIT18_TERMS } from '@/lib/benefit18'
+
 /**
  * The agreement's own words inside the form.
  *
@@ -8,23 +10,26 @@
  */
 
 /**
- * "תנאים והגבלות למימוש ההטבה" — the five terms, word for word. The 18 ₪
- * version keeps only the last: the other four say the customer pays the
- * business and nothing is settled with XTRA, the opposite of its voucher
- * (the customer pays XTRA, the business redeems in the suppliers' system and
- * reports to XTRA) — the owner's call, 2026-10-08.
+ * "תנאים והגבלות למימוש ההטבה" — the five terms, word for word. הטבת 18 ₪ has
+ * its own (BENEFIT18_TERMS): the regular four say the customer pays the
+ * business and nothing is settled with XTRA, the opposite of its voucher.
  */
 export function AgreementTerms({ benefit18 = false }: { benefit18?: boolean }) {
+  if (benefit18) {
+    return (
+      <ul className="tj-terms">
+        {BENEFIT18_TERMS.map((term) => (
+          <li key={term}>{term}</li>
+        ))}
+      </ul>
+    )
+  }
   return (
     <ul className="tj-terms">
-      {benefit18 ? null : (
-        <>
-          <li>אין כפל מבצעים והנחות.</li>
-          <li>לא ניתן לממש את ההטבה בשילוב עם הנחות או כרטיסי מועדון לקוחות.</li>
-          <li>התשלום יבוצע ישירות מול בית העסק / בקופת העסק בלבד.</li>
-          <li>לא תתקיים התחשבנות כספית או גבייה מול חברת XTRA; ההתקשרות הכספית היא בין הלקוח לבית העסק בלבד.</li>
-        </>
-      )}
+      <li>אין כפל מבצעים והנחות.</li>
+      <li>לא ניתן לממש את ההטבה בשילוב עם הנחות או כרטיסי מועדון לקוחות.</li>
+      <li>התשלום יבוצע ישירות מול בית העסק / בקופת העסק בלבד.</li>
+      <li>לא תתקיים התחשבנות כספית או גבייה מול חברת XTRA; ההתקשרות הכספית היא בין הלקוח לבית העסק בלבד.</li>
       <li>הענקת ההטבה מותנית בהצגת הקופון / הזנת קוד הקופון בבית העסק.</li>
     </ul>
   )

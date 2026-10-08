@@ -18,6 +18,13 @@ export const TOURISM_WEEKS = [
 
 export type TourismWeekId = (typeof TOURISM_WEEKS)[number]['id']
 
+/** The agreement's words around the week and the declarations — the same in both tracks, the form and the 18 ₪ document. */
+export const WEEK_CLAUSE = 'ההטבה הנ״ל מחייבת במהלך שבוע התיירות האזורי שבו משתתף בית העסק, בפרט מיום רביעי ועד מוצ״ש באותו השבוע.'
+export const WEEK_LEGEND = 'תאריכי ההטבה ע״פ אזורי חלוקה - נובמבר 2026'
+export const EXTENSION_CLAUSE = 'הרחבה אופציונלית: במידה ובית העסק יבחר בכך (על פי שיקול דעתו הבלעדי), יורשה להעניק את ההטבה, לאורך כל שבוע התיירות האזורי.'
+export const DECLARE_LICENSE_TEXT = 'הנני מצהיר/ה כי ברשות בית העסק רישיון עסק תקף כחוק.'
+export const DECLARE_INSURANCE_TEXT = 'הנני מצהיר/ה כי ברשות בית העסק פוליסת ביטוח בתוקף.'
+
 /** The two ways a customer identifies themselves at the business. */
 export const REDEMPTION_METHODS = ['generic_xtra25', 'business_pos_code'] as const
 export type RedemptionMethod = (typeof REDEMPTION_METHODS)[number]
@@ -55,7 +62,7 @@ export type RegistrationValues = {
    * The "הטבת 18 ₪" version: the benefit is up to three rows — what it is,
    * its tourism-month price and the price on the business's site — instead of
    * benefit lines and a coupon, and the agreement carries the Tapuznet
-   * appendix (benefit18-appendix.ts), which asks for the address and the bank
+   * appendix (benefit18.ts), which asks for the address and the bank
    * account. In every other version these are empty and nothing asks for them.
    */
   withAppendix: boolean

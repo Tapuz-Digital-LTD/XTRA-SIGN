@@ -1,18 +1,39 @@
 /**
- * נספח הטבת 18 ₪ — the supplier agreement between the business and Tapuznet
- * (XTRA), which the tourism campaign's "הטבת 18 ₪" call attaches to
- * the agreement. The joining form shows it before the signature; the PDF
- * generator (scripts/design/benefit18-appendix.ts) lays the same words out
- * as the appendix pages the signed file carries.
+ * הטבת 18 ₪ — a separate track of the tourism campaign, chosen per
+ * invitation like the hotels' call: its own form, its own terms and its own
+ * document. The document is two parts, signed with one signature:
  *
- * The words are the owner's Word document ("הסכם ספקים 2026", December 2025),
- * word for word, with only the fixes the owner approved on 2026-10-07: the
- * company's full name (תפוזנט פתרונות לשיווק ופרסום בע״מ, as its stamp reads)
- * in place of "תפוזנט בע"מ" and the typo "תפוזנו"; section 4 numbered; the
- * fax line dropped; spelling (שירות, תיהנה, "כבית עסק"), punctuation, and
- * "ע"י במסגרתו" → "במסגרתו". The one line that is ours is the heading that
- * names the page as the appendix to the campaign agreement.
+ *   1. הסכם שיתוף פעולה — הטבת 18 ₪ (BENEFIT18_*): the business, its
+ *      benefits at a tourism-month price, the regional week, the terms, the
+ *      declarations — on the campaign's letterhead, like the regular agreement.
+ *   2. נספח: the supplier agreement between the business and Tapuznet (XTRA)
+ *      (APPENDIX_*), on the XTRA letterhead.
+ *
+ * One source for the joining form and the PDF generator
+ * (scripts/design/benefit18.ts).
+ *
+ * The appendix's words are the owner's Word document ("הסכם ספקים 2026",
+ * December 2025), word for word, with only the fixes the owner approved on
+ * 2026-10-07: the company's full name (תפוזנט פתרונות לשיווק ופרסום בע״מ, as
+ * its stamp reads) in place of "תפוזנט בע"מ" and the typo "תפוזנו"; section 4
+ * numbered; the fax line dropped; spelling (שירות, תיהנה, "כבית עסק"),
+ * punctuation, and "ע"י במסגרתו" → "במסגרתו".
  */
+
+export const BENEFIT18_TITLE = 'הסכם שיתוף פעולה — הטבת 18 ₪'
+export const BENEFIT18_SUBTITLE = 'השתתפות בהטבת 18 ₪: חודש התיירות הישראלית - נובמבר 2026'
+export const BENEFIT18_JOIN_CLAUSE = 'בית העסק מביע בזאת את רצונו להצטרף כבית עסק משתתף בהטבת 18 ₪ במסגרת פרויקט "חודש התיירות הישראלית" שיתקיים בחודש נובמבר 2026'
+export const BENEFIT18_BENEFIT_CLAUSE = 'בית העסק יעניק מחיר מיוחד עבור חודש התיירות, הנמוך מהמחיר המפורסם באתר בית העסק, עבור לקוחות שיגיעו דרך הפרסום באתר המיזם.'
+/** How the 18 ₪ voucher works — the owner's words, 2026-10-08. */
+export const BENEFIT18_VOUCHER_NOTE = [
+  'הלקוח ישלם ל־xtra 18 ₪ עבור הפעילות המוצעת ויגיע לבית העסק עם מספר שובר. בית העסק יממש את השובר באמצעות ממשק הספקים, אשר יועבר אליו בצירוף פרטי משתמש.',
+  'בסיום הפעילות יעביר בית העסק ל־xtra דוח מפורט של כלל השוברים שמומשו בפועל, לצורך ביצוע התשלום בהתאם.',
+]
+/** "תנאים והגבלות למימוש ההטבה" of this track: of the regular five, the only one that holds (owner, 2026-10-08). */
+export const BENEFIT18_TERMS = ['הענקת ההטבה מותנית בהצגת הקופון / הזנת קוד הקופון בבית העסק.']
+export const BENEFIT18_PRICES_NOTE = 'המחירים הינם נטו וכוללים מע״מ.'
+/** The line on the agreement that ties the two parts together. Ours. */
+export const BENEFIT18_APPENDIX_LINE = 'להסכם זה מצורף נספח: הסכם ההתקשרות בין בית העסק לבין תפוזנט פתרונות לשיווק ופרסום בע״מ (XTRA), כולל פרטי חשבון הבנק, הנחתם באותה חתימה.'
 
 export const APPENDIX_PARTY = 'תפוזנט פתרונות לשיווק ופרסום בע״מ'
 export const APPENDIX_PARTY_TAX_ID = '513915421'
