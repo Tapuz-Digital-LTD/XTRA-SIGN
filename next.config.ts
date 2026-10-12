@@ -138,6 +138,17 @@ const nextConfig: NextConfig = {
       },
     ]
   },
+
+  /**
+   * Short link the Ministry can print: tourism.xtra.co.il/november-month → the Tourism Month
+   * "חוויות ב-18 ₪" shop on xtra.co.il. A redirect, not a proxy — Shopify serves its storefront
+   * (cart, checkout) only on its own domain. Temporary (307) so the target can change later.
+   */
+  async redirects() {
+    return [
+      { source: '/november-month', destination: 'https://xtra.co.il/collections/tayarot', permanent: false },
+    ]
+  },
 }
 
 export default nextConfig
