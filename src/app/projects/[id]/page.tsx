@@ -289,7 +289,7 @@ async function JoiningTab({ projectId, session, query, askKind, audienceNoun, pu
  * they do on screen.
  */
 function joiningExport(projectId: string, view: JoiningView, extras: FormColumn[]): ReportDefinition {
-  const columns = ['name', ...extras.map((c) => `form.${c.key}`), 'phone', 'email', 'source', 'process_status', 'progress_stage', 'invited_by_name', 'assignee_name', 'follow_up_at', 'signed_at', 'last_activity_at', 'created_at']
+  const columns = ['name', ...extras.map((c) => `form.${c.key}`), 'phone', 'email', 'source', 'process_status', 'progress_stage', 'invited_by_name', 'assignee_name', 'follow_up_at', 'call_outcome', 'signed_at', 'last_activity_at', 'created_at']
   const clauses: ReportDefinition['clauses'] = [inCampaign(projectId)]
   if (view === 'invitations') {
     clauses.push({ any: [{ field: 'invited_by_us', op: 'is', value: true }] })

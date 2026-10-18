@@ -12,12 +12,19 @@ import { useEffect, useState } from 'react'
  */
 export type FollowUpValues = { assigneeUserId: string | null; assigneeName?: string | null; followUpAt: string | null; callOutcome: string | null; internalNote: string | null }
 
-const OUTCOMES: { key: string; label: string }[] = [
-  { key: 'interested', label: 'מעוניין' },
-  { key: 'call_back', label: 'לחזור אליו' },
-  { key: 'no_answer', label: 'לא ענה' },
-  { key: 'not_interested', label: 'לא מעוניין' },
+const OUTCOMES: { key: string; label: string; cls: string }[] = [
+  { key: 'interested', label: 'מעוניין', cls: 'bg-green-50 text-green-900' },
+  { key: 'call_back', label: 'לחזור אליו', cls: 'bg-amber-50 text-amber-900' },
+  { key: 'no_answer', label: 'לא ענה', cls: 'bg-bg text-muted' },
+  { key: 'not_interested', label: 'לא מעוניין', cls: 'bg-red-50 text-red-900' },
 ]
+
+/** The last call's outcome as the lists show it; a dash when nobody recorded one. */
+export function CallOutcomeChip({ value }: { value: string | null | undefined }) {
+  const o = OUTCOMES.find((x) => x.key === value)
+  if (!o) return <span className="text-muted">—</span>
+  return <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${o.cls}`}>{o.label}</span>
+}
 const field = 'mt-1 w-full rounded-xl border border-line bg-bg px-4 py-3 text-base text-fg outline-none focus:border-brand'
 
 /** Is there still something to do for this person? The caller's facts, one answer. */

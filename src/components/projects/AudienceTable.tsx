@@ -10,7 +10,7 @@ import { TaskPanel } from '@/components/follow-up/TaskPanel'
 import { CopyButton } from '@/components/ui/CopyButton'
 import { Drawer } from '@/components/ui/Drawer'
 import { LinkCompanyPanel } from '@/components/invitations/LinkCompanyPanel'
-import { FollowUpPanel, hasOpenWork } from '@/components/follow-up/FollowUpPanel'
+import { CallOutcomeChip, FollowUpPanel, hasOpenWork } from '@/components/follow-up/FollowUpPanel'
 import { JoiningProgressPanel, ProgressLine } from '@/components/progress/JoiningProgressPanel'
 import { formatAnswer, type FormColumn } from '@/lib/form-columns'
 import { currentUrlFor, withReturnTo } from '@/lib/return-to'
@@ -254,7 +254,10 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                       {row.status !== 'signed' && row.status !== 'failed' ? <input type="checkbox" className="size-5" checked={selected.has(row.id)} onChange={() => toggle(row.id)} onClick={(e) => e.stopPropagation()} aria-label={`בחירת ${row.name}`} /> : null}
                       <span className="truncate text-base font-semibold text-fg">{row.name}</span>
                     </span>
-                    <StatusChip status={row.status} />
+                    <span className="flex shrink-0 items-center gap-1">
+                      {row.callOutcome ? <CallOutcomeChip value={row.callOutcome} /> : null}
+                      <StatusChip status={row.status} />
+                    </span>
                   </span>
                   {extras(row).some((x) => x.value) ? <span className="truncate text-xs text-fg">{extras(row).filter((x) => x.value).map((x) => `${x.label}: ${x.value}`).join(' · ')}</span> : null}
                   <ProgressLine progress={row.progress} />
@@ -274,7 +277,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
           {/* Desktop: the compact table. */}
           <div className="hidden overflow-x-auto rounded-[var(--radius-card)] border border-line bg-surface md:block">
             {/* Chosen columns widen the table rather than squeeze the fixed ones; the wrapper scrolls. */}
-            <table className="w-full table-fixed text-sm" style={{ minWidth: 850 + 160 * extraColumns.length }}>
+            <table className="w-full table-fixed text-sm" style={{ minWidth: 960 + 160 * extraColumns.length }}>
               <thead className="bg-bg text-xs text-muted">
                 <tr>
                   <th className="w-10 px-2 py-3">
@@ -289,6 +292,7 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                   {global ? <th className="w-[12%] px-4 py-3 text-start font-medium">קמפיין</th> : null}
                   <th className="w-[12%] px-4 py-3 text-start font-medium">טלפון</th>
                   <th className="w-[16%] px-4 py-3 text-start font-medium">סטטוס</th>
+                  <th className="w-[11%] px-4 py-3 text-start font-medium">תוצאת שיחה</th>
                   <th className="w-[12%] px-4 py-3 text-start font-medium">נציג</th>
                   <th className="px-4 py-3 text-start font-medium">פעילות אחרונה</th>
                   <th className="sticky end-0 w-14 bg-bg px-2 py-3"></th>
@@ -325,6 +329,9 @@ export function AudienceTable({ projectId, rows, counts, view, q, askKind, dueTo
                       <StatusChip status={row.status} />
                       <ProgressLine progress={row.progress} className="mt-1" />
                       <RowTasks projectId={projectId} tasks={row.tasks} name={row.name} onChange={() => router.refresh()} className="mt-1" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <CallOutcomeChip value={row.callOutcome} />
                     </td>
                     <td className="px-4 py-3 text-fg">
                       <span className="block truncate">{row.assignee?.name ?? row.invitedBy?.name ?? '—'}</span>
