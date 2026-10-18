@@ -15,7 +15,7 @@ import { TaskLine } from '@/components/follow-up/TaskBadge'
 import { RowTasks } from '@/components/follow-up/RowTasks'
 import { TaskFilterChips } from '@/components/follow-up/TaskFilterChips'
 import { TaskPanel } from '@/components/follow-up/TaskPanel'
-import { FollowUpPanel, hasOpenWork } from '@/components/follow-up/FollowUpPanel'
+import { CallOutcomeChip, FollowUpPanel, hasOpenWork } from '@/components/follow-up/FollowUpPanel'
 import { JoiningProgressPanel, ProgressLine } from '@/components/progress/JoiningProgressPanel'
 import type { JoiningProgress } from '@/lib/joining-progress'
 import type { TaskSummary } from '@/server/follow-up/labels'
@@ -339,6 +339,7 @@ export function RegistrationsTable({
                   </button>
                   <span className="flex shrink-0 flex-col items-end gap-1">
                     <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${TONE[r.statusTone]}`}>{r.statusLabel}</span>
+                    {r.followUp.callOutcome ? <CallOutcomeChip value={r.followUp.callOutcome} /> : null}
                     {r.linkingNeeded ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900">לא שויך ב-CRM</span> : null}
                   </span>
                   <RowMenu items={menuFor(r)} />
@@ -356,7 +357,7 @@ export function RegistrationsTable({
           {/* wider screens: the summary table */}
           <div className="mt-3 hidden overflow-x-auto md:block">
             {/* Chosen columns widen the table rather than squeeze the fixed ones; the wrapper scrolls. */}
-            <table className="w-full table-fixed text-sm" style={{ minWidth: extraColumns.length ? 1000 + 150 * extraColumns.length : undefined }}>
+            <table className="w-full table-fixed text-sm" style={{ minWidth: 1000 + 150 * extraColumns.length }}>
               <thead>
                 <tr className="text-xs text-muted">
                   <th className="w-8 py-2">
@@ -370,6 +371,7 @@ export function RegistrationsTable({
                   ))}
                   <th className="w-[14%] py-2 pe-3 text-start font-medium">איש קשר</th>
                   <th className="w-[14%] py-2 pe-3 text-start font-medium">סטטוס</th>
+                  <th className="w-[10%] py-2 pe-3 text-start font-medium">תוצאת שיחה</th>
                   <th className="w-[11%] py-2 pe-3 text-start font-medium">נרשם</th>
                   <th className="w-[10%] py-2 pe-3 text-start font-medium">מקור</th>
                   {/* Stays in view while chosen columns scroll the rest, like the audience table. */}
@@ -399,6 +401,9 @@ export function RegistrationsTable({
                       <ProgressLine progress={r.progress} className="mt-1" />
                       {r.linkingNeeded ? <span className="mt-1 block"><span className="whitespace-nowrap rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900">לא שויך ב-CRM — בדקו שיוך</span></span> : null}
                       {taskBadge(r) ? <div className="mt-1" onClick={(e) => e.stopPropagation()}>{taskBadge(r)}</div> : null}
+                    </td>
+                    <td className="py-2 pe-3">
+                      <CallOutcomeChip value={r.followUp.callOutcome} />
                     </td>
                     <td className="whitespace-nowrap py-2 pe-3 tabular-nums text-muted">{dateTime.format(new Date(r.createdAt))}</td>
                     <td className="truncate py-2 pe-3 text-muted">{r.source.label}</td>
