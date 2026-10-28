@@ -24,6 +24,7 @@ export const AUDIT_EVENTS = {
   RECORD_PROTECTED_DELETE: 'record_protected_delete',
   DELETION_REQUESTED: 'deletion_requested',
   SECURITY_SETTINGS_CHANGED: 'security_settings_changed',
+  AGREEMENTS_DOWNLOADED: 'agreements_downloaded',
 } as const
 
 export type AdminAuditType = (typeof AUDIT_EVENTS)[keyof typeof AUDIT_EVENTS]
@@ -64,4 +65,5 @@ export const ADMIN_AUDIT_LABELS: Record<string, string> = {
   login_code_sent: 'נשלח קוד כניסה',
   login_succeeded: 'כניסה למערכת',
   login_failed: 'ניסיון כניסה נכשל',
+  agreements_downloaded: 'הורדת הסכמים חתומים (ZIP)',
 }

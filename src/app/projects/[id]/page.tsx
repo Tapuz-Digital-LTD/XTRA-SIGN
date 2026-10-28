@@ -22,6 +22,8 @@ import { ForbiddenError, getSession } from '@/server/auth/session'
 import { listBatches } from '@/server/groups/bulk-send'
 import { authorizeGroup, listGroupCompanies } from '@/server/groups/groups'
 import { listDocuments } from '@/server/documents/queries'
+import { signedCampaignFiles } from '@/server/documents/campaign-files'
+import { SignedZipButton } from '@/components/documents/SignedZipButton'
 import { listLeads } from '@/server/projects/leads'
 import { getLandingSettings } from '@/server/projects/landing'
 import { getSelfServiceConfig, selfServiceOf } from '@/server/projects/self-service'
@@ -52,7 +54,7 @@ export default async function ProjectPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ tab?: string; q?: string; from?: string; to?: string; status?: string; source?: string; range?: string; setup?: string; new?: string; section?: string; returnTo?: string; view?: string; filter?: string }>
+  searchParams: Promise<{ tab?: string; q?: string; from?: string; to?: string; status?: string; source?: string; range?: string; setup?: string; new?: string; section?: string; returnTo?: string; view?: string; filter?: string; call?: string }>
 }) {
   const session = await getSession()
   if (!session) redirect('/login')
@@ -151,7 +153,7 @@ export default async function ProjectPage({
             <DistributionsTab projectId={id} campaignKind={campaignKind} publicUrl={campaignKind === 'public' ? await publicAddress(session, id) : null} isAdmin={session.isAdmin} openNew={query.new === '1'} />
           </>
         ) : null}
-        {tab === 'agreements' ? <AgreementsTab projectId={id} session={session} filter={query.filter} /> : null}
+        {tab === 'agreements' ? <AgreementsTab projectId={id} projectName={project.name} session={session} filter={query.filter} call={query.call} landingConfig={project.landingConfig} /> : null}
         {tab === 'setup' ? <SetupTab projectId={id} session={session} query={query} defined={followUp} /> : null}
         {tab === 'reports' ? <ReportsTab projectId={id} query={query} session={session} landingConfig={project.landingConfig} /> : null}
         {tab === 'settings' ? (
@@ -430,8 +432,10 @@ async function SuppliersTab({
  * the screen's filters is on — "דורש טיפול" among them, because the engine
  * computes it the same way the list does rather than approximating it.
  */
-function agreementsExport(projectId: string, filter?: 'attention' | 'signed' | 'pending' | 'expired' | 'canceled'): ReportDefinition {
+function agreementsExport(projectId: string, filter?: 'attention' | 'signed' | 'pending' | 'expired' | 'canceled', versions: { versioned: boolean; callVersion?: string } = { versioned: false }): ReportDefinition {
+  const { versioned, callVersion } = versions
   const clauses: ReportDefinition['clauses'] = [inCampaign(projectId)]
+  if (callVersion) clauses.push({ any: [{ field: 'call_version', op: 'is', value: callVersion }] })
   if (filter === 'attention') clauses.push({ any: [{ field: 'attention', op: 'is', value: true }] })
   if (filter === 'signed') clauses.push({ any: [{ field: 'status', op: 'one_of', value: ['signed'] }] })
   if (filter === 'pending') clauses.push({ any: [{ field: 'status', op: 'one_of', value: ['sent', 'viewed'] }] })
@@ -440,23 +444,59 @@ function agreementsExport(projectId: string, filter?: 'attention' | 'signed' | '
   return {
     entity: 'agreements',
     clauses,
-    columns: ['title', 'company', 'recipient_name', 'recipient_phone', 'recipient_email', 'status', 'attention_reason', 'sent_at', 'completed_at', 'expires_at', 'owner_name', 'last_send_result'],
+    columns: ['title', 'company', ...(versioned ? ['call_version'] : []), 'recipient_name', 'recipient_phone', 'recipient_email', 'status', 'attention_reason', 'sent_at', 'completed_at', 'expires_at', 'owner_name', 'last_send_result'],
     sort: { field: 'created_at', dir: 'desc' },
   }
 }
 
 async function AgreementsTab({
   projectId,
+  projectName,
   session,
   filter,
+  call,
+  landingConfig,
 }: {
   projectId: string
+  projectName: string
   session: NonNullable<Awaited<ReturnType<typeof getSession>>>
   filter?: string
+  call?: string
+  landingConfig: unknown
 }) {
   const known = ['attention', 'signed', 'pending', 'expired', 'canceled'] as const
   const chosen = known.find((f) => f === filter)
-  const result = await listDocuments(session, { groupId: projectId, pageSize: 100, ...(chosen ? { filter: chosen } : {}) })
+  const calls = callVersionsOf(selfServiceOf(landingConfig).skin)
+  const version = calls.find((c) => c.key === call)
+  const [result, files] = await Promise.all([
+    listDocuments(session, { groupId: projectId, pageSize: 100, ...(chosen ? { filter: chosen } : {}), ...(version ? { callVersion: version.key } : {}) }),
+    signedCampaignFiles(session, projectId, { filter: chosen, callVersion: version?.key }),
+  ])
+  // The campaign's call versions, over whichever status filter is on — the table, the file and the ZIP all follow.
+  const versionChips =
+    calls.length > 0 ? (
+      <nav aria-label="גרסת קול קורא" className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="text-sm text-muted">גרסת קול קורא:</span>
+        {[{ key: undefined, label: 'כל הגרסאות' }, ...calls].map((c) => (
+          <Link
+            key={c.key ?? 'all'}
+            href={`/projects/${projectId}?tab=agreements${chosen ? `&filter=${chosen}` : ''}${c.key ? `&call=${c.key}` : ''}`}
+            aria-current={version?.key === c.key ? 'page' : undefined}
+            className={`inline-flex min-h-11 items-center rounded-full border px-4 text-sm font-medium transition ${version?.key === c.key ? 'border-brand bg-brand text-white' : 'border-line bg-surface text-fg hover:border-brand'}`}
+          >
+            {c.label}
+          </Link>
+        ))}
+      </nav>
+    ) : null
+  if (result.items.length === 0 && version) {
+    return (
+      <>
+        {versionChips}
+        <p className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-10 text-center text-base text-muted">אין כאן הסכמים בגרסה ״{version.label}״.</p>
+      </>
+    )
+  }
   if (result.items.length === 0) {
     return (
       <div className="rounded-[var(--radius-card)] border border-dashed border-line bg-surface px-6 py-12 text-center">
@@ -475,7 +515,13 @@ async function AgreementsTab({
   }
   return (
     <>
-      <TableExport definition={agreementsExport(projectId, chosen)} />
+      {versionChips}
+      <TableExport definition={agreementsExport(projectId, chosen, { versioned: calls.length > 0, callVersion: version?.key })}>
+        {files.length > 0 ? (
+          <SignedZipButton projectId={projectId} filter={chosen} call={version?.key} count={files.length} zipName={`הסכמים חתומים — ${projectName}${version ? ` — ${version.label}` : ''}.zip`} />
+        ) : null}
+      </TableExport>
+      {result.total > result.items.length ? <p className="mb-2 text-sm text-muted">מוצגים {result.items.length} ההסכמים האחרונים מתוך {result.total}. קובץ האקסל כולל את כולם, וה־ZIP את כל החתומים שבהם.</p> : null}
       <DocumentsTable documents={result.items} now={result.now} isAdmin={session.isAdmin} />
     </>
   )
@@ -492,10 +538,11 @@ async function ReportsTab({
   session: NonNullable<Awaited<ReturnType<typeof getSession>>>
   landingConfig: unknown
 }) {
-  const filters = parseProjectReportFilters({ from: query.from, to: query.to, status: query.status, source: query.source, range: query.range })
+  const filters = parseProjectReportFilters({ from: query.from, to: query.to, status: query.status, source: query.source, call: query.call, range: query.range })
   const report = await projectReport(session, projectId, filters, 200)
+  const calls = callVersionsOf(selfServiceOf(landingConfig).skin).map((c) => ({ key: c.key, label: c.label }))
   const params = new URLSearchParams()
-  for (const key of ['from', 'to', 'status', 'source', 'range'] as const) if (query[key]) params.set(key, query[key]!)
+  for (const key of ['from', 'to', 'status', 'source', 'call', 'range'] as const) if (query[key]) params.set(key, query[key]!)
 
   return (
 
@@ -509,9 +556,10 @@ async function ReportsTab({
     <ProjectReportView
       projectId={projectId}
       report={serializeReport(report)}
-      values={{ from: query.from, to: query.to, status: query.status, source: query.source, range: query.range }}
+      values={{ from: query.from, to: query.to, status: query.status, source: query.source, call: filters.call, range: query.range }}
       exportHref={`/api/projects/${projectId}/report/export?${params}`}
       extraColumns={listColumnsOf(landingConfig)}
+      calls={calls}
     />
     </>
   )
