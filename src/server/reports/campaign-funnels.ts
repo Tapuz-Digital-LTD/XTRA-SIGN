@@ -1,4 +1,5 @@
 import { sql, type SQL } from 'drizzle-orm'
+import { leadCallVersion } from '@/server/self-service/call-version'
 import { getDb } from '@/server/db'
 
 /**
@@ -122,10 +123,11 @@ function within(column: SQL, range: Range): SQL {
   return parts.length ? sql.join(parts, sql` and `) : sql`true`
 }
 
-export async function campaignFunnels(groupId: string, range: Range = {}, projectPath = ''): Promise<CampaignFunnels> {
+export async function campaignFunnels(groupId: string, range: Range = {}, projectPath = '', call?: string): Promise<CampaignFunnels> {
   const db = getDb()
   const href = (query: string) => (projectPath ? `${projectPath}${query}` : undefined)
-  const leadRange = within(sql`pl.created_at`, range)
+  // A version of the call narrows the people (every lead query reads `pl`); visits have no version and stay whole.
+  const leadRange = call ? sql`${within(sql`pl.created_at`, range)} and ${leadCallVersion('pl')} = ${call}` : within(sql`pl.created_at`, range)
   const eventRange = within(sql`e.created_at`, range)
 
   const [invitations] = (
@@ -253,7 +255,8 @@ export async function campaignFunnels(groupId: string, range: Range = {}, projec
       sessions: n(site.sessions),
       siteRegistrations: siteSubmitted,
       siteSigned,
-      siteConversion: rate(siteSigned, visitors),
+      // Signatures of one version over every visitor would be no rate at all.
+      siteConversion: call ? null : rate(siteSigned, visitors),
       siteSubmittedToSigned: rate(siteSigned, siteSubmitted),
       signedTotal: invitedSigned + siteSigned,
     },

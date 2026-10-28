@@ -53,3 +53,9 @@ export function callVersionsOf(skinKey: string | null | undefined): CallVersion[
   const skin = skinByKey(skinKey)
   return skin && skin.calls.length > 1 ? [...skin.calls] : []
 }
+
+/** The campaign pages that have more than one version: only there does an agreement have one. */
+export const SKINS_WITH_CALLS: string[] = SELF_SERVICE_SKINS.filter((skin) => skin.calls.length > 1).map((skin) => skin.key)
+
+/** Every version's words by key, for reports that span campaigns. */
+export const CALL_VERSION_LABELS: Record<string, string> = Object.fromEntries(SELF_SERVICE_SKINS.flatMap((skin) => skin.calls.map((call) => [call.key, call.label])))

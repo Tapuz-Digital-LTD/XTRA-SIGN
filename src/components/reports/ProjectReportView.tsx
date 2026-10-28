@@ -24,7 +24,7 @@ export type ProjectReportData = Omit<ProjectReport, 'trafficSince' | 'registrati
   })[]
 }
 
-type Values = { from?: string; to?: string; status?: string; source?: string; range?: string }
+type Values = { from?: string; to?: string; status?: string; source?: string; call?: string; range?: string }
 
 const dateOnly = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'short', timeZone: 'Asia/Jerusalem' })
 const longDate = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jerusalem' })
@@ -38,6 +38,7 @@ export function ProjectReportView({
   values,
   exportHref,
   extraColumns = [],
+  calls = [],
 }: {
   projectId: string
   report: ProjectReportData
@@ -45,6 +46,8 @@ export function ProjectReportView({
   exportHref: string
   /** The form answers this campaign chose as columns — the same ones the file carries. */
   extraColumns?: FormColumn[]
+  /** The versions of the campaign's call, when it has more than one. */
+  calls?: { key: string; label: string }[]
 }) {
   const reduced = useReducedMotion()
   const sourceOptions = report.sources.map((s) => ({ key: s.key, label: s.medium ? `${s.label} / ${s.medium}` : s.label }))
@@ -52,7 +55,9 @@ export function ProjectReportView({
 
   return (
     <div className="flex flex-col gap-5">
-      <Filters projectId={projectId} values={values} sources={dedupedSources} exportHref={exportHref} />
+      <Filters projectId={projectId} values={values} sources={dedupedSources} calls={calls} exportHref={exportHref} />
+
+      {values.call ? <p className="text-xs text-muted">הסינון לפי גרסת קול קורא חל על הרשמות והסכמים. ביקורים ומקורות תנועה אינם מתחלקים לפי גרסה, ומוצגים לכל הקמפיין.</p> : null}
 
       {report.hasCampaignPage ? (
         <p className="text-xs text-muted">
@@ -154,7 +159,7 @@ function NoData({ projectId, text, share = false }: { projectId: string; text: s
 
 // ── filters ───────────────────────────────────────────────────────────────
 
-function Filters({ projectId, values, sources, exportHref }: { projectId: string; values: Values; sources: { key: string; label: string }[]; exportHref: string }) {
+function Filters({ projectId, values, sources, calls, exportHref }: { projectId: string; values: Values; sources: { key: string; label: string }[]; calls: { key: string; label: string }[]; exportHref: string }) {
   const field = 'mt-1 min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-sm text-fg outline-none focus:border-brand'
   const quick = (range: string, label: string) => {
     const active = (values.range ?? (values.from || values.to ? 'custom' : 'all')) === range
@@ -162,6 +167,7 @@ function Filters({ projectId, values, sources, exportHref }: { projectId: string
     if (range !== 'all') params.set('range', range)
     if (values.status) params.set('status', values.status)
     if (values.source) params.set('source', values.source)
+    if (values.call) params.set('call', values.call)
     return (
       <Link
         key={range}
@@ -184,7 +190,7 @@ function Filters({ projectId, values, sources, exportHref }: { projectId: string
         {quick('30d', '30 ימים')}
         {quick('all', 'כל התקופה')}
       </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className={`mt-3 grid gap-3 sm:grid-cols-2 ${calls.length > 0 ? 'lg:grid-cols-6' : 'lg:grid-cols-5'}`}>
         <label className="text-sm">
           <span className="block text-xs text-muted">מתאריך</span>
           <input type="date" name="from" defaultValue={values.from ?? ''} className={field} />
@@ -214,6 +220,19 @@ function Filters({ projectId, values, sources, exportHref }: { projectId: string
             ))}
           </select>
         </label>
+        {calls.length > 0 ? (
+          <label className="text-sm">
+            <span className="block text-xs text-muted">גרסת קול קורא</span>
+            <select name="call" defaultValue={values.call ?? ''} className={field}>
+              <option value="">כל הגרסאות</option>
+              {calls.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <div className="flex items-end gap-2">
           <button type="submit" className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:opacity-90">
             הצגה

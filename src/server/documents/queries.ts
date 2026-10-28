@@ -1,8 +1,9 @@
-import { and, desc, eq, ilike, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm'
+import { and, desc, eq, ilike, inArray, isNotNull, isNull, lt, or, sql, type SQL } from 'drizzle-orm'
 import { normalizeIsraeliPhone } from '@/lib/phone'
 import type { StaffSession } from '@/server/auth/session'
 import { attentionForAgreements, STALE_AFTER_DAYS, topReason, type AttentionReason } from '@/server/attention/attention'
 import { getDb, schema } from '@/server/db'
+import { agreementCallVersion, campaignOfSnapshot } from '@/server/self-service/call-version'
 import type { AgreementStatus } from '@/lib/status'
 
 /**
@@ -89,152 +90,33 @@ function scope(session: StaffSession) {
       )
 }
 
+export type DocumentListOptions = {
+  filter?: ListFilter
+  search?: string
+  companyId?: string
+  /** Only agreements of this project: its registrations, its bulk sends, or signed through its page. */
+  groupId?: string
+  /** With groupId: only this version of the campaign's call (call-version.ts). */
+  callVersion?: string
+  page?: number
+  pageSize?: number
+  /** Show superseded versions as their own rows. Off by default. */
+  includeSuperseded?: boolean
+  /** Archived agreements are hidden unless asked for. */
+  archived?: boolean
+}
+
 export async function listDocuments(
   session: StaffSession,
-  options: {
-    filter?: ListFilter
-    search?: string
-    companyId?: string
-    /** Only agreements a bulk send of this project produced. */
-    groupId?: string
-    page?: number
-    pageSize?: number
-    /** Show superseded versions as their own rows. Off by default. */
-    includeSuperseded?: boolean
-    /** Archived agreements are hidden unless asked for. */
-    archived?: boolean
-  } = {},
+  options: DocumentListOptions = {},
 ): Promise<{ items: DocumentListItem[]; total: number; page: number; pageSize: number; now: number }> {
   const db = getDb()
   // Read here rather than in the page: a clock read during render makes the
   // render impure, and "how long ago" has to be measured from somewhere.
   const now = Date.now()
-  const filter = options.filter ?? 'all'
-  const search = options.search?.trim()
   const pageSize = Math.min(Math.max(options.pageSize ?? 25, 1), 100)
   const page = Math.max(options.page ?? 1, 1)
-
-  const conditions = [scope(session)]
-
-  // A version chain is one document, not several. A row that something else
-  // supersedes is history: it stays reachable from the document it became, but
-  // listing every version separately turns one agreement into four rows that
-  // all look alike.
-  if (!options.includeSuperseded) conditions.push(latestVersionOnly())
-  conditions.push(options.archived ? isNotNull(schema.agreements.archivedAt) : isNull(schema.agreements.archivedAt))
-
-  if (options.companyId) {
-    conditions.push(eq(schema.agreements.companyId, options.companyId))
-  }
-
-  if (options.groupId) {
-    conditions.push(sql`(exists (
-      select 1 from ${schema.bulkBatchItems} bi
-      join ${schema.bulkBatches} bb on bb.id = bi.batch_id
-      where bi.agreement_id = ${schema.agreements.id}
-        and bb.group_id = ${options.groupId}
-    ) or exists (select 1 from ${schema.projectLeads} cpl where cpl.agreement_id = ${schema.agreements.id} and cpl.group_id = ${options.groupId}))`)
-  }
-
-  if (filter !== 'all' && filter !== 'attention') {
-    conditions.push(inArray(schema.agreements.status, FILTER_STATUSES[filter]))
-  }
-
-  // "Needs attention" is a question about the data, not a status someone sets.
-  // The rules here are the SQL twin of attentionForAgreements (a–e there): the
-  // tab must list exactly the rows that carry a reason, and nothing else.
-  if (filter === 'attention') {
-    const stale = sql`now() - ${sql.raw(`interval '${STALE_AFTER_DAYS} days'`)}`
-    const openStatus = inArray(schema.agreements.status, ['sent', 'viewed'])
-    const linkAlive = or(isNull(schema.agreements.expiresAt), sql`${schema.agreements.expiresAt} >= now()`)
-    conditions.push(
-      or(
-        // (d) Filed under nobody, so it is only ever findable in this list —
-        // unless a tracked person (invitation, direct send) is behind it.
-        and(isNull(schema.agreements.companyId), sql`not exists (select 1 from ${schema.projectLeads} pl where pl.agreement_id = ${schema.agreements.id})`),
-        // (c) The signing link has run out while the document was still open.
-        and(openStatus, isNotNull(schema.agreements.expiresAt), lt(schema.agreements.expiresAt, sql`now()`)),
-        // (e) Opened, then nothing — for as long as a reminder waits, with no
-        // reminder in that window. A dead link is (c)'s problem, not a reminder's.
-        and(
-          eq(schema.agreements.status, 'viewed'),
-          lt(schema.agreements.sentAt, stale),
-          linkAlive,
-          sql`not exists (
-            select 1 from ${schema.auditEvents} r
-            where r.agreement_id = ${schema.agreements.id} and r.type = 'reminder_sent' and r.created_at > ${stale}
-          )`,
-        ),
-        // (a) A send that failed, nobody handled, and no later send of the same
-        // message on the same channel went out. A link that failed to go out
-        // only matters while the request is open; a canceled agreement has
-        // nothing left to send; a WhatsApp share counts only once the rep
-        // reported it as not sent.
-        and(
-          sql`${schema.agreements.status} <> 'canceled'`,
-          sql`exists (
-            select 1 from ${schema.messageSends} ms
-            where ms.agreement_id = ${schema.agreements.id}
-              and ms.ok = false and ms.is_test = false and ms.resolved_at is null
-              and (ms.error is distinct from 'reserved' or ms.sent_at < now() - interval '10 minutes')
-              and (ms.channel <> 'whatsapp' or ms.manual_state = 'not_sent')
-              and (ms.event not in ('invitation', 'reminder', 'registration_completed') or ${schema.agreements.status} in ('sent', 'viewed'))
-              and not exists (
-                select 1 from ${schema.messageSends} later
-                where later.agreement_id = ms.agreement_id and later.event = ms.event and later.channel = ms.channel
-                  and later.ok = true and later.sent_at > ms.sent_at
-              )
-          )`,
-        ),
-        // (b) Before snapshots existed a failure was only an audit row. Counts
-        // while open, when nothing on that channel went out later, and only
-        // for documents that have no snapshots at all.
-        and(
-          openStatus,
-          sql`not exists (select 1 from ${schema.messageSends} ms where ms.agreement_id = ${schema.agreements.id} and ms.is_test = false)`,
-          sql`exists (
-            select 1 from ${schema.auditEvents} ae
-            where ae.agreement_id = ${schema.agreements.id}
-              and ae.type in ('email_failed', 'sms_failed')
-              and not exists (
-                select 1 from ${schema.auditEvents} later
-                where later.agreement_id = ae.agreement_id
-                  and later.type = case ae.type when 'email_failed' then 'email_sent' else 'sms_sent' end
-                  and later.created_at > ae.created_at
-              )
-          )`,
-        ),
-      )!,
-    )
-  }
-
-  if (search) {
-    // One box over what someone actually remembers about a document: what it
-    // was called, which company it was for, and who signed it — including the
-    // phone or email it was sent to, which is often the only thing to hand.
-    // `ilike` with escaped wildcards, so a '%' typed by the user is a literal.
-    const escape = (value: string) => `%${value.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
-    const term = escape(search)
-
-    // Phones are stored E.164 (+9725…) but nobody searches that way — they
-    // type the 05… number they know. Match both forms.
-    const asE164 = normalizeIsraeliPhone(search)
-    const phoneTerms = [ilike(schema.recipients.phone, term)]
-    if (asE164) phoneTerms.push(ilike(schema.recipients.phone, escape(asE164)))
-
-    conditions.push(
-      or(
-        ilike(schema.agreements.title, term),
-        ilike(schema.recipients.name, term),
-        ilike(schema.recipients.company, term),
-        ilike(schema.recipients.email, term),
-        ilike(schema.companies.name, term),
-        ...phoneTerms,
-      )!,
-    )
-  }
-
-  const where = and(...conditions)
+  const where = documentsWhere(session, options)
 
   // The newest audit row per document, which is what "last activity" means to
   // a person: sent, viewed, signed — not just when the row was inserted.
@@ -342,6 +224,139 @@ export async function listDocuments(
     pageSize,
     now,
   }
+}
+
+/**
+ * The list's rows as one condition, for any query that joins recipients and
+ * companies the way the list does — so a download of "what the table shows"
+ * is the table, not a second definition of it.
+ */
+export function documentsWhere(session: StaffSession, options: DocumentListOptions): SQL {
+  const filter = options.filter ?? 'all'
+  const search = options.search?.trim()
+  const conditions = [scope(session)]
+
+  // A version chain is one document, not several. A row that something else
+  // supersedes is history: it stays reachable from the document it became, but
+  // listing every version separately turns one agreement into four rows that
+  // all look alike.
+  if (!options.includeSuperseded) conditions.push(latestVersionOnly())
+  conditions.push(options.archived ? isNotNull(schema.agreements.archivedAt) : isNull(schema.agreements.archivedAt))
+
+  if (options.companyId) {
+    conditions.push(eq(schema.agreements.companyId, options.companyId))
+  }
+
+  if (options.groupId) {
+    conditions.push(sql`(exists (
+      select 1 from ${schema.bulkBatchItems} bi
+      join ${schema.bulkBatches} bb on bb.id = bi.batch_id
+      where bi.agreement_id = ${schema.agreements.id}
+        and bb.group_id = ${options.groupId}
+    ) or exists (select 1 from ${schema.projectLeads} cpl where cpl.agreement_id = ${schema.agreements.id} and cpl.group_id = ${options.groupId})
+      or ${campaignOfSnapshot(sql`${schema.agreements.mergeSnapshot}`)} = ${options.groupId})`)
+    if (options.callVersion) conditions.push(sql`${agreementCallVersion('agreements')} = ${options.callVersion}`)
+  }
+
+  if (filter !== 'all' && filter !== 'attention') {
+    conditions.push(inArray(schema.agreements.status, FILTER_STATUSES[filter]))
+  }
+
+  // "Needs attention" is a question about the data, not a status someone sets.
+  // The rules here are the SQL twin of attentionForAgreements (a–e there): the
+  // tab must list exactly the rows that carry a reason, and nothing else.
+  if (filter === 'attention') {
+    const stale = sql`now() - ${sql.raw(`interval '${STALE_AFTER_DAYS} days'`)}`
+    const openStatus = inArray(schema.agreements.status, ['sent', 'viewed'])
+    const linkAlive = or(isNull(schema.agreements.expiresAt), sql`${schema.agreements.expiresAt} >= now()`)
+    conditions.push(
+      or(
+        // (d) Filed under nobody, so it is only ever findable in this list —
+        // unless a tracked person (invitation, direct send) is behind it.
+        and(isNull(schema.agreements.companyId), sql`not exists (select 1 from ${schema.projectLeads} pl where pl.agreement_id = ${schema.agreements.id})`),
+        // (c) The signing link has run out while the document was still open.
+        and(openStatus, isNotNull(schema.agreements.expiresAt), lt(schema.agreements.expiresAt, sql`now()`)),
+        // (e) Opened, then nothing — for as long as a reminder waits, with no
+        // reminder in that window. A dead link is (c)'s problem, not a reminder's.
+        and(
+          eq(schema.agreements.status, 'viewed'),
+          lt(schema.agreements.sentAt, stale),
+          linkAlive,
+          sql`not exists (
+            select 1 from ${schema.auditEvents} r
+            where r.agreement_id = ${schema.agreements.id} and r.type = 'reminder_sent' and r.created_at > ${stale}
+          )`,
+        ),
+        // (a) A send that failed, nobody handled, and no later send of the same
+        // message on the same channel went out. A link that failed to go out
+        // only matters while the request is open; a canceled agreement has
+        // nothing left to send; a WhatsApp share counts only once the rep
+        // reported it as not sent.
+        and(
+          sql`${schema.agreements.status} <> 'canceled'`,
+          sql`exists (
+            select 1 from ${schema.messageSends} ms
+            where ms.agreement_id = ${schema.agreements.id}
+              and ms.ok = false and ms.is_test = false and ms.resolved_at is null
+              and (ms.error is distinct from 'reserved' or ms.sent_at < now() - interval '10 minutes')
+              and (ms.channel <> 'whatsapp' or ms.manual_state = 'not_sent')
+              and (ms.event not in ('invitation', 'reminder', 'registration_completed') or ${schema.agreements.status} in ('sent', 'viewed'))
+              and not exists (
+                select 1 from ${schema.messageSends} later
+                where later.agreement_id = ms.agreement_id and later.event = ms.event and later.channel = ms.channel
+                  and later.ok = true and later.sent_at > ms.sent_at
+              )
+          )`,
+        ),
+        // (b) Before snapshots existed a failure was only an audit row. Counts
+        // while open, when nothing on that channel went out later, and only
+        // for documents that have no snapshots at all.
+        and(
+          openStatus,
+          sql`not exists (select 1 from ${schema.messageSends} ms where ms.agreement_id = ${schema.agreements.id} and ms.is_test = false)`,
+          sql`exists (
+            select 1 from ${schema.auditEvents} ae
+            where ae.agreement_id = ${schema.agreements.id}
+              and ae.type in ('email_failed', 'sms_failed')
+              and not exists (
+                select 1 from ${schema.auditEvents} later
+                where later.agreement_id = ae.agreement_id
+                  and later.type = case ae.type when 'email_failed' then 'email_sent' else 'sms_sent' end
+                  and later.created_at > ae.created_at
+              )
+          )`,
+        ),
+      )!,
+    )
+  }
+
+  if (search) {
+    // One box over what someone actually remembers about a document: what it
+    // was called, which company it was for, and who signed it — including the
+    // phone or email it was sent to, which is often the only thing to hand.
+    // `ilike` with escaped wildcards, so a '%' typed by the user is a literal.
+    const escape = (value: string) => `%${value.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
+    const term = escape(search)
+
+    // Phones are stored E.164 (+9725…) but nobody searches that way — they
+    // type the 05… number they know. Match both forms.
+    const asE164 = normalizeIsraeliPhone(search)
+    const phoneTerms = [ilike(schema.recipients.phone, term)]
+    if (asE164) phoneTerms.push(ilike(schema.recipients.phone, escape(asE164)))
+
+    conditions.push(
+      or(
+        ilike(schema.agreements.title, term),
+        ilike(schema.recipients.name, term),
+        ilike(schema.recipients.company, term),
+        ilike(schema.recipients.email, term),
+        ilike(schema.companies.name, term),
+        ...phoneTerms,
+      )!,
+    )
+  }
+
+  return and(...conditions)!
 }
 
 export type DocumentCounts = { pending: number; signed: number; drafts: number }

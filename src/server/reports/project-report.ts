@@ -14,6 +14,7 @@ import { authorizeGroup } from '@/server/groups/groups'
 import { campaignFunnels, type CampaignFunnels } from './campaign-funnels'
 import { listColumnsOf } from '@/server/projects/list-columns'
 import { selfServiceOf } from '@/server/projects/self-service'
+import { agreementCallVersion, campaignOfSnapshot, isCallVersion, leadCallVersion } from '@/server/self-service/call-version'
 
 /**
  * A project's report: the whole path from a page view to a signature.
@@ -35,9 +36,14 @@ export type ProjectReportFilters = {
   status?: StatusFilter
   /** A traffic-source key from `classifySource`. */
   source?: string
+  /** A version of the campaign's call (call-version.ts). Narrows what has a record — registrations, agreements — not visits. */
+  call?: string
   /** Free text over the business name, contact, tax id, phone, email. */
   q?: string
 }
+
+/** The part of the filters every number on the screen honours. */
+type Slice = Pick<ProjectReportFilters, 'source' | 'call'>
 
 export type Kpi = { value: number; previous: number | null }
 
@@ -159,11 +165,11 @@ export async function projectReport(session: StaffSession, projectId: string, fi
 
   const previous = rangeBefore(range)
   const [current, before, rows, total, funnels] = await Promise.all([
-    counts(group.id, range, filters.source),
-    previous ? counts(group.id, previous, filters.source) : null,
+    counts(group.id, range, filters),
+    previous ? counts(group.id, previous, filters) : null,
     registrationRows(group.id, filters, rowLimit),
     countRegistrations(group.id, filters),
-    campaignFunnels(group.id, range, `/projects/${group.id}`),
+    campaignFunnels(group.id, range, `/projects/${group.id}`, filters.call),
   ])
 
   const kpi = (key: keyof typeof current): Kpi => ({ value: current[key], previous: before ? before[key] : null })
@@ -180,8 +186,8 @@ export async function projectReport(session: StaffSession, projectId: string, fi
       pending: kpi('pending'),
       completionRate: rate(current.signed, current.registrations),
     },
-    timeline: await timeline(group.id, range, filters.source),
-    statuses: await statusBreakdown(group.id, range, filters.source),
+    timeline: await timeline(group.id, range, filters),
+    statuses: await statusBreakdown(group.id, range, filters),
     sources: hasCampaignPage ? await sources(group.id, range) : [],
     registrations: rows,
     registrationTotal: total,
@@ -217,14 +223,17 @@ function sourceMatch(source: string | undefined, utmSource: SQL, referrer: SQL):
 
 /** Every agreement that belongs to the project, whichever door it came through. */
 function projectAgreement(groupId: string): SQL {
-  return sql`a.id in (
+  return sql`(a.id in (
     select pl.agreement_id from ${schema.projectLeads} pl where pl.group_id = ${groupId} and pl.agreement_id is not null
     union
     select bi.agreement_id from ${schema.bulkBatchItems} bi
       join ${schema.bulkBatches} bb on bb.id = bi.batch_id
       where bb.group_id = ${groupId} and bi.agreement_id is not null
-  )`
+  ) or ${campaignOfSnapshot(sql`a.merge_snapshot`)} = ${groupId})`
 }
+
+const leadCallMatch = (call: string | undefined): SQL => (call ? sql`${leadCallVersion('project_leads')} = ${call}` : sql`true`)
+const agreementCallMatch = (call: string | undefined): SQL => (call ? sql`${agreementCallVersion('a')} = ${call}` : sql`true`)
 
 /** The source tags of the registration behind an agreement, when there is one. */
 const agreementLeadUtmSource = sql`(select pl.meta->>'utm_source' from ${schema.projectLeads} pl where pl.agreement_id = a.id limit 1)`
@@ -235,7 +244,7 @@ const leadReferrer = sql`${schema.projectLeads.referrer}`
 const eventUtmSource = sql`${schema.campaignEvents.utm}->>'utm_source'`
 const eventReferrer = sql`${schema.campaignEvents.referrer}`
 
-async function counts(groupId: string, range: { from?: Date; to?: Date }, source?: string) {
+async function counts(groupId: string, range: { from?: Date; to?: Date }, { source, call }: Slice) {
   const db = getDb()
   const [events] = await db
     .select({
@@ -260,7 +269,7 @@ async function counts(groupId: string, range: { from?: Date; to?: Date }, source
       and(
         eq(schema.projectLeads.groupId, groupId),
         within(sql`${schema.projectLeads.createdAt}`, range),
-        sourceMatch(source, leadUtmSource, leadReferrer),
+        sourceMatch(source, leadUtmSource, leadReferrer), leadCallMatch(call),
       ),
     )
 
@@ -271,7 +280,7 @@ async function counts(groupId: string, range: { from?: Date; to?: Date }, source
       pending: sql<number>`count(*) filter (where a.status in ('sent', 'viewed'))`,
     })
     .from(sql`${schema.agreements} a`)
-    .where(and(projectAgreement(groupId), within(sql`a.created_at`, range), sourceMatch(source, agreementLeadUtmSource, agreementLeadReferrer)))
+    .where(and(projectAgreement(groupId), within(sql`a.created_at`, range), sourceMatch(source, agreementLeadUtmSource, agreementLeadReferrer), agreementCallMatch(call)))
 
   return {
     visits: Number(events?.visits ?? 0),
@@ -285,7 +294,7 @@ async function counts(groupId: string, range: { from?: Date; to?: Date }, source
   }
 }
 
-async function timeline(groupId: string, range: { from?: Date; to?: Date }, source?: string): Promise<ProjectReport['timeline']> {
+async function timeline(groupId: string, range: { from?: Date; to?: Date }, { source, call }: Slice): Promise<ProjectReport['timeline']> {
   const db = getDb()
   const spanDays = range.from ? (((range.to ?? new Date()).getTime() - range.from.getTime()) / 86_400_000) : 90
   const granularity: 'day' | 'week' = spanDays <= 45 ? 'day' : 'week'
@@ -314,7 +323,7 @@ async function timeline(groupId: string, range: { from?: Date; to?: Date }, sour
         eq(schema.projectLeads.groupId, groupId),
         submittedRegistration(),
         within(sql`${schema.projectLeads.createdAt}`, effective),
-        sourceMatch(source, leadUtmSource, leadReferrer),
+        sourceMatch(source, leadUtmSource, leadReferrer), leadCallMatch(call),
       ),
     )
     .groupBy(sql`1`)
@@ -327,7 +336,7 @@ async function timeline(groupId: string, range: { from?: Date; to?: Date }, sour
         projectAgreement(groupId),
         sql`a.status = 'signed'`,
         within(sql`a.completed_at`, effective),
-        sourceMatch(source, agreementLeadUtmSource, agreementLeadReferrer),
+        sourceMatch(source, agreementLeadUtmSource, agreementLeadReferrer), agreementCallMatch(call),
       ),
     )
     .groupBy(sql`1`)
@@ -357,7 +366,7 @@ function startOfWeek(date: Date): Date {
   return d
 }
 
-async function statusBreakdown(groupId: string, range: { from?: Date; to?: Date }, source?: string) {
+async function statusBreakdown(groupId: string, range: { from?: Date; to?: Date }, { source, call }: Slice) {
   const db = getDb()
   const [row] = await db
     .select({
@@ -368,11 +377,11 @@ async function statusBreakdown(groupId: string, range: { from?: Date; to?: Date 
       canceled: sql<number>`count(*) filter (where a.status in ('canceled', 'declined'))`,
     })
     .from(sql`${schema.agreements} a`)
-    .where(and(projectAgreement(groupId), within(sql`a.created_at`, range), sourceMatch(source, agreementLeadUtmSource, agreementLeadReferrer)))
+    .where(and(projectAgreement(groupId), within(sql`a.created_at`, range), sourceMatch(source, agreementLeadUtmSource, agreementLeadReferrer), agreementCallMatch(call)))
   const [failedRow] = await db
     .select({ failed: sql<number>`count(*)` })
     .from(schema.projectLeads)
-    .where(and(eq(schema.projectLeads.groupId, groupId), eq(schema.projectLeads.status, 'failed'), within(sql`${schema.projectLeads.createdAt}`, range), sourceMatch(source, leadUtmSource, leadReferrer)))
+    .where(and(eq(schema.projectLeads.groupId, groupId), eq(schema.projectLeads.status, 'failed'), within(sql`${schema.projectLeads.createdAt}`, range), sourceMatch(source, leadUtmSource, leadReferrer), leadCallMatch(call)))
   return [
     { key: 'signed', label: 'נחתם', count: Number(row?.signed ?? 0) },
     { key: 'sent', label: 'ממתין לחתימה · טרם נפתח', count: Number(row?.sent ?? 0) },
@@ -445,6 +454,7 @@ function rowConditions(groupId: string, filters: ProjectReportFilters): SQL {
     submittedRegistration(),
     within(sql`${schema.projectLeads.createdAt}`, { from: filters.from, to: filters.to }),
     sourceMatch(filters.source, leadUtmSource, leadReferrer),
+    leadCallMatch(filters.call),
     filters.status ? STATUS_SETS[filters.status] : sql`true`,
     filters.q
       ? sql`(${schema.projectLeads.data}->>'name' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'businessName' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'contactName' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'taxId' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'phone' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'email' ilike ${'%' + filters.q + '%'} or ${schema.projectLeads.data}->>'commercialName' ilike ${'%' + filters.q + '%'} or a.merge_snapshot->'values'->>'commercialName' ilike ${'%' + filters.q + '%'})`
@@ -594,7 +604,7 @@ export async function buildProjectWorkbook(session: StaffSession, projectId: str
 
 
 /** The query-string filters the project report and its export share. */
-export function parseProjectReportFilters(params: { from?: string; to?: string; status?: string; source?: string; range?: string; q?: string }): ProjectReportFilters {
+export function parseProjectReportFilters(params: { from?: string; to?: string; status?: string; source?: string; call?: string; range?: string; q?: string }): ProjectReportFilters {
   const day = (value: string | undefined, endOfDay: boolean): Date | undefined => {
     if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined
     const date = new Date(`${value}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}+03:00`)
@@ -614,5 +624,6 @@ export function parseProjectReportFilters(params: { from?: string; to?: string; 
   const status = (['signed', 'pending', 'expired', 'failed', 'attention', 'registered'] as const).find((s) => s === params.status)
   const source = params.source && /^[a-z0-9:._-]{1,80}$/i.test(params.source) ? params.source : undefined
   const q = typeof params.q === 'string' && params.q.trim() ? params.q.trim().slice(0, 80) : undefined
-  return { from, to, status, source, q }
+  const call = isCallVersion(params.call) ? params.call : undefined
+  return { from, to, status, source, call, q }
 }

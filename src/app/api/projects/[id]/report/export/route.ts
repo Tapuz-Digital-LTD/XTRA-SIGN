@@ -15,6 +15,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       to: url.searchParams.get('to') ?? undefined,
       status: url.searchParams.get('status') ?? undefined,
       source: url.searchParams.get('source') ?? undefined,
+      call: url.searchParams.get('call') ?? undefined,
       range: url.searchParams.get('range') ?? undefined,
     })
     const workbook = await buildProjectWorkbook(session, id, filters)

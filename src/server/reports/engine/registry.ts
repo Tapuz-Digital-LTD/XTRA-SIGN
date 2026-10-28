@@ -1,4 +1,6 @@
 import { sql, type SQL } from 'drizzle-orm'
+import { CALL_VERSION_LABELS } from '@/lib/self-service-skins'
+import { agreementCallVersion, campaignOfSnapshot, leadCallVersion, withinVersionedCampaign } from '@/server/self-service/call-version'
 import type { FieldMeta, FieldType, ReportEntity } from './types'
 
 /**
@@ -78,14 +80,16 @@ function f(key: string, label: string, type: FieldType, expr: SQL, extra: Partia
   return { key, label, type, expr, defaultVisible: false, filterable: true, sortable: type !== 'tags', group: 'פרטים', ...extra }
 }
 
-/** `a` is inside the campaign scope: through a registration or a bulk send. */
+/** `a` is inside the campaign scope: through a registration, a bulk send, or its snapshot (campaignOfSnapshot). */
 const agreementInScope = (aAlias: string, scope: string[]) =>
   sql`(exists (select 1 from project_leads spl where spl.agreement_id = ${sql.raw(aAlias)}.id and spl.group_id::text = any(${pgArray(scope)}::text[]))
-    or exists (select 1 from bulk_batch_items sbi join bulk_batches sbb on sbb.id = sbi.batch_id where sbi.agreement_id = ${sql.raw(aAlias)}.id and sbb.group_id::text = any(${pgArray(scope)}::text[])))`
+    or exists (select 1 from bulk_batch_items sbi join bulk_batches sbb on sbb.id = sbi.batch_id where sbi.agreement_id = ${sql.raw(aAlias)}.id and sbb.group_id::text = any(${pgArray(scope)}::text[]))
+    or ${campaignOfSnapshot(sql.raw(`${aAlias}.merge_snapshot`))} = any(${pgArray(scope)}::text[]))`
 
-/** The campaign an agreement belongs to: its registration's, else its bulk send's. */
+/** The campaign an agreement belongs to: its registration's, else its bulk send's, else the one its snapshot names. */
 const agreementGroup = (aAlias: string) =>
-  sql`coalesce((select spl.group_id from project_leads spl where spl.agreement_id = ${sql.raw(aAlias)}.id limit 1), (select sbb.group_id from bulk_batch_items sbi join bulk_batches sbb on sbb.id = sbi.batch_id where sbi.agreement_id = ${sql.raw(aAlias)}.id limit 1))`
+  sql`coalesce((select spl.group_id from project_leads spl where spl.agreement_id = ${sql.raw(aAlias)}.id limit 1), (select sbb.group_id from bulk_batch_items sbi join bulk_batches sbb on sbb.id = sbi.batch_id where sbi.agreement_id = ${sql.raw(aAlias)}.id limit 1),
+    (select sg.id from groups sg where sg.id::text = ${campaignOfSnapshot(sql.raw(`${aAlias}.merge_snapshot`))}))`
 
 const groupName = (gAlias: string) => sql`case when ${sql.raw(gAlias)}.system_key = 'direct_signing' then 'חתימה ישירה' else ${sql.raw(gAlias)}.name end`
 
@@ -180,6 +184,7 @@ const people: EntityDef = {
     f('email', 'אימייל', 'text', sql`coalesce(pl.email, pl.data->>'email')`),
     f('kind', 'ספק/לקוח', 'enum', sql`coalesce(pl.kind, g.kind)`, { options: opts(KIND), labels: KIND }),
     f('campaign', 'קמפיין', 'campaign', groupName('g'), { defaultVisible: true, group: 'קמפיין', relFilter: (op, values) => (op === 'not_one_of' ? sql`not (pl.group_id::text = any(${pgArray(values)}::text[]))` : sql`pl.group_id::text = any(${pgArray(values)}::text[])`) }),
+    f('call_version', 'גרסת קול קורא', 'enum', withinVersionedCampaign('g', leadCallVersion('pl')), { options: opts(CALL_VERSION_LABELS), labels: CALL_VERSION_LABELS, group: 'קמפיין' }),
     f(
       'process_status',
       'סטטוס בתהליך',
@@ -238,7 +243,7 @@ const agreements: EntityDef = {
   from: () => sql`agreements a
     left join companies co on co.id = a.company_id
     left join lateral (select r.name, r.phone, r.email from recipients r where r.agreement_id = a.id order by r.id limit 1) rc on true
-    left join lateral (select g.id, g.name, g.system_key from groups g where g.id = ${agreementGroup('a')} limit 1) g on true
+    left join lateral (select g.id, g.name, g.system_key, g.landing_config from groups g where g.id = ${agreementGroup('a')} limit 1) g on true
     left join users uo on uo.id = a.owner_id
     left join lateral (select t.id, t.status from follow_up_tasks t where t.agreement_id = a.id order by t.created_at desc limit 1) lt on true
     left join lateral (select ms.ok, ms.error, ms.channel, ms.manual_state from message_sends ms where ms.agreement_id = a.id and ms.is_test = false order by ms.sent_at desc limit 1) ls on true
@@ -256,6 +261,7 @@ const agreements: EntityDef = {
     f('recipient_phone', 'טלפון החותם', 'text', sql`rc.phone`, { group: 'חותם' }),
     f('recipient_email', 'אימייל החותם', 'text', sql`rc.email`, { group: 'חותם' }),
     f('campaign', 'קמפיין', 'campaign', groupName('g'), { defaultVisible: true, group: 'קמפיין', relFilter: (op, values) => (op === 'not_one_of' ? sql`not (coalesce(g.id::text, '') = any(${pgArray(values)}::text[]))` : sql`coalesce(g.id::text, '') = any(${pgArray(values)}::text[])`) }),
+    f('call_version', 'גרסת קול קורא', 'enum', withinVersionedCampaign('g', agreementCallVersion('a')), { options: opts(CALL_VERSION_LABELS), labels: CALL_VERSION_LABELS, group: 'קמפיין' }),
     f('sent_at', 'נשלח', 'date', sql`a.sent_at`, { defaultVisible: true, group: 'תאריכים' }),
     f('completed_at', 'נחתם', 'date', sql`a.completed_at`, { group: 'תאריכים' }),
     f('expires_at', 'תוקף הקישור', 'date', sql`a.expires_at`, { group: 'תאריכים' }),
