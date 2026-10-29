@@ -60,10 +60,18 @@ export function NotificationBell() {
     // Deferred off the effect's synchronous pass, so the first fetch's state
     // update cannot re-render before the browser has painted.
     const first = setTimeout(() => void load(), 0)
-    const timer = setInterval(() => void load(), 60_000)
+    // Only while someone is in this window: a tab left open in the background
+    // would otherwise keep the database awake around the clock. Coming back
+    // refreshes at once, so the badge is never stale when it is looked at.
+    const timer = setInterval(() => {
+      if (document.hasFocus()) void load()
+    }, 60_000)
+    const onFocus = () => void load()
+    window.addEventListener('focus', onFocus)
     return () => {
       clearTimeout(first)
       clearInterval(timer)
+      window.removeEventListener('focus', onFocus)
     }
   }, [])
 
