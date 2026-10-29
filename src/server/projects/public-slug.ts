@@ -1,5 +1,5 @@
 import { and, desc, eq } from 'drizzle-orm'
-import { validateSlug } from '@/lib/public-slug'
+import { normalizeSlug, validateSlug } from '@/lib/public-slug'
 import type { StaffSession } from '@/server/auth/session'
 import { getDb, schema } from '@/server/db'
 import { authorizeGroup } from '@/server/groups/groups'
@@ -110,7 +110,9 @@ export type ResolvedSlug = {
 
 /** Any address the project ever had → where it lives now. Null for a stranger. */
 export async function resolvePublicSlug(slug: string): Promise<ResolvedSlug | null> {
-  if (!slug || slug.length > 80) return null
+  // Every stored slug went through normalizeSlug, so anything else (favicon.ico,
+  // robots.txt, a bot's wp-login.php) is a miss — answered without waking the database.
+  if (!slug || slug.length > 80 || slug !== normalizeSlug(slug)) return null
   const db = getDb()
   const [row] = await db
     .select()
